@@ -139,7 +139,7 @@ export function createRuns(host, env) {
           icon: 'wifi',
         });
         if (!ok) return;
-        const state = await ctx.call('operations.survey.resume', { remaining: offer.remaining });
+        const state = await ctx.call('operations.survey.resume', { remaining: offer.remaining, ...(offer.resumeToken ? { token: offer.resumeToken } : {}) });
         toast(`Relevé repris${NBSP}: ${state.type} · ${state.scopeName}, ${count(state.total, 'poste', 'postes')} à lire.`, { tone: 'info' });
       } else if (what === 'stop') {
         const state = await ctx.call('operations.survey.stop');

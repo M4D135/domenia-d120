@@ -61,6 +61,10 @@ public sealed class QueryLibraryFiles : IQueryLibraryStore
         {
             return new MemoryQueryLibraryStore();
         }
+        if (context.Mode != AppMode.Simulation && context.Directory is IQueryLocalSource { QueryLibraryStore: { } sqlite })
+        {
+            return sqlite;
+        }
         var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify);
         if (!Path.IsPathFullyQualified(root))
         {

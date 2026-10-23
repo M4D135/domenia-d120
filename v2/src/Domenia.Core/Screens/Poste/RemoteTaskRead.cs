@@ -13,10 +13,28 @@ public sealed record RemoteTaskReadPlan(Guid Id, string StoreId, Guid ComputerGu
 }
 
 /// <summary>Receipt of observed effects, not an AD verification or a promise that a timed-out operation did not run.</summary>
-public sealed record RemoteTaskReadCompletion(DateTimeOffset At, bool ResultReceived, bool ExecutionStopped, bool ArtifactsRemoved, string Detail);
+public sealed record RemoteTaskReadCompletion(DateTimeOffset At, bool ResultReceived, bool ExecutionStopped, bool ArtifactsRemoved, string Detail)
+{
+    /// <summary>Unique claimant of the prepared plan; prevents another process from starting the same operation.</summary>
+    public Guid ExecutionId { get; init; }
+}
 public sealed record RemoteTaskReadRecord(RemoteTaskReadPlan Plan, long Revision, RemoteTaskReadCompletion? Completion)
 {
     public bool CleanupRequired => Completion is not { ExecutionStopped: true, ArtifactsRemoved: true };
+}
+
+public sealed record RemoteTaskCleanupResult(Guid OperationId, bool ExecutionStopped, bool ArtifactsRemoved, bool WorkerPending, string Detail);
+
+public interface IPosteTaskCleanupExecutor : IWriteExecutor
+{
+    Task<WritePlanDraft> PlanAsync(string computerDn, Guid operationId, CancellationToken cancellationToken);
+}
+
+public sealed record RemoteTaskPending(Guid Id, DateTimeOffset PreparedAt, string Account, bool ResultReceived, bool ExecutionStopped, string Detail);
+
+public interface IPosteTaskReadJournalReader : IScreenReader
+{
+    Task<ImmutableArray<RemoteTaskPending>> PendingTaskReadsAsync(string computerDn, CancellationToken cancellationToken);
 }
 
 public interface IRemoteTaskReadJournal
@@ -51,7 +69,8 @@ public static class RemoteTaskReadRules
         if (next.At < previous.Plan.PreparedAt || next.At < previous.Completion?.At || next.At > now.AddMinutes(2)
             || next.Detail is null || next.Detail.Length > 2048 || next.Detail.Any(char.IsControl)
             || next.ArtifactsRemoved && !next.ExecutionStopped
-            || previous.Completion is { } old && (old.ResultReceived && !next.ResultReceived || old.ExecutionStopped && !next.ExecutionStopped || old.ArtifactsRemoved && !next.ArtifactsRemoved))
+            || previous.Completion is { } old && (old.ResultReceived && !next.ResultReceived || old.ExecutionStopped && !next.ExecutionStopped || old.ArtifactsRemoved && !next.ArtifactsRemoved
+                || old.ExecutionId != Guid.Empty && old.ExecutionId != next.ExecutionId))
         { throw new InvalidDataException("Reçu de lecture distante incohérent ; état antérieur conservé."); }
     }
 }

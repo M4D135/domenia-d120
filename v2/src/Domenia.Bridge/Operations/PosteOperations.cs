@@ -486,6 +486,7 @@ public sealed partial class PosteOperations : IOperationModule
         };
         operations.AddRange(LocalOperations(context, session, readers));
         operations.AddRange(PlanOperations(context, planClass, readers));
+        operations.AddRange(TaskReadOperations(context, planClass));
         return operations;
     }
 
@@ -527,7 +528,7 @@ public sealed partial class PosteOperations : IOperationModule
     internal static async Task BindSessionAsync(EngineContext context, PosteSession session, CancellationToken cancellationToken)
     {
         var info = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
-        if (session.EnsureSession(info.Account.Login + "|" + (info.Domain?.DnsName ?? ""), context.Clock.GetUtcNow()))
+        if (session.EnsureSession(info.Account.Login + "|" + (info.Domain?.DnsName ?? "") + "|" + info.Epoch.ToString(System.Globalization.CultureInfo.InvariantCulture), context.Clock.GetUtcNow()))
         {
             context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), "Autorisations du poste effacées" + FrenchText.Colon + "changement de session (autre compte ou autre domaine)", Tone.Info));
         }

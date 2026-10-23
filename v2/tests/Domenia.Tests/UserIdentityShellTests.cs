@@ -77,7 +77,9 @@ internal static class UserIdentityShellTests
     {
         foreach (var console in new[] { false, true })
         {
-            using var folder = new TemporaryFolder(); var (db, source, _) = await AdRelationDirectoryTests.Open(folder); using var owned = source;
+            using var folder = new TemporaryFolder(); var (db, source, ldap) = await AdRelationDirectoryTests.Open(folder); using var owned = source;
+            var original = ldap.SearchAnswer;
+            ldap.SearchAnswer = q => q.BaseDn == Fixtures.Root ? [AdRelationDirectoryTests.User(Fixtures.User("alice"))] : original!(q);
             var shellCalls = 0;
             var reader = new AdPosteReader(source) { InventoryReaderOverride = _ => new WmiWorkstationReader(source.Clock, useWinRm: true)
             { SessionFactory = (host, budget, token) => new(host, budget, source.Clock, cancellationToken: token, transport: InventoryTransport.WinRm)

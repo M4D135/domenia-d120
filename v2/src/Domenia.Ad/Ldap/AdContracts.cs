@@ -64,7 +64,11 @@ public sealed record AdRootDse(
     string? ServerName,
     int? DomainFunctionality,
     IReadOnlyList<string> SupportedControls,
-    DateTimeOffset? CurrentTime);
+    DateTimeOffset? CurrentTime)
+{
+    public bool? IsSynchronized { get; init; }
+    public long? HighestCommittedUsn { get; init; }
+}
 
 /// <summary>
 /// How to reach the directory. <see cref="Server"/> null: the domain locator chooses a controller of <see cref="DomainDnsName"/>

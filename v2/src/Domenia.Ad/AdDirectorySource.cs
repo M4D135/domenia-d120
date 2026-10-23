@@ -13,7 +13,7 @@ namespace Domenia.Ad;
 /// workstation measures (presence, light inventory) only on the working OU, never on the domain root. Read only by
 /// construction: the write executors of Domenia.Ad are the only writers, through <see cref="Connection"/>.
 /// </summary>
-public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPreparation, IAccountContextSource, IDirectoryWriteLeaseSource, IDisposable
+public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefreshPreparation, IAccountContextSource, IDirectoryWriteLeaseSource, IDisposable
 {
     public const int MaxObjectsPerKind = 50_000;
 

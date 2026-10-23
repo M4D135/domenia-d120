@@ -51,7 +51,7 @@ internal sealed partial class WsmanReadChannel
         exit 0
         """;
 
-    private const string UserIdentityScript = """
+    internal const string UserIdentityBody = """
         $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
         [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
         $rows=[Collections.Generic.List[object]]::new();$code=0;$truncated=$false
@@ -77,7 +77,8 @@ internal sealed partial class WsmanReadChannel
                 }
             }
         } catch {$truncated=$true;$code=$_.Exception.HResult}
-        [Console]::Out.Write(([pscustomobject]@{Format='Domenia.UserIdentityRead/1';Computer=[Environment]::MachineName;Code=$code;Truncated=$truncated;Rows=$rows.ToArray()} | ConvertTo-Json -Depth 4 -Compress))
-        exit 0
+        $domeniaResult=[pscustomobject]@{Format='Domenia.UserIdentityRead/1';Computer=[Environment]::MachineName;Code=$code;Truncated=$truncated;Rows=$rows.ToArray()}
         """;
+
+    private const string UserIdentityScript = UserIdentityBody + "\n[Console]::Out.Write(($domeniaResult | ConvertTo-Json -Depth 4 -Compress));exit 0";
 }

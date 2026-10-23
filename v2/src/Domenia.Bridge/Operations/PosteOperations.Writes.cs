@@ -38,7 +38,7 @@ public sealed partial class PosteOperations
                 session.NoteRefusal(kind, name, "Une écriture sur ce poste reste « à vérifier ».", Now());
                 throw new DomeniaOperationException(PosteErrors.Pending, PosteErrors.PendingMessage);
             }
-            session.Grant(kind, dn.Dn, name, minutes, Now());
+            session.Grant(kind, dn.Dn, name, minutes, Now(), console.Computer.Guid);
             context.Journal.Add(new JournalEntry(Now(), (kind == ConsentKind.Intervention ? "Intervention autorisée sur " : "Lecture de repli autorisée sur ") + name + " (" + FrenchText.Count(minutes, "minute", "minutes") + ")", Tone.Info));
             return new { consent = session.State(dn.Dn, Now()), history = session.History(Now()) };
         }, "Autorise pour 1 à 15 min (5 par défaut), sur ce seul poste, l’intervention ou une seule lecture de repli ; refusé pendant une écriture à vérifier ; ne lance rien.");

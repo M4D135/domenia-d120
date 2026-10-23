@@ -199,9 +199,9 @@ export function renderSession(host, app) {
         if (items.length) setActive(0);
       } catch (err) {
         if (my !== seq) return;
-        // Without the reader of the directory (directory mode of this version), the reason is said in words, never a raw code.
-        const why = err?.code === 'source.unavailable' || app.overview?.readerAvailable === false
-          ? 'Lecture de l’annuaire pas encore branchée dans cette version : aucune recherche possible ici.'
+        // Keep actual native errors distinct from a missing reader.
+        const why = app.overview?.readerAvailable === false
+          ? 'Lecteur de l’annuaire indisponible : consultez l’état du moteur puis relancez la recherche.'
           : errorText(err);
         list.innerHTML = `<li class="as-options-empty" role="presentation">${esc(why)}</li>`;
         open(true);

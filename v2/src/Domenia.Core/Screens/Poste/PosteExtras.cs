@@ -13,7 +13,13 @@ public sealed record LogonActivity(string Computer, DateTimeOffset At, DateTimeO
 public sealed record DetectionAttempt(int Order, string Method, string Status, string StatusLabel, Tone Tone, int DurationMs, string Detail, string? Candidate);
 
 /// <summary>Result of poste.lastUser.detect: the attempts, the candidate verified by exact AD identity, the association kept.</summary>
-public sealed record LastUserDetection(string Computer, DateTimeOffset At, ImmutableArray<DetectionAttempt> Attempts, UserRef? Candidate, bool Verified, string Verdict, PosteAssociation Association, int BudgetSeconds);
+public sealed record LastUserDetection(string Computer, DateTimeOffset At, ImmutableArray<DetectionAttempt> Attempts, UserRef? Candidate, bool Verified, string Verdict, PosteAssociation Association, int BudgetSeconds)
+{
+    public string? NoticeAction { get; init; }
+    public ConsentState? Consent { get; init; }
+    public Guid? RemoteOperationId { get; init; }
+    public bool? RemoteCleanupConfirmed { get; init; }
+}
 
 /// <summary>A WMI namespace with whether it has children (root and its direct children are listed).</summary>
 public sealed record WmiNamespace(string Name, string Path, bool? HasChildren);

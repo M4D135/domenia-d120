@@ -7,6 +7,7 @@ namespace Domenia.Ad;
 
 public sealed partial class AdPosteReader
 {
+    internal Func<RemoteTaskReadRunner>? TaskReadRunnerFactory { get; init; }
     private sealed record DetectedUser(UserRef User, DateTimeOffset ReadAt, DateTimeOffset? EvidenceAt, string Source, bool History, bool SidCompared);
     private static readonly string[] UserIdentityAttributes = [.. AdSessionIdentity.Attributes, "whenCreated"];
 
@@ -36,10 +37,17 @@ public sealed partial class AdPosteReader
         }
         Attempt("Association locale", old.User is null ? "VIDE" : "LU", old.Text);
         DetectedUser? detected = null;
+        var posteSession = PosteSession.For(source);
+        var identity = await source.GetSessionAsync(stop.Token).ConfigureAwait(false);
+        posteSession.EnsureSession(identity.Account.Login + "|" + (identity.Domain?.DnsName ?? "") + "|" + identity.Epoch.ToString(System.Globalization.CultureInfo.InvariantCulture), source.Clock.GetUtcNow());
+        string? noticeAction = null; RemoteTaskReadResult? remote = null; var authenticationRejected = false; var directoryUnavailable = false;
+        if (local.Computer.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(local.Computer) is null)
+        { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte machine et nom DNS incohérents ; aucun contact distant."); }
+        using var machine = await AdWorkstationAccess.AcquireAsync(source, host, stop.Token).ConfigureAwait(false);
         using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, dn, stop.Token).ConfigureAwait(false);
-        async Task ConfirmParent()
+        async Task ConfirmParent(CancellationToken token)
         {
-            var parent = await SecretComputerAsync(local, directory, ["objectGUID", "objectClass", "objectSid", "whenCreated", "dNSHostName", "sAMAccountName"], stop.Token).ConfigureAwait(false);
+            var parent = await SecretComputerAsync(local, directory, ["objectGUID", "objectClass", "objectSid", "whenCreated", "dNSHostName", "sAMAccountName"], token).ConfigureAwait(false);
             if (parent.Time("whenCreated") != local.Computer.WhenCreated || parent.Sid("objectSid") != local.Computer.Sid
                 || !string.Equals(parent.String("dNSHostName"), local.Computer.DnsHostName, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(parent.String("sAMAccountName"), local.Computer.SamAccountName, StringComparison.OrdinalIgnoreCase))
@@ -47,10 +55,7 @@ public sealed partial class AdPosteReader
         }
         try
         {
-            await ConfirmParent().ConfigureAwait(false);
-            if (local.Computer.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(local.Computer) is null)
-            { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte machine et nom DNS incohérents ; aucun contact distant."); }
-            using var machine = await AdWorkstationAccess.AcquireAsync(source, host, stop.Token).ConfigureAwait(false);
+            await ConfirmParent(stop.Token).ConfigureAwait(false);
             var reader = InventoryReader(machine);
             UserDetectionSource[] methods = [UserDetectionSource.Console, UserDetectionSource.LogonUi, UserDetectionSource.WinRm,
                 UserDetectionSource.RemoteRegistry, UserDetectionSource.Profiles, UserDetectionSource.Security];
@@ -78,7 +83,7 @@ public sealed partial class AdPosteReader
                         source.Clock.GetUtcNow(), passStatus, read.Candidates.Length == 1 ? read.Candidates[0].Account : null);
                 }
                 if (read.Access.AuthenticationRejected)
-                { Attempt(method, "AUTH_REJETEE", "Compte machine suspendu ; aucune autre source ni aucun autre compte essayé.", read.Access.DurationMs); break; }
+                { authenticationRejected = true; Attempt(method, "AUTH_REJETEE", "Compte machine suspendu ; aucune autre source ni aucun autre compte essayé.", read.Access.DurationMs); break; }
                 var state = read.Access.Status switch
                 {
                     SourceStatus.Ok or SourceStatus.Empty => read.Candidates.Length == 0 ? "VIDE" : "LU",
@@ -103,7 +108,7 @@ public sealed partial class AdPosteReader
             }
             if (detected is not null || consolePass?.Status == "LU")
             {
-                await ConfirmParent().ConfigureAwait(false);
+                await ConfirmParent(stop.Token).ConfigureAwait(false);
                 directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
                 if (detected is not null)
                 {
@@ -115,8 +120,69 @@ public sealed partial class AdPosteReader
         catch (OperationCanceledException)
         { detected = null; consolePass = null; Attempt("Détection", "ARRETE", "Arrêt ou budget de 25 secondes atteint ; aucun nouveau lien publié sans vérification finale."); }
         catch (DomeniaOperationException ex) when (ex.Code is AdErrors.Timeout or AdErrors.Credentials or AdErrors.AccessDenied or AdErrors.Unavailable or MachineErrors.AccountPaused or "machine.busy")
-        { detected = null; consolePass = null; Attempt("Détection", ex.Code is AdErrors.Credentials or AdErrors.AccessDenied or MachineErrors.AccountPaused ? "REFUSE" : "NON_EFFECTUE", "Lecture ou validation AD non aboutie ; association existante conservée, aucun autre compte essayé."); }
-        directory.EnsureCurrent(); EnsureEpoch(local.Epoch); cancellationToken.ThrowIfCancellationRequested();
+        { detected = null; consolePass = null; directoryUnavailable = true; Attempt("Détection", ex.Code is AdErrors.Credentials or AdErrors.AccessDenied or MachineErrors.AccountPaused ? "REFUSE" : "NON_EFFECTUE", "Lecture ou validation AD non aboutie ; association existante conservée, aucun autre compte essayé."); }
+        directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch); cancellationToken.ThrowIfCancellationRequested();
+        if (detected is null && !authenticationRejected && !directoryUnavailable && machine.Settings.UseTaskFallback)
+        {
+            if ((local.Computer.UserAccountControl & AdValues.ServerTrustAccount) != 0)
+            { Attempt("Tâche SYSTEM", "IGNORE", "Contrôleur de domaine : aucun artefact de lecture créé."); }
+            else if (source.LocalStore is not IRemoteTaskReadJournal journal)
+            { Attempt("Tâche SYSTEM", "NON_EFFECTUE", "Journal local durable indisponible ; aucune tâche créée."); }
+            else if (!posteSession.Covers(ConsentKind.ReadFallback, dn, source.Clock.GetUtcNow(), local.Computer.ObjectGuid))
+            { noticeAction = "readFallback"; Attempt("Tâche SYSTEM", "NON_EFFECTUE", "Une autorisation de lecture ponctuelle pour ce poste est nécessaire avant de créer une tâche."); }
+            else
+            {
+                using var fallbackTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(45), source.Clock);
+                using var fallbackStop = CancellationTokenSource.CreateLinkedTokenSource(fallbackTimeout.Token, cancellationToken);
+                var fallbackToken = fallbackStop.Token;
+                try
+                {
+                    await ConfirmParent(fallbackToken).ConfigureAwait(false);
+                    directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
+                    var plan = RemoteTaskReadRunner.PreparePlan(local.Computer, local.Fleet.Facts.StoreId, machine.Credential.Account ?? identity.Account.Login, source.Clock.GetUtcNow());
+                    progress?.Report(new(7, 7, "Lecture ponctuelle par tâche SYSTEM"));
+                    remote = await (TaskReadRunnerFactory?.Invoke() ?? new RemoteTaskReadRunner(source.Clock)).RunAsync(plan, journal, machine.Credential, async token =>
+                    {
+                        token.ThrowIfCancellationRequested(); directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
+                        await ConfirmParent(token).ConfigureAwait(false);
+                        token.ThrowIfCancellationRequested(); directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
+                        return posteSession.ConsumeReadFallback(dn, "détection du dernier utilisateur", source.Clock.GetUtcNow(), local.Computer.ObjectGuid);
+                    }, fallbackToken).ConfigureAwait(false);
+                    directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
+                    var read = remote.Reading;
+                    Attempt("Tâche SYSTEM", read.Access.AuthenticationRejected ? "AUTH_REJETEE" : read.Access.Status switch
+                    { SourceStatus.Ok => "LU", SourceStatus.Empty => "VIDE", SourceStatus.Partial => "A_REVOIR", SourceStatus.Refused => "REFUSE", SourceStatus.Interrupted => "ARRETE", _ => "NON_EFFECTUE" },
+                        read.Access.Detail + (remote.Notice.Length == 0 ? "" : " " + remote.Notice), read.Access.DurationMs);
+                    if (read.Access.Status == SourceStatus.Refused || read.Access.AuthenticationRejected)
+                    { machine.Refused(host, "Lecture ponctuelle par tâche SYSTEM", read.Access.AuthenticationRejected); }
+                    if (!read.Access.AuthenticationRejected && !remote.WorkerPending)
+                    {
+                        if (read.ReportedName is not null) { ConfirmIdentity(local.Computer, read.ReportedName); }
+                        foreach (var candidate in read.Candidates)
+                        {
+                            var (user, reason) = await ResolveDetectedUserAsync(local, directory, candidate, fallbackToken).ConfigureAwait(false);
+                            Attempt("Vérification AD · " + candidate.Origin, user is null ? "A_REVOIR" : "CONFIRME", reason, candidate: PosteText.Flat(candidate.Account ?? candidate.Sid ?? "", 320));
+                            if (user is null) { continue; }
+                            detected = new(user, source.Clock.GetUtcNow(), candidate.EvidenceAt, candidate.Origin, !candidate.CurrentConsole, candidate.Sid is not null);
+                            if (candidate.CurrentConsole)
+                            { consolePass = new(local.Computer.ObjectGuid, local.Computer.DistinguishedName, WorkstationIdentity.ExpectedName(local.Computer)!, candidate.EvidenceAt ?? detected.ReadAt, "CONFIRME", candidate.Account); }
+                            break;
+                        }
+                        if (detected is not null)
+                        {
+                            await ConfirmParent(fallbackToken).ConfigureAwait(false);
+                            directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
+                            Recent(local.Computer.ObjectGuid, local.Epoch, new(detected.ReadAt, Detected: detected));
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                { detected = null; consolePass = null; Attempt("Tâche SYSTEM", "ARRETE", "Arrêt ou budget complémentaire atteint ; aucun lien publié sans validation AD finale."); }
+                catch (Exception ex) when (ex is IOException || ex is DomeniaOperationException error && error.Code is AdErrors.Timeout or AdErrors.Credentials or AdErrors.AccessDenied or AdErrors.Unavailable or MachineErrors.AccountPaused or "machine.busy")
+                { detected = null; consolePass = null; Attempt("Tâche SYSTEM", "NON_EFFECTUE", "Repli non abouti ; aucune relance automatique, association conservée."); }
+            }
+        }
+        directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch); cancellationToken.ThrowIfCancellationRequested();
         string? memorization = null;
         if (detected is { User.Guid: { } userGuid, User.Dn: { } userDn })
         {
@@ -130,7 +196,7 @@ public sealed partial class AdPosteReader
             memorization = receipt.Reason;
             if (receipt.Accepted)
             {
-                try { memorization = (await shared.SaveAsync(local.Epoch, stop.Token).ConfigureAwait(false)).Text; }
+                try { memorization = (await shared.SaveAsync(local.Epoch, cancellationToken).ConfigureAwait(false)).Text; }
                 catch (OperationCanceledException) { memorization = "Observation confirmée gardée dans la session ; mémorisation locale différée après arrêt."; }
             }
             EnsureEpoch(local.Epoch);
@@ -144,7 +210,9 @@ public sealed partial class AdPosteReader
                 + (detected.SidCompared ? "SID comparé à l’annuaire. " : "Le SID de l’observation n’a pas été lu. ")
                 + "Aucune affectation déclarée remplacée. " + memorization;
         if (passageNotice is not null) { verdict += " " + passageNotice; }
-        return new(local.Computer.Name, source.Clock.GetUtcNow(), attempts.ToImmutable(), detected?.User, detected is not null, verdict, association, 25);
+        if (remote is { CleanupConfirmed: false }) { verdict += " Nettoyage distant non confirmé ; consultez les tentatives et le journal de l’opération."; }
+        return new(local.Computer.Name, source.Clock.GetUtcNow(), attempts.ToImmutable(), detected?.User, detected is not null, verdict, association, remote is null ? 25 : 70)
+        { NoticeAction = noticeAction, Consent = posteSession.State(dn, source.Clock.GetUtcNow()), RemoteOperationId = remote?.OperationId, RemoteCleanupConfirmed = remote?.CleanupConfirmed };
     }
 
     private async Task<(UserRef? User, string Reason)> ResolveDetectedUserAsync(LocalPoste local, AdReadAccess directory, WorkstationUserCandidate candidate, CancellationToken token)

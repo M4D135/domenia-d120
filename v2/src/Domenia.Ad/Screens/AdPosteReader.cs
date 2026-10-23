@@ -6,7 +6,7 @@ using Domenia.Core.Poste;
 namespace Domenia.Ad;
 
 /// <summary>Real workstation console. Local entry points use only committed AD objects and GUID-bound observations.</summary>
-public sealed partial class AdPosteReader
+public sealed partial class AdPosteReader : IPosteReader
 {
     private readonly AdDirectorySource source;
     private PosteConfiguration configuration = PosteConfiguration.Defaults;

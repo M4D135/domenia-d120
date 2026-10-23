@@ -80,6 +80,48 @@ internal sealed class AdReadAccess : IDisposable
 
     private void BeforeContact() { EnsureCurrent(); lease?.BeforeContact(); }
 
+    internal async Task<AdRootDse> RootDseAsync(CancellationToken token)
+    {
+        BeforeContact();
+        try
+        {
+            if (bound is null)
+            {
+                var remote = await connection.RootDseAsync(token).ConfigureAwait(false); EnsureCurrent();
+                if (!DistinguishedName.AreEqual(remote.DefaultNamingContext, root))
+                { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Le contrôleur ne sert pas le domaine sélectionné ; aucun objet demandé."); }
+                bound = remote;
+            }
+            return bound;
+        }
+        catch (DomeniaOperationException ex) when (ex.Code is AdErrors.Credentials or AdErrors.AccessDenied)
+        { RegisterRefusal(ex); throw; }
+    }
+
+    // Configuration and schema are the forest contexts proved by this same authenticated RootDSE, never a caller-supplied forest.
+    internal async Task<IReadOnlyList<AdEntry>> SearchForestAsync(AdSearchRequest request, CancellationToken token)
+    {
+        AdFicheObjects.ValidateDn(request.BaseDn);
+        if (request.SizeLimit is < 1 or > 1001 || request.Budget > TimeSpan.FromSeconds(30))
+        { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Lecture de configuration hors limites."); }
+        var remote = await RootDseAsync(token).ConfigureAwait(false);
+        if (!new[] { remote.ConfigurationNamingContext, remote.SchemaNamingContext }.Any(n =>
+            !string.IsNullOrWhiteSpace(n) && (DistinguishedName.AreEqual(request.BaseDn, n) || DistinguishedName.IsWithin(request.BaseDn, n, true))))
+        { throw new DomeniaOperationException(DomeniaErrors.ScopeOutsideDomain, "Contexte de configuration non prouvé par le contrôleur sélectionné."); }
+        BeforeContact();
+        try { var result = await connection.SearchAsync(request, token).ConfigureAwait(false); EnsureCurrent(); return result; }
+        catch (DomeniaOperationException ex) when (ex.Code is AdErrors.Credentials or AdErrors.AccessDenied)
+        { RegisterRefusal(ex); throw; }
+    }
+
+    private void RegisterRefusal(DomeniaOperationException ex)
+    {
+        EnsureCurrent();
+        if (source.AccountContext is { } context)
+        { AccountAccess.From(context).RegisterRefusal(scope, "Lecture LDAP " + CredentialRules.ScopeLabel(scope), target,
+            ex.Code == AdErrors.Credentials ? "badCredentials" : "accessDenied", AccountKey, true); }
+    }
+
     internal RemoteProbeCredential CopyNativeCredential()
     {
         BeforeContact();

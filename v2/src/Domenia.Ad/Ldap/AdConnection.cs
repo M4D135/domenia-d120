@@ -22,6 +22,8 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
         "domainFunctionality",
         "supportedControl",
         "currentTime",
+        "isSynchronized",
+        "highestCommittedUSN",
     ];
 
     private static readonly HashSet<string> BinaryAttributes = new(StringComparer.OrdinalIgnoreCase)
@@ -566,7 +568,10 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
         var entry = entries[0];
         var adEntry = await MaterializeEntryAsync(connection, entry, timeout, cancellationToken).ConfigureAwait(false);
 
-        return new AdRootDse(
+        return MapRootDse(adEntry);
+    }
+
+    internal static AdRootDse MapRootDse(AdEntry adEntry) => new(
             adEntry.String("defaultNamingContext") ?? string.Empty,
             adEntry.String("configurationNamingContext") ?? string.Empty,
             adEntry.String("schemaNamingContext") ?? string.Empty,
@@ -575,8 +580,11 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
             adEntry.String("serverName"),
             adEntry.Int("domainFunctionality"),
             adEntry.Strings("supportedControl"),
-            adEntry.Time("currentTime"));
-    }
+            adEntry.Time("currentTime"))
+        {
+            IsSynchronized = bool.TryParse(adEntry.String("isSynchronized"), out var synchronized) ? synchronized : null,
+            HighestCommittedUsn = adEntry.Long("highestCommittedUSN") is >= 0 and var usn ? usn : null,
+        };
 
     private static async Task<T> SendRequestAsync<T>(
         LdapConnection connection,

@@ -589,6 +589,12 @@ public sealed class SearchService : IDisposable
         var clock = context.Clock.GetTimestamp();
         int done = 0, online = 0, noReply = 0, errors = 0, slow = 0, suspended = 0, reachable = 0, avoided = 0;
         var stopped = false;
+        var recorder = context.Readers.Find<IOperationsReader>() as IOperationsCollectionRecorder;
+        var journalStarted = false;
+        var journalComplete = false;
+        using var journalGate = new SemaphoreSlim(1, 1);
+        var recorded = new HashSet<Guid>();
+        var recordedFailed = 0;
         var read = new List<Guid>(targets.Length);
         int Elapsed() => (int)context.Clock.GetElapsedTime(clock).TotalSeconds;
         SurveyStatus StatusOf(bool finished, int remaining) => SearchSurvey.Status(mode, done, targets.Length, Elapsed(), slow, suspended, reachable, avoided, remaining, plan.Profile, finished);
@@ -596,10 +602,27 @@ public sealed class SearchService : IDisposable
         {
             var at = context.Clock.GetTimestamp();
             var outcome = await reader.ProbeAsync(Guid.Parse(target.Id), mode, run, TimeSpan.FromSeconds(plan.Profile.InventorySeconds), stop.Token).ConfigureAwait(false);
+            if (recorder is not null)
+            {
+                await journalGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    recorded.Add(Guid.Parse(outcome.Id));
+                    recordedFailed += outcome.Denied || outcome.Kind != "online" ? 1 : 0;
+                    await recorder.ProgressCollectionAsync(runId, [.. recorded], recordedFailed, CancellationToken.None).ConfigureAwait(false);
+                }
+                finally { journalGate.Release(); }
+            }
             return (outcome, context.Clock.GetElapsedTime(at) > TimeSpan.FromSeconds(SearchSurvey.SlowProbeSeconds));
         }
         try
         {
+            if (recorder is not null)
+            {
+                var list = RequireList(plan.ListId);
+                await recorder.BeginCollectionAsync(runId, new(list.BaseDn, SearchTexts.Leaf(list.BaseDn), list.Subtree), mode, targets, stop.Token).ConfigureAwait(false);
+                journalStarted = true;
+            }
             publish(new SurveyProgress(runId, 0, targets.Length, 0, 0, 0, SearchSurvey.Progress(0, targets.Length, 0, 0, 0, false, false), [], StatusOf(false, targets.Length)));
             // Budgets read when the survey starts (Paramètres may have changed them since the plan): echoes by batches of 192,
             // the other modes as many workstations at a time as Paramètres allows (4 by default, 1 to 8).
@@ -636,7 +659,9 @@ public sealed class SearchService : IDisposable
                 }
                 publish(new SurveyProgress(runId, done, targets.Length, online, noReply, errors, SearchSurvey.Progress(done, targets.Length, online, noReply, errors, false, false),
                     [.. results.Select(r => r.Outcome)], StatusOf(false, targets.Length - done)));
+                if (results.Any(r => r.Outcome.Denied)) { stopped = true; break; }
             }
+            journalComplete = done == targets.Length;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -645,8 +670,12 @@ public sealed class SearchService : IDisposable
         }
         finally
         {
-            runs.TryRemove(runId, out _);
-            Volatile.Write(ref surveyRunning, 0);
+            try
+            {
+                if (recorder is not null && journalStarted)
+                { await recorder.FinishCollectionAsync(runId, !journalComplete, CancellationToken.None).ConfigureAwait(false); }
+            }
+            finally { runs.TryRemove(runId, out _); Volatile.Write(ref surveyRunning, 0); }
         }
         SurveyResume? resume = null;
         if (stopped)

@@ -40,7 +40,7 @@ public sealed class PosteSession
     private static readonly ConditionalWeakTable<IDirectorySource, PosteSession> Sessions = new();
 
     private readonly Lock gate = new();
-    private readonly Dictionary<(ConsentKind Kind, string Dn), (DateTimeOffset Until, string Name)> consents = [];
+    private readonly Dictionary<(ConsentKind Kind, string Dn), (DateTimeOffset Until, string Name, Guid? ComputerGuid)> consents = [];
     private readonly Dictionary<(string Dn, CollectionKind Kind), (CancellationTokenSource Source, string Name, DateTimeOffset Since)> collections = [];
     private readonly Dictionary<string, (string Arguments, DateTimeOffset Until)> runArguments = new(StringComparer.Ordinal);
     private readonly List<ConsentEvent> history = [];
@@ -106,7 +106,7 @@ public sealed class PosteSession
     }
 
     /// <summary>Grants an authorization on one workstation for 1 to 15 minutes (5 by default); replaces the previous one of that kind.</summary>
-    public ConsentWindow Grant(ConsentKind kind, string dn, string name, int minutes, DateTimeOffset now)
+    public ConsentWindow Grant(ConsentKind kind, string dn, string name, int minutes, DateTimeOffset now, Guid? computerGuid = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(dn);
         ArgumentNullException.ThrowIfNull(name);
@@ -119,7 +119,7 @@ public sealed class PosteSession
                 history.Add(new ConsentEvent(now, kind, consents[other].Name, "Retirée", "Remplacée par une autorisation sur " + name + "."));
                 consents.Remove(other);
             }
-            consents[(kind, Key(dn))] = (now.AddMinutes(span), name);
+            consents[(kind, Key(dn))] = (now.AddMinutes(span), name, computerGuid);
             history.Add(new ConsentEvent(now, kind, name, "Accordée", FrenchText.Count(span, "minute", "minutes") + (kind == ConsentKind.ReadFallback ? ", une seule lecture" : "")));
             return Window(kind, dn, now);
         }
@@ -152,12 +152,12 @@ public sealed class PosteSession
     }
 
     /// <summary>True while an authorization of this kind covers this exact workstation.</summary>
-    public bool Covers(ConsentKind kind, string dn, DateTimeOffset now)
+    public bool Covers(ConsentKind kind, string dn, DateTimeOffset now, Guid? computerGuid = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(dn);
         lock (gate)
         {
-            return consents.TryGetValue((kind, Key(dn)), out var c) && c.Until > now;
+            return consents.TryGetValue((kind, Key(dn)), out var c) && c.Until > now && (computerGuid is null || c.ComputerGuid == computerGuid);
         }
     }
 
@@ -165,13 +165,13 @@ public sealed class PosteSession
     /// Consumes the single fallback read of a workstation (true when one was granted and still valid). Called by a reader only
     /// when CIM refused: without it the read returns « non lu » instead of switching transport (Domenia 1 PST-011, PST-023).
     /// </summary>
-    public bool ConsumeReadFallback(string dn, string reading, DateTimeOffset now)
+    public bool ConsumeReadFallback(string dn, string reading, DateTimeOffset now, Guid? computerGuid = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(dn);
         ArgumentNullException.ThrowIfNull(reading);
         lock (gate)
         {
-            if (!consents.TryGetValue((ConsentKind.ReadFallback, Key(dn)), out var c) || c.Until <= now)
+            if (!consents.TryGetValue((ConsentKind.ReadFallback, Key(dn)), out var c) || c.Until <= now || computerGuid is not null && c.ComputerGuid != computerGuid)
             {
                 return false;
             }

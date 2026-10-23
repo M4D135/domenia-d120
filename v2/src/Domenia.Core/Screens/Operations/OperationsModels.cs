@@ -102,7 +102,10 @@ public sealed record SurveyOffer(
     string ScopeDn,
     DateTimeOffset? InterruptedAt,
     string Reason,
-    bool Offered);
+    bool Offered)
+{
+    public string? ResumeToken { get; init; }
+}
 
 /// <summary>Result of operations.runs (OPE-027 to OPE-029).</summary>
 public sealed record CollectionRunsView(

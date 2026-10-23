@@ -149,7 +149,7 @@ export function renderRecipes(host, app) {
     grid.innerHTML = list.length ? list.slice(0, 8).map((s, n) => `<button type="button" class="as-suggestion reveal" data-dn="${esc(s.subject.dn)}" data-kind="${esc(s.subject.kind)}" data-j="${n}" data-tip="${esc(s.reason)}">
         ${avatar(s.subject.name, s.subject.kind, 'sm')}<span class="as-sug-body"><b>${esc(s.subject.name)}</b><small class="${s.subject.kind === 'computer' ? 'warn' : tone(s.subject.tone)}"><span class="as-dot" aria-hidden="true"></span><span class="as-sug-reason">${esc(s.reason)}</span></small></span></button>`).join('')
       : app.overview?.readerAvailable === false
-        ? `<p class="as-faint">Aucune piste${NBSP}: la lecture de l’annuaire et la base locale ne sont pas encore branchées dans cette version (mode annuaire). Les parcours et les documents restent consultables.</p>`
+        ? `<p class="as-faint">Aucune piste${NBSP}: le lecteur de l’annuaire est indisponible. Consultez l’état du moteur. Les parcours et les documents déjà préparés restent consultables.</p>`
         : '<p class="as-faint">Aucune suggestion dans les données locales.</p>';
     applyVars(grid);
     reveal(grid);

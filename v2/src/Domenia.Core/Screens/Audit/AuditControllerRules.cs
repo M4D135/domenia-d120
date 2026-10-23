@@ -126,11 +126,16 @@ public static class AuditControllerRules
                 notRead = true;
                 reasons.Add("Injoignable en LDAP depuis ce poste : aucune conclusion sur son état.");
             }
+            else if (result.Kerberos is null)
+            {
+                notRead = true; reasons.Add("Port Kerberos non vérifié.");
+            }
             else if (result.Kerberos == false)
             {
                 reasons.Add("Port Kerberos 88 fermé depuis ce poste.");
             }
             var dns = "Non vérifié";
+            if (probe.SrvState != ReadState.Read) { notRead = true; reasons.Add("Enregistrements SRV non établis ; diagnostic DNS incomplet."); }
             if (probe.SrvState == ReadState.Read)
             {
                 if (srv.Contains(dc))
@@ -171,6 +176,8 @@ public static class AuditControllerRules
                             reasons.Add("Écart d’heure supérieur à " + FrenchText.Integer(MaxSkewSeconds) + FrenchText.Nbsp + "s avec ce poste : risque d’échec Kerberos (à confirmer, l’horloge de ce poste peut aussi dériver).");
                         }
                     }
+                    else { notRead = true; reasons.Add("Heure du contrôleur non lue ; écart non calculé."); }
+                    if (result.IsSynchronized is null) { notRead = true; reasons.Add("État de synchronisation initiale non lu."); }
                     if (result.IsSynchronized == true)
                     {
                         sync = "Oui";
@@ -232,10 +239,15 @@ public static class AuditControllerRules
                             }
                             break;
                         case ReadState.Empty:
+                            notRead = true;
                             replication = "Aucun partenaire renvoyé (contrôleur unique, ou lecture non autorisée)";
                             break;
                         case ReadState.Refused or ReadState.Unavailable:
+                            notRead = true;
                             replication = "Lecture refusée ou impossible : " + result.ReplicationError;
+                            break;
+                        default:
+                            notRead = true; reasons.Add("Réplication non lue ; aucune conclusion sur sa santé.");
                             break;
                     }
                     break;
@@ -400,11 +412,11 @@ public static class AuditControllerRules
     /// </summary>
     public static ReplicationNeighborRead? ParseNeighbor(string? xml)
     {
-        if (string.IsNullOrWhiteSpace(xml))
+        if (string.IsNullOrWhiteSpace(xml) || xml.Length > 65_536)
         {
             return null;
         }
-        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
+        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 65_536 };
         var document = new XmlDocument { XmlResolver = null };
         try
         {
@@ -417,7 +429,7 @@ public static class AuditControllerRules
             return null;
         }
         var node = document.DocumentElement;
-        if (node is null || node.Name != "DS_REPL_NEIGHBOR")
+        if (node is null || node.Name is not ("DS_REPL_NEIGHBOR" or "DS_REPL_NEIGHBORW"))
         {
             return null;
         }
@@ -437,8 +449,11 @@ public static class AuditControllerRules
         var success = Date(Get("ftimeLastSyncSuccess"));
         var attempt = Date(Get("ftimeLastSyncAttempt"));
         var never = success is null || success.Value.Year <= 1601;
-        _ = long.TryParse(Get("dwLastSyncResult"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var result);
-        _ = long.TryParse(Get("cNumConsecutiveSyncFailures"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var failures);
+        if (string.IsNullOrWhiteSpace(Get("pszNamingContext")) || string.IsNullOrWhiteSpace(sourceDn)
+            || !long.TryParse(Get("dwLastSyncResult"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var result)
+            || !long.TryParse(Get("cNumConsecutiveSyncFailures"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var failures)
+            || result < 0 || failures < 0)
+        { return null; }
         return new ReplicationNeighborRead(Get("pszNamingContext"), partner, never ? null : success, attempt is DateTimeOffset a && a.Year > 1601 ? a : null, result, failures, never);
     }
 }

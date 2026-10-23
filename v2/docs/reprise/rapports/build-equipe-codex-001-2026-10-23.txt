@@ -1,0 +1,47 @@
+vm.sh : lot spark-native, build — VM réservée.
+sync ok -> C:\DomeniaDev\src\spark-native\v2
+Arborescence : C:\DomeniaDev\src\spark-native\v2 (lot spark-native)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Domenia.E2E -> C:\DomeniaDev\src\spark-native\v2\tests\Domenia.E2E\bin\x64\Debug\net10.0-windows\win-x64\Domenia.E2E.dll
+  Domenia.Core -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Core\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Core.dll
+  Domenia.Store -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Store.dll
+  Domenia.Simulation -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Simulation\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Simulation.dll
+  Domenia.Bridge -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Bridge\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Bridge.dll
+  Domenia.Engine -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Engine\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Engine.dll
+  Domenia.Inventory -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Inventory\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Inventory.dll
+  Domenia.Ad -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Ad.dll
+  Domenia.Tests -> C:\DomeniaDev\src\spark-native\v2\tests\Domenia.Tests\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Tests.dll
+  Domenia.App -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.App\bin\x64\Debug\net10.0-windows\win-x64\Domenia.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+FileLogger wrote to: C:\DomeniaDev\build-logs\spark-native\build-Debug.log
+
+Time Elapsed 00:00:32.69
+Compilation Debug réussie.
+Arborescence : C:\DomeniaDev\src\spark-native\v2 (lot spark-native)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Domenia.E2E -> C:\DomeniaDev\src\spark-native\v2\tests\Domenia.E2E\bin\x64\Release\net10.0-windows\win-x64\Domenia.E2E.dll
+  Domenia.Core -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Core\bin\x64\Release\net10.0-windows\win-x64\Domenia.Core.dll
+  Domenia.Store -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\bin\x64\Release\net10.0-windows\win-x64\Domenia.Store.dll
+  Domenia.Engine -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Engine\bin\x64\Release\net10.0-windows\win-x64\Domenia.Engine.dll
+  Domenia.Simulation -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Simulation\bin\x64\Release\net10.0-windows\win-x64\Domenia.Simulation.dll
+  Domenia.Inventory -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Inventory\bin\x64\Release\net10.0-windows\win-x64\Domenia.Inventory.dll
+  Domenia.Bridge -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Bridge\bin\x64\Release\net10.0-windows\win-x64\Domenia.Bridge.dll
+  Domenia.Ad -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\bin\x64\Release\net10.0-windows\win-x64\Domenia.Ad.dll
+  Domenia.Tests -> C:\DomeniaDev\src\spark-native\v2\tests\Domenia.Tests\bin\x64\Release\net10.0-windows\win-x64\Domenia.Tests.dll
+  Domenia.App -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.App\bin\x64\Release\net10.0-windows\win-x64\Domenia.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+FileLogger wrote to: C:\DomeniaDev\build-logs\spark-native\build-Release.log
+
+Time Elapsed 00:00:21.36
+Compilation Release réussie.
+vm.sh : lot spark-native, build terminé en 58 s.

@@ -3,7 +3,7 @@
 // protection. Built from poste.open (no network read); the live state, the detection of the user and the logons per
 // controller are read only on their button. Laid out on the 12 columns of the kit (.grid, .span-*): the cards of a row
 // share their height, the stacked ones share the height of their column.
-import { gauge, animateGauges, bindCopy, timeline, bindTimeline, writeClipboard } from '../../kit/index.js';
+import { gauge, animateGauges, bindCopy, timeline, bindTimeline, writeClipboard, confirmDialog } from '../../kit/index.js';
 import { runWrite } from '../../write-flow.js';
 import { mountQueryWidgets } from '../requetes/board-widgets.js';
 import {
@@ -17,6 +17,7 @@ const VIEW_LABEL = { ensemble: 'Vue d’ensemble', inventaire: 'Inventaire', dia
 
 export function renderOverview(panel, state) {
   let alive = true;
+  let detecting = false;
   const off = [];
   let queryWidgets = null;
   panel.classList.add('ps-overview');
@@ -40,6 +41,7 @@ export function renderOverview(panel, state) {
       ${b.sections?.length ? section('Détails de la protection', 'BitLocker, pare-feu, antivirus, redémarrage, mises à jour, Secure Boot, certificats') : ''}
       ${b.sections?.length ? `<div class="ps-sections span-12">${b.sections.map(sectionCard).join('')}</div>` : ''}
       ${d.notes?.length ? `<section class="card ps-card span-12 reveal">${cardHead('info', 'Notes', 'Ce que la console sait de plus')}${facts(d.notes)}</section>` : ''}
+      <section class="card ps-card span-12" data-slot="task-reads" hidden></section>
       <div class="span-12" data-slot="query-widgets"></div>
     </div>`;
     // PST-113: widgets of saved queries of the workstation board, evaluated on this workstation only (local data, no network).
@@ -52,7 +54,26 @@ export function renderOverview(panel, state) {
     bindCopy(panel);
     bindTimeline(panel);
     revealCards(panel);
+    pendingTaskReads();
   };
+
+  async function pendingTaskReads() {
+    const host = panel.querySelector('[data-slot="task-reads"]');
+    if (!host) return;
+    try {
+      const pending = await state.call('poste.read.pending', { dn: state.dn });
+      if (!alive || !host.isConnected) return;
+      host.hidden = !pending.length;
+      host.innerHTML = pending.length ? `${cardHead('alert', 'Lectures à nettoyer', 'Journal local · aucun contact distant à l’ouverture')}
+        <ul class="ps-attempts">${pending.map((r) => `<li><div><b>${esc(r.account)}</b><span>${esc(r.detail)}</span><span>${r.resultReceived ? 'Résultat reçu' : 'Résultat non confirmé'} · ${r.executionStopped ? 'Arrêt confirmé' : 'Arrêt non confirmé'}</span></div>
+          <button class="btn sm" type="button" data-act="cleanupRead" data-operation="${esc(r.id)}">${ico('shield')}Préparer le nettoyage…</button></li>`).join('')}</ul>` : '';
+    } catch (err) {
+      if (alive && host.isConnected) {
+        host.hidden = false;
+        host.innerHTML = `${cardHead('alert', 'Journal des lectures', 'Lecture locale indisponible')}${failure(err, { retry: 'pendingReads' })}`;
+      }
+    }
+  }
 
   async function live() {
     const host = panel.querySelector('[data-slot="live-body"]');
@@ -68,7 +89,8 @@ export function renderOverview(panel, state) {
 
   async function detect() {
     const host = panel.querySelector('[data-slot="detect"]');
-    if (!host) return;
+    if (!host || detecting) return;
+    detecting = true;
     host.hidden = false;
     host.setAttribute('aria-busy', 'true');
     host.innerHTML = `${progressMarkup()}<div class="ps-row-actions"><button class="btn ghost sm" type="button" data-act="stopDetect">${ico('pause')}Arrêter</button></div>`;
@@ -78,17 +100,37 @@ export function renderOverview(panel, state) {
       const r = await state.call('poste.lastUser.detect', { dn: state.dn });
       if (!alive) return;
       host.removeAttribute('aria-busy');
-      host.innerHTML = `<p class="ps-verdict-line" data-tone="${r.verified ? 'ok' : 'info'}">${ico(r.verified ? 'check' : 'info')}<span>${esc(r.verdict)}</span></p>
-        <ol class="ps-attempts">${r.attempts.map((a) => `<li data-tone="${esc(a.tone)}"><span class="ps-attempt-n">${int(a.order)}</span><div><b>${esc(a.method)}</b><span>${esc(a.statusLabel)} · ${esc(a.detail)}</span></div><span class="ps-attempt-ms">${int(a.durationMs)}${NBSP}ms</span></li>`).join('')}</ol>`;
+      host.innerHTML = `<p class="ps-verdict-line" data-tone="${r.remoteCleanupConfirmed === false ? 'warn' : r.verified ? 'ok' : 'info'}">${ico(r.remoteCleanupConfirmed === false ? 'alert' : r.verified ? 'check' : 'info')}<span>${esc(r.verdict)}</span></p>
+        <ol class="ps-attempts">${r.attempts.map((a) => `<li data-tone="${esc(a.tone)}"><span class="ps-attempt-n">${int(a.order)}</span><div><b>${esc(a.method)}</b><span>${esc(a.statusLabel)} · ${esc(a.detail)}</span></div><span class="ps-attempt-ms">${int(a.durationMs)}${NBSP}ms</span></li>`).join('')}</ol>
+        ${r.noticeAction === 'readFallback' ? `<div class="ps-row-actions"><button class="btn sm" type="button" data-act="detectFallback">${ico('shield')}Autoriser une lecture de repli…</button></div>` : ''}`;
+      if (r.consent) { state.data.consent = r.consent; state.emit('consent', r.consent); }
       state.data.association = r.association;
       const assoc = panel.querySelector('[data-slot="assoc-text"]');
       if (assoc) assoc.textContent = r.association.text;
     } catch (err) {
       if (alive) { host.removeAttribute('aria-busy'); host.innerHTML = failure(err, { retry: 'detect' }); }
     } finally {
+      detecting = false;
       stop();
       state.refreshRunning();
+      if (alive) pendingTaskReads();
     }
+  }
+
+  async function grantDetectionFallback(button) {
+    button.disabled = true;
+    try {
+      const ok = await confirmDialog({ title: 'Autoriser une seule lecture de repli ?',
+        message: `Les premières lectures n’ont confirmé aucun utilisateur sur ${state.data.computer.name}. Une tâche ponctuelle sous SYSTEM pourra effectuer cette lecture. Elle crée un répertoire privé temporaire et une tâche, puis vérifie leur nettoyage. L’autorisation vaut cinq minutes pour ce poste et sera consommée une seule fois. Rien n’est lancé avant votre prochain geste.`,
+        confirmLabel: 'Autoriser une lecture' });
+      if (!ok || !alive) return;
+      const result = await state.call('poste.consent.grant', { dn: state.dn, kind: 'readFallback', minutes: 5 });
+      if (!alive) return;
+      state.data.consent = result.consent; state.emit('consent', result.consent);
+      button.dataset.act = 'detect'; button.innerHTML = `${ico('refresh')}Relancer la détection`;
+      toast('Une lecture de repli est autorisée sur ce poste pendant cinq minutes.', { tone: 'info' });
+    } catch (err) { if (alive) toast(errorText(err), { tone: 'alert' }); }
+    finally { if (alive) button.disabled = false; }
   }
 
   async function logons() {
@@ -124,6 +166,9 @@ export function renderOverview(panel, state) {
     const act = t.dataset.act;
     if (act === 'live') live();
     else if (act === 'detect') detect();
+    else if (act === 'detectFallback') grantDetectionFallback(t);
+    else if (act === 'pendingReads') pendingTaskReads();
+    else if (act === 'cleanupRead') runWrite(state.ctx, { plan: 'poste.read.cleanup.plan', args: { dn: state.dn, operationId: t.dataset.operation }, subtitle: state.data.computer.name, onDone: pendingTaskReads });
     else if (act === 'stopDetect') state.stop('detection');
     else if (act === 'logons') logons();
     else if (act === 'fiche') state.ctx.navigate('fiche', { dn: state.data.association.user?.dn ?? state.dn });

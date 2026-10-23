@@ -77,7 +77,9 @@ internal static class UserRegistryTests
     [Test]
     public static async Task Native_registry_fallback_resolves_the_qualified_AD_account_without_replacing_a_console()
     {
-        using var folder = new TemporaryFolder(); var (db, source, _) = await AdRelationDirectoryTests.Open(folder); using var owned = source;
+        using var folder = new TemporaryFolder(); var (db, source, ldap) = await AdRelationDirectoryTests.Open(folder); using var owned = source;
+        var original = ldap.SearchAnswer;
+        ldap.SearchAnswer = q => q.BaseDn == Fixtures.Root ? [AdRelationDirectoryTests.User(Fixtures.User("alice"))] : original!(q);
         var reader = new AdPosteReader(source) { InventoryReaderOverride = _ => new WmiWorkstationReader(source.Clock)
         { SessionFactory = (host, budget, token) => new(host, budget, source.Clock, cancellationToken: token)
         {

@@ -25,7 +25,7 @@ public sealed class OperationsOperations : IOperationModule
 
     /// <summary>Most interface samples accepted in one report (the page sends them every few seconds).</summary>
     public const int MaxInterfaceSamples = 64;
-    private static readonly string[] RemainingArgument = ["remaining"];
+    private static readonly string[] RemainingArgument = ["remaining", "token"];
     private static readonly string[] FigureArguments = ["webView", "theme", "interfaceP50Ms", "interfaceP95Ms", "interfaceSamples"];
     private static readonly string[] DossierArguments = ["anonymize", "webView"];
     private static readonly string[] ExportArguments = ["subject", "csv"];
@@ -148,8 +148,16 @@ public sealed class OperationsOperations : IOperationModule
             // a fictitious survey in memory).
             new OperationDefinition("operations.survey.resume", OperationClass.NetworkRead, async (args, _, ct) =>
             {
-                var remaining = PositiveInteger(BridgeArguments.ReadObject(args, RemainingArgument), "remaining");
-                return await desk.Reader().ResumeSurveyAsync(remaining, ct).ConfigureAwait(false);
+                var values = BridgeArguments.ReadObject(args, RemainingArgument);
+                var remaining = PositiveInteger(values, "remaining");
+                var reader = desk.Reader();
+                if (reader is IOperationsConfirmedResume guarded)
+                {
+                    var token = BridgeArguments.GetString(values, "token");
+                    if (token.Length is < 3 or > 100) { throw BridgeArguments.Invalid("Jeton de reprise invalide."); }
+                    return await guarded.ResumeSurveyAsync(remaining, token, ct).ConfigureAwait(false);
+                }
+                return await reader.ResumeSurveyAsync(remaining, ct).ConfigureAwait(false);
             }, "Reprend un relevé interrompu après confirmation du nombre de postes restants.", ServedInSimulation: true),
 
             new OperationDefinition("operations.survey.stop", OperationClass.Local, (args, _, _) =>

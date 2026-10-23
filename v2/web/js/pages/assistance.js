@@ -423,10 +423,10 @@ export function render(main, ctx) {
       app.recipes = { recipes: overview.recipes };
       app.setWorkshop(overview.workshop);
       if (!overview.readerAvailable) {
-        // Directory mode of this version (wave 3 to come): said once, in words, above the work, not only by greyed slots.
+        // A missing native reader is an explicit availability problem, never an empty successful search.
         page.classList.add('no-reader');
-        page.querySelector('.as-layout')?.insertAdjacentHTML('beforebegin', `<div class="as-banner warn as-no-reader reveal" role="status">${ico('info')}<div><b>Lecture de l’annuaire pas encore branchée dans cette version</b>
-          <p>Le choix d’un compte ou d’un poste, les étapes et les constats attendent le lecteur de l’annuaire et la base locale (mode annuaire, vague 3). Les parcours, l’atelier et l’état du moteur restent consultables${NBSP}; rien n’est lu ni écrit.</p></div></div>`);
+        page.querySelector('.as-layout')?.insertAdjacentHTML('beforebegin', `<div class="as-banner warn as-no-reader reveal" role="status">${ico('info')}<div><b>Lecteur de l’annuaire indisponible</b>
+          <p>Vérifiez la connexion du domaine et l’état du moteur. Les lectures de sujets et les étapes restent indisponibles tant que le lecteur ne répond pas. Les parcours, l’atelier et l’état du moteur restent consultables${NBSP}; rien n’est lu ni écrit.</p></div></div>`);
       }
       page.querySelector('[data-hero-mode]')?.replaceWith(heroModeChip(app));
     } catch (err) {
@@ -531,7 +531,7 @@ function heroModeChip(app) {
   const span = document.createElement('span');
   span.innerHTML = app.simulation
     ? chip('info', 'Simulation', { icon: 'sparkles', tip: 'Les lectures portent sur l’annuaire fictif en mémoire ; aucune requête ne part.' })
-    : chip('ok', 'Annuaire de la session', { icon: 'server' });
+    : chip('info', 'Annuaire de la session', { icon: 'server', tip: 'Recherche et suggestions dans la base locale ; lecture LDAP ou du poste uniquement après votre clic, avec le compte sélectionné.' });
   return span.firstElementChild;
 }
 
