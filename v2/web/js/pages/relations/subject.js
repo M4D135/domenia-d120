@@ -61,8 +61,8 @@ function rowActions(row, other, kind) {
   const key = `data-key="${esc(row.key)}"`;
   const see = other ? `<button class="rel-act" type="button" data-row-act="see" ${key} ${unverified ? 'disabled' : ''} data-tip="${esc(label)}" aria-label="${esc(label)}">${glyph('link')}</button>` : '';
   const write = row.persistence === 'session'
-    ? `<button class="rel-act wr" type="button" data-row-act="save" ${key} data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
-    : `<button class="rel-act danger" type="button" data-row-act="remove" ${key} data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`;
+    ? `<button class="rel-act wr" type="button" data-row-act="save" ${key} ${row.storageAmbiguous ? 'disabled title="Association ambiguë dans la base"' : ''} data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
+    : `<button class="rel-act danger" type="button" data-row-act="remove" ${key} ${row.storageAmbiguous ? 'disabled title="Plusieurs lignes de la base : aucun retrait arbitraire"' : ''} data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`;
   return `<span class="rel-acts">${see}${write}</span>`;
 }
 
@@ -434,6 +434,7 @@ export function createSubjectTab(panel, app) {
   }
 
   function rowAction(act, row) {
+    if (row.storageAmbiguous && (act === 'save' || act === 'remove')) return;
     const isUser = data.subject.kind === 'user';
     if (act === 'see') app.openRelationEnd(row, isUser ? 'computer' : 'user');
     else if (act === 'save') app.plan('relations.observations.plan', { resultId: '0'.repeat(32), keys: [row.key] });

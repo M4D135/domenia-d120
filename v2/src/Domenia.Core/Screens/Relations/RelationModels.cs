@@ -135,6 +135,7 @@ public sealed record RelationRow(
     // Historical DNs above remain available for export/copy; navigation uses only current GUID-matched targets.
     public string? UserTargetDn { get; init; }
     public string? ComputerTargetDn { get; init; }
+    public bool StorageAmbiguous { get; init; }
 }
 
 /// <summary>Count of relations for one badge (facets, KPI band).</summary>
@@ -206,7 +207,10 @@ public sealed record RelationList(
     ImmutableArray<RelationBadgeCount> Facets,
     ImmutableArray<RelationRow> Rows,
     RelationImportBatch? LastImport,
-    RelationRestoreCandidate? Restore);
+    RelationRestoreCandidate? Restore)
+{
+    public string? Notice { get; init; }
+}
 
 /// <summary>The user or workstation whose relations are shown.</summary>
 public sealed record RelationSubject(

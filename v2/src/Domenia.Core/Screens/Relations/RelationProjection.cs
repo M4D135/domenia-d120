@@ -31,6 +31,9 @@ public interface IRelationDirectoryLookup
 /// </summary>
 public static class RelationProjection
 {
+    /// <summary>Most direct neighbours projected into a graph; the complete associations remain in the list.</summary>
+    public const int FirstRingLimit = 128;
+
     /// <summary>Most nodes of the second ring of the graph.</summary>
     public const int SecondRingLimit = 24;
 
@@ -442,8 +445,10 @@ public static class RelationProjection
             var label = string.Join(" · ", group.Select(r => RelationRules.BadgeOf(r.Kind).Label).Distinct(StringComparer.Ordinal));
             return new RelationGraphEdge(from, to, badge.Badge, badge.Label, badge.Tone, group.Count, last, RelationRules.WhenText(last, now, zone), isContradicted, label);
         }
-        var firstRing = mine.GroupBy(r => OtherId(r, otherKind), StringComparer.Ordinal).ToList();
-        foreach (var group in firstRing.OrderByDescending(g => g.Max(r => RelationRules.Strength(RelationRules.BadgeOf(r.Kind).Badge))).ThenBy(g => g.Key, StringComparer.Ordinal))
+        var allFirst = mine.GroupBy(r => OtherId(r, otherKind), StringComparer.Ordinal).ToList();
+        var firstRing = allFirst.OrderByDescending(g => g.Max(r => RelationRules.Strength(RelationRules.BadgeOf(r.Kind).Badge)))
+            .ThenBy(g => g.Key, StringComparer.Ordinal).Take(FirstRingLimit).ToArray();
+        foreach (var group in firstRing)
         {
             var list = group.ToList();
             var isPrimary = primary is not null && list.Contains(primary);
@@ -451,7 +456,7 @@ public static class RelationProjection
             edges.Add(EdgeOf(centre, group.Key, list));
         }
         // Second ring: the other relations of the first-ring objects (other users of a workstation, other workstations of a user).
-        var truncated = false;
+        var truncated = allFirst.Count > FirstRingLimit;
         var second = 0;
         var subjectKey = subject.Guid;
         foreach (var group in firstRing)

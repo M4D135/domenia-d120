@@ -379,3 +379,13 @@ Un GUID enregistré dont l’objet n’est pas retrouvé dans l’index produit 
 Les destinations de la relation principale, des connexions récentes et du graphe suivent la même règle. Les menus, boutons et doubles clics ne retombent pas sur le nom quand un GUID connu n’est pas retrouvé. Les associations héritées sans GUID conservent une recherche explicite par nom, annoncée comme historique et non vérifiée ; le nom affiché d’un tiers n’est pas prêté à la ligne. Les lignes du volet du graphe sont reliées par GUID même si leur DN historique diffère désormais.
 
 Trois tests couvrent les identités manquantes, le renommage et les noms réattribués ; compilés uniquement. La compilation C# Debug/Release est sans avertissement ; le parcours visuel et E2E de ces actions reste à exécuter en fin de développement.
+
+## 14. Vues natives locales et index d’identités (23/10/2026)
+
+Le lecteur natif fournit la synthèse, toutes les lignes lues, le sujet, les suggestions/recherches dans l’index, le journal et les observations en attente. Il ne contacte pas LDAP, n’initialise pas la base et ne crée pas de journal à l’ouverture. Les vues disent qu’elles proviennent de la base et de l’index locaux, avec les limites, dates incertaines et lignes écartées du lecteur. Une base d’un autre domaine est refusée avant lecture de son journal. La liste affiche une notice dédiée ; le contexte du sujet conserve cette provenance.
+
+L’index local réutilisé pour un même instantané exclut les GUID/DN dupliqués et les identités hors domaine. Une recherche par GUID manquant ne retombe jamais sur le nom. Les noms ambigus ne choisissent pas arbitrairement le premier compte. Une autorité étrangère et un FQDN non enregistré ne sont pas raccourcis en nom local ; pour les machines, le nom Windows/SAM/DNS prévaut sur un CN de classement.
+
+Plusieurs lignes physiques d’une même association restent visibles, avec des identifiants distincts de grille. Elles sont signalées comme ambiguës et les gestes d’enregistrement/retrait sont désactivés ; le stockage transactionnel les refuse aussi. Le graphe contient au plus 128 voisins directs et 24 du second cercle, avec un avis de vue partielle ; la liste conserve les associations lues. Les observations en attente sont seulement lues, jamais sauvegardées par l’ouverture d’une vue.
+
+Sept tests supplémentaires couvrent l’absence de réseau/écriture, les identités, les doublons, le journal inaccessible, la file, les domaines étrangers et la borne du graphe. Ils sont compilés, pas exécutés. L’interface IRelationsReader n’est pas encore exposée : les lectures réseau explicites, imports et autres méthodes doivent être terminés avant activation de l’écran réel.

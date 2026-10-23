@@ -29,16 +29,14 @@ public sealed partial class DomeniaDatabase
         byte[] bytes = []; long skipped = 0; var legacyReadable = true;
         try
         {
-            if (File.Exists(path))
-            {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var length = stream.Length;
             skipped = Math.Max(0, length - RelationJournalTailBytes);
             stream.Position = skipped;
             bytes = new byte[checked((int)(length - skipped))];
             stream.ReadExactly(bytes);
-            }
         }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { bytes = []; legacyReadable = false; }
         var starts = new Queue<(int Offset, int Count)>(400); var start = 0; var lines = 0;
         void Line(int offset, int count)

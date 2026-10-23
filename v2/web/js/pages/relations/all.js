@@ -39,6 +39,7 @@ export function createAllTab(panel, app, o = {}) {
       <div class="rel-all-cmd"></div>
     </div>
     <div class="rel-all-filters"></div>
+    <p class="rel-quiet" data-read-notice hidden></p>
     <div class="rel-export" hidden></div>
     <div class="rel-all-grid"></div>
   </section>`;
@@ -60,8 +61,8 @@ export function createAllTab(panel, app, o = {}) {
       <button class="rel-act" type="button" data-row-act="user" ${key} ${r.userGuid && !r.userTargetDn ? 'disabled title="GUID non retrouvé dans l’index local"' : ''} data-tip="Voir les relations de ${esc(r.userLogin)}" aria-label="Voir les relations de ${esc(r.userLogin)}">${glyph('user')}</button>
       <button class="rel-act" type="button" data-row-act="computer" ${key} ${r.computerGuid && !r.computerTargetDn ? 'disabled title="GUID non retrouvé dans l’index local"' : ''} data-tip="Voir les relations de ${esc(r.computer)}" aria-label="Voir les relations de ${esc(r.computer)}">${glyph('monitor')}</button>
       ${r.persistence === 'session'
-        ? `<button class="rel-act wr" type="button" data-row-act="save" ${key} data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
-        : `<button class="rel-act danger" type="button" data-row-act="remove" ${key} data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`}
+        ? `<button class="rel-act wr" type="button" data-row-act="save" ${key} ${r.storageAmbiguous ? 'disabled title="Association ambiguë dans la base"' : ''} data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
+        : `<button class="rel-act danger" type="button" data-row-act="remove" ${key} ${r.storageAmbiguous ? 'disabled title="Plusieurs lignes de la base : aucun retrait arbitraire"' : ''} data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`}
     </span>`;
   };
 
@@ -123,6 +124,7 @@ export function createAllTab(panel, app, o = {}) {
     const row = rows.find((r) => r.key === b.dataset.key && r.persistence === b.dataset.persistence);
     if (!row) return;
     const act = b.dataset.rowAct;
+    if (row.storageAmbiguous && (act === 'save' || act === 'remove')) return;
     if (act === 'user') app.openRelationEnd(row, 'user');
     else if (act === 'computer') app.openRelationEnd(row, 'computer');
     else if (act === 'save') app.plan('relations.observations.plan', { resultId: SESSION_RESULT, keys: [row.key] });
@@ -183,6 +185,9 @@ export function createAllTab(panel, app, o = {}) {
     show(list) {
       data = list;
       rows = list.rows;
+      const notice = panel.querySelector('[data-read-notice]');
+      notice.textContent = list.notice ?? '';
+      notice.hidden = !list.notice;
       sub.innerHTML = `Magasin local${NBSP}· Active Directory n’est jamais modifié par une association${NBSP}· double clic sur un utilisateur ou un poste${NBSP}: sa fiche`;
       bar.setFacets(facets(list.facets));
       commands();

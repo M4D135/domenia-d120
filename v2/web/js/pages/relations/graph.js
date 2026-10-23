@@ -203,7 +203,7 @@ export function renderGraph(host, source, o = {}) {
       <g class="rel-nodes">${nodeHtml}</g>
     </svg>
     <div class="rel-graph-pop" hidden></div>
-    ${graph.truncated || hidden ? `<p class="rel-graph-more">${glyph('info')}${hidden ? `Premier cercle limité aux ${int(MAX_RING1 - 1)} relations les plus fortes, ${int(hidden)} autres regroupées` : 'Deuxième cercle limité aux relations les plus récentes'}${NBSP}: la liste montre tout.</p>` : ''}
+    ${graph.truncated || hidden ? `<p class="rel-graph-more">${glyph('info')}${hidden ? `Premier cercle limité aux ${int(MAX_RING1 - 1)} relations les plus fortes, ${int(hidden)} autres regroupées` : 'Graphe limité aux relations les plus pertinentes'}${graph.truncated && hidden ? ' · graphe partiel' : ''}${NBSP}: la liste montre tout.</p>` : ''}
   </div>`;
   const svg = host.querySelector('svg');
   svg.style.aspectRatio = `${W} / ${view.h}`;
@@ -241,8 +241,8 @@ export function renderGraph(host, source, o = {}) {
         <div><b>${esc(node.label)}</b><span>${esc(sub || (node.kind === 'computer' ? 'Poste' : 'Utilisateur'))}</span></div></div>
       ${rows.length ? `<ul class="rel-pop-rows">${rows.map((r) => `<li><div>${qualification(r)}<span class="rel-pop-when">${esc(r.source)} · ${esc(dateText(r.when, { time: true }) ?? '—')}</span></div>
           ${r.persistence === 'session'
-            ? `<button class="rel-act wr" type="button" data-pop-save="${esc(r.key)}" data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
-            : `<button class="rel-act danger" type="button" data-pop-remove="${esc(r.key)}" data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`}</li>`).join('')}</ul>`
+            ? `<button class="rel-act wr" type="button" data-pop-save="${esc(r.key)}" ${r.storageAmbiguous ? 'disabled title="Association ambiguë dans la base"' : ''} data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
+            : `<button class="rel-act danger" type="button" data-pop-remove="${esc(r.key)}" ${r.storageAmbiguous ? 'disabled title="Plusieurs lignes de la base : aucun retrait arbitraire"' : ''} data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`}</li>`).join('')}</ul>`
         : toCentre ? `<p class="rel-pop-line">${esc(toCentre.label)}${toCentre.whenText ? ` · ${esc(toCentre.whenText)}` : ''}${toCentre.count > 1 ? ` · ${int(toCentre.count)}${NBSP}relations` : ''}</p>` : ''}
       ${node.exists ? '' : `<p class="rel-pop-warn">${glyph('alert')}Identité non vérifiée dans l’index local</p>`}
       <div class="rel-pop-actions">

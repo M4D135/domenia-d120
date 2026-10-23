@@ -515,9 +515,9 @@ export function render(main, ctx) {
     ] });
     items.push('-');
     if (row.persistence === 'session') {
-      items.push({ label: 'Enregistrer l’observation…', icon: 'check', kind: 'write', run: () => plan('relations.observations.plan', { resultId: SESSION_RESULT, keys: [row.key] }) });
+      items.push({ label: 'Enregistrer l’observation…', icon: 'check', kind: 'write', disabled: row.storageAmbiguous, reason: 'Association ambiguë dans la base.', run: () => plan('relations.observations.plan', { resultId: SESSION_RESULT, keys: [row.key] }) });
     } else {
-      items.push({ label: 'Retirer l’association…', icon: 'trash', kind: 'write', danger: true, run: () => plan('relations.remove.plan', { key: row.key, fingerprint: row.fingerprint }) });
+      items.push({ label: 'Retirer l’association…', icon: 'trash', kind: 'write', danger: true, disabled: row.storageAmbiguous, reason: 'Plusieurs lignes physiques : aucun retrait arbitraire.', run: () => plan('relations.remove.plan', { key: row.key, fingerprint: row.fingerprint }) });
     }
     return items;
   }
