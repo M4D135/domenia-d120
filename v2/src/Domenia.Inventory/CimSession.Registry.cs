@@ -109,6 +109,7 @@ public sealed partial class CimSession
         ObjectDisposedException.ThrowIf(disposed, this);
         var begin = clock.GetTimestamp();
         int Duration() => (int)clock.GetElapsedTime(begin).TotalMilliseconds;
+        if (!ReadsEnabled || !RegistryEnabled) { return new(SourceStatus.Skipped, false, null, "Lecture CIM ou registre désactivée par configuration ; aucun contact.", 0); }
         if (!InventoryRegistry.Allowed(request)) { return new(SourceStatus.Error, false, null, "Lecture de registre hors du contrat d’inventaire refusée avant contact.", 0); }
         if (Transport == InventoryTransport.WinRm && System.Net.IPAddress.TryParse(Host, out _))
         { return new(SourceStatus.Unavailable, false, null, "WinRM Kerberos demande un nom de poste ; aucun contact par adresse IP.", 0); }

@@ -91,7 +91,7 @@ public sealed partial class AdFicheReader
             {
                 try
                 {
-                    var fallback = await new WmiLogonSessionsReader(source.Clock).ReadAsync(computer.DnsHostName!, credential, remaining, cancellationToken).ConfigureAwait(false);
+                    var fallback = await new WmiLogonSessionsReader(source.Clock).ReadAsync(computer.DnsHostName!, credential, remaining, cancellationToken, access.Settings).ConfigureAwait(false);
                     read = fallback with { Detail = "WTS : " + (read.Detail ?? "indisponible") + " " + fallback.Detail };
                 }
                 catch (DomeniaOperationException ex) when (ex.Code == "machine.busy")
@@ -114,7 +114,7 @@ public sealed partial class AdFicheReader
         EnsureEpoch(epoch);
         using var access = InventoryOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false) : null;
         var reading = InventoryOverride is { } injected ? await injected(computer.DnsHostName!, cancellationToken).ConfigureAwait(false)
-            : await new WmiWorkstationReader(source.Clock).ReadAsync(computer.DnsHostName!, WorkstationReading.Triage, null, cancellationToken, access!.Credential).ConfigureAwait(false);
+            : await access!.InventoryReader().ReadAsync(computer.DnsHostName!, WorkstationReading.Triage, null, cancellationToken, access!.Credential).ConfigureAwait(false);
         access?.EnsureCurrent();
         if (reading.Access.Any(a => a.Status == SourceStatus.Refused || a.AuthenticationRejected)) { access?.Refused(computer.Name, "Inventaire de la fiche", reading.Access.Any(a => a.AuthenticationRejected)); }
         if (!string.Equals(reading.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))

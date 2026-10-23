@@ -52,6 +52,8 @@ public sealed partial class CimSession : IDisposable
     public void Dispose() { wsman?.Dispose(); wsman = null; disposed = true; }
     private readonly RemoteProbeCredential? credential;
     internal Func<string, string, TimeSpan, IEnumerable<WmiInstance>>? ReadOverride { get; init; }
+    internal bool ReadsEnabled { get; init; } = true;
+    internal bool RegistryEnabled { get; init; } = true;
 
     /// <param name="host">NetBIOS or DNS name of the workstation; nothing is contacted before the first read.</param>
     /// <param name="budget">Ceiling of the whole reading, clamped to <see cref="CimBudgets.Bound"/>.</param>
@@ -116,6 +118,8 @@ public sealed partial class CimSession : IDisposable
         ArgumentNullException.ThrowIfNull(wql);
         var started = clock.GetTimestamp();
         int Elapsed() => (int)clock.GetElapsedTime(started).TotalMilliseconds;
+
+        if (!ReadsEnabled) { return new(category, SourceStatus.Skipped, "Lecture CIM désactivée par Remote.UseCim ; aucun contact.", 0, []); }
 
         if (!CimQuery.IsReadOnlySelect(wql, namespaceName))
         {

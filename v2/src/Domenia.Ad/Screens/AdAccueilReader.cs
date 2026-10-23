@@ -63,7 +63,7 @@ public sealed class AdAccueilReader : IAccueilReader
                     return;
                 }
                 using var access = ProbeOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName ?? computer.Name, cancellationToken).ConfigureAwait(false) : null;
-                var readings = await (ProbeOverride?.Invoke(computer, probeIds, cancellationToken) ?? probes.ReadAsync(computer, probeIds, cancellationToken, access!.Credential)).ConfigureAwait(false);
+                var readings = await (ProbeOverride?.Invoke(computer, probeIds, cancellationToken) ?? probes.ReadAsync(computer, probeIds, cancellationToken, access!.Credential, access.Settings)).ConfigureAwait(false);
                 access?.EnsureCurrent();
                 if (readings.Values.Any(r => r.State == MeasureState.Refused || r.AuthenticationRejected))
                 { access?.Refused(computer.Name, "Sondes du parc", readings.Values.Any(r => r.AuthenticationRejected)); }

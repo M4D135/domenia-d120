@@ -15,7 +15,7 @@ namespace Domenia.Inventory;
 /// change. Every read is bounded (connection, each query and the whole read); a refusal is told apart from an error, and an
 /// unanswered read is « not read », never a verdict. Never called on the UI thread (the source measures off it).
 /// </summary>
-public sealed class WmiWorkstationProbe : ICredentialWorkstationFactsProbe
+public sealed class WmiWorkstationProbe : IConfiguredWorkstationFactsProbe
 {
     private static readonly TimeSpan MinTimeout = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan MaxPingTimeout = TimeSpan.FromSeconds(10);
@@ -67,9 +67,12 @@ public sealed class WmiWorkstationProbe : ICredentialWorkstationFactsProbe
 
     public Task<WorkstationInventoryRead> ReadFactsAsync(string host, TimeSpan timeout, CancellationToken cancellationToken) => ReadFactsAsync(host, timeout, cancellationToken, null);
 
-    public async Task<WorkstationInventoryRead> ReadFactsAsync(string host, TimeSpan timeout, CancellationToken cancellationToken, RemoteProbeCredential? credential)
+    public Task<WorkstationInventoryRead> ReadFactsAsync(string host, TimeSpan timeout, CancellationToken cancellationToken, RemoteProbeCredential? credential) => ReadFactsAsync(host, timeout, cancellationToken, credential, null);
+
+    public async Task<WorkstationInventoryRead> ReadFactsAsync(string host, TimeSpan timeout, CancellationToken cancellationToken, RemoteProbeCredential? credential, PosteConfiguration? configuration)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (configuration is { UseCim: false }) { return Unread("Lecture CIM désactivée par Remote.UseCim ; aucun contact."); }
         if (!IsHostName(host)) { return Unread("Nom de poste invalide."); }
         var budget = Bound(timeout, MaxInventoryTimeout);
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -78,7 +81,8 @@ public sealed class WmiWorkstationProbe : ICredentialWorkstationFactsProbe
         Task<WorkstationInventoryRead> reading;
         try { reading = WmiReadWorkers.Start(credential, owned =>
         {
-            using var session = SessionFactory?.Invoke(host, budget, stop.Token) ?? new CimSession(host, budget, clock, journal, stop.Token, owned);
+            using var session = SessionFactory?.Invoke(host, budget, stop.Token) ?? new CimSession(host, budget, clock, journal, stop.Token, owned,
+                configuration?.Options.UseWinRm == true ? InventoryTransport.WinRm : InventoryTransport.Dcom);
             var readings = new Dictionary<string, CimReading>(StringComparer.Ordinal);
             void Read(string id, string query)
             {

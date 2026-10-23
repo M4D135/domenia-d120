@@ -13,10 +13,12 @@ public sealed class WmiFleetProbeReader(TimeProvider clock)
 {
     internal Func<string, TimeSpan, CancellationToken, CimSession>? SessionFactory { get; init; }
 
-    public async Task<ImmutableDictionary<string, ProbeReading>> ReadAsync(DirectoryComputer computer, ImmutableArray<string> probeIds, CancellationToken cancellationToken, RemoteProbeCredential? credential = null)
+    public async Task<ImmutableDictionary<string, ProbeReading>> ReadAsync(DirectoryComputer computer, ImmutableArray<string> probeIds, CancellationToken cancellationToken, RemoteProbeCredential? credential = null, PosteConfiguration? configuration = null)
     {
         var definitions = probeIds.Distinct(StringComparer.Ordinal).Select(id => ProbeCatalog.Find(id)
             ?? throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Sonde inconnue : aucun poste contacté.")).ToArray();
+        if (configuration is { UseCim: false })
+        { return definitions.ToImmutableDictionary(d => d.Id, _ => new ProbeReading(MeasureState.NotRead, clock.GetUtcNow(), [], "Lecture CIM désactivée par Remote.UseCim ; aucun contact.")); }
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var gate = new object();
         var latest = ImmutableDictionary<string, ProbeReading>.Empty.WithComparers(StringComparer.Ordinal);
@@ -24,7 +26,8 @@ public sealed class WmiFleetProbeReader(TimeProvider clock)
         try { reading = WmiReadWorkers.Start(credential, owned =>
         {
             var host = computer.DnsHostName ?? computer.Name;
-            using var session = SessionFactory?.Invoke(host, CimBudgets.Probes, stop.Token) ?? new CimSession(host, CimBudgets.Probes, clock, cancellationToken: stop.Token, credential: owned);
+            using var session = SessionFactory?.Invoke(host, CimBudgets.Probes, stop.Token) ?? new CimSession(host, CimBudgets.Probes, clock, cancellationToken: stop.Token, credential: owned,
+                transport: configuration?.Options.UseWinRm == true ? InventoryTransport.WinRm : InventoryTransport.Dcom);
             CimReading? identity = null;
             if (definitions.Any(d => !d.SkipOnDc || (computer.UserAccountControl & 8192) == 0))
             { identity = session.Read("identity", @"root\cimv2", "SELECT Name FROM Win32_ComputerSystem", 1, TimeSpan.FromSeconds(4)); }

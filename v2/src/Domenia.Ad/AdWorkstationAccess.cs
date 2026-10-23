@@ -1,4 +1,6 @@
 using Domenia.Core;
+using Domenia.Core.Poste;
+using Domenia.Inventory;
 
 namespace Domenia.Ad;
 
@@ -7,10 +9,14 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
     MachineAccountService? service, long generation, string? place, string? key) : IDisposable
 {
     internal RemoteProbeCredential Credential { get; } = credential;
+    internal PosteConfiguration Settings { get; private init; } = PosteConfiguration.Defaults;
+    internal WmiWorkstationReader InventoryReader() => new(source.Clock, configuration: Settings);
 
     internal static async Task<AdWorkstationAccess> AcquireAsync(AdDirectorySource source, string host, CancellationToken token)
     {
         var session = await source.GetSessionAsync(token).ConfigureAwait(false);
+        var settings = source.AccountContext?.Readers.Find<IPosteSettingsReader>() is { } configuration
+            ? await configuration.CurrentAsync(token).ConfigureAwait(false) : PosteConfiguration.Defaults;
         var service = source.AccountContext is { } context ? MachineAccountService.From(context) : null;
         using var selected = service?.CredentialFor(session, host);
         var origin = selected?.Source ?? (session.Authentication.Method == AuthenticationMethod.ExplicitCredentials ? MachineAccountSource.Connection : MachineAccountSource.Windows);
@@ -32,7 +38,7 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
             credential = new(selected.Account, selected.Password.Copy(), false);
         }
         var result = new AdWorkstationAccess(source, credential, session.Epoch, service, selected?.Generation ?? 0, selected?.Place,
-            selected?.AccountKey ?? CredentialRules.AccountKey(credential.Account, session.Domain?.DnsName, session.Domain?.NetbiosName, host));
+            selected?.AccountKey ?? CredentialRules.AccountKey(credential.Account, session.Domain?.DnsName, session.Domain?.NetbiosName, host)) { Settings = settings };
         try { result.EnsureCurrent(); return result; } catch { result.Dispose(); throw; }
     }
 

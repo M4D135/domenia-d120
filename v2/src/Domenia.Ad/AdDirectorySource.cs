@@ -626,10 +626,14 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
                     if (probe is ICredentialWorkstationFactsProbe authenticated)
                     {
                         using var access = await AdWorkstationAccess.AcquireAsync(this, host, cancellationToken).ConfigureAwait(false);
-                        var read = await authenticated.ReadFactsAsync(host, InventoryTimeout, cancellationToken, access.Credential).ConfigureAwait(false);
+                        var read = await (authenticated is IConfiguredWorkstationFactsProbe configured
+                            ? configured.ReadFactsAsync(host, InventoryTimeout, cancellationToken, access.Credential, access.Settings)
+                            : authenticated.ReadFactsAsync(host, InventoryTimeout, cancellationToken, access.Credential)).ConfigureAwait(false);
                         access.EnsureCurrent();
                         if (read.Inventory.State == MeasureState.Refused) { access.Refused(host, "Inventaire léger", read.AuthenticationRejected); }
-                        if (!string.Equals(read.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
+                        if (read.ReportedName is null && read.Inventory.State == MeasureState.NotRead)
+                        { measured = read.Inventory; facts[computer.ObjectGuid] = read.Facts; }
+                        else if (!string.Equals(read.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
                         {
                             measured = new(MeasureState.Incomplete, Clock.GetUtcNow(), null, null, null, null, null, null, null);
                             facts[computer.ObjectGuid] = new(null, null, null, null, MeasureState.Incomplete, Clock.GetUtcNow(), "Identité CIM non confirmée ; mesures non associées au poste.");

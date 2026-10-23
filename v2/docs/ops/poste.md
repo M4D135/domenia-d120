@@ -356,3 +356,14 @@ En WinRM sélectionné, deux scripts fixes ajoutent les métadonnées du magasin
 Six tests supplémentaires écrits et compilés seulement ; recette native des lectures RPC/WinRM à effectuer en fin de développement.
 
 Références : [NetLocalGroupGetMembers et fin d’énumération RPC](https://learn.microsoft.com/en-us/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupgetmembers), [fournisseur de certificats Windows](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/about/about_certificate_provider), [état d’exécution des tâches](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/get-scheduledtaskinfo).
+
+
+## 17. Configuration des lectures et des outils (23/10/2026)
+
+`IPosteSettingsReader` lit localement `Domenia.config.json` au premier usage, hors constructeur et hors thread UI, avec plafond de 1 Mo. Une erreur d’accès temporaire n’est pas conservée. Aucun contenu de fichier ni champ étranger n’est retenu ; clés ambiguës (même avec casse différente), JSON trop profond et types invalides sont signalés. Les valeurs absentes conservent les défauts D1.
+
+Le contexte de compte transmet désormais la sélection WinRM/DCOM et `Remote.UseCim` aux relevés Fiche, Rechercher, inventaire léger Accueil et sondes du parc, ainsi qu’au repli CIM des sessions. `Remote.UseRemoteRegistry=false` bloque StdRegProv avant contact. Désactiver CIM empêche aussi les shells d’inventaire ; aucun autre transport n’est lancé implicitement pour compenser ce choix. Les autres options de détection/repli sont lues pour le raccordement de Poste et ne donnent aucune autorisation d’intervention par elles-mêmes.
+
+Le redémarrage garde un délai de 60 à 3 600 s ; le timeout TCP, 200 à 5 000 ms. Le réveil exige `Features.WakeOnLan=true` et, dans V2, une liste explicite `WakeOnLan.AllowedNetworks` (128 réseaux IPv4 canoniques au plus, /8 à /30). Un réseau invalide ou non aligné n’est pas élargi ; activer le réveil sans périmètre ne permet aucun envoi. Les chemins et empreintes de suite utilisent les clés réelles D1 `Suite.PestoPath`, `Suite.PestoSha256`, `Suite.FilProPath`, `Suite.FilProSha256`. Chemin absolu d’exécutable et SHA-256 doivent tous deux être déclarés ; le lanceur reste responsable de la vérification réelle au clic.
+
+Six tests de configuration et de blocage avant contact ajoutés et compilés seulement. Les options de la console Poste seront exposées lors de son raccordement complet ; aucune recette native revendiquée à ce stade.

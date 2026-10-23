@@ -79,7 +79,7 @@ public sealed partial class AdSearchReader
             if (mode is SurveyMode.Console or SurveyMode.Unaddressed || reused)
             {
                 using var access = await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
-                var seen = await new WmiWorkstationReader(source.Clock).ReadConsoleAccountAsync(computer.DnsHostName!, cancellationToken, access.Credential).ConfigureAwait(false);
+                var seen = await access.InventoryReader().ReadConsoleAccountAsync(computer.DnsHostName!, cancellationToken, access.Credential).ConfigureAwait(false);
                 access.EnsureCurrent();
                 if (seen?.Status == SourceStatus.Refused) { access.Refused(computer.Name, "Lecture de la console", seen.AuthenticationRejected); }
                 cancellationToken.ThrowIfCancellationRequested();
@@ -98,7 +98,7 @@ public sealed partial class AdSearchReader
             {
                 using var access = InventoryOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false) : null;
                 var reading = InventoryOverride is { } injected ? await injected(computer.DnsHostName!, cancellationToken).ConfigureAwait(false)
-                    : await new WmiWorkstationReader(source.Clock).ReadAsync(computer.DnsHostName!, mode == SurveyMode.Complete ? WorkstationReading.SurveyComplete : WorkstationReading.Survey, null, cancellationToken, access!.Credential).ConfigureAwait(false);
+                    : await access!.InventoryReader().ReadAsync(computer.DnsHostName!, mode == SurveyMode.Complete ? WorkstationReading.SurveyComplete : WorkstationReading.Survey, null, cancellationToken, access!.Credential).ConfigureAwait(false);
                 access?.EnsureCurrent();
                 if (reading.Access.Any(a => a.Status == SourceStatus.Refused || a.AuthenticationRejected)) { access?.Refused(computer.Name, "Relevé du poste", reading.Access.Any(a => a.AuthenticationRejected)); }
                 if (!string.Equals(reading.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))

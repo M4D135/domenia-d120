@@ -12,13 +12,15 @@ public sealed class WmiLogonSessionsReader(TimeProvider clock)
     public static bool NeedsFallback(WindowsSessionsRead reading) => !reading.AuthenticationRejected
         && reading.Status is not (SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial);
 
-    public async Task<WindowsSessionsRead> ReadAsync(string host, RemoteProbeCredential credential, TimeSpan budget, CancellationToken token)
+    public async Task<WindowsSessionsRead> ReadAsync(string host, RemoteProbeCredential credential, TimeSpan budget, CancellationToken token, PosteConfiguration? configuration = null)
     {
+        if (configuration is { UseCim: false }) { return new(SourceStatus.Skipped, [], 0, clock.GetUtcNow(), "Repli CIM désactivé par Remote.UseCim ; aucun contact."); }
         if (budget <= TimeSpan.Zero) { return new(SourceStatus.Interrupted, [], 0, clock.GetUtcNow(), "Budget des sessions atteint avant le repli CIM."); }
         var bounded = budget > TimeSpan.FromSeconds(5) ? TimeSpan.FromSeconds(5) : budget;
         var stop = CancellationTokenSource.CreateLinkedTokenSource(token);
         Task<WindowsSessionsRead> worker;
-        try { worker = WmiReadWorkers.Start(credential, owned => { using var session = new CimSession(host, bounded, clock, cancellationToken: stop.Token, credential: owned); return Read(session); }, stop.Token); }
+        try { worker = WmiReadWorkers.Start(credential, owned => { using var session = new CimSession(host, bounded, clock, cancellationToken: stop.Token, credential: owned,
+            transport: configuration?.Options.UseWinRm == true ? InventoryTransport.WinRm : InventoryTransport.Dcom); return Read(session); }, stop.Token); }
         catch { stop.Dispose(); throw; }
         try { return await worker.WaitAsync(bounded, clock, token).ConfigureAwait(false); }
         catch (TimeoutException) { stop.Cancel(); return new(SourceStatus.Interrupted, [], 0, clock.GetUtcNow(), "Budget du repli CIM atteint ; sessions non établies."); }

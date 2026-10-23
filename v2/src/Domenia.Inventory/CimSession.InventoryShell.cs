@@ -14,6 +14,7 @@ public sealed partial class CimSession
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         var category = ShellCategory(kind);
+        if (!ReadsEnabled) { return new(category, SourceStatus.Skipped, "Relevé désactivé par Remote.UseCim ; aucun contact.", 0, []); }
         if (Transport != InventoryTransport.WinRm || System.Net.IPAddress.TryParse(Host, out _))
         { return new(category, SourceStatus.Unavailable, "Cette source demande WinRM Kerberos et le nom du poste.", 0, []); }
         if (authenticationRefused) { return new(category, SourceStatus.Refused, "Authentification déjà refusée ; aucun nouvel essai.", 0, []) { AuthenticationRejected = true }; }

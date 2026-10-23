@@ -81,16 +81,21 @@ public sealed partial class WmiWorkstationReader
 
     private readonly TimeProvider clock;
     private readonly InventoryTransport transport;
+    private readonly bool readsEnabled;
+    private readonly bool registryEnabled;
     private readonly ITechnicalJournal? journal;
     internal Func<string, TimeSpan, CancellationToken, CimSession>? SessionFactory { get; init; }
-    private CimSession Session(string host, TimeSpan budget, CancellationToken token, RemoteProbeCredential? credential) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token, credential, transport);
+    private CimSession Session(string host, TimeSpan budget, CancellationToken token, RemoteProbeCredential? credential) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token, credential, transport)
+        { ReadsEnabled = readsEnabled, RegistryEnabled = registryEnabled };
 
     /// <summary>Contacts nothing: a workstation is only reached by an explicit read.</summary>
-    public WmiWorkstationReader(TimeProvider clock, ITechnicalJournal? journal = null, bool useWinRm = false)
+    public WmiWorkstationReader(TimeProvider clock, ITechnicalJournal? journal = null, bool useWinRm = false, PosteConfiguration? configuration = null)
     {
         ArgumentNullException.ThrowIfNull(clock);
         this.clock = clock;
-        transport = useWinRm ? InventoryTransport.WinRm : InventoryTransport.Dcom;
+        transport = (configuration?.Options.UseWinRm ?? useWinRm) ? InventoryTransport.WinRm : InventoryTransport.Dcom;
+        readsEnabled = configuration?.UseCim ?? true;
+        registryEnabled = configuration?.UseRemoteRegistry ?? true;
         this.journal = journal;
     }
 
