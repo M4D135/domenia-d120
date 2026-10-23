@@ -39,15 +39,16 @@ public sealed partial class AdPosteReader
         try
         {
             var entry = await SecretComputerAsync(local, access, LapsMetadata, budget.Token).ConfigureAwait(false);
-            var windows = AdValues.FromFileTime(entry.Long("msLAPS-PasswordExpirationTime"));
-            var legacy = AdValues.FromFileTime(entry.Long("ms-Mcs-AdmPwdExpirationTime"));
-            var expiration = windows ?? legacy;
-            var kind = windows is not null ? "Windows LAPS" : legacy is not null ? "LAPS historique" : "Source non déterminée";
+            var windows = entry.Has("msLAPS-PasswordExpirationTime"); var legacy = entry.Has("ms-Mcs-AdmPwdExpirationTime");
+            var attribute = windows ? "msLAPS-PasswordExpirationTime" : "ms-Mcs-AdmPwdExpirationTime";
+            var raw = entry.Raw(attribute).Count == 1 ? entry.Long(attribute) : null;
+            var expiration = AdValues.FromFileTime(raw);
+            var kind = windows ? "Windows LAPS" : legacy ? "LAPS historique" : "Source non déterminée";
             ImmutableArray<PosteFact> facts = [
-                PosteText.Fact("Source", kind, expiration is null ? FactState.Unknown : FactState.Observed, "Attributs d’expiration AD", at: now),
-                PosteText.Fact("Expiration", expiration is { } date ? PosteText.LocalDateTime(date, source.Zone) : "Non visible", expiration is null ? FactState.Unknown : FactState.Observed,
+                PosteText.Fact("Source", kind, windows || legacy ? FactState.Observed : FactState.Unknown, "Attributs d’expiration AD", at: now),
+                PosteText.Fact("Expiration", raw == 0 ? "Rotation demandée (expiration zéro)" : expiration is { } date ? PosteText.LocalDateTime(date, source.Zone) : "Non visible ou invalide", expiration is not null || raw == 0 ? FactState.Observed : FactState.Unknown,
                     "Attributs d’expiration AD", "Une expiration visible ne prouve ni la présence ni la lisibilité du mot de passe.", at: now,
-                    tone: expiration < now ? Tone.Warn : Tone.Info),
+                    tone: raw == 0 || expiration < now ? Tone.Warn : Tone.Info),
                 PosteText.Fact("Mot de passe", "Non demandé", FactState.Unknown, "Lecture des métadonnées seulement", "La révélation est un geste distinct dans la fenêtre sécurisée.", at: now),
             ];
             access.EnsureCurrent();

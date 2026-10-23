@@ -14,6 +14,7 @@ internal sealed class AdReadAccess : IDisposable
     private readonly string? target;
     private readonly long epoch;
     private readonly string root;
+    private readonly bool windowsSession;
     private AdRootDse? bound;
     private bool disposed;
     internal string Account { get; }
@@ -24,6 +25,7 @@ internal sealed class AdReadAccess : IDisposable
     {
         this.source = source; this.lease = lease; this.connection = connection; this.owns = owns; this.scope = scope; this.target = target;
         epoch = session.Epoch; root = session.Domain?.RootDn ?? throw new DomeniaOperationException(AdErrors.NotConnected, "Domaine de lecture non établi.");
+        windowsSession = session.Authentication.Method == AuthenticationMethod.WindowsSession && lease?.Credential is null;
         Account = lease?.Account ?? session.Account.Login;
         AccountKey = lease?.AccountKey ?? CredentialRules.AccountKey(Account, session.Domain?.DnsName, session.Domain?.NetbiosName, null);
     }
@@ -77,6 +79,22 @@ internal sealed class AdReadAccess : IDisposable
     }
 
     private void BeforeContact() { EnsureCurrent(); lease?.BeforeContact(); }
+
+    internal RemoteProbeCredential CopyNativeCredential()
+    {
+        BeforeContact();
+        if (connection is AdConnection native)
+        {
+            using var copy = native.CopyCredential();
+            if (copy.Password is null && !windowsSession)
+            { throw new DomeniaOperationException(MachineErrors.PasswordMissing, "Secret de l’identité LDAP sélectionnée indisponible ; aucun repli Windows."); }
+            var login = copy.User is null ? Account : string.IsNullOrEmpty(copy.Domain) ? copy.User : copy.Domain + "\\" + copy.User;
+            return new(login, copy.Password?.Copy(), windowsSession);
+        }
+        if (lease?.Credential is { } selected) { return new(selected.Account, selected.Password?.Copy(), selected.Session); }
+        if (windowsSession) { return new(Account, null, true); }
+        throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité native du lecteur LDAP indisponible.");
+    }
 
     internal async Task<IReadOnlyList<AdEntry>> SearchAsync(AdSearchRequest request, CancellationToken token)
     {

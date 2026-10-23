@@ -66,6 +66,12 @@ public sealed class SecretReading : IDisposable
     public string Notice { get; }
     public bool Simulated { get; }
     public DateTimeOffset ReadAt { get; }
+    public static SecretReading FromPassword(string computer, string account, ReadOnlySpan<char> value, string notice, DateTimeOffset at)
+    {
+        var result = new SecretReading("laps", computer, account, null, "", [], SecretPolicy.RevealSeconds, SecretPolicy.ExtensionSeconds,
+            SecretPolicy.Extensions, SecretPolicy.ClipboardLimit, notice, false, at);
+        result.content = value.ToArray(); return result;
+    }
     public string CopyText()
     {
         lock (gate) { ObjectDisposedException.ThrowIf(content is null, this); return new string(content!); }
