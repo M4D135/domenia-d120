@@ -349,7 +349,9 @@ public sealed partial class PosteOperations : IOperationModule
                 // checked before anything is read.
                 var window = SecretWindow();
                 var reading = await Reader().RevealLapsAsync(dn.Dn, ct).ConfigureAwait(false);
-                var shown = await window.ShowAsync(reading, note => Journal(note, Tone.Info), ct).ConfigureAwait(false);
+                SecretShown shown;
+                try { shown = await window.ShowAsync(reading, note => Journal(note, Tone.Info), ct).ConfigureAwait(false); }
+                catch { reading.Dispose(); throw; }
                 Journal("Mot de passe LAPS affiché dans la fenêtre sécurisée" + FrenchText.Colon + shown.Computer + " (valeur jamais journalisée)", Tone.Info);
                 return shown;
             }, "Lit le mot de passe LAPS et le montre 30 s dans la fenêtre sécurisée de l’application ; la valeur ne passe jamais par la page."),
@@ -369,7 +371,9 @@ public sealed partial class PosteOperations : IOperationModule
                 }
                 var window = SecretWindow();
                 var reading = await Reader().RevealBitLockerAsync(dn.Dn, key, expectedId, ct).ConfigureAwait(false);
-                var shown = await window.ShowAsync(reading, note => Journal(note, Tone.Info), ct).ConfigureAwait(false);
+                SecretShown shown;
+                try { shown = await window.ShowAsync(reading, note => Journal(note, Tone.Info), ct).ConfigureAwait(false); }
+                catch { reading.Dispose(); throw; }
                 Journal("Clé BitLocker affichée dans la fenêtre sécurisée" + FrenchText.Colon + shown.Computer + " · identifiant " + shown.Identifier + " (valeur jamais journalisée)", Tone.Info);
                 return shown;
             }, "Lit une seule clé, enfant direct du poste, dont l’identifiant relu doit être celui choisi (sinon rien) ; montrée 30 s dans la fenêtre sécurisée."),

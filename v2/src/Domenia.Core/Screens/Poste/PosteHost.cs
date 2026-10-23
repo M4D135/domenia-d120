@@ -15,7 +15,7 @@ public sealed record SecretWindowState(bool Open, bool Masked, string? Kind, str
 /// </summary>
 public interface IPosteSecretWindow : IScreenReader
 {
-    /// <summary>Shows one secret (replacing the one shown, which is wiped). <paramref name="note"/> journals a copy (identifier only).</summary>
+    /// <summary>Takes ownership on success and shows one secret (replacing the one shown, which is disposed). <paramref name="note"/> journals a copy (identifier only).</summary>
     Task<SecretShown> ShowAsync(SecretReading secret, Action<string> note, CancellationToken cancellationToken);
 
     /// <summary>Closes the window and wipes the value (page changed view or workstation, « Masquer »).</summary>

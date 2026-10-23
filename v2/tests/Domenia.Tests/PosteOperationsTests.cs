@@ -568,6 +568,7 @@ public sealed class TestPosteHost : IPosteSecretWindow, IPosteToolLauncher, IPos
     public Task<SecretShown> ShowAsync(SecretReading secret, Action<string> note, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(secret);
+        Secret?.Dispose();
         Secret = secret;
         Open = true;
         return Task.FromResult(new SecretShown(secret.Kind, secret.Computer, secret.Identifier, secret.KeyGuid, "Fenêtre de test", secret.ReadAt.AddSeconds(secret.RevealSeconds),
@@ -578,6 +579,7 @@ public sealed class TestPosteHost : IPosteSecretWindow, IPosteToolLauncher, IPos
     {
         var was = Open;
         Open = false;
+        Secret?.Dispose();
         return Task.FromResult(was);
     }
 

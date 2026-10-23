@@ -264,6 +264,7 @@ internal sealed partial class SecretWindowForm : Form
             label.Text = "";
         }
         values.Clear();
+        Secret.Dispose();
         base.OnFormClosed(e);
     }
 
@@ -272,6 +273,8 @@ internal sealed partial class SecretWindowForm : Form
         if (disposing)
         {
             timer.Dispose();
+            foreach (var (label, _) in values) { label.Text = ""; }
+            values.Clear(); Secret.Dispose();
         }
         base.Dispose(disposing);
     }

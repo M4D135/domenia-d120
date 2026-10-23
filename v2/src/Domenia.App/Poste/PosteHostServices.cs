@@ -82,22 +82,27 @@ public sealed partial class PosteHostServices : IPosteSecretWindow, IPosteToolLa
         cancellationToken.ThrowIfCancellationRequested();
         var until = await OnUiAsync(() =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
             CloseWindow();
             var form = new SecretWindowForm(secret, value => Copy(value, secret, note), Changed);
-            window = form;
-            form.FormClosed += (_, _) => OnClosed(form);
-            var owner = MainWindow();
-            if (owner is not null)
+            try
             {
-                form.Show(owner);
+                window = form;
+                form.FormClosed += (_, _) => OnClosed(form);
+                var owner = MainWindow();
+                if (owner is not null)
+                {
+                    form.Show(owner);
+                }
+                else
+                {
+                    form.Show();
+                }
+                form.Activate();
+                Changed(form);
+                return form.Until;
             }
-            else
-            {
-                form.Show();
-            }
-            form.Activate();
-            Changed(form);
-            return form.Until;
+            catch { if (ReferenceEquals(window, form)) { window = null; } form.Dispose(); throw; }
         }).ConfigureAwait(false);
         var where = "Fenêtre sécurisée de Domenia, au-dessus de l’application : la valeur n’est jamais affichée dans la page.";
         return new SecretShown(secret.Kind, secret.Computer, secret.Identifier, secret.KeyGuid, where, until, secret.RevealSeconds, secret.ExtensionSeconds,

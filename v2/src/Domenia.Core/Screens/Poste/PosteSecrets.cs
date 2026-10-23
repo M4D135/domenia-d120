@@ -37,25 +37,40 @@ public sealed record SecretBlock(int Index, string Label, string Digits);
 /// receipt. <see cref="Value"/> is null for a BitLocker key, whose digits are in <see cref="Blocks"/>; both are excluded from
 /// any JSON form by construction.
 /// </summary>
-public sealed record SecretReading(
-    string Kind,
-    string Computer,
-    string Identifier,
-    string? KeyGuid,
-    [property: JsonIgnore] string? Value,
-    [property: JsonIgnore] ImmutableArray<SecretBlock> Blocks,
-    int RevealSeconds,
-    int ExtensionSeconds,
-    int Extensions,
-    string ClipboardLimit,
-    string Notice,
-    bool Simulated,
-    DateTimeOffset ReadAt)
+public sealed class SecretReading : IDisposable
 {
-    /// <summary>The value as it is copied: the password, or the eight blocks joined by dashes.</summary>
-    public string CopyText() => Value ?? string.Join("-", Blocks.Select(b => b.Digits));
-
-    /// <summary>Never the value: a secret printed by mistake (journal, exception) shows its identifier only.</summary>
+    private readonly Lock gate = new();
+    private char[]? content;
+    private readonly bool password;
+    public SecretReading(string kind, string computer, string identifier, string? keyGuid, string? value,
+        ImmutableArray<SecretBlock> blocks, int revealSeconds, int extensionSeconds, int extensions,
+        string clipboardLimit, string notice, bool simulated, DateTimeOffset readAt)
+    {
+        Kind = kind; Computer = computer; Identifier = identifier; KeyGuid = keyGuid;
+        password = value is not null;
+        content = (value ?? string.Join("-", blocks.Select(b => b.Digits))).ToCharArray();
+        RevealSeconds = revealSeconds; ExtensionSeconds = extensionSeconds; Extensions = extensions;
+        ClipboardLimit = clipboardLimit; Notice = notice; Simulated = simulated; ReadAt = readAt;
+    }
+    public string Kind { get; }
+    public string Computer { get; }
+    public string Identifier { get; }
+    public string? KeyGuid { get; }
+    // Strings required by native UI/clipboard are short-lived presentation copies, not retained by this owner.
+    [JsonIgnore] public string? Value { get { lock (gate) { return password && content is not null ? new string(content) : null; } } }
+    [JsonIgnore] public ImmutableArray<SecretBlock> Blocks { get { lock (gate) { return !password && content is not null ? PosteSecrets.Blocks(new string(content)) : []; } } }
+    public int RevealSeconds { get; }
+    public int ExtensionSeconds { get; }
+    public int Extensions { get; }
+    public string ClipboardLimit { get; }
+    public string Notice { get; }
+    public bool Simulated { get; }
+    public DateTimeOffset ReadAt { get; }
+    public string CopyText()
+    {
+        lock (gate) { ObjectDisposedException.ThrowIf(content is null, this); return new string(content!); }
+    }
+    public void Dispose() { lock (gate) { if (content is not null) { Array.Clear(content); content = null; } } }
     public override string ToString() => Kind + " " + Computer + " " + Identifier;
 }
 
