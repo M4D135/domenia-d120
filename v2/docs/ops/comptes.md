@@ -420,3 +420,15 @@ Droits requis (`OperationRequirements`) : `WriteUnlock`, `WriteAccountDisabled`,
 - Écran Assistance poste : publier l’autorisation d’intervention dans `InterventionConsentBoard` (CPT-020).
 - Activation et désactivation des comptes **ordinateur** (FIC-013, écran Poste) ; aperçu collectif des autres opérations
   (TRV-229 : diagnostic réseau d’une liste, relevé du parc).
+
+### Raccordement des lectures du 23/10/2026
+
+`AdAccountsReader` sert les listes, détails, candidats d’un lot et verrouillages. Les listes gardent le DN et la profondeur, avec une sentinelle au-delà de 5 000 comptes. Une identité ou un UAC illisible rend la liste partielle ; `note` explique la cause et la page conserve cet avertissement à côté des compteurs. L’absence de résultat ne prouve pas que l’OU ne contient que des postes ou des groupes. Les dates AD absentes restent nulles.
+
+Le détail et les candidats utilisent les mêmes lectures exactes que la Fiche, sans retour au cache pour une revalidation. Les objets lisibles sont commis avant publication. Les appartenances de groupes restent bornées par le transport LDAP.
+
+Le journal 4740 passe par `wevtapi.dll` de Windows, sans dépendance ajoutée : PDC résolu par le rôle du domaine et contrôlé dans la liste des DC, sinon contrôleur lié annoncé ; SID exact, canal Sécurité, fournisseur Microsoft, fenêtre fermée de 1 à 720 heures, 200 événements et une sentinelle. Le budget global de résolution et lecture est de 30 secondes. Les poignées et la copie du mot de passe appartiennent au travailleur jusqu’à sa fin réelle ; l’annulation utilise `EvtCancel`, sans relance. Le compte explicite de connexion, lorsqu’il existe, est transmis en copie `SecureString` ; aucun repli vers le compte Windows.
+
+Sources Windows : [schéma 4740](https://learn.microsoft.com/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4740), [session distante](https://learn.microsoft.com/en-us/windows/win32/api/winevt/nf-winevt-evtopensession), [annulation](https://learn.microsoft.com/en-us/windows/win32/api/winevt/nf-winevt-evtcancel). Le schéma 4740 version 0 place bien le poste à l’origine dans `TargetDomainName` ; un champ `CallerComputerName` explicite est prioritaire s’il existe.
+
+Les comptes secondaires, la bascule de session, le coffre, les écritures LDAP et le lecteur Fiche complet restent à raccorder ; cette étape ne les déclare pas terminés. La recette native du journal sur la VM domaine reste à exécuter lors de la validation finale.

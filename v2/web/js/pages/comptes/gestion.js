@@ -88,6 +88,7 @@ export function mountGestion(panel, ctx, page) {
   let alive = true;
 
   panel.innerHTML = `<div class="cpt-gestion">
+    <p class="cpt-list-note" role="status" data-list-note hidden></p>
     <div class="cpt-tiles-band" role="group" aria-label="Indicateurs des comptes du périmètre (un clic filtre la liste)">${TILES.map((t, n) => `
       <button class="cpt-ktile spot reveal" type="button" data-tile="${t.id}" data-tone="${t.tone}" aria-pressed="false" data-i="${n}">
         <span class="cpt-ktile-ico">${glyph(t.icon)}</span>
@@ -319,10 +320,11 @@ export function mountGestion(panel, ctx, page) {
     panel.classList.toggle('cpt-is-empty', empty);
     if (!empty) return;
     const suggestions = list.suggestions.map((s, n) => `<button class="cpt-sugg" type="button" data-sugg="${n}" data-i="${n}">${glyph('ou')}<span class="cpt-sugg-main"><b>${esc(s.name)}</b><span>${esc(s.path)}</span></span><span class="cpt-sugg-n" data-tip="${esc(plural(s.users, 'compte utilisateur', 'comptes utilisateurs'))}">${glyph('user')}${esc(formatNumber(s.users))}</span></button>`).join('');
-    const title = list.tooWide ? 'Le périmètre est le domaine entier' : `Aucun compte utilisateur dans ${list.scope.label}`;
+    const title = list.tooWide ? 'Le périmètre est le domaine entier' : list.truncated ? 'Aucun compte lisible dans ce relevé partiel' : `Aucun compte utilisateur lu dans ${list.scope.label}`;
     const text = list.tooWide
       ? 'La liste des comptes n’est jamais lue sur tout le domaine : choisissez une OU.'
-      : `${list.scope.origin === 'working' ? 'L’OU de travail' : 'Cette OU'} ne contient que des postes ou des groupes. Choisissez une OU qui contient des comptes : le choix vaut pour la section Comptes seulement.`;
+      : list.truncated ? (list.note ?? 'La lecture est incomplète : aucune conclusion sur les comptes de cette OU.')
+        : 'La lecture n’a retourné aucun compte utilisateur dans cette OU et à la profondeur choisie. Les objets masqués par les droits ne sont pas visibles. Vous pouvez choisir une autre OU pour cette section.';
     box.innerHTML = `<section class="card cpt-scope-card-empty reveal in">${emptyState({ iconName: 'users', title, text })}
       ${suggestions ? `<div class="cpt-suggs" role="group" aria-label="OU qui contiennent des comptes">${suggestions}</div>` : ''}
       <div class="cpt-empty-actions"><button class="btn" type="button" data-pick-scope>${glyph('ou')}Choisir une autre OU…</button></div></section>`;
@@ -358,13 +360,16 @@ export function mountGestion(panel, ctx, page) {
       const next = await ctx.call('accounts.list');
       if (!alive) return;
       list = next;
+      const note = panel.querySelector('[data-list-note]');
+      note.hidden = !next.truncated;
+      note.textContent = next.note ?? `Lecture limitée à ${formatNumber(next.limit)} comptes : les compteurs portent seulement sur les comptes affichés.`;
       rows = next.rows;
       page.onList(next);
       paintTiles();
       showScopeEmpty();
       grid.setEmpty({ icon: 'search', title: 'Aucun compte', text: 'Aucun compte ne correspond aux filtres : rien n’est relu, effacez les filtres pour tout revoir.' });
       applyFilters({ keepScroll: keep });
-      if (next.truncated) toast(`Liste limitée aux ${formatNumber(next.limit)} premiers comptes${NBSP}: choisissez une OU plus précise.`, { tone: 'warn', life: 7000 });
+      if (next.truncated) toast(note.textContent, { tone: 'warn', life: 7000 });
       const current = detail.current();
       if (current) {
         const same = rows.find((r) => r.guid === current.guid);

@@ -544,7 +544,8 @@ public static class AccountsRules
             manager = new AccountsLink(managerDn, found is null ? ContainerNameOrSelf(managerDn) : NameOf(found));
         }
         var identity = new AccountsIdentity(user.Cn, user.DisplayName, user.GivenName, user.Surname, user.Mail, user.TelephoneNumber, user.EmployeeId, manager,
-            user.Description, user.Sid, user.WhenCreated, user.WhenChanged, user.UsnChanged);
+            user.Description, user.Sid, user.WhenCreated == DateTimeOffset.MinValue ? null : user.WhenCreated,
+            user.WhenChanged == DateTimeOffset.MinValue ? null : user.WhenChanged, user.UsnChanged);
         return new AccountsDetail(
             Row(user, directory.Domain, now),
             identity,

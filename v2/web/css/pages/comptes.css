@@ -104,6 +104,8 @@
 
 /* ---------- Indicators that filter (compact band) ---------- */
 [data-page="comptes"] .cpt-gestion { display: grid; gap: var(--s4); grid-template-columns: minmax(0, 1fr); }
+[data-page="comptes"] .cpt-list-note { margin: 0; padding: var(--s3) var(--s4); color: var(--warn); background: var(--warn-soft); border: 1px solid var(--warn-mark); border-radius: var(--r-lg); }
+:root[data-theme="contrast"] [data-page="comptes"] .cpt-list-note { background: #000; border-width: 2px; }
 [data-page="comptes"] .cpt-tiles-band[hidden] { display: none; }
 [data-page="comptes"] .cpt-tiles-band { display: grid; gap: var(--s3); grid-template-columns: repeat(5, minmax(0, 1fr)); }
 @media (max-width: 1250px) { [data-page="comptes"] .cpt-tiles-band { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

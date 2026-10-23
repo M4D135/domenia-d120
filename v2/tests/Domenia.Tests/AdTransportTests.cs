@@ -10,6 +10,25 @@ namespace Domenia.Tests;
 internal static class AdTransportTests
 {
     [Test]
+    public static void Another_Windows_protocol_gets_the_selected_credential_and_an_independent_secure_copy()
+    {
+        using var secret = new System.Security.SecureString();
+        secret.AppendChar('x');
+        secret.MakeReadOnly();
+        using var connection = new AdConnection(new("dc.test.local", "test.local")
+        { Credential = new System.Net.NetworkCredential(@"TEST\alice", secret) });
+        var first = connection.CopyCredential();
+        Check.Equal("alice", first.User, "identité sélectionnée");
+        Check.Equal("TEST", first.Domain, "autorité du compte");
+        Check.True(first.Password!.IsReadOnly(), "copie en lecture seule");
+        first.Password.Dispose();
+        var second = connection.CopyCredential();
+        using (second.Password) { Check.Equal(1, second.Password!.Length, "la copie précédente ne détruit pas le secret de connexion"); }
+        using var windows = new AdConnection(new("dc.test.local", "test.local"));
+        Check.Null(windows.CopyCredential().Password, "contexte Windows sans mot de passe");
+    }
+
+    [Test]
     public static void LDAP_result_attributes_are_read_as_dictionary_values_with_binary_identity_intact()
     {
         // Protocols constructs entries internally; this fixture exercises its real collection, not a look-alike dictionary.

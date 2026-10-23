@@ -115,7 +115,11 @@ public sealed record AccountsList(
     ImmutableArray<AccountsRow> Rows,
     bool Truncated,
     int Limit,
-    ImmutableArray<AccountsScopeSuggestion> Suggestions);
+    ImmutableArray<AccountsScopeSuggestion> Suggestions)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Note { get; init; }
+}
 
 /// <summary>Identity block of the detail of an account.</summary>
 public sealed record AccountsIdentity(
@@ -129,8 +133,8 @@ public sealed record AccountsIdentity(
     AccountsLink? Manager,
     string? Description,
     string Sid,
-    DateTimeOffset Created,
-    DateTimeOffset Changed,
+    DateTimeOffset? Created,
+    DateTimeOffset? Changed,
     long Usn);
 
 /// <summary>A linked object (manager): its DN and its readable name when it is known.</summary>

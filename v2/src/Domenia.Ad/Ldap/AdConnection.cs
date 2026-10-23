@@ -62,6 +62,26 @@ public sealed class AdConnection : IAdConnection
     /// <inheritdoc />
     public string? Server => _server;
 
+    /// <summary>A caller-owned secure copy for another Windows protocol of this same connection identity.</summary>
+    internal (string? User, string? Domain, System.Security.SecureString? Password) CopyCredential()
+    {
+        var credential = options.Credential;
+        if (credential is null) { return (null, null, null); }
+        var user = credential.UserName;
+        var domain = credential.Domain;
+        var parsed = CredentialRules.Parse(user);
+        if (parsed.Form == AccountNameForm.DownLevel)
+        {
+            if (!string.IsNullOrEmpty(domain) && !domain.Equals(parsed.Authority, StringComparison.OrdinalIgnoreCase))
+            { throw new DomeniaOperationException(AdErrors.Credentials, "Contexte du compte de connexion ambigu."); }
+            user = parsed.Name;
+            domain = parsed.Authority;
+        }
+        var password = credential.SecurePassword;
+        password.MakeReadOnly();
+        return (user, domain, password);
+    }
+
     /// <inheritdoc />
     public async Task<AdRootDse> RootDseAsync(CancellationToken cancellationToken)
     {
