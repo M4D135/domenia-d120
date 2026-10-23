@@ -17,7 +17,7 @@ namespace Domenia.Core;
 /// waiting for its re-read (an account is never changed under a write). « Changer de compte » starts a new session epoch: every
 /// account, refusal and result of the former one is forgotten. Thread safe.
 /// </summary>
-public sealed class AccountAccess : IDisposable
+public sealed partial class AccountAccess : IDisposable
 {
     /// <summary>Validation of one account (Domenia 1: 12 s in the Comptes page).</summary>
     public const int ValidationTimeoutSeconds = 12;
@@ -78,6 +78,7 @@ public sealed class AccountAccess : IDisposable
     private long generation;
     private bool seeded;
     private int requestCounter;
+    private EngineContext? machineContext;
 
     public AccountAccess(
         IDirectorySource directory,
@@ -126,7 +127,7 @@ public sealed class AccountAccess : IDisposable
                     return 1;
                 }
             },
-            c.Readers.Find<IAccountsConfigurationReader>(), c.Readers.Find<IAccountsCredentialVault>()));
+            c.Readers.Find<IAccountsConfigurationReader>(), c.Readers.Find<IAccountsCredentialVault>()) { machineContext = c });
     }
 
     /// <summary>Settings of Domenia.config.json in force for the accounts (defaults of Domenia 1 without the file).</summary>
@@ -165,11 +166,12 @@ public sealed class AccountAccess : IDisposable
         }
         // Preferences are read outside the lock (a first read may touch the disk).
         var requestRemembered = waiting.ToDictionary(r => r.Id, r => RequestRemembered(rootKey, r), StringComparer.Ordinal);
+        var sharedMachine = machineContext is { } shared ? MachineAccountService.From(shared).Resolve(session, null) : null;
         lock (gate)
         {
             Sweep(now);
             var connection = Connection(session);
-            var machine = MachineAccount(session);
+            var machine = sharedMachine is null ? MachineAccount(session) : (sharedMachine.Account, sharedMachine.Origin);
             var secretsAccount = secondary.TryGetValue(AccessUsage.Secrets, out var secretsHeld) ? secretsHeld.Login : null;
             var identities = ImmutableArray.Create(
                 new AccessIdentity("directory", "Annuaire", session.Account.Login, connection.ModeLabel),
@@ -653,6 +655,9 @@ public sealed class AccountAccess : IDisposable
         {
             var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
             var target = computer.Trim();
+            var sharedService = machineContext is { } shared ? MachineAccountService.From(shared) : null;
+            using var machineCredential = sharedService?.CredentialFor(session, target, forTrial: true);
+            var machineGeneration = machineCredential?.Generation;
             RemoteProbeCredential credential;
             string origin;
             long startEpoch;
@@ -661,7 +666,12 @@ public sealed class AccountAccess : IDisposable
                 var now = clock.GetUtcNow();
                 Sweep(now);
                 startEpoch = epoch;
-                (credential, origin) = WorkstationCredentialLocked(session, target, now);
+                if (machineCredential is null) { (credential, origin) = WorkstationCredentialLocked(session, target, now); }
+                else
+                {
+                    credential = new(machineCredential.Account, machineCredential.Password?.Copy(), machineCredential.Source is MachineAccountSource.Connection or MachineAccountSource.Windows);
+                    origin = MachineAccountRules.Label(machineCredential.Source, machineCredential.Account).Origin;
+                }
             }
             RemoteProbeAnswer answer;
             try
@@ -679,9 +689,11 @@ public sealed class AccountAccess : IDisposable
             }
             finally
             {
-                credential.Password?.Dispose();
+                credential.Dispose();
             }
             var (verdict, success, text) = CredentialRules.TrialVerdict(answer, target, credential.Account);
+            if (sharedService is not null && sharedService.Generation != machineGeneration)
+            { throw new DomeniaOperationException(EpochChanged, "Compte poste modifié pendant l’essai ; résultat écarté."); }
             var trial = new RemoteTrial(target, credential.Account, origin, verdict, success, text, answer.Caption, CredentialRules.TrialTone(verdict), clock.GetUtcNow(), reader.Simulated);
             lock (gate)
             {
@@ -691,6 +703,12 @@ public sealed class AccountAccess : IDisposable
                 }
                 lastTrial = trial;
                 revision++;
+            }
+            if (sharedService is not null && machineCredential is not null)
+            {
+                var machineVerdict = verdict switch { "adminOk" => MachineTrialVerdict.AdminOk, "rejected" => MachineTrialVerdict.Rejected,
+                    "accountState" => MachineTrialVerdict.AccountState, "denied" => MachineTrialVerdict.Denied, "unreachable" => MachineTrialVerdict.Unreachable, _ => MachineTrialVerdict.Unknown };
+                sharedService.RecordTrial(new(machineVerdict, success, text, trial.Tone, target, credential.Account, origin, answer.Caption, false, reader.Simulated, trial.At), machineCredential.Place, credential.Account);
             }
             journal.Add(new JournalEntry(trial.At, "Essai du compte poste sur " + trial.Computer + FrenchText.Colon + (success ? "accès administrateur OK" : "non concluant ou refusé"), success ? Tone.Ok : Tone.Warn));
             return trial;
@@ -772,6 +790,13 @@ public sealed class AccountAccess : IDisposable
     public RemoteProbeCredential? AcquireForRead(string scope, string? target)
     {
         ArgumentNullException.ThrowIfNull(scope);
+        if (scope == CredentialRules.Remote && machineContext is { } shared)
+        {
+            SessionSnapshot session;
+            lock (gate) { session = lastSession ?? throw new DomeniaOperationException(EpochChanged, "Session non initialisée pour cette lecture."); }
+            using var selected = MachineAccountService.From(shared).CredentialFor(session, target);
+            return selected.Source is MachineAccountSource.Connection or MachineAccountSource.Windows ? null : new(selected.Account, selected.Password?.Copy(), false);
+        }
         lock (gate)
         {
             var now = clock.GetUtcNow();
@@ -780,6 +805,8 @@ public sealed class AccountAccess : IDisposable
             {
                 return null;
             }
+            if (PausedLocked(KeyInUseLocked(session, scope, target)) is not null)
+            { throw new DomeniaOperationException(MachineErrors.AccountPaused, "Ce compte est en pause après un refus ; aucune lecture envoyée."); }
             if (scope == CredentialRules.Remote && target is not null)
             {
                 var (credential, _) = WorkstationCredentialLocked(session, target, now);

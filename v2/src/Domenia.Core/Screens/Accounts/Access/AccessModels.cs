@@ -207,7 +207,11 @@ public sealed record AccessRevision(
     long Epoch);
 
 /// <summary>The credential a trial on a workstation uses (CPT-015): a read-only copy, or the session itself (no copy).</summary>
-public sealed record RemoteProbeCredential(string Account, SecureString? Password, bool Session);
+public sealed record RemoteProbeCredential(string Account, [property: System.Text.Json.Serialization.JsonIgnore] SecureString? Password, bool Session) : IDisposable
+{
+    private readonly IDisposable tracked = SecureCredentialCopies.Track(Password);
+    public void Dispose() { tracked.Dispose(); Password?.Dispose(); }
+}
 
 /// <summary>What a source answers to « Changer de compte » (CPT-007): the validation and the identity of the new session.</summary>
 public sealed record SessionOpenAnswer(CredentialAnswer Answer, AccountIdentity? Identity);

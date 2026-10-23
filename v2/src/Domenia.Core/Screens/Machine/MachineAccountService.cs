@@ -47,6 +47,9 @@ public sealed class MachineAccountService : IDisposable
     private long version;
     private long slotIds;
     private bool disposed;
+    private AccessMachineSnapshot? accessState;
+    private SessionSnapshot? machineSession;
+    private string? machineTarget;
 
     private MachineAccountService(EngineContext context) => this.context = context;
 
@@ -64,6 +67,7 @@ public sealed class MachineAccountService : IDisposable
         {
             lock (gate)
             {
+                if (machineSession is { } session) { SyncAccessLocked(session, machineTarget); }
                 return generation;
             }
         }
@@ -140,6 +144,13 @@ public sealed class MachineAccountService : IDisposable
                 {
                     throw new DomeniaOperationException(MachineErrors.AccountPaused, MachineErrors.AccountPausedMessage);
                 }
+                if (accessState is { } shared && shared.Slots.TryGetValue(inUse.Source, out var external)
+                    && string.Equals(external.Account, inUse.Account, StringComparison.OrdinalIgnoreCase))
+                {
+                    var credential = AccountAccess.From(context).AcquireMachineSlot(session, target, shared, inUse.Source, external, forTrial);
+                    SyncAccessLocked(session, target); // account for a consumed one-shot lease before the read leaves
+                    return credential with { Generation = generation };
+                }
                 var slot = inUse.Source switch
                 {
                     MachineAccountSource.TemporaryLocal => key is null ? null : temporaryLocal.GetValueOrDefault(key),
@@ -154,7 +165,7 @@ public sealed class MachineAccountService : IDisposable
                     BumpLocked();
                 }
                 var place = slot?.Place ?? NamedPlace(inUse.Source, inUse.Account);
-                return new MachineOperationCredential(inUse.Source, MachineAccountRules.ForTarget(inUse.Account, target), slot?.CopyPassword(), place);
+                return new MachineOperationCredential(inUse.Source, MachineAccountRules.ForTarget(inUse.Account, target), slot?.CopyPassword(), place) { Generation = generation };
             }
         }
         finally
@@ -186,6 +197,7 @@ public sealed class MachineAccountService : IDisposable
                     return version;
                 }
                 dropped = SweepLocked(sessionKey, now);
+                SyncAccessLocked(session, machineTarget);
                 current = version;
                 signal = changed.Task;
                 expiry = NextExpiryLocked();
@@ -200,6 +212,8 @@ public sealed class MachineAccountService : IDisposable
             var wait = expiry is { } at
                 ? TimeSpan.FromTicks(Math.Clamp((at - now).Ticks + TimeSpan.TicksPerSecond, Math.Min(TimeSpan.TicksPerSecond, left.Ticks), left.Ticks))
                 : left;
+            // Accounts can change from the Comptes screen; observe its local revision without extending a lease.
+            if (wait > TimeSpan.FromSeconds(1)) { wait = TimeSpan.FromSeconds(1); }
             using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var delay = Task.Delay(wait, stop.Token);
             await Task.WhenAny(signal, delay).ConfigureAwait(false);
@@ -359,6 +373,7 @@ public sealed class MachineAccountService : IDisposable
     {
         ArgumentNullException.ThrowIfNull(trial);
         ArgumentNullException.ThrowIfNull(accountTried);
+        if (place is not null) { AccountAccess.From(context).RecordMachineTrial(place, accountTried, trial); }
         lock (gate)
         {
             trials.Insert(0, trial);
@@ -430,8 +445,9 @@ public sealed class MachineAccountService : IDisposable
                 pauses.GetValueOrDefault(NamedPlace("directory", directoryAccount)),
             ];
             secretsState = MachineAccountRules.SecretsCascade(
-                secretsTemporary?.Account, secrets?.Account, directoryAccount, secretsPauses,
-                secretsTemporary is null ? null : MachineAccountRules.LeaseRemaining(secretsTemporary.Lease, sessionKey, now).Text);
+                accessState?.SecretsTemporary?.Account ?? secretsTemporary?.Account, accessState?.Secrets?.Account ?? secrets?.Account, directoryAccount,
+                [accessState?.SecretsTemporary?.Pause ?? secretsPauses[0], accessState?.Secrets?.Pause ?? secretsPauses[1], secretsPauses[2]],
+                accessState?.SecretsTemporary?.Remaining ?? (secretsTemporary is null ? null : MachineAccountRules.LeaseRemaining(secretsTemporary.Lease, sessionKey, now).Text));
             typedAccount = typed is null ? null : new MachineTypedAccount(typed.Account, typed.Since, typed.HasPassword);
             generationNow = generation;
             versionNow = version;
@@ -447,6 +463,11 @@ public sealed class MachineAccountService : IDisposable
 
     private MachineAccountRules.CascadeInput InputLocked(SessionSnapshot session, string? key, string sessionKey, DateTimeOffset now)
     {
+        SyncAccessLocked(session, key);
+        var external = accessState!.Slots;
+        var externalLocal = external.GetValueOrDefault(MachineAccountSource.TemporaryLocal);
+        var externalTemporary = external.GetValueOrDefault(MachineAccountSource.Temporary);
+        var externalRemote = external.GetValueOrDefault(MachineAccountSource.Remote);
         var connection = session.Authentication.Method == AuthenticationMethod.ExplicitCredentials ? session.Account.Login : null;
         var windows = WindowsAccount(session);
         var local = key is null ? null : temporaryLocal.GetValueOrDefault(key);
@@ -456,11 +477,29 @@ public sealed class MachineAccountService : IDisposable
             connection is null ? null : NamedPlace(MachineAccountSource.Connection, connection), NamedPlace(MachineAccountSource.Windows, windows),
         ];
         return new MachineAccountRules.CascadeInput(
-            local?.Account, temporary?.Account, typed?.Account, remote?.Account, connection, windows,
+            externalLocal?.Account ?? local?.Account, externalTemporary?.Account ?? temporary?.Account, typed?.Account, externalRemote?.Account ?? remote?.Account, connection, windows,
             key is not null, context.Directory.Kind == DirectorySourceKind.Simulation,
-            [.. places.Select(p => p is null ? null : pauses.GetValueOrDefault(p))],
-            local is null ? null : MachineAccountRules.LeaseRemaining(local.Lease, sessionKey, now).Text,
-            temporary is null ? null : MachineAccountRules.LeaseRemaining(temporary.Lease, sessionKey, now).Text);
+            [externalLocal?.Pause ?? Pause(places[0]), externalTemporary?.Pause ?? Pause(places[1]), Pause(places[2]), externalRemote?.Pause ?? Pause(places[3]),
+                external.GetValueOrDefault(MachineAccountSource.Connection)?.Pause ?? Pause(places[4]), external.GetValueOrDefault(MachineAccountSource.Windows)?.Pause ?? Pause(places[5])],
+            externalLocal?.Remaining ?? (local is null ? null : MachineAccountRules.LeaseRemaining(local.Lease, sessionKey, now).Text),
+            externalTemporary?.Remaining ?? (temporary is null ? null : MachineAccountRules.LeaseRemaining(temporary.Lease, sessionKey, now).Text));
+        MachineAccountPause? Pause(string? place) => place is null ? null : pauses.GetValueOrDefault(place);
+    }
+
+    private void SyncAccessLocked(SessionSnapshot session, string? target)
+    {
+        var next = AccountAccess.From(context).MachineSnapshot(session, target);
+        var identityChanged = machineSession is { } earlier && SessionIdentity.Key(earlier) != SessionIdentity.Key(session);
+        if (accessState is { } previous && (previous.Epoch != next.Epoch
+            || identityChanged))
+        {
+            foreach (var slot in new[] { typed, remote, temporary, secrets, secretsTemporary }.OfType<Slot>().Concat(temporaryLocal.Values)) { slot.Dispose(); }
+            typed = remote = temporary = secrets = secretsTemporary = null;
+            temporaryLocal.Clear(); pauses.Clear(); trials.Clear();
+        }
+        if (accessState is { } prior && (prior.Generation != next.Generation || prior.Epoch != next.Epoch || identityChanged)) { generation++; }
+        if (accessState is { } old && (old.Revision != next.Revision || old.Epoch != next.Epoch || identityChanged)) { BumpLocked(); }
+        accessState = next; machineSession = session; machineTarget = target;
     }
 
     /// <summary>
@@ -620,6 +659,7 @@ public sealed class MachineAccountService : IDisposable
     /// </summary>
     private sealed class Slot(string kind, long id, string account, SecureString? password, DateTimeOffset since) : IDisposable
     {
+        private readonly IDisposable tracked = SecureCredentialCopies.Track(password);
         public string Place { get; } = kind + "#" + id.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         public string Account { get; } = account;
@@ -642,6 +682,6 @@ public sealed class MachineAccountService : IDisposable
             return copy;
         }
 
-        public void Dispose() => password?.Dispose();
+        public void Dispose() { tracked.Dispose(); password?.Dispose(); }
     }
 }

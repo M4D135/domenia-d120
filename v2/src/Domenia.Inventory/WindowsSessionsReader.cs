@@ -9,7 +9,10 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Domenia.Inventory;
 
-public sealed record WindowsSessionsRead(SourceStatus Status, ImmutableArray<LocalSession> Sessions, int Unread, DateTimeOffset At, string? Detail);
+public sealed record WindowsSessionsRead(SourceStatus Status, ImmutableArray<LocalSession> Sessions, int Unread, DateTimeOffset At, string? Detail)
+{
+    public bool AuthenticationRejected { get; init; }
+}
 
 /// <summary>Read-only WTS enumeration. No logoff, disconnect, message or desktop change is exposed.</summary>
 public sealed class WindowsSessionsReader(TimeProvider clock)
@@ -50,7 +53,8 @@ public sealed class WindowsSessionsReader(TimeProvider clock)
                 }
             }
             catch (Win32Exception ex)
-            { return new WindowsSessionsRead(ex.NativeErrorCode is 5 or 1314 or 1326 ? SourceStatus.Refused : SourceStatus.Unavailable, [], 0, clock.GetUtcNow(), "Lecture WTS refusée ou indisponible (code " + ex.NativeErrorCode + ")."); }
+            { return new WindowsSessionsRead(ex.NativeErrorCode is 5 or 1314 || WindowsAuthenticationErrors.IsRejected(ex.NativeErrorCode) ? SourceStatus.Refused : SourceStatus.Unavailable, [], 0, clock.GetUtcNow(), "Lecture WTS refusée ou indisponible (code " + ex.NativeErrorCode + ").")
+                { AuthenticationRejected = WindowsAuthenticationErrors.IsRejected(ex.NativeErrorCode) }; }
             catch (InvalidDataException) { return new WindowsSessionsRead(SourceStatus.Error, [], 0, clock.GetUtcNow(), "Réponse WTS hors limites."); }
             finally { Workers.Release(); }
         }, CancellationToken.None);

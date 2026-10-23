@@ -106,11 +106,10 @@ public sealed class AdAccountsAccessReader(AdDirectorySource source) : IAccounts
             var origin = MachineAccountSource.Remote;
             if (credential.Session)
             {
-                if (source.Connection is not AdConnection connection) { return new("unknown", "credentialsMissing", null, "Identité de connexion indisponible pour cet accès Windows."); }
-                owned = connection.CopyCredential();
+                owned = source.CopySessionCredential(epoch, credential.Account);
                 password = owned.Password;
-                account = connection.ExplicitLogin ?? credential.Account;
-                origin = connection.UsesWindowsIdentity ? MachineAccountSource.Windows : MachineAccountSource.Connection;
+                account = owned.User is null ? credential.Account : string.IsNullOrEmpty(owned.Domain) ? owned.User : owned.Domain + "\\" + owned.User;
+                origin = owned.Password is null ? MachineAccountSource.Windows : MachineAccountSource.Connection;
             }
             var observation = await Probe(new(computer, origin, account, password), workstation, false, cancellationToken).ConfigureAwait(false);
             if (source.Epoch != epoch) { return new("unknown", "sessionChanged", null, "Session modifiée pendant l’essai ; résultat écarté."); }

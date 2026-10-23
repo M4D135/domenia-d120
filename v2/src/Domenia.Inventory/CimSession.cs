@@ -12,6 +12,7 @@ namespace Domenia.Inventory;
 /// </summary>
 public sealed record CimReading(string Category, SourceStatus Status, string Detail, int DurationMs, IReadOnlyList<WmiInstance> Instances)
 {
+    public bool AuthenticationRejected { get; init; }
     /// <summary>True when the source answered (OK, empty or partial): its instances then describe the workstation.</summary>
     public bool Answered => Status is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial;
 
@@ -19,7 +20,7 @@ public sealed record CimReading(string Category, SourceStatus Status, string Det
     public int Items => Instances.Count;
 
     /// <summary>The line of the access report for this reading.</summary>
-    public SourceAccess ToAccess(InventoryTransport transport) => new(Category, Status, Detail, DurationMs, Items, transport);
+    public SourceAccess ToAccess(InventoryTransport transport) => new(Category, Status, Detail, DurationMs, Items, transport) { AuthenticationRejected = AuthenticationRejected };
 }
 
 /// <summary>
@@ -43,11 +44,12 @@ public sealed class CimSession
     private readonly long started;
     private readonly CancellationToken cancellationToken;
     private bool authenticationRefused;
+    private readonly RemoteProbeCredential? credential;
     internal Func<string, string, TimeSpan, IEnumerable<WmiInstance>>? ReadOverride { get; init; }
 
     /// <param name="host">NetBIOS or DNS name of the workstation; nothing is contacted before the first read.</param>
     /// <param name="budget">Ceiling of the whole reading, clamped to <see cref="CimBudgets.Bound"/>.</param>
-    public CimSession(string host, TimeSpan budget, TimeProvider clock, ITechnicalJournal? journal = null, CancellationToken cancellationToken = default)
+    public CimSession(string host, TimeSpan budget, TimeProvider clock, ITechnicalJournal? journal = null, CancellationToken cancellationToken = default, RemoteProbeCredential? credential = null)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(clock);
@@ -63,6 +65,9 @@ public sealed class CimSession
         Budget = CimBudgets.Bound(budget);
         started = clock.GetTimestamp();
         this.cancellationToken = cancellationToken;
+        this.credential = credential;
+        if (credential is { Session: false } && (credential.Password is null || string.IsNullOrWhiteSpace(credential.Account)))
+        { throw new DomeniaOperationException(MachineErrors.PasswordMissing, "Compte CIM explicite incomplet ; aucun repli sur le compte Windows."); }
     }
 
     /// <summary>Workstation this session reads.</summary>
@@ -114,7 +119,7 @@ public sealed class CimSession
             return new CimReading(category, SourceStatus.Skipped, "aucune instance demandée", Elapsed(), []);
         }
 
-        if (authenticationRefused) { return new CimReading(category, SourceStatus.Refused, "authentification déjà refusée : aucun nouvel essai", Elapsed(), []); }
+        if (authenticationRefused) { return new CimReading(category, SourceStatus.Refused, "authentification déjà refusée : aucun nouvel essai", Elapsed(), []) { AuthenticationRejected = true }; }
 
         if (OutOfBudget || cancellationToken.IsCancellationRequested)
         {
@@ -127,7 +132,7 @@ public sealed class CimSession
         try
         {
             var begin = clock.GetTimestamp();
-            var rows = ReadOverride is null ? Query(Open(namespaceName, perQuery), wql, perQuery - clock.GetElapsedTime(begin)) : ReadOverride(namespaceName, wql, perQuery);
+            var rows = ReadOverride is null ? Query(namespaceName, wql, perQuery) : ReadOverride(namespaceName, wql, perQuery);
             var truncated = false;
             foreach (var row in rows)
             {
@@ -149,9 +154,9 @@ public sealed class CimSession
         }
         catch (Exception ex) when (Classify(ex) is SourceStatus outcome)
         {
-            if (ex.HResult == unchecked((int)0x8007052E)) { authenticationRefused = true; }
+            if (WindowsAuthenticationErrors.IsRejected(ex.HResult)) { authenticationRefused = true; }
             journal?.Info("Lecture CIM de " + Host + " (" + category + ") : " + Detail(ex, outcome) + ".");
-            return new CimReading(category, instances.Count > 0 ? SourceStatus.Partial : outcome, Detail(ex, outcome), Elapsed(), instances.ToArray());
+            return new CimReading(category, instances.Count > 0 ? SourceStatus.Partial : outcome, Detail(ex, outcome), Elapsed(), instances.ToArray()) { AuthenticationRejected = authenticationRefused };
         }
     }
 
@@ -168,7 +173,7 @@ public sealed class CimSession
         // An unreachable namespace is not a refusal: the workstation answered, the class is simply not there.
         ManagementException => SourceStatus.Error,
         // RPC server unavailable, call failed, network errors: the workstation did not answer the CIM bind.
-        System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80070005) or unchecked((int)0x8007052E) } => SourceStatus.Refused,
+        System.Runtime.InteropServices.COMException ex when ex.HResult == unchecked((int)0x80070005) || WindowsAuthenticationErrors.IsRejected(ex.HResult) => SourceStatus.Refused,
         System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x800706BA) or unchecked((int)0x800706BE) or unchecked((int)0x80070035) } => SourceStatus.Unreachable,
         System.Runtime.InteropServices.COMException => SourceStatus.Error,
         TimeoutException => SourceStatus.Interrupted,
@@ -186,8 +191,10 @@ public sealed class CimSession
     private static TimeSpan Bound(TimeSpan requested) => requested < TimeSpan.FromMilliseconds(200) ? TimeSpan.FromMilliseconds(200) : requested > CimBudgets.Maximum ? CimBudgets.Maximum : requested;
 
     /// <summary>One bind for one read: the scope is never kept, so no WMI handle outlives the read that opened it.</summary>
-    private ManagementScope Open(string namespaceName, TimeSpan timeout)
+    private IEnumerable<WmiInstance> Query(string namespaceName, string wql, TimeSpan timeout)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        var started = clock.GetTimestamp();
         var options = new ConnectionOptions
         {
             Impersonation = ImpersonationLevel.Impersonate,
@@ -195,29 +202,36 @@ public sealed class CimSession
             EnablePrivileges = false,
             Timeout = timeout < CimBudgets.Connect ? timeout : CimBudgets.Connect,
         };
-        var scope = new ManagementScope(@"\\" + Host + @"\" + namespaceName, options);
-        scope.Connect();
-        return scope;
-    }
-
-    /// <summary>Instances of a projection, copied out while the WMI objects are alive; every object is disposed here.</summary>
-    private IEnumerable<WmiInstance> Query(ManagementScope scope, string wql, TimeSpan timeout)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (timeout <= TimeSpan.Zero) { throw new TimeoutException(); }
-        var options = new WmiEnumerationOptions { Timeout = timeout, ReturnImmediately = true, Rewindable = false, BlockSize = 1 };
-        using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery(wql), options);
-        using var results = searcher.Get();
-        foreach (var item in results)
+        ManagementScope? scope = null;
+        ManagementObjectSearcher? searcher = null;
+        try
         {
-            using (item)
+            if (credential is { Session: false }) { options.Username = credential.Account; options.SecurePassword = credential.Password; }
+            scope = new ManagementScope(@"\\" + Host + @"\" + namespaceName, options);
+            scope.Connect();
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = timeout - clock.GetElapsedTime(started);
+            if (remaining <= TimeSpan.Zero) { throw new TimeoutException(); }
+            var enumeration = new WmiEnumerationOptions { Timeout = remaining, ReturnImmediately = true, Rewindable = false, BlockSize = 1 };
+            searcher = new ManagementObjectSearcher(scope, new ObjectQuery(wql), enumeration);
+            using var results = searcher.Get();
+            foreach (var item in results)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (OutOfBudget) { throw new TimeoutException(); }
-                var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-                foreach (var property in item.Properties) { values[property.Name] = property.Value; }
-                yield return new WmiInstance(values);
+                using (item)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (OutOfBudget) { throw new TimeoutException(); }
+                    var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var property in item.Properties) { values[property.Name] = property.Value; }
+                    yield return new WmiInstance(values);
+                }
             }
+        }
+        finally
+        {
+            if (searcher is not null) { searcher.Scope.Options.SecurePassword = null; searcher.Dispose(); }
+            if (scope is not null) { scope.Options.SecurePassword = null; }
+            options.SecurePassword = null;
         }
     }
 }

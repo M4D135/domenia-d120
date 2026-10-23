@@ -32,7 +32,10 @@ public enum InventoryTransport
 }
 
 /// <summary>Access report line of one source (Domenia 1 DgInventoryAccess).</summary>
-public sealed record SourceAccess(string Category, SourceStatus Status, string Detail, int DurationMs, int Items, InventoryTransport Transport);
+public sealed record SourceAccess(string Category, SourceStatus Status, string Detail, int DurationMs, int Items, InventoryTransport Transport)
+{
+    public bool AuthenticationRejected { get; init; }
+}
 
 public sealed record OsInfo(string Caption, string Version, string Build, int? Revision, string Architecture, int? Language, DateTimeOffset? InstallDate, DateTimeOffset? LastBoot, int? DomainRole, string? Domain, DateTimeOffset? LocalClock)
 {

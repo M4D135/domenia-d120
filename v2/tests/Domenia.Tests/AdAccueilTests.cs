@@ -118,12 +118,12 @@ internal static class AdAccueilTests
         var clock = TestClock.Fixed();
         var reader = new WmiFleetProbeReader(clock)
         {
-            SessionFactory = (host, budget, token) => new(host, budget, clock, cancellationToken: token) { ReadOverride = (_, _, _) => { calls++; return []; } },
+            SessionFactory = (host, budget, token) => new(host, budget, clock, cancellationToken: token) { ReadOverride = (_, query, _) => { calls++; return query == "SELECT Name FROM Win32_ComputerSystem" ? [new WmiInstance(new Dictionary<string, object?> { ["Name"] = "DC1" })] : []; } },
         };
         var dc = Fixtures.Computer("DC1") with { UserAccountControl = 8192 };
         var result = await reader.ReadAsync(dc, ["sec.localusers", "hw.model"], CancellationToken.None);
         Check.Equal(MeasureState.NotRead, result["sec.localusers"].State, "sonde interdite sur DC");
-        Check.Equal(1, calls, "seule la sonde matérielle contacte le poste");
+        Check.Equal(2, calls, "identité puis sonde matérielle seulement");
     }
 
     [Test]

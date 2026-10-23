@@ -13,23 +13,30 @@ public sealed class WmiFleetProbeReader(TimeProvider clock)
 {
     internal Func<string, TimeSpan, CancellationToken, CimSession>? SessionFactory { get; init; }
 
-    public async Task<ImmutableDictionary<string, ProbeReading>> ReadAsync(DirectoryComputer computer, ImmutableArray<string> probeIds, CancellationToken cancellationToken)
+    public async Task<ImmutableDictionary<string, ProbeReading>> ReadAsync(DirectoryComputer computer, ImmutableArray<string> probeIds, CancellationToken cancellationToken, RemoteProbeCredential? credential = null)
     {
         var definitions = probeIds.Distinct(StringComparer.Ordinal).Select(id => ProbeCatalog.Find(id)
             ?? throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Sonde inconnue : aucun poste contacté.")).ToArray();
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var gate = new object();
         var latest = ImmutableDictionary<string, ProbeReading>.Empty.WithComparers(StringComparer.Ordinal);
-        var reading = Task.Run(() =>
+        Task<ImmutableDictionary<string, ProbeReading>> reading;
+        try { reading = WmiReadWorkers.Start(credential, owned =>
         {
             var host = computer.DnsHostName ?? computer.Name;
-            var session = SessionFactory?.Invoke(host, CimBudgets.Probes, stop.Token) ?? new CimSession(host, CimBudgets.Probes, clock, cancellationToken: stop.Token);
+            var session = SessionFactory?.Invoke(host, CimBudgets.Probes, stop.Token) ?? new CimSession(host, CimBudgets.Probes, clock, cancellationToken: stop.Token, credential: owned);
+            CimReading? identity = null;
+            if (definitions.Any(d => !d.SkipOnDc || (computer.UserAccountControl & 8192) == 0))
+            { identity = session.Read("identity", @"root\cimv2", "SELECT Name FROM Win32_ComputerSystem", 1, TimeSpan.FromSeconds(4)); }
+            var confirmed = identity?.Status == SourceStatus.Ok && string.Equals(identity.Instances.FirstOrDefault()?.Text("Name"), computer.Name, StringComparison.OrdinalIgnoreCase);
             foreach (var definition in definitions)
             {
                 if (stop.IsCancellationRequested) { break; }
                 ProbeReading result;
                 if (definition.SkipOnDc && (computer.UserAccountControl & 8192) != 0)
                 { result = new(MeasureState.NotRead, clock.GetUtcNow(), [], "Sonde exclue sur les contrôleurs de domaine."); }
+                else if (!confirmed)
+                { result = new(identity?.Status == SourceStatus.Refused ? MeasureState.Refused : MeasureState.Incomplete, clock.GetUtcNow(), [], "Identité CIM non confirmée ; sondes non associées au poste.") { AuthenticationRejected = identity?.AuthenticationRejected == true }; }
                 else
                 {
                     var query = "SELECT " + string.Join(", ", definition.Properties) + " FROM " + definition.Class
@@ -40,7 +47,8 @@ public sealed class WmiFleetProbeReader(TimeProvider clock)
                 lock (gate) { latest = latest.SetItem(definition.Id, result); }
             }
             lock (gate) { return latest; }
-        }, CancellationToken.None);
+        }, cancellationToken); }
+        catch { stop.Dispose(); throw; }
         try { return await reading.WaitAsync(CimBudgets.Probes + CimBudgets.GiveUpMargin, clock, cancellationToken).ConfigureAwait(false); }
         catch (TimeoutException)
         {
@@ -70,7 +78,7 @@ public sealed class WmiFleetProbeReader(TimeProvider clock)
             SourceStatus.Error => MeasureState.Error,
             _ => MeasureState.NotRead,
         };
-        if (state != MeasureState.Known) { return new(state, at, [], measured.Detail); }
+        if (state != MeasureState.Known) { return new(state, at, [], measured.Detail) { AuthenticationRejected = measured.AuthenticationRejected }; }
         if (definition.Mode == "Count") { return new(state, at, [measured.Items.ToString(CultureInfo.InvariantCulture)], null); }
         var values = ImmutableArray.CreateBuilder<string>();
         foreach (var row in measured.Instances)

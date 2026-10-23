@@ -56,7 +56,10 @@ public sealed record ProbeContract(
 public sealed record ProbeContractLine(string Section, string Value);
 
 /// <summary>One probe reading of one workstation: raw values as read (text), or the reason why none is usable.</summary>
-public sealed record ProbeReading(MeasureState State, DateTimeOffset? At, ImmutableArray<string> Values, string? Error);
+public sealed record ProbeReading(MeasureState State, DateTimeOffset? At, ImmutableArray<string> Values, string? Error)
+{
+    public bool AuthenticationRejected { get; init; }
+}
 
 /// <summary>Probe readings kept for the session, by probe then by computer GUID.</summary>
 public sealed record ProbeReadings(ImmutableDictionary<string, ImmutableDictionary<Guid, ProbeReading>> ByProbe)

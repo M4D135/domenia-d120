@@ -13,7 +13,7 @@ namespace Domenia.Ad;
 /// workstation measures (presence, light inventory) only on the working OU, never on the domain root. Read only by
 /// construction: the write executors of Domenia.Ad are the only writers, through <see cref="Connection"/>.
 /// </summary>
-public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPreparation, IDisposable
+public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPreparation, IAccountContextSource, IDisposable
 {
     public const int MaxObjectsPerKind = 50_000;
 
@@ -47,6 +47,27 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
     private long epoch;
     private bool disposed;
     private string? connectionLogin;
+    internal EngineContext? AccountContext { get; private set; }
+    public void BindAccountContext(EngineContext context)
+    {
+        lock (gate)
+        {
+            if (AccountContext is not null && !ReferenceEquals(AccountContext, context)) { throw new InvalidOperationException("Directory source already belongs to an account context."); }
+            AccountContext = context;
+        }
+    }
+
+    internal AdCredentialCopy CopySessionCredential(long expectedEpoch, string expectedAccount)
+    {
+        lock (gate)
+        {
+            if (epoch != expectedEpoch) { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Session modifiée avant le départ de la lecture."); }
+            if (connection is not AdConnection actual) { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Compte du transport natif indisponible."); }
+            if (account is { } identity && !string.Equals(identity.Login, expectedAccount, StringComparison.OrdinalIgnoreCase))
+            { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Identité de transport différente du compte choisi."); }
+            return actual.CopyCredential();
+        }
+    }
 
     public AdDirectorySource(string? joinedDomain, Func<string> accountLogin, TimeProvider clock, IWorkstationProbe? probe = null, IAdConnection? connection = null, IDirectoryCache? localStore = null)
     {
@@ -550,7 +571,20 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
                 }
                 if (inventory && presence.HasReading && presence.Answered == true)
                 {
-                    if (probe is IWorkstationFactsProbe detailed)
+                    if (probe is ICredentialWorkstationFactsProbe authenticated)
+                    {
+                        using var access = await AdWorkstationAccess.AcquireAsync(this, host, cancellationToken).ConfigureAwait(false);
+                        var read = await authenticated.ReadFactsAsync(host, InventoryTimeout, cancellationToken, access.Credential).ConfigureAwait(false);
+                        access.EnsureCurrent();
+                        if (read.Inventory.State == MeasureState.Refused) { access.Refused(host, "Inventaire léger", read.AuthenticationRejected); }
+                        if (!string.Equals(read.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            measured = new(MeasureState.Incomplete, Clock.GetUtcNow(), null, null, null, null, null, null, null);
+                            facts[computer.ObjectGuid] = new(null, null, null, null, MeasureState.Incomplete, Clock.GetUtcNow(), "Identité CIM non confirmée ; mesures non associées au poste.");
+                        }
+                        else { measured = read.Inventory; facts[computer.ObjectGuid] = read.Facts; }
+                    }
+                    else if (probe is IWorkstationFactsProbe detailed)
                     {
                         var read = await detailed.ReadFactsAsync(host, InventoryTimeout, cancellationToken).ConfigureAwait(false);
                         measured = read.Inventory;
@@ -563,6 +597,15 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
                     }
                 }
                 results[index] = new(computer.ObjectGuid, presence, measured);
+            }
+            catch (DomeniaOperationException ex) when (ex.Code is MachineErrors.AccountPaused or AccountAccess.ContextRefused or "machine.busy")
+            {
+                var at = Clock.GetUtcNow();
+                var refused = ex.Code != "machine.busy";
+                var status = refused ? MeasureState.Refused : MeasureState.Incomplete;
+                var presence = previous.GetValueOrDefault(computer.ObjectGuid)?.Presence ?? PresenceMeasure.Unread;
+                results[index] = new(computer.ObjectGuid, presence, new(status, at, null, null, null, null, null, null, null));
+                facts[computer.ObjectGuid] = new(null, null, null, null, status, at, refused ? "Compte en pause ou contexte refusé ; aucun essai envoyé." : "Lectures précédentes encore en cours ; aucun essai envoyé.");
             }
             finally { limit.Release(); }
         }).ToArray();

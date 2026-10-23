@@ -78,7 +78,10 @@ public sealed partial class AdSearchReader
                 && source.Clock.GetUtcNow() >= at && source.Clock.GetUtcNow() - at <= inventoryReuse;
             if (mode is SurveyMode.Console or SurveyMode.Unaddressed || reused)
             {
-                var seen = await new WmiWorkstationReader(source.Clock).ReadConsoleAccountAsync(computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+                using var access = await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+                var seen = await new WmiWorkstationReader(source.Clock).ReadConsoleAccountAsync(computer.DnsHostName!, cancellationToken, access.Credential).ConfigureAwait(false);
+                access.EnsureCurrent();
+                if (seen?.Status == SourceStatus.Refused) { access.Refused(computer.Name, "Lecture de la console", seen.AuthenticationRejected); }
                 cancellationToken.ThrowIfCancellationRequested();
                 if (seen is not null)
                 {
@@ -93,8 +96,11 @@ public sealed partial class AdSearchReader
             }
             else
             {
+                using var access = InventoryOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false) : null;
                 var reading = InventoryOverride is { } injected ? await injected(computer.DnsHostName!, cancellationToken).ConfigureAwait(false)
-                    : await new WmiWorkstationReader(source.Clock).ReadAsync(computer.DnsHostName!, mode == SurveyMode.Complete ? WorkstationReading.SurveyComplete : WorkstationReading.Survey, null, cancellationToken).ConfigureAwait(false);
+                    : await new WmiWorkstationReader(source.Clock).ReadAsync(computer.DnsHostName!, mode == SurveyMode.Complete ? WorkstationReading.SurveyComplete : WorkstationReading.Survey, null, cancellationToken, access!.Credential).ConfigureAwait(false);
+                access?.EnsureCurrent();
+                if (reading.Access.Any(a => a.Status == SourceStatus.Refused || a.AuthenticationRejected)) { access?.Refused(computer.Name, "Relevé du poste", reading.Access.Any(a => a.AuthenticationRejected)); }
                 if (!string.Equals(reading.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
                 { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité CIM absente ou différente du compte ordinateur : inventaire non associé à cet objet AD."); }
                 var mapped = MapInventory(id, reading);

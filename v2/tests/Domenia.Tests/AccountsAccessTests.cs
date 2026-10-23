@@ -112,7 +112,8 @@ internal static class AccountsAccessTests
         var reader = bridge.Context.Readers.Require<IAccountsAccessReader>();
         var computer = Answering(bridge);
         using var unknownSecret = Secret("x");
-        var unknown = await reader.ProbeAsync(computer.Name, new RemoteProbeCredential(@"EXAMPLE\personne", unknownSecret, false), CancellationToken.None);
+        using var unknownCredential = new RemoteProbeCredential(@"EXAMPLE\personne", unknownSecret.Copy(), false);
+        var unknown = await reader.ProbeAsync(computer.Name, unknownCredential, CancellationToken.None);
         Check.Equal("authRejected", unknown.Outcome, "un compte inconnu est refusé, jamais « OK »");
         var session = await reader.ProbeAsync(computer.Name, new RemoteProbeCredential(@"EXAMPLE\j.martin", null, true), CancellationToken.None);
         Check.True(session.Outcome is "observed" or "denied", "la session elle-même");

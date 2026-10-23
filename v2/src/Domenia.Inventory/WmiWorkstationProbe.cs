@@ -15,7 +15,7 @@ namespace Domenia.Inventory;
 /// change. Every read is bounded (connection, each query and the whole read); a refusal is told apart from an error, and an
 /// unanswered read is « not read », never a verdict. Never called on the UI thread (the source measures off it).
 /// </summary>
-public sealed class WmiWorkstationProbe : IWorkstationFactsProbe
+public sealed class WmiWorkstationProbe : ICredentialWorkstationFactsProbe
 {
     private static readonly TimeSpan MinTimeout = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan MaxPingTimeout = TimeSpan.FromSeconds(10);
@@ -65,7 +65,9 @@ public sealed class WmiWorkstationProbe : IWorkstationFactsProbe
     public async Task<InventoryMeasure> ReadInventoryAsync(string host, TimeSpan timeout, CancellationToken cancellationToken) =>
         (await ReadFactsAsync(host, timeout, cancellationToken).ConfigureAwait(false)).Inventory;
 
-    public async Task<WorkstationInventoryRead> ReadFactsAsync(string host, TimeSpan timeout, CancellationToken cancellationToken)
+    public Task<WorkstationInventoryRead> ReadFactsAsync(string host, TimeSpan timeout, CancellationToken cancellationToken) => ReadFactsAsync(host, timeout, cancellationToken, null);
+
+    public async Task<WorkstationInventoryRead> ReadFactsAsync(string host, TimeSpan timeout, CancellationToken cancellationToken, RemoteProbeCredential? credential)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!IsHostName(host)) { return Unread("Nom de poste invalide."); }
@@ -73,9 +75,10 @@ public sealed class WmiWorkstationProbe : IWorkstationFactsProbe
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var gate = new object();
         var snapshot = Unread("Inventaire non lu.");
-        var reading = Task.Run(() =>
+        Task<WorkstationInventoryRead> reading;
+        try { reading = WmiReadWorkers.Start(credential, owned =>
         {
-            var session = SessionFactory?.Invoke(host, budget, stop.Token) ?? new CimSession(host, budget, clock, journal, stop.Token);
+            var session = SessionFactory?.Invoke(host, budget, stop.Token) ?? new CimSession(host, budget, clock, journal, stop.Token, owned);
             var readings = new Dictionary<string, CimReading>(StringComparer.Ordinal);
             void Read(string id, string query)
             {
@@ -84,13 +87,15 @@ public sealed class WmiWorkstationProbe : IWorkstationFactsProbe
                 lock (gate) { snapshot = Project(readings, clock.GetUtcNow()); }
             }
             Read("system", "SELECT Caption, BuildNumber, LastBootUpTime, SystemDrive FROM Win32_OperatingSystem");
-            Read("computer", "SELECT Model, Manufacturer, TotalPhysicalMemory, UserName FROM Win32_ComputerSystem");
+            Read("computer", "SELECT Name, Model, Manufacturer, TotalPhysicalMemory, UserName FROM Win32_ComputerSystem");
             var drive = readings.GetValueOrDefault("system")?.Instances.FirstOrDefault()?.Text("SystemDrive");
-            drive = drive is { Length: 2 } && char.IsAsciiLetter(drive[0]) && drive[1] == ':' ? drive : "C:";
-            Read("disk", "SELECT Size, FreeSpace FROM Win32_LogicalDisk WHERE DeviceID=" + CimQuery.Literal(drive));
+            if (drive is { Length: 2 } && char.IsAsciiLetter(drive[0]) && drive[1] == ':')
+            { Read("disk", "SELECT Size, FreeSpace FROM Win32_LogicalDisk WHERE DeviceID=" + CimQuery.Literal(drive)); }
+            else { readings["disk"] = new("disk", SourceStatus.Skipped, "Disque système non identifié ; aucune lettre supposée.", 0, []); }
             Read("bios", "SELECT SMBIOSBIOSVersion FROM Win32_BIOS");
             lock (gate) { return snapshot; }
-        }, CancellationToken.None);
+        }, cancellationToken); }
+        catch { stop.Dispose(); throw; }
         try { return await reading.WaitAsync(budget + GiveUpMargin, clock, cancellationToken).ConfigureAwait(false); }
         catch (TimeoutException)
         {
@@ -129,7 +134,8 @@ public sealed class WmiWorkstationProbe : IWorkstationFactsProbe
         var consoleKnown = readings.GetValueOrDefault("computer")?.Status == SourceStatus.Ok && computer is not null;
         var biosText = bios?.Text("SMBIOSBIOSVersion");
         var error = failures.Length > 0 ? string.Join(" ; ", failures.Select(f => f.Category + " : " + f.Detail)) : state == MeasureState.Known ? null : "Inventaire incomplet.";
-        return new(inventory, new(computer?.Text("UserName"), consoleKnown ? at : null, biosText, biosText is null ? null : at, state, at, error));
+        return new(inventory, new(computer?.Text("UserName"), consoleKnown ? at : null, biosText, biosText is null ? null : at, state, at, error))
+            { ReportedName = computer?.Text("Name"), AuthenticationRejected = readings.Values.Any(r => r.AuthenticationRejected) };
     }
 
     /// <summary>A host name or an IPv4 address: letters, digits, « - » and « . » only (nothing that changes the WMI path).</summary>

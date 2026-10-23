@@ -76,11 +76,14 @@ public sealed partial class AdFicheReader
         var epoch = await NetworkEpochAsync(computerDn, cancellationToken).ConfigureAwait(false);
         var computer = await ComputerAsync(computerDn, cancellationToken).ConfigureAwait(false);
         EnsureEpoch(epoch);
-        if (source.Connection is not AdConnection actual) { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Compte Windows du transport indisponible."); }
-        var credential = actual.CopyCredential();
-        WindowsSessionsRead read;
-        using (credential)
-        { read = await new WindowsSessionsReader(source.Clock).ReadAsync(computer.DnsHostName!, credential.User, credential.Domain, credential.Password, cancellationToken).ConfigureAwait(false); }
+        using var access = await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+        var credential = access.Credential;
+        var name = CredentialRules.Parse(credential.Account);
+        var user = credential.Session ? null : name.Form == AccountNameForm.Upn ? credential.Account : name.Name;
+        var domain = credential.Session || name.Form == AccountNameForm.Upn ? null : name.Authority;
+        var read = await new WindowsSessionsReader(source.Clock).ReadAsync(computer.DnsHostName!, user, domain, credential.Password, cancellationToken).ConfigureAwait(false);
+        access.EnsureCurrent();
+        if (read.Status == SourceStatus.Refused) { access.Refused(computer.Name, "Lecture des sessions", read.AuthenticationRejected); }
         EnsureEpoch(epoch);
         var rows = read.Sessions.Where(s => !string.IsNullOrEmpty(s.User)).Select(s => new FicheSessionRow(string.IsNullOrEmpty(s.Domain) ? s.User! : s.Domain + "\\" + s.User,
             s.State, s.Protocol, PosteSessions.OpenedText(s.LogonAt, read.At, source.Zone), PosteSessions.IdleText(s.Idle))).ToImmutableArray();
@@ -93,10 +96,11 @@ public sealed partial class AdFicheReader
         var epoch = await NetworkEpochAsync(computerDn, cancellationToken).ConfigureAwait(false);
         var computer = await ComputerAsync(computerDn, cancellationToken).ConfigureAwait(false);
         EnsureEpoch(epoch);
-        if (InventoryOverride is null && source.Connection is not AdConnection { UsesWindowsIdentity: true })
-        { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Le transport CIM doit utiliser le compte de connexion explicite ; aucun repli sur le compte Windows."); }
+        using var access = InventoryOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false) : null;
         var reading = InventoryOverride is { } injected ? await injected(computer.DnsHostName!, cancellationToken).ConfigureAwait(false)
-            : await new WmiWorkstationReader(source.Clock).ReadAsync(computer.DnsHostName!, WorkstationReading.Triage, null, cancellationToken).ConfigureAwait(false);
+            : await new WmiWorkstationReader(source.Clock).ReadAsync(computer.DnsHostName!, WorkstationReading.Triage, null, cancellationToken, access!.Credential).ConfigureAwait(false);
+        access?.EnsureCurrent();
+        if (reading.Access.Any(a => a.Status == SourceStatus.Refused || a.AuthenticationRejected)) { access?.Refused(computer.Name, "Inventaire de la fiche", reading.Access.Any(a => a.AuthenticationRejected)); }
         if (!string.Equals(reading.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
         { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité CIM absente ou différente du compte ordinateur : inventaire non associé."); }
         await source.SaveFleetAsync(AdSearchReader.MapInventory(computer.ObjectGuid, reading), epoch, CancellationToken.None).ConfigureAwait(false);

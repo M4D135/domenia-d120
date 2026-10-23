@@ -33,9 +33,27 @@ public sealed class AdMachineAccountReader(AdDirectorySource source) : IMachineA
 
     public async Task<MachineTrialObservation> ProbeAccessAsync(MachineProbeRequest request, CancellationToken cancellationToken)
     {
+        var epoch = source.Epoch;
         var workstation = await FindWorkstationAsync(request.Computer, cancellationToken).ConfigureAwait(false);
         if (workstation is null) { return new("TargetUnknown", "Choisissez un poste connu de l’annuaire local.", "Target", null, null); }
-        return await new WmiMachineAccessProbe(source.Clock).ReadAsync(request, workstation, cancellationToken).ConfigureAwait(false);
+        if (request.Source != MachineAccountSource.Windows)
+        {
+            var known = source.KnownDomain;
+            var check = CredentialRules.CheckContext(CredentialRules.Remote, request.Account, workstation.Name,
+                new[] { known?.DnsName, known?.NetbiosName }.OfType<string>().ToArray());
+            if (!check.Valid) { throw new DomeniaOperationException(AccountAccess.ContextRefused, check.Reason); }
+        }
+        using var connection = request.Source == MachineAccountSource.Connection && request.Password is null
+            ? source.CopySessionCredential(epoch, request.Account) : null;
+        if (request.Source == MachineAccountSource.Connection && request.Password is null)
+        {
+            if (connection?.Password is null)
+            { return new("Failed", "Identité de connexion explicite indisponible ; aucun repli Windows.", "CredentialMissing", null, workstation); }
+            request = request with { Password = connection.Password };
+        }
+        var answer = await new WmiMachineAccessProbe(source.Clock).ReadAsync(request, workstation, cancellationToken).ConfigureAwait(false);
+        if (source.Epoch != epoch) { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Session modifiée pendant l’essai ; résultat écarté."); }
+        return answer;
     }
 
     private MachineWorkstation View(DirectorySnapshot directory, DirectoryComputer computer)

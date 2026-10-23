@@ -100,7 +100,7 @@ public sealed class WmiMachineAccessProbe(TimeProvider clock)
     internal static (string Outcome, string Category, string Message)? Classify(Exception ex) => ex switch
     {
         COMException { HResult: unchecked((int)0x8007052E) } => ("AuthRejected", "CredentialsRejected", "Informations d’identification refusées par le poste."),
-        COMException { HResult: unchecked((int)0x80070775) or unchecked((int)0x80070533) or unchecked((int)0x80070532) or unchecked((int)0x80070569) } => ("Failed", "AccountState", "Le compte est verrouillé, expiré, désactivé ou interdit pour cet accès."),
+        COMException error when WindowsAuthenticationErrors.IsRejected(error.HResult) => ("Failed", "AccountState", "Le compte est verrouillé, expiré, désactivé ou interdit pour cet accès."),
         UnauthorizedAccessException or ManagementException { ErrorCode: ManagementStatus.AccessDenied } or COMException { HResult: unchecked((int)0x80070005) } => ("Denied", "AccessDenied", "Accès refusé à cette lecture du poste."),
         TimeoutException or ManagementException { ErrorCode: ManagementStatus.Timedout } or COMException { HResult: unchecked((int)0x800706BA) or unchecked((int)0x800706BE) } => ("Timeout", "Network", "Le poste n’a pas répondu dans le délai de l’essai."),
         ManagementException or COMException => ("Failed", "Provider", "Le fournisseur CIM n’a pas permis cette lecture."),

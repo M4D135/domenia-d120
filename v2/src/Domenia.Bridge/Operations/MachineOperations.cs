@@ -103,6 +103,7 @@ public sealed class MachineOperations : IOperationModule
                 SecureString? secret;
                 // The place of the account in service: its verdict pauses or validates that place only. A candidate has none.
                 string? place = null;
+                MachineOperationCredential? ownedCredential = null;
                 if (candidate is not null)
                 {
                     source = MachineAccountSource.Typed;
@@ -112,7 +113,7 @@ public sealed class MachineOperations : IOperationModule
                 else
                 {
                     // The trial is how a paused account is validated: it may leave with it.
-                    var credential = service.CredentialFor(session, target, forTrial: true);
+                    var credential = ownedCredential = service.CredentialFor(session, target, forTrial: true);
                     (source, account, secret, place) = (credential.Source, credential.Account, credential.Password, credential.Place);
                 }
                 MachineTrialObservation observation;
@@ -123,12 +124,15 @@ public sealed class MachineOperations : IOperationModule
                 }
                 finally
                 {
-                    secret?.Dispose();
+                    if (ownedCredential is not null) { ownedCredential.Dispose(); }
+                    else { secret?.Dispose(); }
                 }
                 if (observation.Workstation is null)
                 {
                     throw new DomeniaOperationException(MachineErrors.TargetUnknown, MachineErrors.TargetUnknownMessage);
                 }
+                if (ownedCredential is not null && service.Generation != ownedCredential.Generation)
+                { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Compte poste modifié pendant l’essai ; résultat écarté."); }
                 var label = MachineAccountRules.Label(source, account);
                 var origin = candidate is not null ? "compte à valider, pas encore en service" : label.Origin;
                 var who = candidate is not null ? account + " (" + origin + ")" : label.Long;

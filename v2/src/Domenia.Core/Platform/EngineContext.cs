@@ -41,6 +41,7 @@ public sealed class EngineContext : IDisposable
         Writers = writers ?? WriteExecutors.None;
         Receipts = receipts ?? new MemoryReceiptStore();
         Documents = documents ?? new MemoryDocumentStore();
+        if (directory is IAccountContextSource accountSource) { accountSource.BindAccountContext(this); }
     }
 
     /// <summary>Startup decision (mode, reason, banner).</summary>

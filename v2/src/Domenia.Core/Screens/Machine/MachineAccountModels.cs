@@ -86,9 +86,12 @@ public sealed record MachineLease(
 /// Account and password copy handed to one workstation operation (vague 3), with the place of the cascade that gave it, so a
 /// refusal pauses that place only. The caller disposes the password; never sent to the page, never logged.
 /// </summary>
-public sealed record MachineOperationCredential(MachineAccountSource Source, string Account, SecureString? Password, string Place) : IDisposable
+public sealed record MachineOperationCredential(MachineAccountSource Source, string Account, [property: System.Text.Json.Serialization.JsonIgnore] SecureString? Password, string Place) : IDisposable
 {
-    public void Dispose() => Password?.Dispose();
+    private readonly IDisposable tracked = SecureCredentialCopies.Track(Password);
+    public string? AccountKey { get; init; }
+    public long Generation { get; init; }
+    public void Dispose() { tracked.Dispose(); Password?.Dispose(); }
 }
 
 /// <summary>

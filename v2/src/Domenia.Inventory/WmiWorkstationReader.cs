@@ -82,7 +82,7 @@ public sealed class WmiWorkstationReader
     private readonly TimeProvider clock;
     private readonly ITechnicalJournal? journal;
     internal Func<string, TimeSpan, CancellationToken, CimSession>? SessionFactory { get; init; }
-    private CimSession Session(string host, TimeSpan budget, CancellationToken token) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token);
+    private CimSession Session(string host, TimeSpan budget, CancellationToken token, RemoteProbeCredential? credential) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token, credential);
 
     /// <summary>Contacts nothing: a workstation is only reached by an explicit read.</summary>
     public WmiWorkstationReader(TimeProvider clock, ITechnicalJournal? journal = null)
@@ -96,7 +96,7 @@ public sealed class WmiWorkstationReader
     /// One bounded reading of one workstation, off the UI thread. A stop or the budget gives a partial result (the sources
     /// not reached are « Interrompu »), never a loss; a workstation that refuses answers « Refusé », which is not an error.
     /// </summary>
-    public async Task<InventorySnapshot> ReadAsync(string host, WorkstationReading reading, IProgress<PosteProgress>? progress, CancellationToken cancellationToken)
+    public async Task<InventorySnapshot> ReadAsync(string host, WorkstationReading reading, IProgress<PosteProgress>? progress, CancellationToken cancellationToken, RemoteProbeCredential? credential = null)
     {
         ArgumentNullException.ThrowIfNull(host);
         if (!CimQuery.IsHostName(host))
@@ -109,7 +109,9 @@ public sealed class WmiWorkstationReader
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var workToken = stop.Token;
         var latest = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, InventoryTransport.Dcom);
-        var work = Task.Run(() => Read(host, reading, progress, workToken, value => Volatile.Write(ref latest, value)), CancellationToken.None);
+        Task<InventorySnapshot> work;
+        try { work = WmiReadWorkers.Start(credential, owned => Read(host, reading, progress, workToken, value => Volatile.Write(ref latest, value), owned), workToken); }
+        catch { stop.Dispose(); throw; }
         try
         {
             return await work.WaitAsync(budget + CimBudgets.GiveUpMargin, clock, cancellationToken).ConfigureAwait(false);
@@ -136,7 +138,7 @@ public sealed class WmiWorkstationReader
     /// workstation calls itself is returned with the account: the caller refuses the reading when it differs from the
     /// name of the directory.
     /// </summary>
-    public async Task<ConsoleAccountReading?> ReadConsoleAccountAsync(string host, CancellationToken cancellationToken)
+    public async Task<ConsoleAccountReading?> ReadConsoleAccountAsync(string host, CancellationToken cancellationToken, RemoteProbeCredential? credential = null)
     {
         ArgumentNullException.ThrowIfNull(host);
         if (!CimQuery.IsHostName(host))
@@ -146,13 +148,15 @@ public sealed class WmiWorkstationReader
 
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var workToken = stop.Token;
-        var work = Task.Run(() =>
+        Task<ConsoleAccountReading> work;
+        try { work = WmiReadWorkers.Start(credential, owned =>
         {
-            var session = Session(host, CimBudgets.ConsoleSession, workToken);
+            var session = Session(host, CimBudgets.ConsoleSession, workToken, owned);
             var reading = session.Read(InventoryCategories.System, Cimv2, "SELECT Name, UserName FROM Win32_ComputerSystem", 1, CimBudgets.ConsoleSession);
             var instance = reading.Instances.FirstOrDefault();
-            return new ConsoleAccountReading(host, reading.Status, instance?.Text("UserName"), instance?.Text("Name"));
-        }, cancellationToken);
+            return new ConsoleAccountReading(host, reading.Status, instance?.Text("UserName"), instance?.Text("Name")) { AuthenticationRejected = reading.AuthenticationRejected };
+        }, workToken); }
+        catch { stop.Dispose(); throw; }
         try
         {
             return await work.WaitAsync(CimBudgets.ConsoleSession + CimBudgets.GiveUpMargin, clock, cancellationToken).ConfigureAwait(false);
@@ -218,10 +222,10 @@ public sealed class WmiWorkstationReader
             .Select(category => new SourceAccess(category, SourceStatus.Interrupted, detail, 0, 0, InventoryTransport.Dcom))],
     };
 
-    private InventorySnapshot Read(string host, WorkstationReading reading, IProgress<PosteProgress>? progress, CancellationToken cancellationToken, Action<InventorySnapshot> publish)
+    private InventorySnapshot Read(string host, WorkstationReading reading, IProgress<PosteProgress>? progress, CancellationToken cancellationToken, Action<InventorySnapshot> publish, RemoteProbeCredential? credential)
     {
         var started = clock.GetTimestamp();
-        var session = Session(host, Budget(reading), cancellationToken);
+        var session = Session(host, Budget(reading), cancellationToken, credential);
         var access = new List<SourceAccess>();
         var snapshot = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, session.Transport);
         var plan = Steps(reading);
@@ -326,7 +330,7 @@ public sealed class WmiWorkstationReader
         var detail = answered == 0
             ? readings[0].Detail
             : answered + " requête(s) sur " + readings.Length + ", " + FrenchText.Integer(items) + " instance(s)";
-        access.Add(new SourceAccess(category, status, detail, duration, items, session.Transport));
+        access.Add(new SourceAccess(category, status, detail, duration, items, session.Transport) { AuthenticationRejected = readings.Any(r => r.AuthenticationRejected) });
     }
 
     private static SourceStatus Worst(CimReading[] readings)
@@ -942,6 +946,7 @@ public sealed class WmiWorkstationReader
 /// </summary>
 public sealed record ConsoleAccountReading(string Host, SourceStatus Status, string? ConsoleUser, string? ReportedName)
 {
+    public bool AuthenticationRejected { get; init; }
     /// <summary>True when the workstation answered with a console account.</summary>
     public bool Answered => (Status is SourceStatus.Ok or SourceStatus.Partial) && !string.IsNullOrWhiteSpace(ConsoleUser);
 }

@@ -243,3 +243,7 @@ indicateurs de registre restent à raccorder dans leurs lots respectifs. Ils ne 
 Validation à ce stade : compilation Windows Debug/Release, zéro avertissement. Treize tests supplémentaires
 écrits et compilés, **exécution et recette AD/native réservées à la validation finale**. Aucun statut du catalogue
 requalifié sur cette seule compilation.
+
+### Transport avec le compte sélectionné (23/10/2026)
+
+Les sessions WTS et le tri CIM emploient désormais la cascade Compte poste commune à Comptes, y compris le compte de connexion explicite. La génération et l’époque sont vérifiées après lecture avant publication ; aucune identité de secours n’est essayée. Les copies sécurisées restent détenues jusqu’au retour natif effectif. Les refus d’authentification remontent à la garde commune. Le repli WTS/CIM et WSMan restent à développer ; la compilation ne constitue pas une recette native.

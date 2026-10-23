@@ -56,8 +56,21 @@ public sealed class AdAccueilReader : IAccueilReader
             try
             {
                 if (source.Epoch != generation) { throw new OperationCanceledException("La session a changé.", cancellationToken); }
-                completed[computer.ObjectGuid] = await (ProbeOverride?.Invoke(computer, probeIds, cancellationToken) ?? probes.ReadAsync(computer, probeIds, cancellationToken)).ConfigureAwait(false);
+                if (probeIds.IsEmpty || (computer.UserAccountControl & 8192) != 0 && probeIds.All(id => ProbeCatalog.Find(id)!.SkipOnDc))
+                {
+                    completed[computer.ObjectGuid] = probeIds.Distinct().ToImmutableDictionary(id => id,
+                        id => new ProbeReading(MeasureState.NotRead, source.Clock.GetUtcNow(), [], "Sonde exclue sur les contrôleurs de domaine."));
+                    return;
+                }
+                using var access = ProbeOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName ?? computer.Name, cancellationToken).ConfigureAwait(false) : null;
+                var readings = await (ProbeOverride?.Invoke(computer, probeIds, cancellationToken) ?? probes.ReadAsync(computer, probeIds, cancellationToken, access!.Credential)).ConfigureAwait(false);
+                access?.EnsureCurrent();
+                if (readings.Values.Any(r => r.State == MeasureState.Refused || r.AuthenticationRejected))
+                { access?.Refused(computer.Name, "Sondes du parc", readings.Values.Any(r => r.AuthenticationRejected)); }
+                completed[computer.ObjectGuid] = readings;
             }
+            catch (DomeniaOperationException ex) when (ex.Code is MachineErrors.AccountPaused or AccountAccess.ContextRefused or "machine.busy")
+            { completed[computer.ObjectGuid] = probeIds.Distinct().ToImmutableDictionary(id => id, id => new ProbeReading(MeasureState.NotRead, source.Clock.GetUtcNow(), [], "Lecture non envoyée : " + ex.Code)); }
             finally { limit.Release(); }
         }).ToArray();
         var interrupted = false;
