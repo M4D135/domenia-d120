@@ -24,8 +24,6 @@ public sealed class AdConnection : IAdConnection
         "currentTime",
     ];
 
-    private static readonly string[] AllAttributes = ["*"];
-
     private static readonly HashSet<string> BinaryAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "objectGUID",
@@ -91,14 +89,40 @@ public sealed class AdConnection : IAdConnection
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Filter, nameof(request.Filter));
         ArgumentNullException.ThrowIfNull(request.Attributes);
 
+        ValidateReadRequest(request);
+        using var elapsed = new CancellationTokenSource(request.Budget);
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, elapsed.Token);
+        try { return await SearchCoreAsync(request, budget.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && elapsed.IsCancellationRequested)
+        { throw new DomeniaOperationException(AdErrors.Timeout, AdErrors.TimeoutMessage); }
+    }
+
+    internal static void ValidateReadRequest(AdSearchRequest request)
+    {
+        if (request.Attributes.Count == 0 || request.Attributes.Count > 4096
+            || request.Attributes.Any(name => !SafeReadAttribute(name))
+            || request.MaxRangeValues is < 1 or > 50_000 || request.Budget <= TimeSpan.Zero || request.Budget > TimeSpan.FromMinutes(10)
+            || request.ReadOwnerAndDacl && !request.Attributes.Contains("nTSecurityDescriptor", StringComparer.OrdinalIgnoreCase))
+        { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Attributs ou limites de lecture LDAP non autorisés."); }
         if (request.SortAttribute is not null && request.SortAttribute != "name")
         { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Clé de tri LDAP non autorisée."); }
+    }
+
+    private static bool SafeReadAttribute(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) { return false; }
+        var plain = AdAttributeRange.TryParse(name, out var range) ? range!.Attribute : name;
+        return FicheAttributeRules.IsValidName(plain) && !FicheAttributeRules.IsSensitive(plain);
+    }
+
+    private async Task<IReadOnlyList<AdEntry>> SearchCoreAsync(AdSearchRequest request, CancellationToken cancellationToken)
+    {
         await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
         var connection = _connection ?? throw new DomeniaOperationException(AdErrors.NotConnected, AdErrors.NotConnectedMessage);
-
         var timeout = NormalizeTimeout(request.Timeout, TimeSpan.FromSeconds(30));
         var pageSize = request.PageSize <= 0 ? 500 : request.PageSize;
-        var attributes = request.Attributes.Count == 0 ? AllAttributes : request.Attributes.ToArray();
+        var attributes = request.ExpandRanges
+            ? request.Attributes.Concat(new[] { "objectGUID", "uSNChanged" }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() : request.Attributes.ToArray();
 
         var results = new List<AdEntry>();
         var total = 0;
@@ -126,6 +150,8 @@ public sealed class AdConnection : IAdConnection
                 ? new PageResultRequestControl(pageLimit)
                 : new PageResultRequestControl(pageLimit) { Cookie = cookie };
             searchRequest.Controls.Add(pageControl);
+            if (request.ReadOwnerAndDacl)
+            { searchRequest.Controls.Add(new SecurityDescriptorFlagControl(SecurityMasks.Owner | SecurityMasks.Dacl) { IsCritical = true }); }
             if (request.SortAttribute is not null)
             { searchRequest.Controls.Add(new SortRequestControl(request.SortAttribute, false) { IsCritical = true }); }
 
@@ -142,7 +168,7 @@ public sealed class AdConnection : IAdConnection
                         continue;
                     }
 
-                    results.Add(await MaterializeEntryAsync(connection, entry, timeout, cancellationToken).ConfigureAwait(false));
+                    results.Add(await MaterializeEntryAsync(connection, entry, timeout, cancellationToken, request.ExpandRanges, request.MaxRangeValues).ConfigureAwait(false));
                     total++;
 
                     if (request.SizeLimit > 0 && total >= request.SizeLimit)
@@ -528,156 +554,61 @@ public sealed class AdConnection : IAdConnection
 #pragma warning restore CA1031
     }
 
-    private static async Task<AdEntry> MaterializeEntryAsync(
-        LdapConnection connection,
-        SearchResultEntry entry,
-        TimeSpan timeout,
-        CancellationToken cancellationToken)
+    internal static AdEntry ReadEntry(SearchResultEntry entry)
     {
-        ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(entry);
-
-        var dn = entry.DistinguishedName ?? string.Empty;
-        var bag = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase);
-
-        if (entry.Attributes is { } attributes)
+        var bag = new Dictionary<string, IReadOnlyList<object>>(StringComparer.OrdinalIgnoreCase);
+        // This collection enumerates dictionary entries, not DirectoryAttribute instances.
+        foreach (DirectoryAttribute attribute in entry.Attributes.Values)
         {
-            foreach (DirectoryAttribute attribute in attributes)
-            {
-                if (attribute is null)
-                {
-                    continue;
-                }
-
-                var name = attribute.Name;
-                if (string.IsNullOrEmpty(name))
-                {
-                    continue;
-                }
-
-                if (TryParseRangedAttribute(name, out var baseName, out var lower, out var upper))
-                {
-                    var binary = IsBinaryAttribute(baseName);
-                    var target = GetOrCreate(bag, baseName);
-                    AddValues(target, attribute.GetValues(binary ? typeof(byte[]) : typeof(string)));
-
-                    if (upper is not null &&
-                        !string.Equals(upper, "*", StringComparison.Ordinal) &&
-                        int.TryParse(upper, NumberStyles.Integer, CultureInfo.InvariantCulture, out var upperInt))
-                    {
-                        if (upperInt >= lower && upperInt < int.MaxValue)
-                        {
-                            var start = upperInt + 1;
-                            if (start >= 0)
-                            {
-                                await FetchRangedValuesAsync(connection, dn, baseName, start, binary, target, timeout, cancellationToken).ConfigureAwait(false);
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    var binary = IsBinaryAttribute(name);
-                    var target = GetOrCreate(bag, name);
-                    AddValues(target, attribute.GetValues(binary ? typeof(byte[]) : typeof(string)));
-                }
-            }
+            var name = attribute.Name;
+            if (!SafeReadAttribute(name)) { throw AdAttributeRange.Incomplete(); }
+            var plain = AdAttributeRange.TryParse(name, out var range) ? range!.Attribute : name;
+            bag.Add(name, attribute.GetValues(IsBinaryAttribute(plain) ? typeof(byte[]) : typeof(string)));
         }
-
-        return new AdEntry(dn, ToReadOnlyDictionary(bag));
+        return new(entry.DistinguishedName, bag);
     }
 
-    private static async Task FetchRangedValuesAsync(
-        LdapConnection connection,
-        string dn,
-        string baseAttribute,
-        int start,
-        bool binary,
-        List<object> target,
-        TimeSpan timeout,
-        CancellationToken cancellationToken)
+    private static async Task<AdEntry> MaterializeEntryAsync(LdapConnection connection, SearchResultEntry entry,
+        TimeSpan timeout, CancellationToken token, bool expand = true, int maximum = 50_000)
     {
-        ArgumentNullException.ThrowIfNull(connection);
-        ArgumentException.ThrowIfNullOrWhiteSpace(dn, nameof(dn));
-        ArgumentException.ThrowIfNullOrWhiteSpace(baseAttribute, nameof(baseAttribute));
-
-        if (start < 0)
+        var raw = ReadEntry(entry);
+        if (!expand) { return raw; }
+        var bag = new Dictionary<string, IReadOnlyList<object>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in raw.AttributeNames)
         {
-            return;
+            if (!AdAttributeRange.TryParse(name, out var range))
+            {
+                if (raw.Raw(name).Count > maximum) { throw AdAttributeRange.Incomplete(); }
+                if (!bag.TryAdd(name, raw.Raw(name))) { throw AdAttributeRange.Incomplete(); }
+                continue;
+            }
+            var values = raw.Raw(name).ToList();
+            range!.Validate(0, values.Count, 0, maximum);
+            while (range.End is { } last)
+            {
+                token.ThrowIfCancellationRequested();
+                // The same controller, identity and USN are required for every slice of one attribute.
+                if (raw.Guid("objectGUID") is not { } guid || raw.Long("uSNChanged") is not { } usn) { throw AdAttributeRange.Incomplete(); }
+                var requested = range.Attribute + ";range=" + (last + 1).ToString(CultureInfo.InvariantCulture) + "-" + (maximum - 1).ToString(CultureInfo.InvariantCulture);
+                var request = CreateSearchRequest(raw.DistinguishedName, "(objectClass=*)", AdSearchScope.Base,
+                    [requested, "objectGUID", "uSNChanged"], timeout);
+                var response = await SendRequestAsync<SearchResponse>(connection, request, timeout, "range", token).ConfigureAwait(false);
+                if (response.Entries.Count != 1) { throw AdAttributeRange.Incomplete(); }
+                var next = ReadEntry(response.Entries[0]);
+                if (!FicheValues.SameDn(raw.DistinguishedName, next.DistinguishedName) || next.Guid("objectGUID") != guid || next.Long("uSNChanged") != usn)
+                { throw AdAttributeRange.Incomplete(); }
+                var names = next.AttributeNames.Where(n => AdAttributeRange.TryParse(n, out var r) && r!.Attribute.Equals(range.Attribute, StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (names.Length != 1 || next.Has(range.Attribute)) { throw AdAttributeRange.Incomplete(); }
+                _ = AdAttributeRange.TryParse(names[0], out var slice);
+                var chunk = next.Raw(names[0]);
+                slice!.Validate(last + 1, chunk.Count, values.Count, maximum);
+                values.AddRange(chunk);
+                range = slice;
+            }
+            if (!bag.TryAdd(range.Attribute, values)) { throw AdAttributeRange.Incomplete(); }
         }
-
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var rangeAttribute = baseAttribute + ";range=" + start.ToString(CultureInfo.InvariantCulture) + "-*";
-            var request = CreateSearchRequest(dn, "(objectClass=*)", AdSearchScope.Base, new[] { rangeAttribute }, timeout);
-
-            var response = await SendRequestAsync<SearchResponse>(connection, request, timeout, "range", cancellationToken).ConfigureAwait(false);
-
-            var entries = response.Entries;
-            if (entries is null || entries.Count == 0)
-            {
-                break;
-            }
-
-            var entry = entries[0];
-            if (entry is null)
-            {
-                break;
-            }
-
-            if (entry.Attributes is not { } attributes)
-            {
-                break;
-            }
-
-            var found = false;
-
-            foreach (DirectoryAttribute attribute in attributes)
-            {
-                if (attribute is null || attribute.Name is null)
-                {
-                    continue;
-                }
-
-                if (!TryParseRangedAttribute(attribute.Name, out var baseName, out _, out var upper))
-                {
-                    continue;
-                }
-
-                if (!string.Equals(baseName, baseAttribute, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                found = true;
-                AddValues(target, attribute.GetValues(binary ? typeof(byte[]) : typeof(string)));
-
-                if (string.Equals(upper, "*", StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                if (upper is null || !int.TryParse(upper, NumberStyles.Integer, CultureInfo.InvariantCulture, out var upperInt))
-                {
-                    return;
-                }
-
-                if (upperInt < start || upperInt == int.MaxValue)
-                {
-                    return;
-                }
-
-                start = upperInt + 1;
-                break;
-            }
-
-            if (!found)
-            {
-                break;
-            }
-        }
+        return new(raw.DistinguishedName, bag);
     }
 
     private static SearchRequest CreateSearchRequest(
@@ -731,94 +662,10 @@ public sealed class AdConnection : IAdConnection
         return null;
     }
 
-    private static bool TryParseRangedAttribute(string attributeName, out string baseName, out int lower, out string? upper)
-    {
-        ArgumentNullException.ThrowIfNull(attributeName);
-
-        baseName = attributeName;
-        lower = 0;
-        upper = null;
-
-        var separator = attributeName.IndexOf(';', StringComparison.Ordinal);
-        if (separator < 0)
-        {
-            return false;
-        }
-
-        baseName = attributeName.Substring(0, separator);
-        if (baseName.Length == 0)
-        {
-            return false;
-        }
-
-        var rest = attributeName.Substring(separator + 1);
-        if (!rest.StartsWith("range=", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var range = rest.Substring("range=".Length);
-        var dash = range.IndexOf('-', StringComparison.Ordinal);
-        if (dash < 0)
-        {
-            return false;
-        }
-
-        var lowerText = range.Substring(0, dash);
-        upper = range.Substring(dash + 1);
-
-        if (upper.Length == 0)
-        {
-            return false;
-        }
-
-        if (!int.TryParse(lowerText, NumberStyles.Integer, CultureInfo.InvariantCulture, out lower) || lower < 0)
-        {
-            return false;
-        }
-
-        if (!string.Equals(upper, "*", StringComparison.Ordinal))
-        {
-            if (!int.TryParse(upper, NumberStyles.Integer, CultureInfo.InvariantCulture, out var upperCheck) || upperCheck < 0)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     private static bool IsBinaryAttribute(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
         return BinaryAttributes.Contains(name);
-    }
-
-    private static void AddValues(List<object> target, object[]? values)
-    {
-        ArgumentNullException.ThrowIfNull(target);
-
-        if (values is null)
-        {
-            return;
-        }
-
-        foreach (var value in values)
-        {
-            if (value is null)
-            {
-                continue;
-            }
-
-            if (value is string || value is byte[])
-            {
-                target.Add(value);
-            }
-            else
-            {
-                target.Add(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
-            }
-        }
     }
 
     private static void AddValue(DirectoryAttribute attribute, object value)
@@ -857,33 +704,6 @@ public sealed class AdConnection : IAdConnection
                 modification.Add(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
                 break;
         }
-    }
-
-    private static List<object> GetOrCreate(Dictionary<string, List<object>> bag, string name)
-    {
-        ArgumentNullException.ThrowIfNull(bag);
-        ArgumentNullException.ThrowIfNull(name);
-
-        if (!bag.TryGetValue(name, out var list))
-        {
-            list = [];
-            bag[name] = list;
-        }
-
-        return list;
-    }
-
-    private static IReadOnlyDictionary<string, IReadOnlyList<object>> ToReadOnlyDictionary(Dictionary<string, List<object>> bag)
-    {
-        ArgumentNullException.ThrowIfNull(bag);
-
-        var result = new Dictionary<string, IReadOnlyList<object>>(bag.Count, StringComparer.OrdinalIgnoreCase);
-        foreach (var pair in bag)
-        {
-            result[pair.Key] = pair.Value;
-        }
-
-        return result;
     }
 
     private static TimeSpan NormalizeTimeout(TimeSpan timeout, TimeSpan fallback) => timeout <= TimeSpan.Zero ? fallback : timeout;

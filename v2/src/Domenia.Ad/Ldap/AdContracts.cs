@@ -26,6 +26,18 @@ public sealed record AdSearchRequest(string BaseDn, string Filter, AdSearchScope
     public int SizeLimit { get; init; }
 
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>Whether ranged attributes are gathered; false preserves their LDAP range names for an explicit bounded reader.</summary>
+    public bool ExpandRanges { get; init; } = true;
+
+    /// <summary>Maximum values per expanded attribute. Exceeding it refuses the incomplete entry.</summary>
+    public int MaxRangeValues { get; init; } = 50_000;
+
+    /// <summary>Absolute budget across all pages and ranges, independently of the per-page timeout.</summary>
+    public TimeSpan Budget { get; init; } = TimeSpan.FromMinutes(3);
+
+    /// <summary>Requests only owner and DACL with the AD SD_FLAGS control; never the audit SACL.</summary>
+    public bool ReadOwnerAndDacl { get; init; }
 }
 
 /// <summary>How a modification changes an attribute.</summary>

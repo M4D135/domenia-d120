@@ -195,3 +195,9 @@ Aucun relevé ne porte sur tout le domaine : chaque lecture vise l’objet ouver
   (son compte, son OU de travail).
 - Fenêtre sécurisée : `src/Domenia.App/Secrets/` (`HostPasswordWindow`, `PasswordWindow`, `SecureEntry`). Fenêtre native
   modale au-dessus de l’application, couleurs du thème de la page ; la capture (surface WebView2 seule) ne la montre pas.
+
+### Socle LDAP préparé le 23/10/2026
+
+Le transport exige des noms d’attributs explicites et exclut les secrets avant connexion. Les lecteurs peuvent demander des tranches sans expansion automatique (`ExpandRanges = false`) : les noms `member;range=…` restent alors visibles pour compter et annoncer les limites. L’expansion automatique est bornée à 50 000 valeurs, vérifie la continuité des tranches et la stabilité GUID/USN sur le même contrôleur, et refuse un résultat incomplet. Chaque recherche a aussi un budget total (3 min par défaut, configurable jusqu’à 10 min) en plus du délai par page. Le contrôle `ReadOwnerAndDacl` limite le descripteur aux droits et au propriétaire, sans SACL.
+
+La matérialisation utilise les valeurs de `SearchResultAttributeCollection` : son énumérateur direct est celui de `DictionaryBase`, pas une suite d’attributs ([contrat .NET](https://learn.microsoft.com/en-us/dotnet/api/system.directoryservices.protocols.searchresultattributecollection)). Ce correctif est compilé ; la recette AD reste à faire.
