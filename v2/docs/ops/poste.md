@@ -567,3 +567,10 @@ La lecture locale recherche seulement le détail `Sessions/WTS` du GUID concern�
 La date native `ObservedUtc` doit correspondre au dernier succès. `LogonTicks` est un FILETIME, `IdleTicks` une durée ; valeurs absentes restent inconnues. Un compte partiellement lu demeure visible comme non lu. Une liste absente ne devient jamais une liste vide. Le dernier échec générique D1 ne permet pas de déduire un rejet d’authentification et reste séparé de la dernière liste complète.
 
 L’ouverture de Poste combine cet historique avec les données V2 par leurs dates et leur GUID, sans contact réseau. Un nouveau refus natif conserve la dernière liste complète D1 dans le cache V2 ; le détail original demeure intact. Sept tests ajoutés et compilés en VM sans erreur ni avertissement ; tests non exécutés.
+
+
+## 38. Lecture partielle et présentation (23/10/2026)
+
+Avant redémarrage, une liste provenant du cache, non datée ou partielle laisse le total des sessions inconnu. Les personnes déjà identifiées restent affichées ; seule une lecture fraîche complète peut établir un total nul. La simulation respecte elle aussi l’autorité des comptes et l’UPN exact lors de l’ouverture d’une fiche, sans réattribuer un homonyme local ou étranger au domaine.
+
+Les notices d’inventaire portent une tonalité explicite : information pour la provenance et la mémorisation, avertissement pour un refus, une identité non confirmée ou une proposition de repli. Une simple confirmation de lecture n’apparaît plus comme une alerte. Trois tests ajoutés et compilés ; Debug/Release sans erreur ni avertissement, tests et validation visuelle toujours à effectuer en fin de développement.

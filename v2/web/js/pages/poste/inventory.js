@@ -71,7 +71,7 @@ function hardware(host, state) {
   const paintHead = () => {
     const inv = state.data.inventory;
     const busy = running;
-    const notice = result?.notice ? `<p class="ps-badge-line" data-tone="${result.partial ? 'info' : 'warn'}">${ico(result.partial ? 'info' : 'alert')}<span>${esc(result.notice)}</span>
+    const notice = result?.notice ? `<p class="ps-badge-line" data-tone="${result.noticeTone === 'warn' ? 'warn' : 'info'}">${ico(result.noticeTone === 'warn' ? 'alert' : 'info')}<span>${esc(result.notice)}</span>
       ${result.noticeAction === 'readFallback' ? `<button class="btn sm" type="button" data-act="fallback">${ico('shield')}Autoriser une lecture de repli…</button>` : ''}</p>` : '';
     head.innerHTML = `<div class="ps-inv-bar"><div class="ps-inv-title"><span class="ps-card-icon">${ico('layers')}</span>
         <div><h3>${esc(result ? result.modeLabel : inv ? inv.modeLabel : 'Aucun inventaire')}</h3>

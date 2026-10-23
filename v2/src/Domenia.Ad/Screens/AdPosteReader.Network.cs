@@ -151,7 +151,8 @@ public sealed partial class AdPosteReader
         var now = source.Clock.GetUtcNow();
         var board = PosteBoardBuilder.Build(Computer(local, Names(local.Directory)), value, policy, now, source.Zone);
         return InventoryRows.Build(value, board, confirmed ? "Relevé réel de cette session" : "Identité non confirmée ; aucune donnée enregistrée", now, source.Zone,
-            qualified.Notice + (value.Interrupted ? " Lecture arrêtée ; seules les sources déjà lues et l’identité confirmée sont conservées." : ""));
+            qualified.Notice + (value.Interrupted ? " Lecture arrêtée ; seules les sources déjà lues et l’identité confirmée sont conservées." : "")) with
+        { NoticeTone = qualified.Denied || !confirmed ? Tone.Warn : Tone.Info };
     }
 
     public async Task<PosteLive> LiveAsync(string dn, CancellationToken cancellationToken)

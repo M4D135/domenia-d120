@@ -697,12 +697,14 @@ public sealed partial class SimulatedPosteReader
     {
         ArgumentException.ThrowIfNullOrEmpty(login);
         await Wait("account", 40, 120, cancellationToken).ConfigureAwait(false);
-        var wanted = login.Contains('@', StringComparison.Ordinal) ? login[..login.IndexOf('@')] : login[(login.LastIndexOf('\\') + 1)..];
-        if (wanted.Length == 0)
-        {
-            return null;
-        }
-        var user = source.CurrentDirectory.Users.FirstOrDefault(u => string.Equals(u.SamAccountName, wanted, StringComparison.OrdinalIgnoreCase));
+        if (!CredentialRules.IsWellFormed(login)) { return null; }
+        var directory = source.CurrentDirectory;
+        var name = CredentialRules.Parse(login);
+        if (name.Form == AccountNameForm.DownLevel && !name.Authority.Equals(directory.Domain.DnsName, StringComparison.OrdinalIgnoreCase)
+            && !name.Authority.Equals(directory.Domain.NetbiosName, StringComparison.OrdinalIgnoreCase)) { return null; }
+        var users = directory.Users.Where(u => name.Form == AccountNameForm.Upn ? string.Equals(u.UserPrincipalName, login, StringComparison.OrdinalIgnoreCase)
+            : u.SamAccountName.Equals(name.Name, StringComparison.OrdinalIgnoreCase)).Take(2).ToArray();
+        var user = users.Length == 1 ? users[0] : null;
         return user is null ? null : new UserRef(user.DisplayName ?? user.Cn, user.SamAccountName, user.DistinguishedName, user.ObjectGuid);
     }
 

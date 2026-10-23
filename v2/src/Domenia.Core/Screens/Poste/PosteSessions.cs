@@ -230,6 +230,11 @@ public static class PosteSessions
             return new RestartSessions(false, -1, [], (view.EmptyText.Length > 0 ? view.EmptyText : "Sessions non lues : aucune conclusion.") + Advice);
         }
         var lines = view.Rows.Select(r => string.Join(" · ", new[] { r.User, r.Protocol, r.State, r.Opened.Length > 0 ? "ouverte à " + r.Opened : "", r.Idle.Length > 0 ? "inactive depuis " + r.Idle : "" }.Where(t => t.Length > 0))).ToImmutableArray();
+        if (view.Cached || view.ReadAt is null)
+        { return new RestartSessions(false, -1, lines, "Lecture antérieure ou non datée : les sessions actuelles ne sont pas établies." + Advice); }
+        if (view.Partial || view.UnreadSessions > 0)
+        { return new RestartSessions(false, -1, lines, "Lecture partielle : " + FrenchText.Count(view.UserSessions, "session identifiée", "sessions identifiées")
+            + ", total inconnu. Aucune conclusion sur les sessions non lues." + Advice); }
         var count = view.UserSessions;
         var text = count switch
         {
@@ -238,14 +243,6 @@ public static class PosteSessions
             1 => "1 session ouverte : en différé, l’utilisateur voit le message et le délai ; en immédiat, son travail non enregistré est perdu.",
             _ => FrenchText.Integer(count) + " sessions ouvertes : en différé, chaque utilisateur voit le message et le délai ; en immédiat, leur travail non enregistré est perdu.",
         };
-        if (view.UnreadSessions > 0)
-        {
-            text += " " + FrenchText.Count(view.UnreadSessions, "session", "sessions") + " dont le compte n’a pas pu être lu.";
-        }
-        if (view.Partial)
-        {
-            text += " Lecture partielle : aucune conclusion sur les sessions non listées.";
-        }
         return new RestartSessions(true, count, lines, text);
     }
 }

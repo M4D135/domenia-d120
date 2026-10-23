@@ -30,7 +30,10 @@ public sealed record InventoryResult(
     string Report,
     bool Partial,
     string? Notice,
-    string? NoticeAction);
+    string? NoticeAction)
+{
+    public Tone NoticeTone { get; init; } = Tone.Info;
+}
 
 /// <summary>
 /// The inventory grid of Domenia 1 (Get-DomeniaInventoryValueText, Apply-DomeniaInventoryFilter, Get-DomeniaInventoryReportText):
@@ -66,7 +69,8 @@ public static class InventoryRows
                 + FrenchText.Count(interrupted.Count, "source non lue", "sources non lues") + " (" + string.Join(", ", interrupted.Take(4).Select(a => a.Category)) + (interrupted.Count > 4 ? "…" : "") + ").";
         }
         return new InventoryResult(inv.Computer, inv.CollectedAt, inv.Deep, mode, inv.DurationMs, PosteLabels.TransportLabel(inv.Transport), summary, age, origin, access, categories, rows, board, report,
-            interrupted.Count > 0, notice, noticeAction);
+            interrupted.Count > 0, notice, noticeAction)
+        { NoticeTone = noticeAction == FallbackAction || refused > 0 ? Tone.Warn : Tone.Info };
     }
 
     private static IEnumerable<InventoryRow> Rows(InventorySnapshot d, TimeZoneInfo zone)

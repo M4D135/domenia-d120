@@ -109,7 +109,7 @@ public interface IPosteReader : IScreenReader
     /// </summary>
     Task<SecretsIndex> SecretsIndexAsync(ScopeSelection scope, IProgress<PosteProgress>? progress, CancellationToken cancellationToken);
 
-    /// <summary>The user account of a session login (sAMAccountName, domain removed) to open its card (PST-073); null when none.</summary>
+    /// <summary>The user account of a session login, keeping its authority for qualified names (PST-073); null when foreign, local or ambiguous.</summary>
     Task<UserRef?> FindAccountAsync(string login, CancellationToken cancellationToken);
 
     /// <summary>Groups of the directory whose name holds the text (50 at most), to choose a membership; local base only.</summary>
