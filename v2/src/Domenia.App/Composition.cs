@@ -30,6 +30,7 @@ internal sealed class Composition : IDisposable
     public ModeDecision Decision => context.Decision;
 
     public OperationRegistry Registry { get; }
+    public WriteCircuit Writes => WriteCircuit.From(context);
 
     public Func<OperationDefinition, BridgeError?> Admission { get; }
 

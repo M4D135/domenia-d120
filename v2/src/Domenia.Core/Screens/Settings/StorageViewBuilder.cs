@@ -12,8 +12,8 @@ public sealed record LegacyPreview(bool Found, string Location, string Domain, I
 /// </summary>
 public static class StorageViewBuilder
 {
-    /// <summary>Why the base is unavailable in directory mode while Domenia.Store has no SQLite base yet (wave 3).</summary>
-    public const string DirectoryModeReason = "Base locale de Domenia 2 pas encore branchée dans cette version" + FrenchText.Nbsp + ": rien n’est lu ni écrit. Les réglages de conservation et de sauvegarde restent enregistrés et s’appliqueront à la base dès qu’elle existera.";
+    /// <summary>Fallback when no local store can be inspected in this mode.</summary>
+    public const string DirectoryModeReason = "Aucune base locale disponible pour ce domaine. Les réglages restent enregistrés ; une première lecture explicite prépare la base.";
 
     /// <summary>View when the mode has no base (directory mode of this version).</summary>
     public static StorageView Unavailable(StoragePolicy policy, bool policyUnreadable, int maxConcurrent, int maxQueued, TimeZoneInfo zone) =>
@@ -46,7 +46,14 @@ public static class StorageViewBuilder
         ArgumentNullException.ThrowIfNull(zone);
         if (!store.Available)
         {
-            return Unavailable(policy, policyUnreadable, maxConcurrent, maxQueued, zone);
+            return Unavailable(policy, policyUnreadable, maxConcurrent, maxQueued, zone) with
+            {
+                UnavailableReason = store.LastFailure ?? "Aucune base locale créée pour ce domaine. Une première lecture explicite prépare la base.",
+                Integrity = store.Integrity is null ? null : LocalStoreRules.Integrity(store.Integrity, zone),
+                Maintenance = LocalStoreRules.Maintenance(store),
+                Backups = LocalStoreRules.Backups(store),
+                Legacy = Legacy(store.Legacy, store.Domain, zone),
+            };
         }
         var lastVerified = store.Backups.Where(StoragePolicyRules.IsVerified).OrderByDescending(b => b.At).FirstOrDefault();
         var space = LocalStoreRules.Space(store.Space, now, zone);

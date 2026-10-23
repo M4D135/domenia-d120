@@ -541,6 +541,13 @@ public static class LocalStoreRules
     {
         ArgumentNullException.ThrowIfNull(store);
         var targets = PurgeTargets(category);
+        if (!store.NativePurgeTargets.IsEmpty)
+        {
+            return [.. store.NativePurgeTargets.Where(x => x.Category == category).Select(x =>
+                (x.Table, x.Action, x.Label, category == "history"
+                    ? x.DayCounts.Skip(Math.Clamp(historyDays, 1, StoragePolicyRules.MaxRetentionDays)).Sum(n => (long)n)
+                    : x.Rows))];
+        }
         var counted = store.Tables.ToDictionary(t => t.Table, t => t.Rows, StringComparer.Ordinal);
         if (counted.Count == 0)
         {

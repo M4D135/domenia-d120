@@ -914,3 +914,16 @@
 [data-page="fiche"] .fi-write-mark { display: inline-grid; place-items: center; margin-left: 4px; color: var(--warn); }
 [data-page="fiche"] .fi-write-mark svg { width: 13px; height: 13px; }
 [data-page="fiche"] .btn.is-net .k-cmd-net { margin-left: 6px; }
+
+/* Explicit account workflow: compact fields, ordinary write confirmations, no automatic next step. */
+[data-page="fiche"] .fi-workflow { margin-bottom: var(--s3); padding: var(--s4); }
+[data-page="fiche"] .fi-workflow h3 { display: flex; gap: var(--s2); align-items: center; }
+[data-page="fiche"] .fi-workflow p { color: var(--text-muted); margin: var(--s2) 0; }
+[data-page="fiche"] .fi-workflow summary { cursor: pointer; font-weight: 600; }
+[data-page="fiche"] .fi-workflow-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--s3); }
+[data-page="fiche"] .fi-workflow-form label { display: grid; gap: var(--s1); }
+[data-page="fiche"] .fi-workflow-form > p, [data-page="fiche"] .fi-workflow-actions, [data-page="fiche"] .fi-workflow-form > div { grid-column: 1 / -1; }
+[data-page="fiche"] .fi-workflow-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+[data-page="fiche"] .fi-workflow li { padding: var(--s1) 0; }
+
+[data-page="fiche"] .fi-workflow-form[hidden] { display: none; }

@@ -11,6 +11,7 @@ import {
   silentCall, fullDate, toneMark, emptyState, errorBox, sectionHead, cardHead, count, int, maskSecrets, looksSecret, paintVars,
 } from './common.js';
 import { sampleReceipts, sampleDetail } from './demo.js';
+import { pickObject } from '../fiche/actions.js';
 
 const STATES = [
   { value: 'aVerifier', label: 'À vérifier', tone: 'warn' },
@@ -399,7 +400,10 @@ export function createReceipts(host, env) {
       icon: 'undo',
     });
     if (!ok || !alive) return;
-    ctx.navigate('fiche', { dn: r.target.dn, compenser: r.id });
+    try {
+      const target = await ctx.call('fiche.compensation.context', { id: r.id });
+      if (alive) ctx.navigate('fiche', { dn: target.dn, guid: target.guid, compenser: r.id });
+    } catch (err) { if (alive) toast(errorText(err), { tone: 'alert' }); }
   }
 
   function exportCsv(csv, info) {
@@ -418,6 +422,11 @@ export function createReceipts(host, env) {
       box.removeAttribute('aria-busy');
       served = new Set(rules.kinds.filter((k) => k.available).map((k) => k.kind));
       box.innerHTML = rulesMarkup(rules);
+      box.querySelectorAll('[data-lifecycle]').forEach((button) => button.addEventListener('click', async () => {
+        if (demo) { toast('Exemple local : ouvrez la fiche du compte réel pour préparer une séquence.', { tone: 'info' }); return; }
+        const target = await pickObject(ctx, { title: 'Compte de la séquence', kinds: ['user'] });
+        if (target && alive) ctx.navigate('fiche', { dn: target.dn, parcours: button.dataset.lifecycle });
+      }));
       applyVars(box);
       reveal(box);
       box.querySelector('[data-more-kinds]')?.addEventListener('click', (e) => {
@@ -570,7 +579,7 @@ function rulesMarkup(rules) {
   const cycles = rules.lifecycles.map((v, n) => `<article class="op-cycle" data-i="${n}"><header><b>${esc(v.plan.title)}</b><span>${esc(v.plan.summary)}</span></header>
       <ol class="op-cycle-steps">${v.plan.steps.map((s, i) => `<li data-available="${v.available[i] ? 'true' : 'false'}"><span class="op-cycle-n">${s.id}</span><span class="op-cycle-t">${esc(s.title)}</span>
         ${v.available[i] ? '' : `<span class="op-cycle-soon" data-tip="${esc('Écriture ' + s.writeKind + ' à venir dans ce mode.')}">à venir</span>`}</li>`).join('')}</ol>
-      <p class="op-cycle-note">${esc(v.note)}</p></article>`).join('');
+      <p class="op-cycle-note">${esc(v.note)}</p><button type="button" class="btn sm" data-lifecycle="${esc(v.plan.kind)}">Choisir le compte et préparer…</button></article>`).join('');
   return `<p class="op-rules-note">${esc(rules.note)}</p><div class="grid">
     <section class="card span-5 op-rule-card reveal">${cardHead('eye', 'Preuves par relecture', 'Ce que relit chaque type d’écriture')}<ul class="op-kinds" data-more="false">${kinds}</ul>
       ${rules.kinds.length > FIRST ? `<button class="op-more op-kinds-more" type="button" data-more-kinds aria-expanded="false" data-label="${esc(`Afficher les ${rules.kinds.length - FIRST} autres types`)}">${glyph('chevronRight')}<span>${esc(`Afficher les ${rules.kinds.length - FIRST} autres types`)}</span></button>` : ''}</section>

@@ -89,7 +89,18 @@ public static class LegacyRules
         }
     }
 
-    private static string Normalize(string? domain) => (domain ?? "").Trim().TrimEnd('.').ToLowerInvariant();
+    private static string Normalize(string? domain)
+    {
+        var text = (domain ?? "").Trim().TrimEnd('.');
+        if (!text.Contains('=')) { return text.ToLowerInvariant(); }
+        try
+        {
+            var parts = DistinguishedName.Parse(text);
+            return parts.Length > 0 && parts.All(x => x.Type.Equals("DC", StringComparison.OrdinalIgnoreCase))
+                ? string.Join('.', parts.Select(x => x.Value.ToLowerInvariant())) : "";
+        }
+        catch (FormatException) { return ""; }
+    }
 
     /// <summary>The files of the older version as the page shows them.</summary>
     public static ImmutableArray<LegacyFileView> Files(LegacySource source)

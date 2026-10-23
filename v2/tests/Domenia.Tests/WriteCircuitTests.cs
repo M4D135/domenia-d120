@@ -118,7 +118,7 @@ internal static class WriteCircuitTests
     private static int LockedAccounts(JsonElement summary) =>
         summary.GetProperty("widgets").GetProperty("lockedAccounts").GetProperty("data").GetProperty("value").GetInt32();
 
-    private static (EngineContext Context, WriteCircuit Circuit, FakeWriteExecutor Executor, FixedTimeProvider Clock) FakeCircuit(IReceiptStore? receipts = null)
+    internal static (EngineContext Context, WriteCircuit Circuit, FakeWriteExecutor Executor, FixedTimeProvider Clock) FakeCircuit(IReceiptStore? receipts = null)
     {
         var clock = TestClock.Fixed();
         var source = new SimulatedDirectorySource(SimulationOptions.Default with { Latency = SimulationLatency.None }, clock);

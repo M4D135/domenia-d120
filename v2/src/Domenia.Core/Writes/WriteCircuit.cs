@@ -19,7 +19,7 @@ public sealed record WriteStageEvent(WriteStage Stage, string Label);
 /// </list>
 /// Nothing is ever retried or replayed: not by the circuit, not at startup, not from a receipt.
 /// </summary>
-public sealed class WriteCircuit : IDisposable
+public sealed partial class WriteCircuit : IDisposable
 {
     /// <summary>The generic execution operation: the only operation of class Write the admission guards accept.</summary>
     public const string ExecuteOperation = "write.execute";
@@ -85,6 +85,7 @@ public sealed class WriteCircuit : IDisposable
     public async Task<PlannedWrite> PlanAsync(WritePlanDraft draft, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);
+        lock (gate) { EnsureOpenLocked(); }
         if (writers.ForKind(draft.Kind) is null)
         {
             throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage);
@@ -99,6 +100,7 @@ public sealed class WriteCircuit : IDisposable
         var token = tokens.Issue(plan.Id, plan.Fingerprint, plan.ExpiresAt, now);
         lock (gate)
         {
+            EnsureOpenLocked();
             PurgeLocked(now);
             plans[plan.Id] = plan;
             origins[plan.Id] = draft.Origin ?? WritePlanOrigin.From(account);
@@ -120,6 +122,7 @@ public sealed class WriteCircuit : IDisposable
         WritePlan? plan;
         lock (gate)
         {
+            EnsureOpenLocked();
             plans.TryGetValue(planId, out plan);
         }
         if (plan is null)
@@ -158,7 +161,7 @@ public sealed class WriteCircuit : IDisposable
         await writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            Volatile.Write(ref inFlight, 1);
+            lock (gate) { EnsureOpenLocked(); Volatile.Write(ref inFlight, 1); }
             return await RunAsync(plan, progress, cancellationToken).ConfigureAwait(false);
         }
         finally

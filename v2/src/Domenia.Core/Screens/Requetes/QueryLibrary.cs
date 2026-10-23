@@ -10,15 +10,19 @@ namespace Domenia.Core.Queries;
 /// <summary>Declared lineage of an imported recipe, never a trusted publisher identity.</summary>
 public sealed record QueryProvenance(string? PackId, string? PackName, long PackVersion, string? Origin, string SourceRecipeId, string DefinitionSha256, bool Verified);
 
-/// <summary>One stored revision of a recipe (the last ones are kept for the history panel).</summary>
-public sealed record QueryRevision(long Revision, DateTimeOffset SavedAt, string Fingerprint, string Definition);
+/// <summary>One stored revision of a recipe, with its own declared provenance.</summary>
+public sealed record QueryRevision(long Revision, DateTimeOffset SavedAt, string Fingerprint, string Definition)
+{
+    public QueryProvenance? Provenance { get; init; }
+}
 
 /// <summary>Widget made from a saved recipe (Domenia 1 « sonde dashboard »): board, visual, title and the revision it is bound to.</summary>
 public sealed record QueryWidgetLink(string Id, string RecipeId, long BoundRevision, string Board, string Visual, string Title, DateTimeOffset CreatedAt);
 
 /// <summary>
 /// Consumer of a saved recipe declared by another screen (Domenia 1 dependencies): a favourite of Recherche (« search », shows
-/// the current definition) or a health rule (« health », keeps its revision until refreshed explicitly in Santé).
+/// the current definition), a health rule (« health ») or an inherited D1 widget reference (« legacyFleet/legacyComputer »).
+/// Inherited references retain their actual bound revision without inventing or installing a widget layout.
 /// </summary>
 public sealed record QueryConsumerLink(string Kind, string Id, string RecipeId, long BoundRevision, string Title, string? Scope, DateTimeOffset BoundAt);
 
@@ -99,7 +103,7 @@ public sealed class QueryLibrary : IDisposable
     /// <summary>Largest library document of one domain (Domenia 1 packs: 16 Mio).</summary>
     public const int MaxDocumentBytes = 16 * 1024 * 1024;
 
-    public const int MaxHistory = 5;
+    public const int MaxHistory = 20_000;
 
     /// <summary>Import journal entries kept (Domenia 1 .query-imports.jsonl: 40 lines).</summary>
     public const int MaxJournal = 40;
@@ -283,7 +287,8 @@ public sealed class QueryLibrary : IDisposable
             ReadArray(root, "consumers", item =>
             {
                 var link = item.Deserialize<QueryConsumerLink>(StoreJson);
-                if (link is null || link.Kind is not ("search" or "health") || link.Id.Length is 0 or > 64)
+                if (link is null || link.Kind is not ("search" or "health" or "legacyFleet" or "legacyComputer")
+                    || link.Id.Length == 0 || link.Id.Length > (link.Kind.StartsWith("legacy", StringComparison.Ordinal) ? 128 : 64))
                 {
                     return false;
                 }
@@ -440,30 +445,13 @@ public sealed class QueryLibrary : IDisposable
         return buffer.WrittenSpan.ToArray();
     }
 
-    /// <summary>The document within its budget: the oldest revisions go first, the current definitions are never dropped.</summary>
+    /// <summary>Reject a document over budget rather than silently discarding history or restore points.</summary>
     private static byte[] Fit(State state, string rootKey, DateTimeOffset now)
     {
         var bytes = Serialize(state, rootKey, now);
-        while (bytes.Length > MaxDocumentBytes && state.Records.Any(r => r.History.Length > 0))
-        {
-            var longest = state.Records.Max(x => x.History.Length);
-            for (var i = 0; i < state.Records.Count; i++)
-            {
-                if (state.Records[i].History.Length == longest)
-                {
-                    state.Records[i] = state.Records[i] with { History = state.Records[i].History.RemoveAt(state.Records[i].History.Length - 1) };
-                }
-            }
-            bytes = Serialize(state, rootKey, now);
-        }
-        while (bytes.Length > MaxDocumentBytes && state.Imports.Count > 1)
-        {
-            state.Imports.RemoveAt(0);
-            bytes = Serialize(state, rootKey, now);
-        }
         if (bytes.Length > MaxDocumentBytes)
         {
-            throw new QueryDefinitionException("Bibliothèque locale pleine (16 Mio) : archivez puis exportez des requêtes avant d’en enregistrer d’autres. Rien n’a été écrit.");
+            throw new QueryDefinitionException("Bibliothèque locale pleine (16 Mio) : nouvelle écriture refusée. Toutes les révisions et les points de restauration existants sont conservés.");
         }
         return bytes;
     }
@@ -574,8 +562,11 @@ public sealed class QueryLibrary : IDisposable
     /// longer displayable for the target are dropped and returned). <paramref name="widget"/> is linked in the same write. An
     /// unchanged definition writes nothing (except a new widget).
     /// </summary>
-    public async Task<QuerySaveResult> SaveAsync(string rootDn, QueryRecipe recipe, string? category, string? description, long expectedRevision, string mode, QueryWidgetRequest? widget,
-        CancellationToken cancellationToken)
+    public Task<QuerySaveResult> SaveAsync(string rootDn, QueryRecipe recipe, string? category, string? description, long expectedRevision, string mode, QueryWidgetRequest? widget,
+        CancellationToken cancellationToken) => SaveCoreAsync(rootDn, recipe, category, description, expectedRevision, mode, widget, false, null, cancellationToken);
+
+    private async Task<QuerySaveResult> SaveCoreAsync(string rootDn, QueryRecipe recipe, string? category, string? description, long expectedRevision, string mode, QueryWidgetRequest? widget,
+        bool restoreProvenance, QueryProvenance? restoredProvenance, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(recipe);
         var cat = string.IsNullOrWhiteSpace(category) ? null : category.Trim();
@@ -623,30 +614,32 @@ public sealed class QueryLibrary : IDisposable
                 throw new QueryDefinitionException("La bibliothèque locale contient déjà 5 000 requêtes : archivez ou exportez avant d’en ajouter. Rien n’a été écrit.");
             }
             var bound = state.Widgets.Where(w => w.RecipeId == normalized.Id).ToList();
+            var inherited = state.Consumers.Count(c => c.RecipeId == normalized.Id && c.Kind.StartsWith("legacy", StringComparison.Ordinal));
             var definitionChanged = existing is null || existing.Fingerprint != compiled.Fingerprint;
-            if (existing is not null && !existing.Archived && definitionChanged && mode == "update" && bound.Count > 0)
+            if (existing is not null && !existing.Archived && definitionChanged && mode == "update" && !restoreProvenance && bound.Count + inherited > 0)
             {
-                throw new QueryDefinitionException(ImpactRequiredPrefix + " (" + FrenchText.Count(bound.Count, "widget lié", "widgets liés")
+                throw new QueryDefinitionException(ImpactRequiredPrefix + " (" + FrenchText.Count(bound.Count + inherited, "widget lié", "widgets liés")
                     + ") : ouvrez la revue d’impact et choisissez de mettre à jour les widgets ou d’enregistrer une copie. Rien n’a été écrit.");
             }
             var finalCategory = cat ?? existing?.Category ?? "Mes requêtes";
             var finalDescription = desc ?? existing?.Description ?? "";
             QueryLibraryRecord record;
             var written = true;
-            if (existing is not null && !existing.Archived && !definitionChanged && existing.Category == finalCategory && existing.Description == finalDescription)
+            if (existing is not null && !existing.Archived && !definitionChanged && existing.Category == finalCategory && existing.Description == finalDescription
+                && (!restoreProvenance || existing.Provenance == restoredProvenance))
             {
                 record = existing;
                 written = false;
             }
             else
             {
-                var history = existing is null ? [] : existing.History.Insert(0, new QueryRevision(existing.Revision, existing.UpdatedAt, existing.Fingerprint, QueryRecipeJson.Write(existing.Recipe)));
+                var history = existing is null ? [] : existing.History.Insert(0, new QueryRevision(existing.Revision, existing.UpdatedAt, existing.Fingerprint, QueryRecipeJson.Write(existing.Recipe)) { Provenance = existing.Provenance });
                 if (history.Length > MaxHistory)
                 {
-                    history = history.RemoveRange(MaxHistory, history.Length - MaxHistory);
+                    throw new QueryDefinitionException("Historique de 20 000 révisions atteint ; exportez la bibliothèque avant de poursuivre. Aucune révision supprimée.");
                 }
                 record = new QueryLibraryRecord(normalized.Id, normalized.Name, finalCategory, finalDescription, currentRevision + 1, existing?.CreatedAt ?? now, now, false, compiled.Fingerprint,
-                    normalized, existing?.Provenance, history, existing?.ArchivedWidgets ?? []);
+                    normalized, restoreProvenance ? restoredProvenance : existing?.Provenance, history, existing?.ArchivedWidgets ?? []);
                 if (index >= 0)
                 {
                     state.Records[index] = record;
@@ -804,7 +797,7 @@ public sealed class QueryLibrary : IDisposable
         var record = await FindAsync(rootDn, id, cancellationToken).ConfigureAwait(false) ?? throw new QueryDefinitionException(QueryErrors.NotFoundMessage);
         var old = record.History.FirstOrDefault(h => h.Revision == revision) ?? throw new QueryDefinitionException("Révision introuvable dans l’historique conservé. Rien n’a été écrit.");
         var recipe = QueryRecipeJson.Read(old.Definition) with { Id = id };
-        return await SaveAsync(rootDn, recipe, record.Category, record.Description, expectedRevision, mode == "migrate" ? "migrate" : "update", null, cancellationToken).ConfigureAwait(false);
+        return await SaveCoreAsync(rootDn, recipe, record.Category, record.Description, expectedRevision, mode == "migrate" ? "migrate" : "update", null, true, old.Provenance, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>A stored revision of a recipe (current or kept in its history), for a widget bound to an older revision.</summary>
@@ -942,6 +935,12 @@ public sealed class QueryLibrary : IDisposable
             {
                 views++;
                 rows.Add(new QueryImpactRow("view", "Vue de Recherche", consumer.Title, "Favori de la liste des requêtes : affiche la définition courante", consumer.Id));
+            }
+            else if (consumer.Kind.StartsWith("legacy", StringComparison.Ordinal))
+            {
+                orphans++;
+                rows.Add(new QueryImpactRow("orphan", consumer.Kind == "legacyFleet" ? "Tableau général Domenia 1" : "Tableau poste Domenia 1", consumer.Title,
+                    "Lien hérité conservé à la révision " + FrenchText.Integer(consumer.BoundRevision) + " ; disposition non importée et liaison Domenia 1 inchangée", consumer.Id));
             }
             else
             {
@@ -1290,7 +1289,8 @@ public sealed class QueryLibrary : IDisposable
                         break;
                     default:
                         var before = new QueryLibrarySnapshot(current!.Revision, current.Archived, current.Category, current.Name, QueryRecipeJson.Write(current.Recipe), current.Fingerprint, current.Provenance);
-                        var history = current.History.Insert(0, new QueryRevision(current.Revision, current.UpdatedAt, current.Fingerprint, QueryRecipeJson.Write(current.Recipe)));
+                        var history = current.History.Insert(0, new QueryRevision(current.Revision, current.UpdatedAt, current.Fingerprint, QueryRecipeJson.Write(current.Recipe)) { Provenance = current.Provenance });
+                        if (history.Length > MaxHistory) { throw new QueryDefinitionException("Historique de 20 000 révisions atteint ; import annulé sans supprimer de révision."); }
                         lastRecord = current with
                         {
                             Name = recipe.Name,
@@ -1300,7 +1300,7 @@ public sealed class QueryLibrary : IDisposable
                             Fingerprint = compiled.Fingerprint,
                             Recipe = compiled.Normalized,
                             Provenance = provenance,
-                            History = history.Length > MaxHistory ? history.RemoveRange(MaxHistory, history.Length - MaxHistory) : history,
+                            History = history,
                         };
                         state.Records[index] = lastRecord;
                         changes.Add(new QueryImportChange(lastRecord.Id, lastRecord.Name, lastRecord.Revision, sequence, before));

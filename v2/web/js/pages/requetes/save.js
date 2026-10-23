@@ -3,6 +3,7 @@
 // (widgets, links that can no longer be shown, favourites of Recherche, health rules); widgets of the dashboards with a live
 // preview evaluated on the local data; test of the draft on a single object; read-only scripts. Library writes are local
 // (LocalWrite, its own file) with a receipt read back from the disk; nothing is ever written to the directory.
+import { mountRevisionHistory } from './history.js';
 import {
   esc, glyph, key, plural, verdictPill, emptyState, skLines, vars, dateText, VERDICTS, nounOf, NBSP,
 } from './shared.js';
@@ -327,36 +328,30 @@ export function mountSave(panel, store, api) {
     const res = await store.call('requetes.library.get', { id: s.id });
     if (res.error) { store.toast(res.message, 'warn'); return; }
     const d = res.data;
-    // The kept history holds the previous revisions; the current one heads the list.
-    const list = [{ revision: d.revision, savedAt: d.updatedAt, fingerprint: d.fingerprint }, ...[...d.history].sort((a, b) => b.revision - a.revision)];
     const dlg = openDialog({
       title: 'Révisions',
       subtitle: `« ${d.name} » · révision actuelle ${d.revision}`,
       icon: 'history',
       size: 'md',
-      body: `<ol class="rq-revs">${list.map((h, n) => `<li data-i="${n}"><span class="rq-rev-n">${esc(String(h.revision))}</span><div><b>${h.revision === d.revision ? 'Révision actuelle' : `Révision ${esc(String(h.revision))}`}</b>
-        <span>${esc(dateText(h.savedAt))}${h.fingerprint ? ` · <span class="rq-mono">${esc(h.fingerprint.slice(0, 12))}</span>` : ''}</span></div>
-        ${h.revision === d.revision ? '' : `<button type="button" class="btn xs subtle" data-rev="${h.revision}">${glyph('undo')}Restaurer</button>`}</li>`).join('')}</ol>
-        <p class="rq-note">${glyph('info')}Restaurer une révision crée une nouvelle révision : l’historique n’est jamais réécrit (5 révisions gardées).</p>`,
+      body: `<div class="rq-history"></div><p class="rq-note">${glyph('info')}Restaurer une révision crée une nouvelle révision ; les anciennes définitions et leur provenance sont conservées.</p>`,
       onOpen: (el) => vars(el),
     });
-    dlg.body.addEventListener('click', async (e) => {
-      const b = e.target instanceof Element ? e.target.closest('[data-rev]') : null;
-      if (!b) return;
-      const rev = Number(b.dataset.rev);
+    mountRevisionHistory(dlg.body.querySelector('.rq-history'), d, { onRestore: async (rev) => {
       let mode = 'update';
+      const inherited = d.consumers.filter((c) => c.kind.startsWith('legacy'));
       if (d.widgets.length) {
         const answer = await openDialog({
           title: `Restaurer la révision ${rev} ?`,
           subtitle: `${plural(d.widgets.length, 'widget évalue', 'widgets évaluent')} la révision ${d.revision}`,
           icon: 'undo',
-          body: `<p>Sa définition devient une nouvelle révision. Les widgets liés peuvent la suivre, ou garder la révision ${esc(String(d.revision))} jusqu’à votre confirmation.</p>`,
+          body: `<p>Sa définition devient une nouvelle révision. Les widgets liés peuvent la suivre, ou garder leur révision actuelle.</p>${inherited.length ? `<p>${esc(plural(inherited.length, 'liaison Domenia 1 reste', 'liaisons Domenia 1 restent'))} à la révision d’origine ; aucune disposition héritée n’est installée automatiquement.</p>` : ''}`,
           actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'update', label: 'Restaurer sans les widgets' }, { id: 'migrate', label: 'Restaurer et mettre à jour les widgets', primary: true }],
         }).result;
         if (!answer || answer === 'cancel') return;
         mode = answer;
       } else {
-        const ok = await confirmDialog({ title: `Restaurer la révision ${rev} ?`, message: 'Sa définition devient une nouvelle révision ; l’historique est conservé.', confirmLabel: 'Restaurer cette révision', icon: 'undo' });
+        const ok = await confirmDialog({ title: `Restaurer la révision ${rev} ?`, message: 'Sa définition et sa provenance deviennent une nouvelle révision ; l’historique est conservé.'
+          + (inherited.length ? ' Les liaisons Domenia 1 restent attachées à leur révision d’origine.' : ''), confirmLabel: 'Restaurer cette révision', icon: 'undo' });
         if (!ok) return;
       }
       const version = store.version;
@@ -366,7 +361,7 @@ export function mountSave(panel, store, api) {
       adopt(back.data, version);
       showReceipt(back.data, `Révision ${rev} restaurée`);
       loadWidgets();
-    });
+    } });
   }
 
   $('.rq-save-go').addEventListener('click', () => save('update'));

@@ -127,7 +127,7 @@ internal static class RequetesOperationsTests
         var reverted = await Ok(bridge, "requetes.library.revert", Args(new { id, revision = 1, expectedRevision = 4 }));
         Check.Equal(5, reverted.GetProperty("revision").GetInt64(), "révision 1 remise comme révision 5");
         var detail = await Ok(bridge, "requetes.library.get", Args(new { id }));
-        Check.True(detail.GetProperty("history").GetArrayLength() <= 5, "cinq révisions gardées au plus");
+        Check.True(detail.GetProperty("history").EnumerateArray().Any(h => h.GetProperty("revision").GetInt64() == 1), "révision ancienne conservée et consultable");
         var template = await Refused(bridge, "requetes.library.archive", Args(new { id = "template.stale", expectedRevision = 0 }));
         Check.True(template is "query.templateReadOnly" or "query.notFound", "un modèle livré ne s’archive pas : " + template);
     }

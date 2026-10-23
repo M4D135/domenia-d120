@@ -126,7 +126,7 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
         }
         var run = Start(estimate.Target, estimate.Scope.Label); var watch = Stopwatch.StartNew();
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, run.Stop.Token); budget.CancelAfter(estimate.BudgetMs);
-        var rows = ImmutableArray.CreateBuilder<IndexRecord>(); SyncCut? cut = null;
+        var rows = ImmutableArray.CreateBuilder<IndexRecord>(); var identities = new HashSet<Guid>(); SyncCut? cut = null;
         try
         {
             var local = await Store.ReadSyncStateAsync(budget.Token).ConfigureAwait(false);
@@ -149,7 +149,7 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
                     foreach (var entry in entries.Take(remaining))
                     {
                         var row = Project(entry, type, observed);
-                        if (row is null || !ScopeRules.Contains(new(estimate.Scope.Dn, estimate.Scope.Label, estimate.Scope.Subtree), entry.DistinguishedName) || rows.Any(x => x.ObjectGuid == row.ObjectGuid))
+                        if (row is null || !ScopeRules.Contains(new(estimate.Scope.Dn, estimate.Scope.Label, estimate.Scope.Subtree), entry.DistinguishedName) || !identities.Add(row.ObjectGuid))
                         { cut = SyncCoverageRules.Cut("error", 0, rows.Count); continue; }
                         rows.Add(row);
                     }

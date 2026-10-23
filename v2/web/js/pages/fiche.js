@@ -19,6 +19,7 @@ import { mountAttributes } from './fiche/attributes.js';
 import { mountHistory } from './fiche/history.js';
 import { mountCallSheet } from './fiche/callsheet.js';
 import { renderEmpty } from './fiche/empty.js';
+import { mountWorkflows } from './fiche/workflows.js';
 
 export const stylesheet = true;
 
@@ -35,6 +36,7 @@ export function render(main, ctx) {
 
   main.innerHTML = `<div class="page fi-page" data-kind="loading">
     <div class="fi-head-host">${headSkeleton()}</div>
+    <div class="fi-workflows-host"></div>
     <div class="fi-body-host">${tabsSkeleton()}</div>
   </div>`;
   const page = /** @type {HTMLElement} */ (main.querySelector('.fi-page'));
@@ -216,6 +218,10 @@ export function render(main, ctx) {
   function show(sheet, { again = false, quiet = false } = {}) {
     const previous = S.sheet;
     S.sheet = sheet;
+    if (S.live && !S.workflowsMounted && (sheet.identity.kind === 'user' || S.params.compenser)) {
+      S.workflowsMounted = true;
+      mountWorkflows(page.querySelector('.fi-workflows-host'), S);
+    }
     page.dataset.kind = sheet.identity.kind;
     if (!previous || previous.identity.kind !== sheet.identity.kind || tabsChanged(previous, sheet)) {
       build(sheet);
@@ -348,7 +354,8 @@ export function render(main, ctx) {
 /** #/fiche?q=… (links and captures): the object designated exactly in the local base opens in place of this address. */
 function resolveThenOpen(main, ctx) {
   let alive = true;
-  main.innerHTML = `<div class="page fi-page" data-kind="loading"><div class="fi-head-host">${headSkeleton()}</div><div class="fi-body-host">${tabsSkeleton()}</div></div>`;
+  main.innerHTML = `<div class="page fi-page" data-kind="loading"><div class="fi-head-host">${headSkeleton()}</div><div class="fi-workflows-host"></div>
+    <div class="fi-body-host">${tabsSkeleton()}</div></div>`;
   ctx.call('fiche.resolve', { text: ctx.params.q }).then((found) => {
     if (!alive) return;
     const params = { ...ctx.params, dn: found.dn };

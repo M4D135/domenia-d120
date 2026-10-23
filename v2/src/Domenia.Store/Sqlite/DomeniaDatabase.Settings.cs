@@ -34,8 +34,11 @@ public sealed partial class DomeniaDatabase
         var categories = ImmutableArray<LocalStoreCategory>.Empty;
         var scopes = ImmutableArray<LocalStoreScope>.Empty;
         var families = ImmutableArray<LocalStoreFamily>.Empty;
+        var nativePurge = ImmutableArray<LocalStorePurgeTarget>.Empty;
         long revision = 0;
-        string schema = "Non créée";
+        string schema = exists ? "Inconnu" : "Non créée";
+        string? legacySchema = null; string? legacySchemaRevision = null;
+        var corrupt = false;
         DateTimeOffset? lastWrite = null;
         string? failure = null;
         var checks = LocalStoreRules.CheckLabels.ToDictionary(x => x.Id, x => new LocalStoreCheck(x.Id, "unknown", "Non contrôlé."), StringComparer.Ordinal);
@@ -51,7 +54,10 @@ public sealed partial class DomeniaDatabase
                 db.Begin(write: false);
                 var inspection = Inspect(db);
                 families = RetentionFamilies(ReadRetentionInventory(db, cancellationToken), WritePlans.TruncateToSecond(now));
+                nativePurge = PurgeTargets(ReadPurgeInventory(db, cancellationToken), WritePlans.TruncateToSecond(now));
                 revision = inspection.Revision;
+                legacySchema = inspection.SchemaVersion.ToString(CultureInfo.InvariantCulture);
+                legacySchemaRevision = inspection.SchemaRevision.ToString(CultureInfo.InvariantCulture);
                 schema = inspection.SchemaVersion.ToString(CultureInfo.InvariantCulture) + "/" + inspection.SchemaRevision.ToString(CultureInfo.InvariantCulture);
                 // The closed schema determines identifiers; arbitrary names from a modified database are never interpolated.
                 using var expected = new SqliteDatabase(":memory:", readOnly: false);
@@ -104,6 +110,7 @@ public sealed partial class DomeniaDatabase
                 {
                     var quick = db.Query("PRAGMA quick_check(10);");
                     var healthy = quick.Count == 1 && quick[0].Values.FirstOrDefault() as string == "ok";
+                    corrupt = !healthy;
                     checks["quickCheck"] = new("quickCheck", healthy ? "ok" : "failed", healthy ? "SQLite : ok." : "SQLite signale une incohérence ; aucune réparation effectuée.");
                     var foreign = db.Query("PRAGMA foreign_key_check;");
                     checks["foreignKeys"] = new("foreignKeys", foreign.Count == 0 ? "ok" : "failed", foreign.Count == 0 ? "Aucune référence étrangère invalide." : "Références étrangères invalides.");
@@ -116,6 +123,7 @@ public sealed partial class DomeniaDatabase
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
+                corrupt = ex is SqliteStoreException sqlite && (sqlite.SqliteCode & 255) is 11 or 26;
                 failure = "Inspection locale interrompue : " + ex.Message;
                 checks["open"] = new("open", "failed", failure);
             }
@@ -129,14 +137,14 @@ public sealed partial class DomeniaDatabase
         }
         var legacyParts = tables.Where(t => t.Rows > 0).Select(t => new LegacyPart(t.Table, t.Table, t.Table, t.Rows, t.Rows, "history")).ToImmutableArray();
         var legacy = new LegacySource(exists, Path, DomainDn, exists ? now : null,
-            exists ? new LegacyDatabase(System.IO.Path.GetFileName(Path), Path, schema, revision.ToString(CultureInfo.InvariantCulture), DomainDn, bytes, legacyParts) : null,
+            exists ? new LegacyDatabase(System.IO.Path.GetFileName(Path), Path, legacySchema, legacySchemaRevision, DomainDn, bytes, legacyParts) : null,
             [], [], ImmutableDictionary<string, long>.Empty, "", null, null);
         var registered = ReadRegisteredBackups();
         ImmutableArray<LocalStoreBackup> backups = lastBackup is { } backup && !registered.Any(x => x.FileName == System.IO.Path.GetFileName(backup.Path))
             ? [new(System.IO.Path.GetFileName(backup.Path), System.IO.Path.GetFileName(backup.Path), backup.At, backup.Bytes, backup.Sha256, true, backup.At, "gesture", revision, new(null, null, null, null, null, null), null, null)] : [];
         backups = backups.AddRange(registered);
-        return new LocalStoreSnapshot(exists && failure is null, false, DomainDn, Path, StoreId, revision, schema, bytes, wal, lastWrite, counts, categories, tables,
+        return new LocalStoreSnapshot(exists && (failure is null || corrupt), false, DomainDn, Path, StoreId, revision, schema, bytes, wal, lastWrite, counts, categories, tables,
             families, backups, space, new(failure is not null, false, writer.CurrentCount == 0, 0, 0, 0, 0, 0, lastWrite, failure),
-            new(false, false, null, failure is not null, false, null, false, null), usage, report, scopes, legacy, [], failure, failure is null ? null : now);
+            new(false, false, null, corrupt, false, null, false, null), usage, report, scopes, legacy, [], failure, failure is null ? null : now) { NativePurgeTargets = nativePurge };
     }, cancellationToken);
 }

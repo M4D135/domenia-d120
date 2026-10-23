@@ -150,8 +150,10 @@ public static class LifecyclePlans
             .. new[] { LifecycleKind.Arrival, LifecycleKind.ServiceChange, LifecycleKind.Suspension }.Select(kind =>
             {
                 var plan = New(kind, template);
-                ImmutableArray<bool> served = [.. plan.Steps.Select(s => s.WriteKind == ReviewStep || available.Contains(s.WriteKind))];
-                var missing = plan.Steps.Count(s => s.WriteKind != ReviewStep && !available.Contains(s.WriteKind));
+                bool Served(LifecycleStep step) => step.WriteKind == ReviewStep || available.Contains(step.WriteKind)
+                    || step.WriteKind == "object.groups" && available.Contains(ObjectWrites.MemberKind);
+                ImmutableArray<bool> served = [.. plan.Steps.Select(Served)];
+                var missing = served.Count(s => !s);
                 var note = missing == 0
                     ? "Chaque étape sensible passe par son propre plan, sa confirmation, son reçu et sa relecture."
                     : FrenchText.Count(missing, "étape attend son écriture", "étapes attendent leur écriture") + " dans ce mode : la séquence se prépare, chaque étape restera une écriture à part entière.";

@@ -13,7 +13,7 @@ using Microsoft.Web.WebView2.WinForms;
 namespace Domenia.App;
 
 /// <summary>The only window: a WebView2 surface serving the local web interface, locked to the virtual host.</summary>
-internal sealed class MainForm : Form
+internal sealed partial class MainForm : Form
 {
     private const string RuntimeMissingMessage = "Le moteur d’affichage WebView2 est introuvable : ni celui du pack (dossier runtime\\webview2), ni celui de Windows. Relancez Domenia depuis le pack complet. Le détail technique est dans le journal de l’application.";
     private const string StartFailedMessage = "L’affichage de Domenia n’a pas pu démarrer. Le détail technique est dans le journal de l’application.";
@@ -40,6 +40,7 @@ internal sealed class MainForm : Form
     public MainForm(Composition composition, CaptureSession? capture = null, E2eArguments? e2e = null)
     {
         ArgumentNullException.ThrowIfNull(composition);
+        closingWrites = composition.Writes;
         mode = composition.Decision.Mode;
         this.capture = capture;
         this.e2e = e2e is { Enabled: true } ? e2e : null;
@@ -68,6 +69,7 @@ internal sealed class MainForm : Form
             }
             await InitializeWebViewAsync().ConfigureAwait(true);
         };
+        FormClosing += CheckClosing;
         FormClosed += (_, _) =>
         {
             lifetime.Cancel();
@@ -274,22 +276,25 @@ internal sealed class MainForm : Form
         }
         var json = e.WebMessageAsJson;
         var token = lifetime.Token;
-        var task = Task.Run(async () =>
-        {
-            try
-            {
-                await dispatcher.HandleAsync(json, token).ConfigureAwait(false);
-            }
-#pragma warning disable CA1031 // Nothing may escape a detached task untraced.
-            catch (Exception ex)
-#pragma warning restore CA1031
-            {
-                TechnicalLog.Error("Message de l’interface non traité.", ex);
-            }
-        }, CancellationToken.None);
+        var task = DispatchMessageAsync(json, token);
         // Added before the continuation is attached: a task already finished is removed at once.
         inFlight[task.Id] = task;
         _ = task.ContinueWith(t => inFlight.TryRemove(t.Id, out _), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    private async Task DispatchMessageAsync(string json, CancellationToken token)
+    {
+        // Parsing and admission are bounded synchronously. The dispatcher starts workers only for admitted requests.
+        try
+        {
+            await dispatcher.HandleAsync(json, token).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // Nothing may escape a detached task untraced.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            TechnicalLog.Error("Message de l’interface non traité.", ex);
+        }
     }
 
     /// <summary>

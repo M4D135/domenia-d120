@@ -84,7 +84,10 @@ public sealed partial class DomeniaDatabase
     private (byte[]? Document, string LegacyHash) ReadQueryLibrary(SqliteDatabase db, string rootKey)
     {
         var legacy = LegacyQueryRows(db);
-        var legacyHash = QueryHash(JsonSerializer.Serialize(legacy));
+        var metadata = LegacyQueryMetadata(db);
+        var legacyHash = metadata.Revisions.Count == 0 && metadata.Provenances.Count == 0 && metadata.Dependencies.Count == 0
+            ? QueryHash(JsonSerializer.Serialize(legacy))
+            : QueryHash(JsonSerializer.Serialize(new { Recipes = legacy, metadata.Revisions, metadata.Provenances, metadata.Dependencies }));
         if (Table(db, "domenia_v2_query_library"))
         {
             var rows = db.Query("SELECT CASE WHEN length(CAST(document AS BLOB))<=16777216 THEN document END AS document,sha256,legacy_sha256 FROM domenia_v2_query_library WHERE domain_key=?1;", rootKey);
@@ -96,6 +99,7 @@ public sealed partial class DomeniaDatabase
                 return (Encoding.UTF8.GetBytes(text), legacyHash);
             }
         }
+        var projected = ProjectQueryLegacy(legacy, metadata);
         if (legacy.Count == 0) { return (null, legacyHash); }
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
@@ -105,19 +109,24 @@ public sealed partial class DomeniaDatabase
             foreach (var row in legacy)
             {
                 var text = (string)row["definition_json"]!;
-                if (QueryHash(text) != row["definition_sha256"] as string) { throw new InvalidDataException("Empreinte de recette Domenia 1 différente."); }
-                var recipe = QueryRecipeJson.Read(text); var compiled = QueryEngine.Compile(recipe);
-                if (recipe.Id != row["id"] as string || recipe.Id.StartsWith(QueryTemplates.Prefix, StringComparison.Ordinal)) { throw new InvalidDataException("Identité de recette Domenia 1 incohérente."); }
+                var compiled = LegacyQueryDefinition(text, (string)row["id"]!, (long)row["definition_version"]!, row["definition_sha256"] as string);
+                var recipe = compiled.Normalized;
                 var created = QueryDate((string)row["created_utc"]!); var updated = QueryDate((string)row["updated_utc"]!);
-                if (updated < created || (long)row["revision"]! <= 0 || (long)row["archived"]! is < 0 or > 1) { throw new InvalidDataException("Révision ou date de recette Domenia 1 invalide."); }
+                if (updated < created || updated > clock.GetUtcNow().AddMinutes(2) || (long)row["revision"]! <= 0 || (long)row["archived"]! is < 0 or > 1
+                    || row["name"] as string != recipe.Name || !QueryFormat.CleanText(row["category"] as string ?? "", 80))
+                { throw new InvalidDataException("Nom, catégorie, révision ou date de recette Domenia 1 invalide."); }
                 writer.WriteStartObject(); writer.WriteString("id", recipe.Id); writer.WriteString("category", row["category"] as string ?? "Mes requêtes");
                 writer.WriteString("description", "Recette reprise de la bibliothèque SQLite Domenia 1 ; original conservé.");
                 writer.WriteNumber("revision", (long)row["revision"]!); writer.WriteString("createdAt", created); writer.WriteString("updatedAt", updated);
                 writer.WriteBoolean("archived", (long)row["archived"]! == 1); writer.WriteString("fingerprint", compiled.Fingerprint); writer.WriteString("definition", QueryRecipeJson.Write(compiled.Normalized));
-                writer.WriteStartArray("history"); writer.WriteEndArray(); writer.WriteEndObject();
+                writer.WritePropertyName("history"); JsonSerializer.Serialize(writer, projected.History[recipe.Id], QueryLegacyJson);
+                if (projected.Provenance.TryGetValue(recipe.Id, out var provenance))
+                { writer.WritePropertyName("provenance"); JsonSerializer.Serialize(writer, provenance, QueryLegacyJson); }
+                writer.WriteEndObject();
             }
             writer.WriteEndArray();
-            foreach (var key in new[] { "widgets", "consumers", "imports", "unreadable" }) { writer.WriteStartArray(key); writer.WriteEndArray(); }
+            foreach (var key in new[] { "widgets", "imports", "unreadable" }) { writer.WriteStartArray(key); writer.WriteEndArray(); }
+            writer.WritePropertyName("consumers"); JsonSerializer.Serialize(writer, projected.Dependencies, QueryLegacyJson);
             writer.WriteStartObject("packVersions"); writer.WriteEndObject(); writer.WriteEndObject();
         }
         if (stream.Length > 16_777_216) { throw new InvalidDataException("Bibliothèque héritée supérieure à 16 Mio."); }

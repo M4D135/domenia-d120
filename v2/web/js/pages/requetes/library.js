@@ -3,10 +3,11 @@
 // recipe into the draft (never an archive: restore it first); archiving goes through the impact review of the linked
 // elements, removes the widgets in the same write and can be undone; restoring brings the widgets back.
 import {
-  esc, glyph, key, plural, TARGETS, emptyState, skLines, dateText, vars, ago,
+  esc, glyph, key, plural, TARGETS, emptyState, skLines, vars, ago,
 } from './shared.js';
 import { createGrid, createSplit, createFilterBar, openDialog } from '../../kit/index.js';
 import { reveal, inkFollow } from '../../ui.js';
+import { mountRevisionHistory } from './history.js';
 
 /** Summary values that only say « nothing here »: not repeated in the detail. */
 const EMPTY = new Set(['Aucune contrainte', 'Aucune', 'Aucun']);
@@ -147,12 +148,13 @@ export function mountLibrary(panel, store, api) {
         <li>${glyph('wifi')}${esc(d.collection)}</li>
         <li>${glyph('shield')}${esc(d.provenanceText)}</li>
       </ul>
-      ${d.source !== 'template' ? `<h5 class="rq-mini-title">Révisions</h5><ol class="rq-revs compact">${[{ revision: d.revision, savedAt: d.updatedAt, fingerprint: d.fingerprint }, ...[...d.history].sort((a, b) => b.revision - a.revision)].map((h, n) => `<li data-i="${n}"><span class="rq-rev-n">${esc(String(h.revision))}</span><div><b>${h.revision === d.revision ? 'Révision actuelle' : `Révision ${esc(String(h.revision))}`}</b><span>${esc(dateText(h.savedAt))}${h.fingerprint ? ` · <span class="rq-mono">${esc(h.fingerprint.slice(0, 12))}</span>` : ''}</span></div></li>`).join('')}</ol>` : ''}
+      ${d.source !== 'template' ? '<h5 class="rq-mini-title">Révisions</h5><div class="rq-history"></div>' : ''}
       ${d.widgets.length ? `<h5 class="rq-mini-title">Widgets liés</h5><ul class="rq-w-items compact">${d.widgets.map((w) => `<li><span class="rq-w-ico">${glyph(w.board === 'computer' ? 'object' : 'gauge')}</span><div class="rq-w-main"><b>${esc(w.title)}</b><span>Révision ${esc(String(w.boundRevision))} · ${esc(w.visual)}</span></div></li>`).join('')}</ul>` : ''}
       ${d.archivedWidgets.length ? `<h5 class="rq-mini-title">Widgets retirés par l’archivage</h5><ul class="rq-w-items compact">${d.archivedWidgets.map((w) => `<li><span class="rq-w-ico">${glyph('undo')}</span><div class="rq-w-main"><b>${esc(w.title)}</b><span>Remis par la restauration</span></div></li>`).join('')}</ul>` : ''}
-      ${d.consumers.length ? `<h5 class="rq-mini-title">Éléments liés</h5><ul class="rq-w-items compact">${d.consumers.map((c) => `<li><span class="rq-w-ico">${glyph(c.kind === 'health' ? 'activity' : 'search')}</span><div class="rq-w-main"><b>${esc(c.title)}</b><span>${c.kind === 'health' ? `Santé · révision ${esc(String(c.boundRevision))} conservée` : 'Favori de Recherche · définition courante'}</span></div></li>`).join('')}</ul>` : ''}
+      ${d.consumers.length ? `<h5 class="rq-mini-title">Éléments liés</h5><ul class="rq-w-items compact">${d.consumers.map((c) => `<li><span class="rq-w-ico">${glyph(c.kind.startsWith('legacy') ? 'history' : c.kind === 'health' ? 'activity' : 'search')}</span><div class="rq-w-main"><b>${esc(c.title)}</b><span>${c.kind.startsWith('legacy') ? `Lien Domenia 1 · révision ${esc(String(c.boundRevision))} conservée · disposition non importée` : c.kind === 'health' ? `Santé · révision ${esc(String(c.boundRevision))} conservée` : 'Favori de Recherche · définition courante'}</span></div></li>`).join('')}</ul>` : ''}
     </div>`;
     vars(host);
+    if (d.source !== 'template') mountRevisionHistory(host.querySelector('.rq-history'), d);
     host.querySelector('[data-act="use"]').addEventListener('click', () => use(row, false, d));
     host.querySelector('[data-act="preview"]').addEventListener('click', () => use(row, true, d));
     host.querySelector('[data-act="restore"]')?.addEventListener('click', () => restore(d));

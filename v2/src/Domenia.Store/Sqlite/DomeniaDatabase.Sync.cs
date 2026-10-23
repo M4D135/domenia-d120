@@ -44,6 +44,9 @@ public sealed partial class DomeniaDatabase
             {
                 var key = row["scope"] as string ?? "";
                 var dn = row["base_dn"] as string ?? "";
+                // A deliberate purge keeps the scope identity but clears its checkpoint. It proves no fresh coverage.
+                if (InDomain(dn) && row["last_sync"] is null && row["details"] is null
+                    && ((long?)row["highest_usn"] ?? 0) == 0 && ((long?)row["item_count"] ?? 0) == 0) { continue; }
                 if (!InDomain(dn) || ParseStoredDate(row["last_sync"] as string) is not { } at) { throw new InvalidDataException("Repère de synchronisation illisible."); }
                 var details = row["details"] as string ?? "";
                 string? depth = details.Split(';').FirstOrDefault(x => x.StartsWith("depth=", StringComparison.Ordinal))?[6..];

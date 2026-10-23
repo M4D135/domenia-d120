@@ -167,7 +167,11 @@ public sealed record LocalStoreSnapshot(
     LegacySource Legacy,
     ImmutableArray<LocalStoreExport> Exports,
     string? LastFailure,
-    DateTimeOffset? LastFailureAt);
+    DateTimeOffset? LastFailureAt)
+{
+    /// <summary>Exact native purge targets; absent for the historical simulation model.</summary>
+    public ImmutableArray<LocalStorePurgeTarget> NativePurgeTargets { get; init; } = [];
+}
 
 /// <summary>A copy of a backup published to a file chosen by the operator (PAR-035), with the backup it copies.</summary>
 public sealed record LocalStoreExport(string Destination, DateTimeOffset At, string Sha256, long Bytes, string BackupId);

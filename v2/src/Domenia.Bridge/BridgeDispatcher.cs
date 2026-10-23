@@ -10,6 +10,7 @@ namespace Domenia.Bridge;
 /// </summary>
 public sealed class BridgeDispatcher(OperationRegistry registry, Action<BridgeResponse> publish, Func<OperationDefinition, BridgeError?>? admission = null)
 {
+    private readonly BridgeAdmission capacity = new();
     /// <summary>Largest message accepted from the page; larger ones are refused before parsing.</summary>
     public const int MaxMessageLength = 1_048_576;
 
@@ -52,9 +53,15 @@ public sealed class BridgeDispatcher(OperationRegistry registry, Action<BridgeRe
             return;
         }
         var context = new BridgeContext(publish, request.Id, definition.Name);
+        using var slot = capacity.Enter(request.Id, definition, out var saturated);
+        if (saturated is not null)
+        {
+            Refuse(request.Id, definition.Name, definition.Name, saturated); return;
+        }
         try
         {
-            var data = await definition.Handler(request.Arguments, context, cancellationToken).ConfigureAwait(false);
+            // Only admitted calls allocate a worker; even a synchronous handler never runs on the UI thread.
+            var data = await Task.Run(() => definition.Handler(request.Arguments, context, cancellationToken), cancellationToken).ConfigureAwait(false);
             publish(new BridgeResponse(request.Id, "result", definition.Name, data));
         }
         catch (OperationCanceledException)

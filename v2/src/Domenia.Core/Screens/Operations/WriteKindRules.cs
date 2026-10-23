@@ -61,6 +61,8 @@ public static class WriteKindRules
     private static readonly WriteKindRule[] Rules =
     [
         new("account.unlock", "Déverrouillage du compte", "État", "Relire lockoutTime : compte déverrouillé attendu (valeur 0).", true, false, false, "Un déverrouillage ne se compense pas."),
+        new("account.enable", "Activation du compte", "État", "Relire userAccountControl : compte activé attendu.", true, false, true, CompensableText),
+        new("account.disable", "Désactivation du compte", "État", "Relire userAccountControl : compte désactivé attendu.", true, false, true, CompensableText),
         new("account.enabled", "Activation ou désactivation du compte", "État", "Relire userAccountControl : état activé ou désactivé attendu.", true, false, true, CompensableText),
         new("account.options", "Options du compte", "État", "Relire userAccountControl : options attendues.", true, false, true, CompensableText),
         new("account.expiration", "Expiration du compte", "Attribut", "Relire accountExpires sur le contrôleur initial.", true, false, true, CompensableText),
