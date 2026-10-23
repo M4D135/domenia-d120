@@ -24,8 +24,14 @@ public sealed partial class DomeniaDatabase
         if (!File.Exists(Path)) { return RelationCacheSnapshot.Empty(StoreId, DomainDn); }
         using var db = new SqliteDatabase(Path, readOnly: true, cancellationToken: cancellationToken);
         db.Begin(write: false); CheckIdentity(db, allowLegacy: true);
+        var result = ReadRelations(db, cancellationToken);
+        db.Commit(); return result;
+    }, cancellationToken);
+
+    private RelationCacheSnapshot ReadRelations(SqliteDatabase db, CancellationToken cancellationToken)
+    {
         var revision = Table(db, "domenia_store_state") ? (long?)db.Scalar("SELECT revision FROM domenia_store_state WHERE id=1;") ?? 0 : 0;
-        if (!Table(db, "user_machine_links")) { db.Commit(); return RelationCacheSnapshot.Empty(StoreId, DomainDn) with { Revision = revision }; }
+        if (!Table(db, "user_machine_links")) { return RelationCacheSnapshot.Empty(StoreId, DomainDn) with { Revision = revision }; }
         var columns = db.Query("PRAGMA table_info(user_machine_links);").Select(r => (string)r["name"]!).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (new[] { "computer_key", "user_login", "computer" }.Any(c => !columns.Contains(c)))
         { throw new InvalidDataException("Table des associations incomplète ; aucune interprétation ni modification."); }
@@ -35,8 +41,27 @@ public sealed partial class DomeniaDatabase
             ? "CASE WHEN typeof(" + c.Name + ")='text' AND length(" + c.Name + ")<=" + c.Limit.ToString(CultureInfo.InvariantCulture) + " THEN " + c.Name + " ELSE NULL END AS " + c.Name
             : "NULL AS " + c.Name).ToList();
         projection.Add(columns.Contains("verified_in_ad") ? "CASE WHEN typeof(verified_in_ad)='integer' AND verified_in_ad IN (0,1) THEN verified_in_ad ELSE NULL END AS verified_in_ad" : "NULL AS verified_in_ad");
-        projection.Add(columns.Contains("confidence") ? "CASE WHEN typeof(confidence) IN ('integer','real') THEN confidence ELSE NULL END AS confidence" : "NULL AS confidence");
-        var invalid = RelationColumns.Where(c => columns.Contains(c.Name)).Select(c => "(" + c.Name + " IS NOT NULL AND (typeof(" + c.Name + ")<>'text' OR length(" + c.Name + ")>" + c.Limit.ToString(CultureInfo.InvariantCulture) + "))");
+        projection.Add(columns.Contains("confidence") ? "CASE WHEN typeof(confidence) IN ('integer','real') AND confidence BETWEEN -1.7976931348623157e308 AND 1.7976931348623157e308 THEN confidence ELSE NULL END AS confidence" : "NULL AS confidence");
+        var invalid = RelationColumns.Where(c => columns.Contains(c.Name)).Select(c => "(" + c.Name + " IS NOT NULL AND (typeof(" + c.Name + ")<>'text' OR length(" + c.Name + ")>" + c.Limit.ToString(CultureInfo.InvariantCulture) + "))").ToList();
+        if (columns.Contains("verified_in_ad")) { invalid.Add("(verified_in_ad IS NOT NULL AND (typeof(verified_in_ad)<>'integer' OR verified_in_ad NOT IN (0,1)))"); }
+        if (columns.Contains("confidence")) { invalid.Add("(confidence IS NOT NULL AND (typeof(confidence) NOT IN ('integer','real') OR confidence NOT BETWEEN -1.7976931348623157e308 AND 1.7976931348623157e308))"); }
+        // Include D1 extension columns in the physical fingerprint, without allocating an unbounded opaque payload.
+        var known = RelationColumns.Select(c => c.Name).Append("verified_in_ad").Append("confidence").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var extras = columns.Where(c => !known.Contains(c)).OrderBy(c => c, StringComparer.Ordinal).ToArray();
+        static string Quote(string name) => "\"" + name.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+        if (extras.Length > 32) { invalid.Add("1"); }
+        else if (extras.Length > 0)
+        {
+            var size = "(" + string.Join('+', extras.Select(c => "COALESCE(length(CAST(" + Quote(c) + " AS BLOB)),0)")) + ")<=65536";
+            invalid.Add("NOT (" + size + ")");
+            foreach (var extra in extras)
+            {
+                var name = Quote(extra);
+                var finite = "(typeof(" + name + ")<>'real' OR " + name + " BETWEEN -1.7976931348623157e308 AND 1.7976931348623157e308)";
+                invalid.Add("NOT " + finite);
+                projection.Add("CASE WHEN " + size + " AND " + finite + " THEN " + name + " ELSE NULL END AS " + Quote("extension:" + extra));
+            }
+        }
         projection.Add("CASE WHEN " + string.Join(" OR ", invalid) + " THEN 1 ELSE 0 END AS invalid_cell");
         var rows = ImmutableArray.CreateBuilder<CachedRelation>(); var rejected = 0; var dates = 0; var readCount = 0; long bytes = 0;
         var truncated = total > RelationReadCap;
@@ -48,7 +73,7 @@ public sealed partial class DomeniaDatabase
             foreach (var row in page)
             {
                 readCount++;
-                bytes += row.Values.OfType<string>().Sum(s => (long)Encoding.UTF8.GetByteCount(s));
+                bytes += row.Values.OfType<string>().Sum(s => (long)Encoding.UTF8.GetByteCount(s)) + row.Values.OfType<byte[]>().Sum(b => (long)b.Length);
                 if (bytes > 32L * 1024 * 1024) { truncated = true; break; }
                 if ((long)row["invalid_cell"]! != 0 || !TryRelation(row, out var relation, out var uncertain)) { rejected++; continue; }
                 dates += uncertain ? 1 : 0;
@@ -57,14 +82,13 @@ public sealed partial class DomeniaDatabase
             }
             if (bytes > 32L * 1024 * 1024) { break; }
         }
-        db.Commit();
         return new RelationCacheSnapshot(StoreId, DomainDn, revision, rows.ToImmutable(), total, rejected, dates, truncated,
             FrenchText.Count(rows.Count, "association lue", "associations lues") + " dans la base locale. "
             + (rejected > 0 ? FrenchText.Count(rejected, "ligne incohérente conservée dans la base mais écartée", "lignes incohérentes conservées dans la base mais écartées") + ". " : "")
             + (dates > 0 ? FrenchText.Count(dates, "date non qualifiée", "dates non qualifiées") + ". " : "")
             + (truncated ? "Lecture partielle : plafond de 50 000 lignes ou 32 Mio atteint. " : "")
             + "Clés de stockage et GUID historiques conservés ; aucun rapprochement par homonymie.");
-    }, cancellationToken);
+    }
 
     private bool TryRelation(IReadOnlyDictionary<string, object?> row, out StoredRelation? relation, out bool uncertainDate)
     {

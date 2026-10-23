@@ -16,20 +16,30 @@ public sealed partial class DomeniaDatabase
     public Task<RelationJournalCache> ReadRelationJournalAsync(CancellationToken cancellationToken) => Task.Run(() =>
     {
         CompatibleDirectoryCache.ValidateLocalPath(Path);
-        if (File.Exists(Path))
-        {
-            using var db = new SqliteDatabase(Path, readOnly: true, cancellationToken: cancellationToken);
-            CheckIdentity(db, allowLegacy: true);
-        }
+        using var db = File.Exists(Path) ? new SqliteDatabase(Path, readOnly: true, cancellationToken: cancellationToken) : null;
+        if (db is not null) { db.Begin(false); CheckIdentity(db, allowLegacy: true); }
+        var result = ReadRelationJournal(db, cancellationToken);
+        db?.Commit(); return result;
+    }, cancellationToken);
+
+    private RelationJournalCache ReadRelationJournal(SqliteDatabase? db, CancellationToken cancellationToken)
+    {
         var path = Path + ".relations-journal.jsonl";
         CompatibleDirectoryCache.ValidateLocalPath(path);
-        if (!File.Exists(path)) { return new RelationJournalCache([], 0, 0, false, "Aucun journal historique des relations."); }
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        var length = stream.Length;
-        var skipped = Math.Max(0, length - RelationJournalTailBytes);
-        stream.Position = skipped;
-        var bytes = new byte[checked((int)(length - skipped))];
-        stream.ReadExactly(bytes);
+        byte[] bytes = []; long skipped = 0; var legacyReadable = true;
+        try
+        {
+            if (File.Exists(path))
+            {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var length = stream.Length;
+            skipped = Math.Max(0, length - RelationJournalTailBytes);
+            stream.Position = skipped;
+            bytes = new byte[checked((int)(length - skipped))];
+            stream.ReadExactly(bytes);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { bytes = []; legacyReadable = false; }
         var starts = new Queue<(int Offset, int Count)>(400); var start = 0; var lines = 0;
         void Line(int offset, int count)
         {
@@ -68,17 +78,38 @@ public sealed partial class DomeniaDatabase
             catch (Exception ex) when (ex is JsonException or DecoderFallbackException or FormatException or InvalidDataException)
             { rejected++; }
         }
+        if (db is not null && Table(db, RelationJournalTable))
+        {
+            var durable = db.Query("SELECT id,at,CASE WHEN typeof(payload)='text' AND length(CAST(payload AS BLOB))<=65536 THEN payload ELSE NULL END AS payload FROM domenia_v2_relation_journal ORDER BY at DESC,id DESC LIMIT 401;");
+            truncated |= durable.Count > 400;
+            foreach (var row in durable.Take(400))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    if (row["payload"] is not string payload) { rejected++; continue; }
+                    using var document = JsonDocument.Parse(payload, new JsonDocumentOptions { MaxDepth = 12 });
+                    var root = document.RootElement;
+                    if (root.ValueKind != JsonValueKind.Object || DuplicateJournalProperties(root)
+                        || JournalText(root, "BaseDn", 4096) is not { } domain || !DistinguishedName.AreEqual(domain, DomainDn)) { rejected++; continue; }
+                    var entry = ParseLegacyJournal(root);
+                    if (entry is null || entry.Id != (string?)row["id"] || Stamp(entry.At) != (string?)row["at"]) { rejected++; } else { records.Add(entry); }
+                }
+                catch (Exception ex) when (ex is JsonException or InvalidDataException or FormatException or ArgumentException) { rejected++; }
+            }
+        }
         // Equal IDs with different content cannot authorize a restoration. Preserve originals on disk, exclude all ambiguous versions.
         var groups = records.GroupBy(r => r.Id, StringComparer.Ordinal).ToArray();
         var ambiguous = groups.Where(g => g.Distinct().Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
         rejected += records.Count(r => ambiguous.Contains(r.Id));
         var entries = groups.Where(g => !ambiguous.Contains(g.Key)).Select(g => g.First()).OrderBy(r => r.At).ThenBy(r => r.Id, StringComparer.Ordinal).ToImmutableArray();
         return new RelationJournalCache(entries, rejected, foreign, truncated, FrenchText.Count(entries.Length, "entrée de journal relue", "entrées de journal relues")
-            + ". " + (truncated ? "Dernières 400 lignes de la fin du fichier (8 Mio au plus) ; historique partiel. " : "")
+            + ". " + (truncated ? "Journal limité à 400 entrées SQLite et 400 lignes D1 (8 Mio au plus) ; historique partiel. " : "")
             + (rejected > 0 ? FrenchText.Count(rejected, "entrée illisible ou ambiguë écartée", "entrées illisibles ou ambiguës écartées") + ". " : "")
             + (foreign > 0 ? FrenchText.Count(foreign, "entrée d’un autre domaine écartée", "entrées d’un autre domaine écartées") + ". " : "")
-            + "Fichier original conservé, aucune restauration automatique.");
-    }, cancellationToken);
+            + (legacyReadable ? "" : "Fichier D1 inaccessible ; seules les entrées SQLite sont disponibles. ")
+            + "Fichier original conservé, aucune restauration automatique.") { LegacyReadable = legacyReadable };
+    }
 
     private RelationJournalRecord? ParseLegacyJournal(JsonElement root)
     {

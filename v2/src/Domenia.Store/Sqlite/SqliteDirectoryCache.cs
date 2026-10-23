@@ -5,8 +5,16 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Initializes or migrates on the first explicit stored read, with the native store's backup rules.</summary>
-public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalCache
+public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalWriter
 {
+    public Task<WritePrecheck> CheckRelationsAsync(RelationStoreWrite request, CancellationToken cancellationToken) => Database.CheckRelationsAsync(request, cancellationToken);
+    public async Task<RelationStoreResult> ApplyRelationsAsync(RelationStoreWrite request, CancellationToken cancellationToken)
+    {
+        var check = await Database.CheckRelationsAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!check.Current) { throw WriteErrors.Refusal(WriteErrors.Stale, check.Detail); }
+        await Database.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        return await Database.ApplyRelationsAsync(request, cancellationToken).ConfigureAwait(false);
+    }
     public Task<RelationCacheSnapshot> ReadRelationsAsync(CancellationToken cancellationToken) => Database.ReadRelationsAsync(cancellationToken);
     public Task<RelationJournalCache> ReadRelationJournalAsync(CancellationToken cancellationToken) => Database.ReadRelationJournalAsync(cancellationToken);
     public Task<ImmutableArray<FleetSnapshot>> ReadFleetHistoryAsync(ScopeSelection scope, CancellationToken cancellationToken) => Database.ReadFleetHistoryAsync(scope, cancellationToken);
