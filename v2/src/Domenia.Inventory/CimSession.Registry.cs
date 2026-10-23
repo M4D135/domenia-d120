@@ -77,7 +77,7 @@ internal static class InventoryRegistry
         }
         const string services = @"SYSTEM\CurrentControlSet\Services\";
         return key.StartsWith(services, StringComparison.OrdinalIgnoreCase) && PosteServices.IsValidName(key[services.Length..])
-            && Value("DependOnService", RegistryMethod.Strings);
+            && (Value("DependOnService", RegistryMethod.Strings) || Value("DependOnGroup", RegistryMethod.Strings));
     }
 
     private static bool Software(RegistryRequest request)

@@ -31,7 +31,7 @@ public sealed partial class CimSession
         {
             var parsed = ParseAppx(reply.Json, Host) with { DurationMs = duration };
             authenticationRefused |= parsed.AuthenticationRejected;
-            if (!reply.CleanupComplete) { parsed = parsed with { Status = SourceStatus.Partial, Detail = parsed.Detail + detail }; }
+            if (!reply.CleanupComplete) { parsed = parsed with { Status = parsed.Answered ? SourceStatus.Partial : parsed.Status, Detail = parsed.Detail + detail }; }
             return parsed;
         }
         catch (JsonException)

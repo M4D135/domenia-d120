@@ -343,3 +343,16 @@ Le relevé antivirus lit `MSFT_MpComputerStatus` indépendamment de `SecurityCen
 L’inventaire rapide/complet ajoute UBR et DisplayVersion depuis le registre Windows : révision zéro conservée, version déclarée distincte du build. Ces deux lectures ne sont pas ajoutées au relevé court de recherche. Trois tests ajoutés et compilés seulement ; qualification native en recette finale.
 
 Référence : [propriétés et sentinelles MSFT_MpComputerStatus](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/defender/msft-mpcomputerstatus).
+
+
+## 16. Membres locaux, services, certificats et tâches (23/10/2026)
+
+Le groupe Administrateurs est résolu par son SID intégré `S-1-5-32-544` avec `LocalAccount=True`, après contrôle du nom et du rôle du poste. Un contrôleur de domaine ou un rôle inconnu n’entraîne aucune énumération de membres. Les membres directs passent par NetAPI/RPC, sous le même compte sélectionné, sans développement des groupes du domaine. Plafond affiché de 500 membres ; refus d’authentification transmis à la session commune. Le worker garde seul son jeton et ses tampons jusqu’au retour natif. Si NetAPI demande une suite, l’énumération est drainée même après arrêt de l’attente pour libérer sa ressource RPC ; aucun nouveau relevé n’est lancé. Le rapport nomme ce transport distinct.
+
+La lecture détaillée des services ajoute `DependOnService` et `DependOnGroup` depuis le registre dans le budget commun de 90 s. Les groupes de chargement gardent leur préfixe `+`. Refus, liste tronquée et anciens caches sans preuve donnent des dépendances inconnues, jamais « aucune » ; le graphe inverse signale son incomplétude. Le relevé rapide ne multiplie pas les appels de dépendances. Le démarrage différé inconnu reste visible comme tel.
+
+En WinRM sélectionné, deux scripts fixes ajoutent les métadonnées du magasin `Cert:\LocalMachine\My` (512 certificats, 15 s) et les états/dates/résultats des tâches (1 000, 30 s). Les budgets incluent 2 s de fermeture du seul shell créé ; identité, format, dates UTC, tailles et champs projetés sont contrôlés. Aucun paramètre ni fragment de code n’est reçu de l’interface. Clés privées et actions de tâche ne sont jamais exportées. Les certificats expirés restent dans le bilan ; une date sans fuseau, un code manquant ou une lecture refusée ne devient pas un succès. Le chemin DCOM garde sa projection des définitions de tâches et signale les détails indisponibles, sans ouvrir implicitement WinRM. Une fermeture incertaine ne transforme pas un refus de la source en données exploitables, y compris pour Appx.
+
+Six tests supplémentaires écrits et compilés seulement ; recette native des lectures RPC/WinRM à effectuer en fin de développement.
+
+Références : [NetLocalGroupGetMembers et fin d’énumération RPC](https://learn.microsoft.com/en-us/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupgetmembers), [fournisseur de certificats Windows](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/about/about_certificate_provider), [état d’exécution des tâches](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/get-scheduledtaskinfo).

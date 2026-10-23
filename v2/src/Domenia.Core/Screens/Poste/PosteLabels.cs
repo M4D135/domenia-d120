@@ -163,9 +163,9 @@ public static class PosteLabels
 
     public static string ServiceState(string? state) => string.IsNullOrEmpty(state) ? "Non lu" : ServiceStates.TryGetValue(state, out var label) ? label : state;
 
-    public static string ServiceStart(string? startMode, bool delayed) => startMode switch
+    public static string ServiceStart(string? startMode, bool? delayed) => startMode switch
     {
-        "Auto" => delayed ? "Automatique (différé)" : "Automatique",
+        "Auto" => delayed switch { true => "Automatique (différé)", false => "Automatique", null => "Automatique (délai non lu)" },
         "Manual" => "Manuel",
         "Disabled" => "Désactivé",
         "Boot" => "Démarrage du système",
@@ -280,6 +280,7 @@ public static class PosteLabels
         InventoryTransport.WinRm => "WinRM",
         InventoryTransport.PsExec => "PsExec",
         InventoryTransport.ScheduledTask => "Tâche planifiée",
+        InventoryTransport.NetApi => "NetAPI (RPC)",
         _ => "Local",
     };
 

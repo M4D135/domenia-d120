@@ -21,7 +21,7 @@ internal sealed partial class WsmanReadChannel
 {
     private const string ShellNamespace = "http://schemas.microsoft.com/wbem/wsman/1/windows/shell";
     private const string ShellResource = ShellNamespace + "/cmd";
-    // The only script admitted here. No user input, shell fragments, file paths, profile loading or write commands.
+    // One of the fixed scripts admitted here. No user input, profile loading or write commands.
     private const string AppxScript = """
         $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
         [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
@@ -72,7 +72,9 @@ internal sealed partial class WsmanReadChannel
         public void Dispose() { Release(shell); Release(creator); }
     }
 
-    internal ShellReading ReadAppx(TimeSpan timeout)
+    internal ShellReading ReadAppx(TimeSpan timeout) => ReadScript(AppxScript, timeout);
+
+    private ShellReading ReadScript(string script, TimeSpan timeout)
     {
         var start = clock.GetTimestamp();
         TimeSpan Left()
@@ -99,7 +101,7 @@ internal sealed partial class WsmanReadChannel
             created = true; // Even a lost Create response can have created a shell; never repeat Create.
             var response = wire.Create(Left(), shell.ToString(SaveOptions.DisableFormatting));
             shellId = ShellId(response);
-            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(AppxScript));
+            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
             var command = new XElement(ns + "CommandLine",
                 new XElement(ns + "Command", "\"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\""),
                 new XElement(ns + "Arguments", "-NoLogo -NoProfile -NonInteractive -EncodedCommand " + encoded));

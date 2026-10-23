@@ -23,7 +23,11 @@ public sealed record ServiceRow(
     ImmutableArray<string> Dependents,
     bool InProfile,
     string? ProfileReason,
-    string? Description);
+    string? Description)
+{
+    public bool DependenciesRead { get; init; } = true;
+    public bool DependentsComplete { get; init; } = true;
+}
 
 /// <summary>Deviation of one service of the profile expected on a workstation of the domain (Domenia 1 point 90).</summary>
 public sealed record ServiceProfileLine(string Name, string Reason, string State, Tone Tone, string Text);
@@ -165,7 +169,7 @@ public static class PosteServices
                     dependents.TryGetValue(s.Name, out var children) ? children : [],
                     profile.ContainsKey(s.Name),
                     profile.TryGetValue(s.Name, out var why) ? why : null,
-                    s.Description);
+                    s.Description) { DependenciesRead = s.DependenciesRead, DependentsComplete = list.All(item => item.DependenciesRead) };
             })
             .OrderByDescending(r => r.AutoStopped)
             .ThenBy(r => r.DisplayName, PosteText.French)

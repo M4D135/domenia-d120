@@ -259,14 +259,14 @@ internal static class PosteMachines
             }
             if (s.Name == "WinRM" && winRmOff)
             {
-                list.Add(new ServiceEntry(s.Name, s.Display, "Stopped", "Manual", false, null, s.Account, null, [.. s.DependsOn.Split(',', StringSplitOptions.RemoveEmptyEntries)], s.Description));
+                list.Add(new ServiceEntry(s.Name, s.Display, "Stopped", "Manual", false, null, s.Account, null, [.. s.DependsOn.Split(',', StringSplitOptions.RemoveEmptyEntries)], s.Description) { DependenciesRead = true });
                 continue;
             }
             var state = s.Name == broken ? "Stopped" : s.State;
             int? exit = state == "Stopped" && s.StartMode == "Auto" ? (s.Name == broken ? 1067 : s.Delayed ? 0 : 1077) : null;
             pid += r.Next(4, 180) * 4;
             list.Add(new ServiceEntry(s.Name, s.Display, state, s.StartMode, s.Delayed, state == "Running" ? pid : null, s.Account, exit,
-                [.. s.DependsOn.Split(',', StringSplitOptions.RemoveEmptyEntries)], s.Description));
+                [.. s.DependsOn.Split(',', StringSplitOptions.RemoveEmptyEntries)], s.Description) { DependenciesRead = true });
         }
         return list.ToImmutable();
     }

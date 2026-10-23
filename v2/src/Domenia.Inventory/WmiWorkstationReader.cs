@@ -272,7 +272,7 @@ public sealed partial class WmiWorkstationReader
             new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
             new(InventoryCategories.Sessions, "Sessions", static (session, current, access, token) => ReadSessions(session, current, access, token)),
         ],
-        WorkstationReading.Services => [new(InventoryCategories.Services, "Services", static (session, current, access, token) => ReadServices(session, current, access, token))],
+        WorkstationReading.Services => [new(InventoryCategories.Services, "Services", static (session, current, access, token) => ReadServices(session, current, access, token, dependencies: true))],
         WorkstationReading.Processes => [new(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token))],
         WorkstationReading.Events => [new(InventoryCategories.Events, "Événements système", static (session, current, access, token) => ReadEvents(session, current, access, token))],
         WorkstationReading.Updates =>
@@ -305,6 +305,7 @@ public sealed partial class WmiWorkstationReader
             new(InventoryCategories.Printers, "Imprimantes", static (session, current, access, token) => ReadPrinters(session, current, access, token)),
             new(InventoryCategories.Sessions, "Sessions", static (session, current, access, token) => ReadSessions(session, current, access, token)),
             new(InventoryCategories.Reboot, "Redémarrage en attente", static (session, current, access, token) => ReadReboot(session, current, access, token)),
+            new(InventoryCategories.Admins, "Administrateurs locaux", static (session, current, access, token) => ReadLocalAdmins(session, current, access, token)),
             new(InventoryCategories.Site, "Site AD", static (session, current, access, token) => ReadSite(session, current, access, token)),
             new(InventoryCategories.Software, "Logiciels installés", static (session, current, access, token) => ReadSoftwareInventory(session, current, access, token)),
             .. reading == WorkstationReading.Full
@@ -313,6 +314,7 @@ public sealed partial class WmiWorkstationReader
                     new Step(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token)),
                     new Step(InventoryCategories.Events, "Événements système", static (session, current, access, token) => ReadEvents(session, current, access, token)),
                     new Step(InventoryCategories.Tasks, "Tâches planifiées", static (session, current, access, token) => ReadTasks(session, current, access, token)),
+                    new Step(InventoryCategories.Certificates, "Certificats machine", static (session, current, access, token) => ReadCertificates(session, current, access, token)),
                     new Step(InventoryCategories.Connections, "Connexions réseau", static (session, current, access, token) => ReadConnections(session, current, access, token)),
                 }
                 : [],
@@ -718,33 +720,41 @@ public sealed partial class WmiWorkstationReader
     private static InventorySnapshot ReadUpdateSource(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token) =>
         ReadUpdateRegistry(session, current, access, token);
 
-    private static InventorySnapshot ReadServices(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool automaticStopped = false)
+    private static InventorySnapshot ReadServices(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool automaticStopped = false, bool dependencies = false)
     {
+        var begin = session.Clock.GetTimestamp();
         var reading = session.Read(InventoryCategories.Services, Cimv2, "SELECT Name, DisplayName, State, StartMode, DelayedAutoStart, ProcessId, StartName, ExitCode, Description FROM Win32_Service" + (automaticStopped ? " WHERE StartMode='Auto' AND State<>'Running'" : ""), CimBudgets.ServicesCap, CimBudgets.Services);
         AddAccess(access, session, InventoryCategories.Services, reading);
-        if (!reading.Answered)
+        if (!reading.Answered) { return current with { Services = [] }; }
+        var incomplete = reading.Status == SourceStatus.Partial;
+        var rows = session.RegistryBatch(() =>
         {
-            return current with { Services = [] };
-        }
-
-        token.ThrowIfCancellationRequested();
-        return current with
-        {
-            Services = [.. reading.Instances
-                .Where(s => s.Text("Name") is not null)
-                .Select(s => new ServiceEntry(
-                    s.Text("Name")!,
-                    s.Text("DisplayName") ?? s.Text("Name")!,
-                    s.Text("State") ?? "",
-                    s.Text("StartMode") ?? "",
-                    s.Bool("DelayedAutoStart") ?? false,
-                    s.Int("ProcessId"),
-                    s.Text("StartName"),
-                    s.Int("ExitCode"),
-                    [],
-                    s.Text("Description")))
-                .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)],
-        };
+            var rows = ImmutableArray.CreateBuilder<ServiceEntry>();
+            foreach (var service in reading.Instances)
+            {
+                if (service.Text("Name") is not { Length: > 0 } name) { incomplete = true; continue; }
+                RegistryReading? direct = null, groups = null;
+                if (dependencies && PosteServices.IsValidName(name))
+                {
+                    var key = @"SYSTEM\CurrentControlSet\Services\" + name;
+                    direct = Registry(session, key, "DependOnService", RegistryMethod.Strings);
+                    groups = Registry(session, key, "DependOnGroup", RegistryMethod.Strings);
+                }
+                var known = direct?.Status is SourceStatus.Ok or SourceStatus.Empty && groups?.Status is SourceStatus.Ok or SourceStatus.Empty;
+                var items = (direct?.Strings ?? []).Concat((groups?.Strings ?? []).Select(g => "+" + g)).ToArray();
+                var clean = items.Where(d => d.Length is > 0 and <= 256 && !d.Any(char.IsControl)).Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray();
+                known &= items.Length == clean.Length;
+                if (dependencies && !known) { incomplete = true; }
+                rows.Add(new(name, service.Text("DisplayName") ?? name, service.Text("State") ?? "", service.Text("StartMode") ?? "",
+                    service.Bool("DelayedAutoStart"), service.Int("ProcessId"), service.Text("StartName"), service.Int("ExitCode"), clean, service.Text("Description"))
+                    { DependenciesRead = known && reading.Status != SourceStatus.Partial });
+            }
+            return rows.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToImmutableArray();
+        });
+        if (incomplete) { Incomplete(access, InventoryCategories.Services, "Services ou dépendances partiellement lus ; aucun lien manquant n’est déclaré absent."); }
+        var index = access.FindLastIndex(a => a.Category == InventoryCategories.Services);
+        if (index >= 0) { access[index] = access[index] with { DurationMs = (int)session.Clock.GetElapsedTime(begin).TotalMilliseconds, AuthenticationRejected = session.AuthenticationRejected }; }
+        return current with { Services = rows };
     }
 
     private static InventorySnapshot ReadProcesses(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)

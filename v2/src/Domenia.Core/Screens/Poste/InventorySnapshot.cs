@@ -29,6 +29,7 @@ public enum InventoryTransport
     PsExec,
     ScheduledTask,
     Local,
+    NetApi,
 }
 
 /// <summary>Access report line of one source (Domenia 1 DgInventoryAccess).</summary>
@@ -134,7 +135,10 @@ public sealed record SoftwareEntry(
 /// <summary>Startup entry: the executable only, never its arguments (Get-DomeniaCommandExecutable).</summary>
 public sealed record StartupEntry(string Name, string Executable, string Location, string? User, bool? Microsoft);
 
-public sealed record ServiceEntry(string Name, string DisplayName, string State, string StartMode, bool Delayed, int? ProcessId, string? Account, int? ExitCode, ImmutableArray<string> DependsOn, string? Description);
+public sealed record ServiceEntry(string Name, string DisplayName, string State, string StartMode, bool? Delayed, int? ProcessId, string? Account, int? ExitCode, ImmutableArray<string> DependsOn, string? Description)
+{
+    public bool DependenciesRead { get; init; }
+}
 
 public sealed record DeviceError(string Name, int Code, string? Class);
 

@@ -127,12 +127,37 @@ public sealed partial class WmiWorkstationReader
 
     private static InventorySnapshot ReadTasks(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
     {
+        if (session.Transport == InventoryTransport.WinRm)
+        {
+            var native = session.ReadInventoryShell(InventoryShellRead.Tasks);
+            access.Add(native.ToAccess(session.Transport)); token.ThrowIfCancellationRequested();
+            return current with { Tasks = [.. native.Instances.Select(r => new TaskEntry(r.Text("Name")!, r.Text("Path")!, r.Text("Author"),
+                TaskState(r.Int("State")), r.Number("LastResult") is long code and >= 0 and <= uint.MaxValue ? "0x" + code.ToString("X8", CultureInfo.InvariantCulture) : null,
+                CimSession.UtcDate(r.Text("LastRun")), CimSession.UtcDate(r.Text("NextRun")), r.Text("Path")!.StartsWith(@"\Microsoft\", StringComparison.OrdinalIgnoreCase)))] };
+        }
         var read = session.Read(InventoryCategories.Tasks, @"root\Microsoft\Windows\TaskScheduler", "SELECT TaskName, TaskPath, Author, State FROM MSFT_ScheduledTask", 1000);
         AddAccess(access, session, InventoryCategories.Tasks, read); token.ThrowIfCancellationRequested();
         if (read.Items > 0) { Incomplete(access, InventoryCategories.Tasks, "Définitions et états lus ; dernier résultat et dates d’exécution non fournis par cette projection."); }
         return current with { Tasks = [.. read.Instances.Select(r => new TaskEntry(r.Text("TaskName") ?? "Tâche non identifiée", r.Text("TaskPath") ?? "Chemin non lu", r.Text("Author"),
-            r.Int("State") switch { 1 => "Désactivée", 2 => "En attente", 3 => "Prête", 4 => "En cours", _ => "État non lu" }, null, null, null,
+            TaskState(r.Int("State")), null, null, null,
             r.Text("TaskPath")?.StartsWith(@"\Microsoft\", StringComparison.OrdinalIgnoreCase) == true))] };
+    }
+
+    private static string TaskState(int? value) => value switch { 1 => "Désactivée", 2 => "En attente", 3 => "Prête", 4 => "En cours", _ => "État non lu" };
+
+    private static InventorySnapshot ReadCertificates(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var read = session.ReadInventoryShell(InventoryShellRead.Certificates);
+        access.Add(read.ToAccess(session.Transport)); token.ThrowIfCancellationRequested();
+        return current with { Certificates = [.. read.Instances.Select(r => new CertificateEntry(r.Text("Subject") ?? "Sujet non renseigné", r.Text("Issuer") ?? "Émetteur non renseigné",
+            CimSession.UtcDate(r.Text("NotAfter"))!.Value, [.. r.Strings("Usages")], r.Text("Thumbprint")!))] };
+    }
+
+    private static InventorySnapshot ReadLocalAdmins(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var read = session.ReadLocalAdmins();
+        access.Add(read.ToAccess(InventoryTransport.NetApi)); token.ThrowIfCancellationRequested();
+        return current with { LocalAdmins = [.. read.Instances.Select(r => r.Text("Name")).Where(n => n is not null).Select(n => n!).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)] };
     }
 
     private static InventorySnapshot ReadConnections(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
