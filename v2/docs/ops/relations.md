@@ -371,3 +371,11 @@ Les observations rejoignent SQLite par lots scellés de 64 (64 lots au plus par 
 Un échec interrompt la passe et garde les observations sans relance immédiate. Un retour perdu après commit se résout au passage suivant par une relecture : aucun second envoi ni nouveau journal si la donnée est déjà enregistrée. Les observations acquittées, déjà connues ou dépassées sont libérées de la file. Les opérations restent locales et ne déclenchent aucune lecture ou écriture LDAP.
 
 Le dernier utilisateur de Poste verse désormais son résultat après les contrôles finaux. Sa date vient de la source ; une entrée LogonUI sans date reste un historique non daté. L’affectation déclarée garde sa priorité. Sept tests supplémentaires sont écrits et compilés seulement, dont le raccordement de la détection à SQLite, les lots 64+1, les échecs et la perte de retour. Les autres producteurs et l’écran Relations restent à raccorder.
+
+## 13. Identité locale et destinations de navigation (23/10/2026)
+
+Un GUID enregistré dont l’objet n’est pas retrouvé dans l’index produit une identité non vérifiée, pas une suppression AD ni une identité confirmée. Les DN historiques des lignes restent disponibles pour copie/export. Deux champs distincts portent les destinations de navigation : seulement le DN actuel de l’objet retrouvé avec le même GUID. Cela suit les renommages/déplacements et empêche un ancien DN réattribué de conduire à un homonyme.
+
+Les destinations de la relation principale, des connexions récentes et du graphe suivent la même règle. Les menus, boutons et doubles clics ne retombent pas sur le nom quand un GUID connu n’est pas retrouvé. Les associations héritées sans GUID conservent une recherche explicite par nom, annoncée comme historique et non vérifiée ; le nom affiché d’un tiers n’est pas prêté à la ligne. Les lignes du volet du graphe sont reliées par GUID même si leur DN historique diffère désormais.
+
+Trois tests couvrent les identités manquantes, le renommage et les noms réattribués ; compilés uniquement. La compilation C# Debug/Release est sans avertissement ; le parcours visuel et E2E de ces actions reste à exécuter en fin de développement.

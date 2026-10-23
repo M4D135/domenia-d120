@@ -57,8 +57,8 @@ export function createAllTab(panel, app, o = {}) {
   const actions = (r) => {
     const key = `data-key="${esc(r.key)}" data-persistence="${esc(r.persistence)}"`;
     return `<span class="rel-acts">
-      <button class="rel-act" type="button" data-row-act="user" ${key} data-tip="Voir les relations de ${esc(r.userLogin)}" aria-label="Voir les relations de ${esc(r.userLogin)}">${glyph('user')}</button>
-      <button class="rel-act" type="button" data-row-act="computer" ${key} data-tip="Voir les relations de ${esc(r.computer)}" aria-label="Voir les relations de ${esc(r.computer)}">${glyph('monitor')}</button>
+      <button class="rel-act" type="button" data-row-act="user" ${key} ${r.userGuid && !r.userTargetDn ? 'disabled title="GUID non retrouvé dans l’index local"' : ''} data-tip="Voir les relations de ${esc(r.userLogin)}" aria-label="Voir les relations de ${esc(r.userLogin)}">${glyph('user')}</button>
+      <button class="rel-act" type="button" data-row-act="computer" ${key} ${r.computerGuid && !r.computerTargetDn ? 'disabled title="GUID non retrouvé dans l’index local"' : ''} data-tip="Voir les relations de ${esc(r.computer)}" aria-label="Voir les relations de ${esc(r.computer)}">${glyph('monitor')}</button>
       ${r.persistence === 'session'
         ? `<button class="rel-act wr" type="button" data-row-act="save" ${key} data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
         : `<button class="rel-act danger" type="button" data-row-act="remove" ${key} data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`}
@@ -96,9 +96,9 @@ export function createAllTab(panel, app, o = {}) {
     onActivate: (row) => {
       const col = activeCol;
       activeCol = null;
-      if (col === 'user') app.openFiche({ dn: row.userDn, name: row.userLogin });
-      else if (col === 'computer') app.openFiche({ dn: row.computerDn, name: row.computer });
-      else app.select(row.userDn ?? row.userLogin);
+      if (col === 'user') app.openRelationEnd(row, 'user', true);
+      else if (col === 'computer') app.openRelationEnd(row, 'computer', true);
+      else app.openRelationEnd(row, 'user');
     },
     contextMenu: ({ row }) => (row ? app.rowMenu(row, 'both') : []),
     selectionActions: (sel) => {
@@ -123,8 +123,8 @@ export function createAllTab(panel, app, o = {}) {
     const row = rows.find((r) => r.key === b.dataset.key && r.persistence === b.dataset.persistence);
     if (!row) return;
     const act = b.dataset.rowAct;
-    if (act === 'user') app.select(row.userDn ?? row.userLogin);
-    else if (act === 'computer') app.select(row.computerDn ?? row.computer);
+    if (act === 'user') app.openRelationEnd(row, 'user');
+    else if (act === 'computer') app.openRelationEnd(row, 'computer');
     else if (act === 'save') app.plan('relations.observations.plan', { resultId: SESSION_RESULT, keys: [row.key] });
     else if (act === 'remove') app.plan('relations.remove.plan', { key: row.key, fingerprint: row.fingerprint });
   });

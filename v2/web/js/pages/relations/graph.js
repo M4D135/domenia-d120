@@ -244,10 +244,10 @@ export function renderGraph(host, source, o = {}) {
             ? `<button class="rel-act wr" type="button" data-pop-save="${esc(r.key)}" data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
             : `<button class="rel-act danger" type="button" data-pop-remove="${esc(r.key)}" data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`}</li>`).join('')}</ul>`
         : toCentre ? `<p class="rel-pop-line">${esc(toCentre.label)}${toCentre.whenText ? ` · ${esc(toCentre.whenText)}` : ''}${toCentre.count > 1 ? ` · ${int(toCentre.count)}${NBSP}relations` : ''}</p>` : ''}
-      ${node.exists ? '' : `<p class="rel-pop-warn">${glyph('alert')}Absent de l’annuaire (supprimé ou renommé)</p>`}
+      ${node.exists ? '' : `<p class="rel-pop-warn">${glyph('alert')}Identité non vérifiée dans l’index local</p>`}
       <div class="rel-pop-actions">
         ${node.depth > 0 && node.dn ? `<button class="btn xs primary" type="button" data-pop-open>${glyph('link')}Voir ses relations</button>` : ''}
-        ${node.depth > 0 ? `<button class="btn xs" type="button" data-pop-fiche>${glyph('external')}Fiche</button>` : ''}
+        ${node.depth > 0 ? `<button class="btn xs" type="button" data-pop-fiche ${node.dn ? '' : 'disabled title="Identité non vérifiée"'}>${glyph('external')}Fiche</button>` : ''}
       </div>
     </div>`;
     // The card stays inside the graph: near an edge it slides in instead of being cut.

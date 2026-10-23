@@ -60,10 +60,7 @@ public static class RelationProjection
             if (target is null)
             {
                 notes.Add(missing);
-                if ((kind == RelationSubjectKind.User ? relation.UserGuid : relation.ComputerGuid) is null)
-                {
-                    match = Worst(match, RelationIdentityMatch.Unknown);
-                }
+                match = Worst(match, RelationIdentityMatch.Unknown);
                 return;
             }
             var (result, reason) = RelationRules.Identity(relation, kind, target.Guid, target.Created);
@@ -73,8 +70,8 @@ public static class RelationProjection
                 notes.Add(reason);
             }
         }
-        Check(computer, RelationSubjectKind.Computer, "Poste introuvable dans l’annuaire (supprimé ou renommé).");
-        Check(user, RelationSubjectKind.User, "Compte introuvable dans l’annuaire (supprimé ou renommé).");
+        Check(computer, RelationSubjectKind.Computer, "Poste non retrouvé dans l’index local ; existence actuelle non vérifiée.");
+        Check(user, RelationSubjectKind.User, "Compte non retrouvé dans l’index local ; existence actuelle non vérifiée.");
         return (match, notes.Count == 0 ? null : string.Join(" ", notes.Distinct(StringComparer.Ordinal)));
     }
 
@@ -93,8 +90,8 @@ public static class RelationProjection
         var computer = lookup.Computer(relation.ComputerGuid, relation.Computer);
         var (identity, note) = IdentityOf(relation, user, computer);
         // A name met on another object never lends its directory data to the link.
-        var sameUser = user is not null && (relation.UserGuid is null || relation.UserGuid == user.Guid);
-        var sameComputer = computer is not null && (relation.ComputerGuid is null || relation.ComputerGuid == computer.Guid);
+        var sameUser = user is not null && relation.UserGuid == user.Guid;
+        var sameComputer = computer is not null && relation.ComputerGuid == computer.Guid;
         // The badge keeps the nature of the proof; a contradiction is a mark beside it, never a replacement (« tout s’améliore »).
         var badge = RelationRules.BadgeOf(relation.Kind);
         var rule = badge.Rule;
@@ -135,7 +132,11 @@ public static class RelationProjection
             RelationRules.IsProtectedSource(relation.Source),
             relation.BatchId,
             contradicted,
-            relation.Declarant);
+            relation.Declarant)
+        {
+            UserTargetDn = user is not null && relation.UserGuid == user.Guid ? user.Dn : null,
+            ComputerTargetDn = computer is not null && relation.ComputerGuid == computer.Guid ? computer.Dn : null,
+        };
     }
 
     /// <summary>
@@ -298,6 +299,8 @@ public static class RelationProjection
         {
             var otherIsComputer = subject.Kind == RelationSubjectKind.User;
             var other = otherIsComputer ? lookup.Computer(primaryRelation.ComputerGuid, primaryRelation.Computer) : lookup.User(primaryRelation.UserGuid, primaryRelation.UserLogin);
+            var otherGuid = otherIsComputer ? primaryRelation.ComputerGuid : primaryRelation.UserGuid;
+            if (other?.Guid != otherGuid || otherGuid is null) { other = null; }
             var badge = RelationRules.BadgeOf(primaryRelation.Kind);
             var reason = primaryRelation.Kind == RelationKind.Assignment
                 ? "Affectation déclarée" + C + "elle passe avant toute observation."
@@ -309,7 +312,7 @@ public static class RelationProjection
             primary = new RelationPrimary(
                 otherIsComputer ? primaryRelation.Computer : other?.Name ?? primaryRelation.UserLogin,
                 otherIsComputer ? primaryRelation.Computer : primaryRelation.UserLogin,
-                other?.Dn ?? (otherIsComputer ? primaryRelation.ComputerDn : primaryRelation.UserDn),
+                other?.Dn,
                 other?.Guid.ToString("D"),
                 badge.Badge,
                 badge.Label,
@@ -367,6 +370,8 @@ public static class RelationProjection
             var otherIsComputer = subject.Kind == RelationSubjectKind.User;
             var other = otherIsComputer ? relation.Computer : relation.UserLogin;
             var otherObject = otherIsComputer ? lookup.Computer(relation.ComputerGuid, relation.Computer) : lookup.User(relation.UserGuid, relation.UserLogin);
+            var otherGuid = otherIsComputer ? relation.ComputerGuid : relation.UserGuid;
+            if (otherGuid is null || otherObject?.Guid != otherGuid) { otherObject = null; }
             var badge = RelationRules.BadgeOf(relation.Kind);
             var text = relation.Kind switch
             {
@@ -421,12 +426,12 @@ public static class RelationProjection
             if (kind == RelationSubjectKind.Computer)
             {
                 var c = lookup.Computer(r.ComputerGuid, r.Computer);
-                var exists = c is not null && (r.ComputerGuid is null || r.ComputerGuid == c.Guid);
-                return new RelationGraphNode(OtherId(r, kind), kind, r.Computer, exists ? c!.Detail : "Absent de l’annuaire", exists ? c!.Dn : r.ComputerDn, depth, isPrimary, exists, exists ? Tone.Info : Tone.Off, links);
+                var exists = c is not null && r.ComputerGuid == c.Guid;
+                return new RelationGraphNode(OtherId(r, kind), kind, r.Computer, exists ? c!.Detail : "Identité non vérifiée dans l’index", exists ? c!.Dn : null, depth, isPrimary, exists, exists ? Tone.Info : Tone.Off, links);
             }
             var u = lookup.User(r.UserGuid, r.UserLogin);
-            var found = u is not null && (r.UserGuid is null || r.UserGuid == u.Guid);
-            return new RelationGraphNode(OtherId(r, kind), kind, found ? u!.Name : r.UserLogin, r.UserLogin, found ? u!.Dn : r.UserDn, depth, isPrimary, found, found ? Tone.Info : Tone.Off, links);
+            var found = u is not null && r.UserGuid == u.Guid;
+            return new RelationGraphNode(OtherId(r, kind), kind, found ? u!.Name : r.UserLogin, r.UserLogin, found ? u!.Dn : null, depth, isPrimary, found, found ? Tone.Info : Tone.Off, links);
         }
         RelationGraphEdge EdgeOf(string from, string to, IReadOnlyList<StoredRelation> group)
         {

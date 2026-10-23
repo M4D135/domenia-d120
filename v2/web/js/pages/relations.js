@@ -191,7 +191,7 @@ export function render(main, ctx) {
     alive: true,
     simulated: false,
     lastExport: null,
-    select, clear, openPanel, plan, restore, undoImport, rowMenu, compareWith, openFiche, remember, refreshList, touch,
+    select, clear, openPanel, plan, restore, undoImport, rowMenu, compareWith, openFiche, openRelationEnd, remember, refreshList, touch,
     saveBatches, exportCsv, openExport, onExport: (fn) => { exportListeners.add(fn); return () => exportListeners.delete(fn); },
     recent: readRecent,
     scopeLabel: () => session?.scope?.label ?? '',
@@ -478,6 +478,19 @@ export function render(main, ctx) {
     else if (target.name) ctx.navigate('fiche', { q: target.name });
   }
 
+  function openRelationEnd(row, kind, fiche = false) {
+    const dn = kind === 'user' ? row.userTargetDn : row.computerTargetDn;
+    const guid = kind === 'user' ? row.userGuid : row.computerGuid;
+    const name = kind === 'user' ? row.userLogin : row.computer;
+    if (dn) { if (fiche) openFiche({ dn }); else select(dn); return; }
+    if (guid) {
+      toast('Objet non retrouvé par son GUID dans l’index local. Actualisez l’annuaire avant de l’ouvrir.', { tone: 'warn' });
+      return;
+    }
+    toast('Association ancienne sans GUID : recherche du nom historique, identité à vérifier.', { tone: 'info' });
+    openFiche({ name });
+  }
+
   function compareWith(s) {
     tabs?.select('comparer');
     compareTab?.prefill(s.login, '', false);
@@ -485,14 +498,15 @@ export function render(main, ctx) {
 
   // Context menu of a row (subject list, every association): open either end, its fiche, save or remove, copy.
   function rowMenu(row, mode) {
-    const userRef = row.userDn ?? row.userLogin;
-    const computerRef = row.computerDn ?? row.computer;
+    const userUnknown = !!row.userGuid && !row.userTargetDn;
+    const computerUnknown = !!row.computerGuid && !row.computerTargetDn;
+    const identityReason = 'GUID non retrouvé dans l’index local ; aucun repli sur un homonyme.';
     const items = [{ heading: `${row.userLogin} → ${row.computer}` }];
-    if (mode !== 'computer') items.push({ label: 'Voir les relations de l’utilisateur', icon: 'user', run: () => select(userRef) });
-    if (mode !== 'user') items.push({ label: 'Voir les relations du poste', icon: 'monitor', run: () => select(computerRef) });
+    if (mode !== 'computer') items.push({ label: row.userTargetDn ? 'Voir les relations de l’utilisateur' : 'Rechercher l’identifiant historique', icon: 'user', disabled: userUnknown, reason: identityReason, run: () => openRelationEnd(row, 'user') });
+    if (mode !== 'user') items.push({ label: row.computerTargetDn ? 'Voir les relations du poste' : 'Rechercher le nom historique du poste', icon: 'monitor', disabled: computerUnknown, reason: identityReason, run: () => openRelationEnd(row, 'computer') });
     items.push({ label: 'Ouvrir la fiche', icon: 'external', items: [
-      { label: row.userDn ? 'De l’utilisateur' : 'De l’utilisateur (recherche par identifiant)', icon: 'user', run: () => openFiche({ dn: row.userDn, name: row.userLogin }) },
-      { label: row.computerDn ? 'Du poste' : 'Du poste (recherche par nom)', icon: 'monitor', run: () => openFiche({ dn: row.computerDn, name: row.computer }) },
+      { label: row.userTargetDn ? 'De l’utilisateur' : 'De l’utilisateur (recherche du nom historique)', icon: 'user', disabled: userUnknown, reason: identityReason, run: () => openRelationEnd(row, 'user', true) },
+      { label: row.computerTargetDn ? 'Du poste' : 'Du poste (recherche du nom historique)', icon: 'monitor', disabled: computerUnknown, reason: identityReason, run: () => openRelationEnd(row, 'computer', true) },
     ] });
     items.push({ label: 'Copier', icon: 'copy', items: [
       { label: 'Le couple utilisateur → poste', run: () => writeClipboard(`${row.userLogin} → ${row.computer}`) },

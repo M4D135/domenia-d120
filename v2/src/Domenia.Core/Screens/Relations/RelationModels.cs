@@ -130,7 +130,12 @@ public sealed record RelationRow(
     bool Protected,
     string? BatchId,
     bool Contradicted,
-    string? Declarant);
+    string? Declarant)
+{
+    // Historical DNs above remain available for export/copy; navigation uses only current GUID-matched targets.
+    public string? UserTargetDn { get; init; }
+    public string? ComputerTargetDn { get; init; }
+}
 
 /// <summary>Count of relations for one badge (facets, KPI band).</summary>
 public sealed record RelationBadgeCount(RelationBadge Badge, string Label, Tone Tone, int Value);

@@ -53,9 +53,13 @@ export function dateCell(value, row) {
 }
 
 /** Visible actions of one association: see the other end, then save it (session) or remove it (stored). */
-function rowActions(row, other) {
+function rowActions(row, other, kind) {
+  const dn = kind === 'computer' ? row.computerTargetDn : row.userTargetDn;
+  const guid = kind === 'computer' ? row.computerGuid : row.userGuid;
+  const unverified = !!guid && !dn;
+  const label = dn ? `Voir les relations de ${other}` : guid ? 'GUID non retrouvé dans l’index local' : 'Rechercher le nom historique';
   const key = `data-key="${esc(row.key)}"`;
-  const see = other ? `<button class="rel-act" type="button" data-row-act="see" ${key} data-tip="Voir les relations de ${esc(other)}" aria-label="Voir les relations de ${esc(other)}">${glyph('link')}</button>` : '';
+  const see = other ? `<button class="rel-act" type="button" data-row-act="see" ${key} ${unverified ? 'disabled' : ''} data-tip="${esc(label)}" aria-label="${esc(label)}">${glyph('link')}</button>` : '';
   const write = row.persistence === 'session'
     ? `<button class="rel-act wr" type="button" data-row-act="save" ${key} data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
     : `<button class="rel-act danger" type="button" data-row-act="remove" ${key} data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`;
@@ -375,8 +379,8 @@ export function createSubjectTab(panel, app) {
     if (!data || !node) return [];
     const isUser = data.subject.kind === 'user';
     return data.associations.filter((r) => (isUser
-      ? (node.dn && r.computerDn ? r.computerDn.toLowerCase() === node.dn.toLowerCase() : r.computer === node.label)
-      : (node.dn && r.userDn ? r.userDn.toLowerCase() === node.dn.toLowerCase() : r.userLogin === node.sub)));
+      ? (r.computerGuid ? node.id === `n:${r.computerGuid}` : node.id.startsWith('n:name:') && r.computer === node.label)
+      : (r.userGuid ? node.id === `n:${r.userGuid}` : node.id.startsWith('n:login:') && r.userLogin === node.sub)));
   }
 
   function paintView() {
@@ -398,7 +402,7 @@ export function createSubjectTab(panel, app) {
         label: `Relations de ${data.subject.name}`,
         onOpen: (node) => app.select(node.dn),
         associationsOf: associationsWith,
-        onFiche: (node) => app.openFiche({ dn: node.dn, name: node.kind === 'user' ? node.sub : node.label }),
+        onFiche: (node) => { if (node.dn) app.openFiche({ dn: node.dn }); },
         onRemove: (row) => app.plan('relations.remove.plan', { key: row.key, fingerprint: row.fingerprint }),
         onSave: (row) => app.plan('relations.observations.plan', { resultId: '0'.repeat(32), keys: [row.key] }),
         onShowList: () => setView('liste', true),
@@ -431,7 +435,7 @@ export function createSubjectTab(panel, app) {
 
   function rowAction(act, row) {
     const isUser = data.subject.kind === 'user';
-    if (act === 'see') app.select(isUser ? row.computerDn ?? row.computer : row.userDn ?? row.userLogin);
+    if (act === 'see') app.openRelationEnd(row, isUser ? 'computer' : 'user');
     else if (act === 'save') app.plan('relations.observations.plan', { resultId: '0'.repeat(32), keys: [row.key] });
     else if (act === 'remove') app.plan('relations.remove.plan', { key: row.key, fingerprint: row.fingerprint });
   }
@@ -454,7 +458,7 @@ export function createSubjectTab(panel, app) {
         { id: 'when', label: 'Date', type: 'date', width: 112, html: (v, r) => dateCell(v, r), csv: (v) => formatDateTime(v) ?? '' },
         { id: 'source', label: 'Source', width: 144, html: (v) => `<span class="rel-src" data-tip="${esc(v)}">${esc(v)}</span>` },
         { id: 'identity', label: 'Identité', type: 'enum', options: IDENTITY, width: 108, tip: 'GUID enregistré : même objet, même après renommage.' },
-        { id: 'actions', label: 'Actions', width: 96, sortable: false, filterable: false, secret: true, get: () => '', html: (v, r) => rowActions(r, isUser ? r.computer : r.userLogin) },
+        { id: 'actions', label: 'Actions', width: 96, sortable: false, filterable: false, secret: true, get: () => '', html: (v, r) => rowActions(r, isUser ? r.computer : r.userLogin, isUser ? 'computer' : 'user') },
         { id: 'persistence', label: 'Persistance', type: 'enum', options: PERSISTENCE, width: 150, hidden: true },
         { id: 'details', label: 'Détails', width: 280, hidden: true },
         { id: 'declarant', label: 'Déclarant', mono: true, hidden: true },
@@ -466,7 +470,7 @@ export function createSubjectTab(panel, app) {
       onActivate: (row) => {
         const col = activeCol;
         activeCol = null;
-        if (col === 'other') app.openFiche(isUser ? { dn: row.computerDn, name: row.computer } : { dn: row.userDn, name: row.userLogin });
+        if (col === 'other') app.openRelationEnd(row, isUser ? 'computer' : 'user', true);
         else rowAction('see', row);
       },
       contextMenu: ({ row }) => (row ? app.rowMenu(row, isUser ? 'computer' : 'user') : []),
