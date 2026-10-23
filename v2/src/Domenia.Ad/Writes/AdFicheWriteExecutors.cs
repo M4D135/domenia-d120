@@ -10,6 +10,8 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
     private protected AdDirectorySource Source { get; } = source;
     public abstract string Kind { get; }
     private protected virtual bool PasswordStamp => false;
+    private protected virtual bool ScalarChanges => true;
+    private protected virtual bool StoreReadBack => true;
 
     private protected async Task<WritePlanDraft> PrepareAsync(string dn,
         Func<FicheEntry, SessionSnapshot, Task<WritePlanDraft>> prepare, CancellationToken token)
@@ -23,7 +25,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         var draft = await prepare(entry, session).ConfigureAwait(false);
         foreach (var change in draft.Changes)
         {
-            if (entry.All(change.Attribute).Length > 1)
+            if (ScalarChanges && entry.All(change.Attribute).Length > 1)
             { throw WriteErrors.Refusal(WriteErrors.Stale, "Un champ comporte plusieurs valeurs ; aucune valeur existante ne sera écrasée."); }
         }
         return draft with { Origin = WritePlanOrigin.From(session) };
@@ -54,7 +56,12 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         if (!check.Current) { throw WriteErrors.Refusal(WriteErrors.Stale, check.Detail); }
         if (ObjectWrites.AlreadyApplied(plan, current, _ => false))
         { return new(WriteResult.NoChange, "Champs déjà conformes au plan ; aucune requête de modification envoyée."); }
-        var changes = await ModificationsAsync(plan, current!, cancellationToken).ConfigureAwait(false);
+        return await SendAsync(plan, current!, cancellationToken).ConfigureAwait(false);
+    }
+
+    private protected virtual async Task<WriteOutcome> SendAsync(WritePlan plan, FicheEntry current, CancellationToken cancellationToken)
+    {
+        var changes = await ModificationsAsync(plan, current, cancellationToken).ConfigureAwait(false);
         await Source.Connection.ModifyAsync(GuidDn(plan.Target.ObjectGuid), changes, cancellationToken).ConfigureAwait(false);
         return new(WriteResult.Applied, "Champs acceptés par le contrôleur dans une seule requête ; relecture en cours.");
     }
@@ -86,10 +93,10 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         var current = await ReadTargetAsync(plan, cancellationToken).ConfigureAwait(false);
         var dependencies = await ReferencesAsync(plan, cancellationToken).ConfigureAwait(false);
         if (!dependencies) { return new(VerificationState.Mismatch, "Un objet référencé par le plan a disparu ou changé d’identité."); }
-        var read = ObjectWrites.Verify(plan, current, _ => false);
+        var read = await VerifyCurrentAsync(plan, current, cancellationToken).ConfigureAwait(false);
         if (current is not null && PasswordStamp && current.Int32("userAccountControl") is { } flags && AdValues.HasFlag(flags, AdValues.DontExpirePassword))
         { return new(VerificationState.Mismatch, "pwdLastSet relu, mais le mot de passe n’expire jamais ; le changement imposé reste sans effet."); }
-        if (current is not null && Source.LocalStore is IFicheCache cache)
+        if (StoreReadBack && current is not null && Source.LocalStore is IFicheCache cache)
         {
             try { await cache.SaveFicheAsync(new(current, Source.Clock.GetUtcNow()), cancellationToken).ConfigureAwait(false); }
             catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
@@ -98,7 +105,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         return read;
     }
 
-    private async Task<FicheEntry?> ReadTargetAsync(WritePlan plan, CancellationToken token)
+    private protected virtual async Task<FicheEntry?> ReadTargetAsync(WritePlan plan, CancellationToken token)
     {
         var domain = await Source.DomainAsync(token).ConfigureAwait(false);
         var id = Guid.ParseExact(plan.Target.ObjectGuid, "D");
@@ -120,13 +127,13 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
             Protect(current, session, plan);
             foreach (var change in plan.Changes)
             {
-                if (current.All(change.Attribute).Length > 1) { return WritePrecheck.Stale("Un champ possède désormais plusieurs valeurs ; rien n’a été envoyé."); }
+                if (ScalarChanges && current.All(change.Attribute).Length > 1) { return WritePrecheck.Stale("Un champ possède désormais plusieurs valeurs ; rien n’a été envoyé."); }
             }
         }
         if (!await ReferencesAsync(plan, token).ConfigureAwait(false))
         { return WritePrecheck.Stale("Objet référencé remplacé, déplacé ou absent ; préparez un nouveau plan."); }
         await ValidateCurrentAsync(plan, current, session, token).ConfigureAwait(false);
-        return ObjectWrites.Check(plan, current, _ => false);
+        return await CheckRulesAsync(plan, current, token).ConfigureAwait(false);
     }
 
     private async Task<bool> ReferencesAsync(WritePlan plan, CancellationToken token)
@@ -140,6 +147,9 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         }
         return true;
     }
+
+    private protected virtual Task<WritePrecheck> CheckRulesAsync(WritePlan plan, FicheEntry? current, CancellationToken token) => Task.FromResult(ObjectWrites.Check(plan, current, _ => false));
+    private protected virtual Task<WriteVerification> VerifyCurrentAsync(WritePlan plan, FicheEntry? current, CancellationToken token) => Task.FromResult(ObjectWrites.Verify(plan, current, _ => false));
 
     private protected virtual Task ValidateCurrentAsync(WritePlan plan, FicheEntry? current, SessionSnapshot session, CancellationToken token) => Task.CompletedTask;
 

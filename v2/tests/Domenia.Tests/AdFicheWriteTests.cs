@@ -2,6 +2,7 @@ using System.Security.Principal;
 using System.Text.Json;
 using Domenia.Ad;
 using Domenia.Core;
+using Domenia.Core.Queries.Ldap;
 
 namespace Domenia.Tests;
 
@@ -167,6 +168,88 @@ internal static class AdFicheWriteTests
         Check.Throws<DomeniaOperationException>(() => number.Normalize("2147483648"), "débordement refusé");
     }
 
+    [Test]
+    public static async Task One_member_beyond_the_initial_range_is_removed_without_replacing_other_members()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Manager]["objectClass"] = ["top", "group"];
+        ldap.Objects[Manager]["groupType"] = ["-2147483646"];
+        var members = Enumerable.Range(0, 3000).Select(n => (object)("CN=Membre-" + n + "," + Fixtures.People)).ToList();
+        members[2000] = Dn; ldap.Objects[Manager]["member"] = members.ToArray();
+        var writer = new AdGroupMemberExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Manager, Dn, false, CancellationToken.None));
+        Check.True(plan.Confirmation.TypedNameRequired, "retrait confirmé par nom");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(1, ldap.Changes.Count, "une valeur retirée, aucune réécriture de liste");
+        Check.Equal("<GUID=" + ldap.Id(Dn).ToString("D") + ">", (string)ldap.Changes[0].Values[0], "identité du membre dans Modify");
+        Check.Equal(2999, ldap.Objects[Manager]["member"].Count, "tous les autres membres conservés");
+        Check.True(ldap.Objects[Manager]["member"].SequenceEqual(members.Where(m => !Equals(m, Dn))), "liste restante exacte");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "absence de cette appartenance confirmée");
+        Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "pas de second retrait");
+    }
+
+    [Test]
+    public static async Task Group_add_never_follows_a_recreated_member_or_a_newly_protected_group()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Manager]["objectClass"] = ["top", "group"]; ldap.Objects[Manager]["groupType"] = ["-2147483646"];
+        var writer = new AdGroupMemberExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Manager, Dn, true, CancellationToken.None));
+        var guid = ldap.Objects[Dn]["objectGUID"];
+        ldap.Objects[Dn]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "ancien membre remplacé");
+        ldap.Objects[Dn]["objectGUID"] = guid; ldap.Objects[Manager]["adminCount"] = ["1"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "groupe protégé depuis le plan");
+        Check.Equal(0, ldap.Writes, "aucune écriture");
+        ldap.Objects[Manager].Remove("adminCount");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "appartenance ajoutée relue");
+    }
+
+    [Test]
+    public static async Task Move_keeps_the_exact_escaped_RDN_and_targets_both_GUIDs()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        const string destination = "OU=Destination," + Fixtures.Root;
+        const string unusual = "CN=Compte\\, spécial," + Fixtures.People;
+        ldap.Objects[unusual] = ldap.Objects[Dn]; ldap.Objects.Remove(Dn);
+        ldap.Objects[destination] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(destination).ToByteArray()], ["name"] = ["Destination"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        var id = ldap.Id(unusual); var writer = new AdObjectMoveExecutor(source);
+        var plan = Seal(await writer.PlanAsync(unusual, destination, id, CancellationToken.None));
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal("<GUID=" + id.ToString("D") + ">", ldap.RenamedTarget, "source par GUID");
+        Check.Equal("<GUID=" + ldap.Id(destination).ToString("D") + ">", ldap.RenamedParent, "destination par GUID");
+        Check.Equal("CN=Compte\\, spécial", ldap.RenamedRdn, "nom inchangé et virgule échappée");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "nom, GUID et emplacement relus");
+        Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "aucun déplacement répété");
+        Check.Equal(1, ldap.Writes, "une seule requête");
+    }
+
+    [Test]
+    public static async Task Move_refuses_recreated_destination_name_collision_and_changed_name()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        const string destination = "OU=Destination," + Fixtures.Root;
+        ldap.Objects[destination] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(destination).ToByteArray()], ["name"] = ["Destination"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        var writer = new AdObjectMoveExecutor(source);
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, destination, Guid.NewGuid(), CancellationToken.None), "identité du sélecteur périmée");
+        var plan = Seal(await writer.PlanAsync(Dn, destination, null, CancellationToken.None));
+        var destinationId = ldap.Objects[destination]["objectGUID"];
+        ldap.Objects[destination]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "destination recréée");
+        ldap.Objects[destination]["objectGUID"] = destinationId;
+        var collision = "CN=Compte," + destination;
+        ldap.Objects[collision] = new(ldap.Objects[Dn], StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Guid.NewGuid().ToByteArray()] };
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "collision apparue après plan");
+        ldap.Objects.Remove(collision);
+        ldap.Objects["CN=Renommé," + destination] = ldap.Objects[Dn]; ldap.Objects.Remove(Dn);
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "même destination, mais nom différent");
+        Check.Equal(VerificationState.Mismatch, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "la seule OU ne prouve pas le déplacement confirmé");
+        Check.Equal(0, ldap.Writes, "rien envoyé");
+    }
+
     private static AdEntry Schema(string name, string syntax, int om, Dictionary<string, IReadOnlyList<object>>? extras = null)
     {
         var fields = extras ?? new(StringComparer.OrdinalIgnoreCase);
@@ -186,6 +269,9 @@ internal static class AdFicheWriteTests
     private sealed class Connection : IAdConnection
     {
         internal Dictionary<string, Dictionary<string, IReadOnlyList<object>>> Objects { get; } = new(StringComparer.OrdinalIgnoreCase);
+        internal string? RenamedTarget { get; private set; }
+        internal string? RenamedParent { get; private set; }
+        internal string? RenamedRdn { get; private set; }
         internal int Writes { get; private set; }
         internal IReadOnlyList<AdModification> Changes { get; private set; } = [];
         internal Dictionary<string, AdEntry> Schema { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -212,10 +298,19 @@ internal static class AdFicheWriteTests
             if (request.Scope == AdSearchScope.OneLevel && request.BaseDn.StartsWith("CN=Schema,", StringComparison.OrdinalIgnoreCase))
             { return Task.FromResult<IReadOnlyList<AdEntry>>([.. Schema.Where(p => request.Filter.Contains("(lDAPDisplayName=" + p.Key + ")", StringComparison.OrdinalIgnoreCase)).Select(p => p.Value)]); }
             var selected = Objects.Where(p => request.Scope == AdSearchScope.Base ? FicheValues.SameDn(p.Key, request.BaseDn) : request.Filter == AdObjectAccess.GuidFilter(Id(p.Key)));
+            if (request.Filter.Contains("(member=", StringComparison.Ordinal))
+            {
+                var filter = LdapFilterText.Parse(request.Filter);
+                var member = filter.Children.Single(c => c.Attribute == "member").Text;
+                selected = selected.Where(p => request.Filter.Contains(AdObjectAccess.GuidFilter(Id(p.Key)), StringComparison.Ordinal)
+                    && p.Value.TryGetValue("member", out var values) && values.OfType<string>().Any(v => FicheValues.SameDn(v, member)));
+            }
             return Task.FromResult<IReadOnlyList<AdEntry>>([.. selected.Select(p =>
             {
                 var values = new Dictionary<string, IReadOnlyList<object>>(p.Value, StringComparer.OrdinalIgnoreCase)
                 { ["allowedAttributes"] = p.Value.Keys.Concat(["mail", "manager", "managedBy"]).Distinct(StringComparer.OrdinalIgnoreCase).Select(a => (object)a).ToArray() };
+                if (request.Attributes.Contains("member;range=0-1499") && values.TryGetValue("member", out var members) && members.Count > 1499)
+                { values.Remove("member"); values["member;range=0-1499"] = members.Take(1500).ToArray(); }
                 return new AdEntry(p.Key, values);
             })]);
         }
@@ -226,6 +321,15 @@ internal static class AdFicheWriteTests
             var next = new Dictionary<string, IReadOnlyList<object>>(target.Value, StringComparer.OrdinalIgnoreCase);
             foreach (var change in modifications)
             {
+                if (change.Attribute == "member")
+                {
+                    var member = Objects.Keys.Single(dn => Equals(change.Values.Single(), "<GUID=" + Id(dn).ToString("D") + ">"));
+                    var oldMembers = next.TryGetValue("member", out var existing) ? existing : [];
+                    var present = oldMembers.OfType<string>().Any(v => FicheValues.SameDn(v, member));
+                    if (present == (change.Kind == AdModificationKind.Add)) { throw new DomeniaOperationException(AdErrors.Constraint, "Appartenance concurrente"); }
+                    next["member"] = change.Kind == AdModificationKind.Add ? [.. oldMembers, member] : [.. oldMembers.Where(v => !FicheValues.SameDn((string)v, member))];
+                    continue;
+                }
                 if (change.Kind == AdModificationKind.Delete)
                 {
                     if (!next.TryGetValue(change.Attribute, out var old) || !old.Zip(change.Values).All(p => p.First is byte[] a && p.Second is byte[] b ? a.SequenceEqual(b) : Equals(p.First, p.Second)) || old.Count != change.Values.Count) { throw new DomeniaOperationException(AdErrors.Constraint, "Valeur concurrente"); }
@@ -241,7 +345,16 @@ internal static class AdFicheWriteTests
             Objects[target.Key] = next;
             return Task.CompletedTask;
         }
-        public Task RenameAsync(string distinguishedName, string newParentDn, string newRdn, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task RenameAsync(string distinguishedName, string newParentDn, string newRdn, CancellationToken cancellationToken)
+        {
+            RenamedTarget = distinguishedName; RenamedParent = newParentDn; RenamedRdn = newRdn;
+            var target = Objects.Keys.Single(dn => distinguishedName == "<GUID=" + Id(dn).ToString("D") + ">");
+            var parent = Objects.Keys.Single(dn => newParentDn == "<GUID=" + Id(dn).ToString("D") + ">");
+            var moved = newRdn + "," + parent;
+            if (Objects.ContainsKey(moved)) { throw new DomeniaOperationException(AdErrors.Exists, "Collision"); }
+            Objects[moved] = Objects[target]; Objects.Remove(target); Writes++;
+            return Task.CompletedTask;
+        }
         public Task AddAsync(string distinguishedName, IReadOnlyDictionary<string, IReadOnlyList<object>> attributes, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task DeleteAsync(string distinguishedName, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public void Dispose() { }
