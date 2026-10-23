@@ -141,7 +141,7 @@ public sealed partial class AdPosteReader
         if (configuration.State == ConfigurationFileState.Invalid || !configuration.Warnings.IsEmpty)
         { notes.Add(PosteText.Fact("Configuration", configuration.Problem ?? string.Join(" ", configuration.Warnings), FactState.Observed, LegacyConfiguration.FileName, "Les réglages absents ou invalides conservent les défauts documentés.", tone: Tone.Warn)); }
         EnsureEpoch(local.Epoch);
-        return new(computer, header, association, null, summary, PosteBoardBuilder.Build(computer, inv, policy, now, source.Zone),
+        return new(computer, header, association, Recent(computer.Guid, local.Epoch)?.Live, summary, PosteBoardBuilder.Build(computer, inv, policy, now, source.Zone),
             inv is null ? "Aucun inventaire validé pour ce poste ; un inventaire rapide nécessite un geste explicite." : null,
             secrets, consent, Options, false, false, notes.ToImmutable());
     }
@@ -159,6 +159,7 @@ public sealed partial class AdPosteReader
     public async Task<SoftwareResult> CachedSoftwareAsync(string dn, CancellationToken cancellationToken)
     {
         var local = await LocalAsync(dn, cancellationToken).ConfigureAwait(false);
+        if (Recent(local.Computer.ObjectGuid, local.Epoch)?.Software is { } software) { return software with { Origin = "Relevé conservé dans cette session" }; }
         var inv = Inventory(local);
         var rows = PosteSoftware.Rows(inv?.Software ?? []);
         var status = inv?.StatusOf(InventoryCategories.Software) ?? SourceStatus.Skipped;

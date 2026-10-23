@@ -277,9 +277,9 @@ public sealed partial class WmiWorkstationReader
             new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
             new(InventoryCategories.Sessions, "Sessions", static (session, current, access, token) => ReadSessions(session, current, access, token)),
         ],
-        WorkstationReading.Services => [new(InventoryCategories.Services, "Services", static (session, current, access, token) => ReadServices(session, current, access, token, dependencies: true))],
-        WorkstationReading.Processes => [new(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token))],
-        WorkstationReading.Events => [new(InventoryCategories.Events, "Événements système", static (session, current, access, token) => ReadEvents(session, current, access, token))],
+        WorkstationReading.Services => [new(InventoryCategories.System, "Identité du poste", static (session, current, access, token) => ReadIdentity(session, current, access)), new(InventoryCategories.Services, "Services", static (session, current, access, token) => ReadServices(session, current, access, token, dependencies: true))],
+        WorkstationReading.Processes => [new(InventoryCategories.System, "Identité du poste", static (session, current, access, token) => ReadIdentity(session, current, access)), new(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token))],
+        WorkstationReading.Events => [new(InventoryCategories.System, "Identité du poste", static (session, current, access, token) => ReadIdentity(session, current, access)), new(InventoryCategories.Events, "Événements système", static (session, current, access, token) => ReadEvents(session, current, access, token))],
         WorkstationReading.Updates =>
         [
             new(InventoryCategories.Hotfixes, "Correctifs", static (session, current, access, token) => ReadHotfixes(session, current, access, token)),
@@ -369,6 +369,14 @@ public sealed partial class WmiWorkstationReader
     }
 
     // ------------------------------------------------------------------ collectors
+
+    private static InventorySnapshot ReadIdentity(CimSession session, InventorySnapshot current, List<SourceAccess> access)
+    {
+        var read = session.Read(InventoryCategories.System, Cimv2, "SELECT Name, NumberOfLogicalProcessors FROM Win32_ComputerSystem", 1, TimeSpan.FromSeconds(3));
+        AddAccess(access, session, InventoryCategories.System, read);
+        var item = read.Instances.FirstOrDefault();
+        return current with { ReportedName = item?.Text("Name"), System = item is null ? null : new("", "", null, [], null, null, item.Int("NumberOfLogicalProcessors"), null, null) };
+    }
 
     private static InventorySnapshot ReadSystem(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool detailed = false)
     {
@@ -780,8 +788,8 @@ public sealed partial class WmiWorkstationReader
         }
         catch (OperationCanceledException)
         {
-            AddAccess(access, session, InventoryCategories.Processes, first);
-            return current with { Processes = [] };
+            access.Add(new(InventoryCategories.Processes, SourceStatus.Interrupted, "Lecture arrêtée entre les deux échantillons ; aucune charge calculée.", 0, 0, session.Transport));
+            return current with { Processes = [], ProcessSample = null };
         }
 
         var second = session.Read(InventoryCategories.Processes, Cimv2, ProcessQuery, CimBudgets.ProcessesCap, CimBudgets.Processes);
@@ -811,7 +819,7 @@ public sealed partial class WmiWorkstationReader
             rows.Add(new ProcessEntry(id, process.Text("Name") ?? "", process.Number("WorkingSetSize"), share, null, process.Dmtf("CreationDate")));
         }
 
-        var elapsedMs = (int)Math.Clamp(session.Clock.GetElapsedTime(sampleStarted).TotalMilliseconds, 1, int.MaxValue);
+        var elapsedMs = (int)Math.Clamp(session.Clock.GetElapsedTime(sampleStarted).TotalMilliseconds, 0, int.MaxValue);
         var prior = first.Instances.Select(p => new ProcessEntry(p.Int("ProcessId") ?? 0, p.Text("Name") ?? "", p.Number("WorkingSetSize"), TotalSeconds(p), null, p.Dmtf("CreationDate"))).ToArray();
         var sample = PosteProcesses.Measure(current.Computer, prior, rows, elapsedMs, current.System?.LogicalProcessors ?? 0, session.Clock.GetUtcNow(), session.Clock.LocalTimeZone);
         return current with { Processes = [.. rows.OrderByDescending(r => r.CpuSeconds ?? -1).ThenBy(r => r.Name, StringComparer.Ordinal)], ProcessSample = sample };

@@ -32,9 +32,9 @@ public static class PosteProcesses
             {
                 note = "Démarré entre les deux lectures : aucune part calculée.";
             }
-            else if (!string.Equals(old.Name, p.Name, StringComparison.OrdinalIgnoreCase) || old.StartedAt != p.StartedAt)
+            else if (old.StartedAt is null || p.StartedAt is null || !string.Equals(old.Name, p.Name, StringComparison.OrdinalIgnoreCase) || old.StartedAt != p.StartedAt)
             {
-                note = "Identifiant réutilisé : aucune part calculée.";
+                note = old.StartedAt is null || p.StartedAt is null ? "Identité du processus non datée : aucune part calculée." : "Identifiant réutilisé : aucune part calculée.";
             }
             else if (old.CpuSeconds is double c1 && p.CpuSeconds is double c2 && c2 >= c1 && intervalMs > 0 && logicalProcessors > 0)
             {
@@ -54,8 +54,8 @@ public static class PosteProcesses
         var summary = FrenchText.Count(sorted.Length, "processus lu", "processus lus") + " à " + PosteText.LocalTime(at, zone) + ", parts mesurées sur " + FrenchText.Decimal(intervalMs / 1000d, 1) + " s et "
             + FrenchText.Count(logicalProcessors, "processeur logique", "processeurs logiques") + (ended > 0 ? " ; " + FrenchText.Count(ended, "terminé", "terminés") + " entre les lectures" : "") + ".";
         var facts = ImmutableArray.Create(
-            PosteText.Fact("Charge mesurée", FrenchText.Percent(Math.Min(100, total), 0) + " pour " + FrenchText.Count(measured, "processus mesuré", "processus mesurés"), FactState.Observed, "Win32_Process (deux lectures)",
-                "Mesure sur un intervalle court : une photographie de quelques secondes, pas une moyenne de la journée.", at: at, tone: total >= 85 ? Tone.Warn : Tone.Ok),
+            PosteText.Fact("Charge mesurée", measured == 0 ? "Aucune part mesurable" : FrenchText.Percent(Math.Min(100, total), 0) + " pour " + FrenchText.Count(measured, "processus mesuré", "processus mesurés"), measured == 0 ? FactState.Unknown : FactState.Observed, "Win32_Process (deux lectures)",
+                "Mesure sur un intervalle court : une photographie de quelques secondes, pas une moyenne de la journée.", at: at, tone: measured == 0 ? Tone.Off : total >= 85 ? Tone.Warn : Tone.Ok),
             PosteText.Fact("Processus le plus actif", busiest is null ? "Aucune part mesurée" : busiest.Name + " · " + FrenchText.Percent(busiest.CpuPercent!.Value) + " · " + busiest.MemoryText, busiest is null ? FactState.Unknown : FactState.Observed,
                 "Win32_Process (deux lectures)", null, at: at, tone: busiest?.CpuPercent >= 50 ? Tone.Warn : Tone.Info));
         return new ProcessesResult(computer, at, intervalMs, logicalProcessors, measured == 0 ? null : Math.Round(Math.Min(100, total), 1), sorted.Length, sorted, summary, facts);

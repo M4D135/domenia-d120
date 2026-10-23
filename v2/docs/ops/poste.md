@@ -376,3 +376,14 @@ La liste, l’ouverture de console, les inventaires/logiciels conservés et la r
 Le site n’est plus deviné à partir de l’OU. L’absence de métadonnées LAPS ne prouve pas l’absence de LAPS. Le gestionnaire déclaré et un nom de console observé restent des indices distincts ; aucun GUID utilisateur n’est déduit du seul nom. La recherche d’un compte refuse une autorité étrangère et les ambiguïtés. Les associations D1 doivent encore être qualifiées et raccordées ; elles ne sont pas présentées comme absentes.
 
 Quatre tests ajoutés et compilés seulement. Le lecteur réel reste hors découverte automatique tant que le contrat réseau complet n’est pas implémenté ; aucune promotion du catalogue à ce stade.
+
+
+## 19. Premières lectures réseau de la console (23/10/2026)
+
+Chaque geste relit le compte ordinateur par LDAP et compare son GUID à celui de la console avant tout contact machine. Un compte recréé sous le même DN, un compte machine absent ou un DNS incohérent sont refusés. Le mapper ne fabrique plus un sAMAccountName depuis le CN. Le compte de la cascade et les réglages sont conservés pendant le relevé ; un changement de session invalide sa publication.
+
+Ping : un écho ICMP d’une seconde, présence enregistrée avant affichage ; erreur, silence et réponse sont distincts. Le silence ICMP n’empêche pas la lecture CIM explicitement demandée par l’état courant. Inventaires rapide/complet : budgets du collecteur, résultat partiel conservé et sauvegardé après arrêt si son identité est confirmée. Un contenu dont le nom Windows diffère est écarté ; une identité non lue ne publie que le rapport d’accès, sans données attribuées.
+
+Logiciels : portées réelles du collecteur, rapport de refus et résultat de session conservé. Services et état courant ne remplacent pas l’inventaire détaillé. Services partiels : aucun profil complet ni absence inventée. Processus : identité minimale et nombre de processeurs logiques lus avant les deux échantillons ; sans date de création, le PID ne prouve pas la continuité du processus. Une mesure inexistante reste inconnue, pas à 0 %. Les sessions utilisent WTS, puis le repli CIM non intrusif déjà documenté dans le budget commun de cinq secondes, sous le même compte.
+
+Six tests de frontière et de projection écrits et compilés seulement. Le lecteur complet n’est pas encore exposé : événements, diagnostics, secrets, associations, sondes et repli avec autorisation restent à raccorder. Recette native et suites de tests prévues en fin de développement.

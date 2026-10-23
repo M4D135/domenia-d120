@@ -155,7 +155,7 @@ public static class AdDirectoryMapper
             dn,
             name,
             entry.String("dNSHostName"),
-            entry.String("sAMAccountName") ?? name + "$",
+            entry.String("sAMAccountName") ?? "",
             entry.String("description"),
             entry.String("location"),
             entry.String("managedBy"),
