@@ -451,11 +451,11 @@ public static class PosteBoardBuilder
         Tile("computer.drivers", "Pilotes non signés", InventoryCategories.Drivers, inv.UnsignedDrivers.Length, inv.UnsignedDrivers.IsEmpty ? "Aucun" : inv.UnsignedDrivers[0].Name, true, "drivers");
         Tile("computer.admins", "Administrateurs locaux", InventoryCategories.Admins, inv.LocalAdmins.Length, inv.LocalAdmins.IsEmpty ? "Groupe non lu" : string.Join(", ", inv.LocalAdmins.Take(3)), false, "");
         Tile("computer.sessions", "Sessions et comptes locaux", InventoryCategories.Sessions, inv.Sessions.Count(s => !string.IsNullOrEmpty(s.User)), inv.Sessions.Any(s => !string.IsNullOrEmpty(s.User)) ? string.Join(", ", inv.Sessions.Where(s => !string.IsNullOrEmpty(s.User)).Select(s => s.User!).Take(2)) : "Aucune", false, "");
-        var autostart = inv.Startup.Count(s => !s.Microsoft);
-        Tile("computer.autostart", "Démarrage automatique", InventoryCategories.Startup, inv.Startup.Length, inv.Startup.IsEmpty ? "Aucun programme" : FrenchText.Integer(autostart) + " hors Microsoft", false, "");
+        var autostart = inv.Startup.Count(s => s.Microsoft == false);
+        Tile("computer.autostart", "Démarrage automatique", InventoryCategories.Startup, inv.Startup.Length, inv.Startup.IsEmpty ? "Aucun programme" : (inv.Startup.Any(s => s.Microsoft is null) ? "Éditeurs non déterminés" : FrenchText.Integer(autostart) + " hors Microsoft"), false, "");
         Tile("computer.shares", "Partages", InventoryCategories.Shares, inv.Shares.Count(s => !s.Name.EndsWith('$')), inv.Shares.All(s => s.Name.EndsWith('$')) ? "Aucun partage (hors partages administratifs)" : string.Join(", ", inv.Shares.Where(s => !s.Name.EndsWith('$')).Select(s => s.Name).Take(3)), false, "");
-        var offline = inv.Printers.Count(p => p.Offline || p.Error);
-        Tile("computer.printers", "Imprimantes", InventoryCategories.Printers, inv.Printers.Length, inv.Printers.IsEmpty ? "Aucune" : (inv.Printers.FirstOrDefault(p => p.Default)?.Name ?? inv.Printers[0].Name) + (offline > 0 ? " · " + FrenchText.Integer(offline) + " hors ligne ou en erreur" : ""), false, "");
+        var offline = inv.Printers.Count(p => p.Offline == true || p.Error == true);
+        Tile("computer.printers", "Imprimantes", InventoryCategories.Printers, inv.Printers.Length, inv.Printers.IsEmpty ? "Aucune" : (inv.Printers.FirstOrDefault(p => p.Default == true)?.Name ?? inv.Printers[0].Name) + (offline > 0 ? " · " + FrenchText.Integer(offline) + " hors ligne ou en erreur" : ""), false, "");
         if (inv.Read(InventoryCategories.Displays))
         {
             var first = inv.Displays.FirstOrDefault();

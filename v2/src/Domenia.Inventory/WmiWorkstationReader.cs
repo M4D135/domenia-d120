@@ -60,7 +60,7 @@ public enum WorkstationReading
 /// call: they are not part of this reader yet, and the categories they feed stay « non lues » rather than guessed.
 /// </para>
 /// </summary>
-public sealed class WmiWorkstationReader
+public sealed partial class WmiWorkstationReader
 {
     private const string Cimv2 = @"root\cimv2";
     private const string StorageNamespace = @"root\Microsoft\Windows\Storage";
@@ -292,13 +292,22 @@ public sealed class WmiWorkstationReader
             new(InventoryCategories.Antivirus, "Antivirus", static (session, current, access, token) => ReadAntivirus(session, current, access, token)),
             new(InventoryCategories.Hotfixes, "Correctifs", static (session, current, access, token) => ReadHotfixes(session, current, access, token)),
             new(InventoryCategories.Updates, "Mises à jour", static (session, current, access, token) => ReadUpdateSource(session, current, access, token)),
+            new(InventoryCategories.Startup, "Démarrage automatique", static (session, current, access, token) => ReadStartup(session, current, access, token)),
             new(InventoryCategories.Services, "Services", static (session, current, access, token) => ReadServices(session, current, access, token)),
+            new(InventoryCategories.Devices, "Périphériques en erreur", static (session, current, access, token) => ReadDevices(session, current, access, token)),
+            new(InventoryCategories.Displays, "Écrans", static (session, current, access, token) => ReadDisplays(session, current, access, token)),
+            new(InventoryCategories.Batteries, "Batteries", static (session, current, access, token) => ReadBatteries(session, current, access, token)),
+            new(InventoryCategories.Drivers, "Pilotes non signés", static (session, current, access, token) => ReadDrivers(session, current, access, token)),
+            new(InventoryCategories.Shares, "Partages", static (session, current, access, token) => ReadShares(session, current, access, token)),
+            new(InventoryCategories.Printers, "Imprimantes", static (session, current, access, token) => ReadPrinters(session, current, access, token)),
             new(InventoryCategories.Sessions, "Sessions", static (session, current, access, token) => ReadSessions(session, current, access, token)),
             .. reading == WorkstationReading.Full
                 ? new[]
                 {
                     new Step(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token)),
                     new Step(InventoryCategories.Events, "Événements système", static (session, current, access, token) => ReadEvents(session, current, access, token)),
+                    new Step(InventoryCategories.Tasks, "Tâches planifiées", static (session, current, access, token) => ReadTasks(session, current, access, token)),
+                    new Step(InventoryCategories.Connections, "Connexions réseau", static (session, current, access, token) => ReadConnections(session, current, access, token)),
                 }
                 : [],
         ],

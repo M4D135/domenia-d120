@@ -160,13 +160,14 @@ public static class PosteSlow
         // Startup programs outside Microsoft.
         if (!data.Startup.IsEmpty || data.Read(InventoryCategories.Startup))
         {
-            var others = data.Startup.Where(s => !s.Microsoft).ToList();
-            var evidence = FrenchText.Count(others.Count, "programme hors Microsoft", "programmes hors Microsoft") + " au démarrage" + (others.Count > 0 ? FrenchText.Colon + string.Join(", ", others.Take(4).Select(s => s.Name)) : "");
+            var others = data.Startup.Where(s => s.Microsoft == false).ToList();
+            var unknownPublishers = data.Startup.Count(s => s.Microsoft is null);
+            var evidence = (unknownPublishers > 0 ? FrenchText.Count(data.Startup.Length, "programme", "programmes") + " (éditeurs non déterminés)" : FrenchText.Count(others.Count, "programme hors Microsoft", "programmes hors Microsoft")) + " au démarrage" + (others.Count > 0 ? FrenchText.Colon + string.Join(", ", others.Take(4).Select(s => s.Name)) : "");
             Add(others.Count >= 12
                 ? new SlowFinding("startup", AttentionLevel.Warn, "Nombreux programmes au démarrage", evidence, "Désactivez avec l’utilisateur les programmes inutiles (Gestionnaire des tâches, onglet Démarrage).", StartupAction, 9)
                 : others.Count >= 8
                     ? new SlowFinding("startup", AttentionLevel.Info, "Programmes au démarrage", evidence, "À surveiller si l’ouverture de session est lente.", StartupAction, 4)
-                    : new SlowFinding("startup", null, "Démarrage automatique", evidence, "Peu de programmes au démarrage.", null, 0));
+                    : new SlowFinding("startup", null, "Démarrage automatique", evidence, unknownPublishers > 0 ? "Les éditeurs n’ont pas été qualifiés ; aucun classement Microsoft ou tiers n’est déduit." : "Peu de programmes au démarrage.", null, 0));
         }
 
         // Recent crashes and disk errors (System and Application logs, 72 h).

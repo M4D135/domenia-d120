@@ -195,7 +195,7 @@ public static class InventoryRows
         }
         foreach (var disp in d.Displays)
         {
-            yield return R(InventoryCategories.Displays, disp.Name, disp.Connection, (disp.Internal ? "Interne" : "Externe") + " · " + disp.Connection + (disp.Year is int y ? " · " + y.ToString(CultureInfo.InvariantCulture) : ""));
+            yield return R(InventoryCategories.Displays, disp.Name, disp.Connection, (disp.Internal switch { true => "Interne", false => "Externe", _ => "Raccordement non déterminé" }) + " · " + disp.Connection + (disp.Year is int y ? " · " + y.ToString(CultureInfo.InvariantCulture) : ""));
         }
         foreach (var b in d.Batteries)
         {
@@ -219,7 +219,7 @@ public static class InventoryRows
         }
         foreach (var p in d.Printers)
         {
-            yield return R(InventoryCategories.Printers, p.Name, p.Port, (p.Network ? "Réseau" : "Locale") + (p.Default ? " · par défaut" : "") + (p.Offline ? " · hors ligne" : "") + (p.Error ? " · en erreur" : ""));
+            yield return R(InventoryCategories.Printers, p.Name, p.Port, (p.Network switch { true => "Réseau", false => "Locale", _ => "Portée non lue" }) + (p.Default == true ? " · par défaut" : "") + (p.Offline == true ? " · hors ligne" : "") + (p.Error == true ? " · en erreur" : "") + (p.Offline is null || p.Error is null ? " · état incomplet" : ""));
         }
         if (d.PendingReboot is { } reboot)
         {

@@ -98,13 +98,13 @@ public sealed record SoftwareEntry(
     string Source);
 
 /// <summary>Startup entry: the executable only, never its arguments (Get-DomeniaCommandExecutable).</summary>
-public sealed record StartupEntry(string Name, string Executable, string Location, string? User, bool Microsoft);
+public sealed record StartupEntry(string Name, string Executable, string Location, string? User, bool? Microsoft);
 
 public sealed record ServiceEntry(string Name, string DisplayName, string State, string StartMode, bool Delayed, int? ProcessId, string? Account, int? ExitCode, ImmutableArray<string> DependsOn, string? Description);
 
 public sealed record DeviceError(string Name, int Code, string? Class);
 
-public sealed record DisplayInfo(string Name, string? Manufacturer, string? Product, string? Serial, int? Year, string Connection, bool Internal);
+public sealed record DisplayInfo(string Name, string? Manufacturer, string? Product, string? Serial, int? Year, string Connection, bool? Internal);
 
 public sealed record BatteryInfo(string Name, int? ChargePercent, int? Status, long? DesignedCapacity, long? FullChargeCapacity, int? Cycles);
 
@@ -114,7 +114,7 @@ public sealed record LocalSession(string Id, string? Station, string? User, stri
 
 public sealed record ShareInfo(string Name, string Path, string? Description);
 
-public sealed record PrinterInfo(string Name, string? Driver, string? Port, bool Network, bool Default, bool Offline, bool Error);
+public sealed record PrinterInfo(string Name, string? Driver, string? Port, bool? Network, bool? Default, bool? Offline, bool? Error);
 
 /// <summary>Pending reboot indicators of the registry: confirmed obligations and partial hints are kept apart.</summary>
 public sealed record PendingReboot(ImmutableArray<string> Confirmed, ImmutableArray<string> Partial);

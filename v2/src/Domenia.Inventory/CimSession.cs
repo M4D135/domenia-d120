@@ -170,6 +170,7 @@ public sealed class CimSession
         UnauthorizedAccessException => SourceStatus.Refused,
         ManagementException { ErrorCode: ManagementStatus.AccessDenied } => SourceStatus.Refused,
         ManagementException { ErrorCode: ManagementStatus.Timedout } => SourceStatus.Interrupted,
+        ManagementException { ErrorCode: ManagementStatus.InvalidClass or ManagementStatus.InvalidNamespace } => SourceStatus.Unavailable,
         // An unreachable namespace is not a refusal: the workstation answered, the class is simply not there.
         ManagementException => SourceStatus.Error,
         // RPC server unavailable, call failed, network errors: the workstation did not answer the CIM bind.
@@ -184,6 +185,7 @@ public sealed class CimSession
     {
         SourceStatus.Refused => "accès refusé par le poste",
         SourceStatus.Unreachable => "poste injoignable par CIM",
+        SourceStatus.Unavailable => "classe ou espace de noms absent sur le poste",
         SourceStatus.Interrupted => "délai dépassé sur cette source",
         _ => "erreur CIM (" + exception.GetType().Name + ")",
     };

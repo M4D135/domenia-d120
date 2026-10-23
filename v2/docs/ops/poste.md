@@ -289,3 +289,11 @@ relevé, fermée à la fin ; chaque source a son propre délai et son propre ét
   machine) : un seul `UpdateComputer` à garder à la fusion, appartenance `memberOf` symétrique.
 - Thèmes : clair, sombre, contraste élevé ; animations en `transform`, `opacity`, `filter` ; « Animations réduites »
   respectée ; disposition sur la grille de 12 colonnes du kit (`.grid`, `.span-*`), cartes d’une rangée de même hauteur.
+
+## 10. Collecteurs réels complémentaires (23 octobre 2026)
+
+Le lecteur CIM collecte aussi le démarrage automatique, les périphériques en erreur, les écrans actifs, les batteries et leurs capacités, les pilotes non signés, les partages et les imprimantes. Le complet ajoute les métadonnées des tâches et les connexions TCP/UDP. Les plafonds sont de 200 entrées pour les petites listes, 32 écrans, 16 batteries, 1 000 tâches et 500 lignes par protocole réseau, avec sentinelle de troncature et budget global inchangé. Les requêtes restent des projections SELECT ; aucune méthode ni action de tâche n’est lue ou exécutée.
+
+Les écrans sont joints par `InstanceName` selon [WmiMonitorID](https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorid) et [WmiMonitorConnectionParams](https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorconnectionparams). Un code inconnu reste non classé, y compris les adaptateurs virtuels. Les capacités des batteries ne sont rapprochées que par identité PnP ; zéro/valeur sentinelle de capacité n’est pas une mesure d’usure. Les valeurs des [imprimantes](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-printer) absentes ou inconnues ne deviennent plus un état sain. Les programmes de démarrage ne conservent que l’exécutable, jamais ses arguments ; leur éditeur reste inconnu tant qu’il n’a pas été vérifié.
+
+Les [métadonnées des tâches](https://github.com/microsoft/wmi/blob/master/server23h2/root/microsoft/windows/taskscheduler/MSFT_ScheduledTask.go) ne comprennent ni action, ni arguments, ni principal. Dernier résultat et dates d’exécution restent non lus dans cette projection et le relevé le dit. Le raccordement de ces collecteurs à toutes les opérations de la console, les autres transports et la recette native restent à terminer. Quatre tests écrits et compilés seulement ; aucune exécution de tests dans ce lot.

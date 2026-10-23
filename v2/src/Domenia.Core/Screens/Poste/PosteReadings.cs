@@ -464,7 +464,7 @@ public static class PosteReadings
         }
         foreach (var m in d.Displays)
         {
-            facts.Add(PosteText.Fact(m.Name, string.Join(" · ", new[] { m.Manufacturer, m.Product, m.Serial is null ? null : "n° " + m.Serial, m.Year is int y ? y.ToString(CultureInfo.InvariantCulture) : null, (m.Internal ? "interne" : "externe") + " (" + m.Connection + ")" }.Where(t => !string.IsNullOrEmpty(t))),
+            facts.Add(PosteText.Fact(m.Name, string.Join(" · ", new[] { m.Manufacturer, m.Product, m.Serial is null ? null : "n° " + m.Serial, m.Year is int y ? y.ToString(CultureInfo.InvariantCulture) : null, (m.Internal switch { true => "interne", false => "externe", _ => "raccordement non déterminé" }) + " (" + m.Connection + ")" }.Where(t => !string.IsNullOrEmpty(t))),
                 FactState.Observed, "WmiMonitorID, WmiMonitorConnectionParams", null, at: at, tone: Tone.Info));
         }
         foreach (var change in history.OrderByDescending(h => h.At).Take(5))
@@ -489,13 +489,18 @@ public static class PosteReadings
 
     private static void Devices(InventorySnapshot d, DateTimeOffset at, ImmutableArray<PosteFact>.Builder facts)
     {
-        var printers = d.Printers.Where(p => p.Offline || p.Error).ToList();
+        var printers = d.Printers.Where(p => p.Offline == true || p.Error == true).ToList();
+        var printerComplete = d.StatusOf(InventoryCategories.Printers) is SourceStatus.Ok or SourceStatus.Empty
+            && d.Printers.All(p => p.Offline is not null && p.Error is not null);
         facts.Add(printers.Count == 0
-            ? PosteText.Fact("Imprimantes", FrenchText.Count(d.Printers.Length, "imprimante", "imprimantes") + ", aucune hors ligne ni en erreur", FactState.Observed, "Win32_Printer", "Les imprimantes d’une autre session peuvent ne pas apparaître.", at: at, tone: Tone.Ok)
-            : PosteText.Fact("Imprimantes en défaut", string.Join(" ; ", printers.Select(p => p.Name + (p.Offline ? " hors ligne" : " en erreur") + " · " + (p.Network ? "réseau" : "locale") + (p.Default ? " · par défaut" : ""))), FactState.Observed, "Win32_Printer", "Le pilote peut rapporter un état obsolète.", at: at, tone: Tone.Warn));
+            ? PosteText.Fact("Imprimantes", printerComplete ? FrenchText.Count(d.Printers.Length, "imprimante", "imprimantes") + ", aucune hors ligne ni en erreur" : "État des imprimantes non établi complètement",
+                printerComplete ? FactState.Observed : FactState.Unknown, "Win32_Printer", "Les imprimantes d’une autre session peuvent ne pas apparaître.", at: at, tone: printerComplete ? Tone.Ok : Tone.Off)
+            : PosteText.Fact("Imprimantes en défaut", string.Join(" ; ", printers.Select(p => p.Name + (p.Offline == true ? " hors ligne" : " en erreur") + " · " + (p.Network switch { true => "réseau", false => "locale", _ => "portée non lue" }) + (p.Default == true ? " · par défaut" : ""))), FactState.Observed, "Win32_Printer", "Le pilote peut rapporter un état obsolète.", at: at, tone: Tone.Warn));
         var devices = d.Devices.Take(25).ToList();
         facts.Add(devices.Count == 0
-            ? PosteText.Fact("Périphériques en erreur", "Aucun", FactState.Observed, "Win32_PnPEntity", "Une lecture refusée n’est pas un inventaire vide.", at: at, tone: Tone.Ok)
+            ? PosteText.Fact("Périphériques en erreur", d.StatusOf(InventoryCategories.Devices) is SourceStatus.Ok or SourceStatus.Empty ? "Aucun" : "État non établi complètement",
+                d.StatusOf(InventoryCategories.Devices) is SourceStatus.Ok or SourceStatus.Empty ? FactState.Observed : FactState.Unknown,
+                "Win32_PnPEntity", "Une lecture refusée n’est pas un inventaire vide.", at: at, tone: d.StatusOf(InventoryCategories.Devices) is SourceStatus.Ok or SourceStatus.Empty ? Tone.Ok : Tone.Off)
             : PosteText.Fact("Périphériques en erreur", string.Join(" ; ", devices.Select(x => x.Name + " (" + PosteLabels.DeviceError(x.Code) + ")")), FactState.Observed, "Win32_PnPEntity",
                 "Le code indique l’état du gestionnaire de périphériques, pas une cause certaine ; désactivé et déconnecté sont des choix, pas des anomalies.", at: at, tone: devices.Any(x => !PosteLabels.DeviceCodeIsChoice(x.Code)) ? Tone.Warn : Tone.Info));
     }
