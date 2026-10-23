@@ -98,7 +98,7 @@ internal static class CimInventoryTests
             {
                 ReadOverride = (_, query, _) => query.Contains("FROM Win32_OperatingSystem", StringComparison.Ordinal)
                     ? [Row(("Caption", "Windows"), ("TotalVisibleMemorySize", 1000UL), ("FreePhysicalMemory", 500UL))]
-                    : query.Contains("FROM Win32_ComputerSystem", StringComparison.Ordinal) ? [Row(("PCSystemType", 2), ("DomainRole", 1), ("Model", "Portable"))]
+                    : query.Contains("FROM Win32_ComputerSystem", StringComparison.Ordinal) ? [Row(("Name", "PC1"), ("PCSystemType", 2), ("DomainRole", 1), ("Model", "Portable"))]
                     : query.Contains("FROM MSFT_PhysicalDisk", StringComparison.Ordinal) ? [Row(("DeviceId", "0"), ("FriendlyName", "SSD"))] : [],
             },
         };

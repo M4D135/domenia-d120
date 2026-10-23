@@ -21,9 +21,12 @@ public sealed class WindowsSessionsReader(TimeProvider clock)
     internal const int ProtocolClass = 16;
     internal const int SessionInfoClass = 24;
 
-    public async Task<WindowsSessionsRead> ReadAsync(string host, string? user, string? domain, SecureString? password, CancellationToken cancellationToken)
+    public async Task<WindowsSessionsRead> ReadAsync(string host, string? user, string? domain, SecureString? password, CancellationToken cancellationToken, TimeSpan? budget = null)
     {
         if (!CimQuery.IsHostName(host) || (user is null) != (password is null)) { throw new ArgumentException("Cible ou compte des sessions invalide."); }
+        var timeout = budget ?? TimeSpan.FromSeconds(5);
+        if (timeout <= TimeSpan.Zero) { return new(SourceStatus.Interrupted, [], 0, clock.GetUtcNow(), "Budget WTS épuisé avant la lecture."); }
+        if (timeout > TimeSpan.FromSeconds(5)) { timeout = TimeSpan.FromSeconds(5); }
         cancellationToken.ThrowIfCancellationRequested();
         if (!await Workers.WaitAsync(0, cancellationToken).ConfigureAwait(false))
         { return new(SourceStatus.Unavailable, [], 0, clock.GetUtcNow(), "Lectures WTS précédentes encore en cours."); }
@@ -58,8 +61,8 @@ public sealed class WindowsSessionsReader(TimeProvider clock)
             catch (InvalidDataException) { return new WindowsSessionsRead(SourceStatus.Error, [], 0, clock.GetUtcNow(), "Réponse WTS hors limites."); }
             finally { Workers.Release(); }
         }, CancellationToken.None);
-        try { return await worker.WaitAsync(TimeSpan.FromSeconds(5), clock, cancellationToken).ConfigureAwait(false); }
-        catch (TimeoutException) { stop.Cancel(); return new(SourceStatus.Interrupted, [], 0, clock.GetUtcNow(), "Budget WTS de 5 s atteint."); }
+        try { return await worker.WaitAsync(timeout, clock, cancellationToken).ConfigureAwait(false); }
+        catch (TimeoutException) { stop.Cancel(); return new(SourceStatus.Interrupted, [], 0, clock.GetUtcNow(), "Budget WTS atteint."); }
         catch (OperationCanceledException) { stop.Cancel(); throw; }
         finally
         {

@@ -81,9 +81,25 @@ public sealed partial class AdFicheReader
         var name = CredentialRules.Parse(credential.Account);
         var user = credential.Session ? null : name.Form == AccountNameForm.Upn ? credential.Account : name.Name;
         var domain = credential.Session || name.Form == AccountNameForm.Upn ? null : name.Authority;
-        var read = await new WindowsSessionsReader(source.Clock).ReadAsync(computer.DnsHostName!, user, domain, credential.Password, cancellationToken).ConfigureAwait(false);
+        var started = source.Clock.GetTimestamp();
+        var read = await new WindowsSessionsReader(source.Clock).ReadAsync(computer.DnsHostName!, user, domain, credential.Password, cancellationToken, TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+        if (WmiLogonSessionsReader.NeedsFallback(read))
+        {
+            access.EnsureCurrent();
+            var remaining = TimeSpan.FromSeconds(5) - source.Clock.GetElapsedTime(started);
+            if (remaining > TimeSpan.Zero)
+            {
+                try
+                {
+                    var fallback = await new WmiLogonSessionsReader(source.Clock).ReadAsync(computer.DnsHostName!, credential, remaining, cancellationToken).ConfigureAwait(false);
+                    read = fallback with { Detail = "WTS : " + (read.Detail ?? "indisponible") + " " + fallback.Detail };
+                }
+                catch (DomeniaOperationException ex) when (ex.Code == "machine.busy")
+                { read = read with { Detail = (read.Detail ?? "WTS indisponible.") + " Lecteurs CIM occupés ; repli non envoyé." }; }
+            }
+        }
         access.EnsureCurrent();
-        if (read.Status == SourceStatus.Refused) { access.Refused(computer.Name, "Lecture des sessions", read.AuthenticationRejected); }
+        if (read.Status == SourceStatus.Refused || read.AuthenticationRejected) { access.Refused(computer.Name, "Lecture des sessions", read.AuthenticationRejected); }
         EnsureEpoch(epoch);
         var rows = read.Sessions.Where(s => !string.IsNullOrEmpty(s.User)).Select(s => new FicheSessionRow(string.IsNullOrEmpty(s.Domain) ? s.User! : s.Domain + "\\" + s.User,
             s.State, s.Protocol, PosteSessions.OpenedText(s.LogonAt, read.At, source.Zone), PosteSessions.IdleText(s.Idle))).ToImmutableArray();

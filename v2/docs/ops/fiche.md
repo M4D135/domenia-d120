@@ -247,3 +247,11 @@ requalifié sur cette seule compilation.
 ### Transport avec le compte sélectionné (23/10/2026)
 
 Les sessions WTS et le tri CIM emploient désormais la cascade Compte poste commune à Comptes, y compris le compte de connexion explicite. La génération et l’époque sont vérifiées après lecture avant publication ; aucune identité de secours n’est essayée. Les copies sécurisées restent détenues jusqu’au retour natif effectif. Les refus d’authentification remontent à la garde commune. Le repli WTS/CIM et WSMan restent à développer ; la compilation ne constitue pas une recette native.
+
+### Repli des sessions vers CIM (23/10/2026)
+
+Le geste Sessions accorde 3 s à WTS puis, si WTS n’a pas pu répondre, le reliquat d’un budget total de 5 s à CIM. Le compte et la copie sécurisée sont conservés : le repli ne consomme pas un second usage du bail. Aucune tentative CIM après rejet des identifiants, ni après une liste WTS vide ou partielle. Un travail natif qui tarde garde ses ressources jusqu’au retour réel ; la session de bureau reste ouverte.
+
+CIM vérifie `Win32_ComputerSystem.Name`, puis lit au plus 64 ouvertures de session de types 2/10/11/12 et 2 000 associations. Les références sont analysées comme données, jamais suivies ; poste/namespace/classe/clés/échappements sont contrôlés, un FQDN étranger n’est pas ramené à un homonyme court. Une association absente ou ambiguë ne produit pas d’identité inventée. Le LUID porte le préfixe `CIM:` et ne sert jamais d’identifiant de session WTS. CIM ne mesure ni état actif/déconnecté, ni protocole effectif, ni inactivité : ces limites sont affichées. Le lecteur d’inventaire utilise la même projection.
+
+Contrats consultés : [Win32_LoggedOnUser](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-loggedonuser) et [Win32_LogonSession](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-logonsession). Quatre tests contrôlés couvrent références étrangères/malformées, association exacte, ambiguïtés et refus de repli ; ils sont compilés, pas encore exécutés. WSMan et la recette des transports réels restent à faire.

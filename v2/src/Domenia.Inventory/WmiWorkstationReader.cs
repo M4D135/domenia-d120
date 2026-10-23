@@ -824,31 +824,12 @@ public sealed class WmiWorkstationReader
 
     private static InventorySnapshot ReadSessions(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
     {
-        // Interactive and remote-desktop sessions. The account name of a session comes from the WTS API
-        // (docs/ops/poste.md § 8.2), which this reader does not call yet: it stays null, which the console shows « non lu ».
-        var reading = session.Read(InventoryCategories.Sessions, Cimv2, "SELECT LogonId, LogonType, StartTime FROM Win32_LogonSession WHERE LogonType=2 OR LogonType=10", 64, CimBudgets.Query);
-        AddAccess(access, session, InventoryCategories.Sessions, reading);
-        if (!reading.Answered)
-        {
-            return current with { Sessions = [] };
-        }
-
         token.ThrowIfCancellationRequested();
-        return current with
-        {
-            Sessions = [.. reading.Instances
-                .Select(s => new LocalSession(
-                    s.Number("LogonId")?.ToString(CultureInfo.InvariantCulture) ?? "",
-                    null,
-                    null,
-                    null,
-                    CimQuery.LogonType(s.Int("LogonType")),
-                    CimQuery.LogonType(s.Int("LogonType")),
-                    s.Dmtf("StartTime"),
-                    null,
-                    null))
-                .OrderBy(s => s.Id, StringComparer.Ordinal)],
-        };
+        var started = session.Clock.GetTimestamp();
+        var reading = WmiLogonSessionsReader.Read(session);
+        access.Add(new(InventoryCategories.Sessions, reading.Status, reading.Detail ?? "Sessions CIM", (int)session.Clock.GetElapsedTime(started).TotalMilliseconds,
+            reading.Sessions.Length, session.Transport) { AuthenticationRejected = reading.AuthenticationRejected });
+        return current with { Sessions = reading.Sessions };
     }
 
     private static double? TotalSeconds(WmiInstance process)
