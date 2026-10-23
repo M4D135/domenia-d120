@@ -165,6 +165,33 @@ public sealed partial class WmiWorkstationReader
         var machine = new SoftwareScopeState();
         ReadRoots(InventoryRegistry.Machine, "", null, machine);
         Finish("Machine", machine, "Registre Uninstall 64 et 32 bits ; une entrée par clé, sans fusion.");
+        if (entries.Count == 0 && machine.Failures.Count > 0 && !machine.AuthenticationRejected && !session.OutOfBudget && !token.IsCancellationRequested)
+        {
+            var sccm = session.Read(InventoryCategories.Software, Cimv2,
+                "SELECT DisplayName, Version, Publisher, InstallDate, ProdID FROM Win32Reg_AddRemovePrograms", PosteSoftware.KeyCap, TimeSpan.FromSeconds(8));
+            var unclassified = 0;
+            foreach (var row in sccm.Instances)
+            {
+                var name = SoftwareText(row.Text("DisplayName"));
+                if (name is null) { continue; }
+                var version = SoftwareText(row.Text("Version"));
+                // SCCM has no update/component flags. With updates hidden, qualify this exact product in a live registry view.
+                if (!request.Updates && !SccmVisible(session, row.Text("ProdID"), name, version)) { unclassified++; continue; }
+                DateOnly? date = detailed && DateOnly.TryParseExact(row.Text("InstallDate"), "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var installed) ? installed : null;
+                entries.Add(new(name, version, detailed ? SoftwareText(row.Text("Publisher")) : null, date, null, "Non renseignée", "Machine", null, null, null, "Sccm"));
+                Publish();
+            }
+            result = result with { AuthenticationRejected = result.AuthenticationRejected || sccm.AuthenticationRejected || session.AuthenticationRejected };
+            access[0] = access[0] with
+            {
+                Status = entries.Count > 0 ? SourceStatus.Partial : access[0].Status,
+                StatusLabel = PosteLabels.SourceStatusLabel(entries.Count > 0 ? SourceStatus.Partial : access[0].Status), Items = entries.Count,
+                Detail = access[0].Detail + " Repli SCCM : " + PosteLabels.SourceStatusLabel(sccm.Status).ToLowerInvariant()
+                    + "; inventaire déclaré, fraîcheur et vue de registre non établies."
+                    + (unclassified > 0 ? " " + unclassified + " entrée(s) sans filtre de mise à jour vérifiable écartée(s)." : ""),
+            };
+            Publish();
+        }
         if (request.PerUser)
         {
             var users = new SoftwareScopeState();
@@ -177,11 +204,40 @@ public sealed partial class WmiWorkstationReader
             Finish("Utilisateur", users, "Ruches des profils chargés uniquement ; profils identifiés par SID, sans montage de ruche.");
         }
         else { access.Add(ScopeAccess("Utilisateur", SourceStatus.Skipped, 0, "Profils non demandés.")); }
-        access.Add(ScopeAccess("Store", request.Store ? SourceStatus.Unavailable : SourceStatus.Skipped, 0,
-            request.Store ? "Applications Appx non lues : le transport WinRM reste à raccorder." : "Store non demandé."));
+        if (request.Store)
+        {
+            var store = session.ReadAppx();
+            entries.AddRange(store.Instances.Select(row => new SoftwareEntry(row.Text("Name")!, row.Text("Version"), row.Text("Publisher"), null, null,
+                row.Text("Architecture") ?? "Non renseignée", "Store", null, row.Text("Location"), null, "Appx")));
+            access.Add(ScopeAccess("Store", store.Status, store.Items, store.Detail));
+            result = result with { AuthenticationRejected = result.AuthenticationRejected || store.AuthenticationRejected };
+        }
+        else { access.Add(ScopeAccess("Store", SourceStatus.Skipped, 0, "Store non demandé.")); }
         Publish();
         return result;
     });
+
+    private static bool SccmVisible(CimSession session, string? productId, string name, string? version)
+    {
+        if (string.IsNullOrWhiteSpace(productId) || productId.Length > 256 || productId.Contains('\\') || productId.Any(char.IsControl)) { return false; }
+        var matched = false;
+        foreach (var root in new[] { InventoryRegistry.Uninstall, InventoryRegistry.Uninstall32 })
+        {
+            var key = root + "\\" + productId;
+            RegistryReading Read(string field, RegistryMethod method = RegistryMethod.String) => session.ReadRegistry(new(InventoryRegistry.Machine, key, field, method));
+            var display = Read("DisplayName");
+            if (!display.Answered) { return false; }
+            if (!display.Found) { continue; }
+            var currentVersion = Read("DisplayVersion");
+            if (!currentVersion.Answered || !string.Equals(SoftwareText(display.Text), name, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(SoftwareText(currentVersion.Text), version, StringComparison.OrdinalIgnoreCase)) { return false; }
+            var component = Read("SystemComponent", RegistryMethod.Dword); var parent = Read("ParentKeyName"); var release = Read("ReleaseType");
+            if (component.Answered && parent.Answered && release.Answered && (!component.Found || component.Flag == false)
+                && string.IsNullOrWhiteSpace(parent.Text) && !new[] { "update", "hotfix", "security" }.Any(m => release.Text?.Contains(m, StringComparison.OrdinalIgnoreCase) == true)) { matched = true; }
+            else { return false; }
+        }
+        return matched;
+    }
 
     private static string? SoftwareText(string? value) => string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) ? null : value.Trim();
 }

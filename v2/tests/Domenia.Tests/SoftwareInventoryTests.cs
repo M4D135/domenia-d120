@@ -101,4 +101,63 @@ internal static class SoftwareInventoryTests
         Check.Equal(1, result.Entries.Length, "première entrée déjà publiée conservée après arrêt");
         Check.False(result.Complete, "arrêt distinct d’un inventaire complet");
     }
+    [Test]
+    public static async Task Sccm_fallback_keeps_its_declared_provenance_and_does_not_guess_update_filters_or_architecture()
+    {
+        var clock = TestClock.Fixed(); var readable = false; var conflict = false; var calls = 0;
+        var reader = new WmiWorkstationReader(clock)
+        {
+            SessionFactory = (host, budget, token) => new(host, budget, clock, cancellationToken: token)
+            {
+                RegistryOverride = (r, _) => r.Method == RegistryMethod.Keys ? new(5, null)
+                    : !readable ? new(5, null)
+                    : r.Key.StartsWith(InventoryRegistry.Uninstall32, StringComparison.Ordinal) ? new(2, null)
+                    : r.Name == "DisplayName" ? new(0, conflict ? "Another product" : "App")
+                    : r.Name == "DisplayVersion" ? new(0, "1") : new(2, null),
+                ReadOverride = (_, query, _) => query.Contains("Win32Reg_AddRemovePrograms", StringComparison.Ordinal) ? Sccm()
+                    : [new(new Dictionary<string, object?> { ["Name"] = "PC1" })],
+            },
+        };
+        IEnumerable<WmiInstance> Sccm()
+        {
+            calls++;
+            return [new(new Dictionary<string, object?> { ["DisplayName"] = "App", ["Version"] = "1", ["ProdID"] = "AppKey" })];
+        }
+        var result = await reader.ReadSoftwareAsync("PC1", new(false, false, false), CancellationToken.None);
+        Check.Equal(0, result.Entries.Length, "filtre inconnu non deviné");
+        result = await reader.ReadSoftwareAsync("PC1", new(false, false, true), CancellationToken.None);
+        Check.Equal(1, result.Entries.Length, "SCCM utilisable avec mises à jour incluses");
+        Check.Equal("Sccm", result.Entries[0].Source, "origine déclarée");
+        Check.Equal("Non renseignée", result.Entries[0].Architecture, "aucune vue déduite");
+        Check.False(result.Complete, "SCCM ne rend pas complet le registre refusé");
+        readable = true;
+        result = await reader.ReadSoftwareAsync("PC1", new(false, false, false), CancellationToken.None);
+        Check.Equal(1, result.Entries.Length, "clé exacte lisible malgré énumération interdite, filtre vérifié");
+        conflict = true;
+        result = await reader.ReadSoftwareAsync("PC1", new(false, false, false), CancellationToken.None);
+        Check.Equal(0, result.Entries.Length, "produit changé depuis SCCM non assimilé"); Check.Equal(4, calls, "une requête SCCM par lecture");
+    }
+
+    [Test]
+    public static async Task Software_Store_option_uses_one_Appx_read_and_preserves_the_scope_status()
+    {
+        var clock = TestClock.Fixed(); var calls = 0;
+        var reader = new WmiWorkstationReader(clock, useWinRm: true)
+        {
+            SessionFactory = (host, budget, token) => new(host, budget, clock, cancellationToken: token, transport: InventoryTransport.WinRm)
+            {
+                RegistryOverride = (_, _) => new(2, null),
+                ReadOverride = (_, _, _) => [new(new Dictionary<string, object?> { ["Name"] = "PC1" })],
+                AppxOverride = _ => { calls++; return new(SourceStatus.Ok, "{\"Format\":\"Domenia.AppxRead/1\",\"Computer\":\"PC1\",\"Code\":0,\"Truncated\":true,\"Rows\":[{\"Name\":\"StoreApp\",\"Architecture\":\"Arm64\"}]}", false, true); },
+            },
+        };
+        var result = await reader.ReadSoftwareAsync("PC1", new(false, false, false), CancellationToken.None);
+        Check.Equal(0, calls, "option décochée : aucune lecture Appx");
+        result = await reader.ReadSoftwareAsync("PC1", new(false, true, false), CancellationToken.None);
+        Check.Equal(1, calls, "une lecture Appx");
+        Check.Equal("Store", result.Entries.Single().Scope, "portée conservée");
+        Check.Equal(SourceStatus.Partial, result.Access.Single(a => a.Scope == "Store").Status, "troncature conservée dans l’onglet");
+        Check.False(result.Complete, "aucune couverture complète affirmée");
+    }
+
 }

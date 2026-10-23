@@ -44,6 +44,7 @@ public sealed partial class CimSession : IDisposable
     private readonly long started;
     private readonly CancellationToken cancellationToken;
     private bool authenticationRefused;
+    internal bool AuthenticationRejected => authenticationRefused;
     private WsmanReadChannel? wsman;
     private bool disposed;
     private WsmanReadChannel WinRm => wsman ??= new(Host, credential, clock, cancellationToken);
@@ -187,6 +188,7 @@ public sealed partial class CimSession : IDisposable
         // RPC server unavailable, call failed, network errors: the workstation did not answer the CIM bind.
         System.Runtime.InteropServices.COMException ex when ex.HResult == unchecked((int)0x80070005) || WindowsAuthenticationErrors.IsRejected(ex.HResult) => SourceStatus.Refused,
         System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x800706BA) or unchecked((int)0x800706BE) or unchecked((int)0x80070035) } => SourceStatus.Unreachable,
+        System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80338029) } => SourceStatus.Interrupted,
         System.Runtime.InteropServices.COMException => SourceStatus.Error,
         TimeoutException => SourceStatus.Interrupted,
         System.Xml.XmlException => SourceStatus.Error,

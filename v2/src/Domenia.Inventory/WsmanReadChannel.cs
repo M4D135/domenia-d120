@@ -9,7 +9,7 @@ using Domenia.Core.Queries.Wmi;
 namespace Domenia.Inventory;
 
 /// <summary>One native WinRM session, owned and disposed by its worker. Only SELECT and the closed registry reads leave it.</summary>
-internal sealed class WsmanReadChannel : IDisposable
+internal sealed partial class WsmanReadChannel : IDisposable
 {
     internal const string Prefix = "http://schemas.microsoft.com/wbem/wsman/1/wmi/";
     private const string WqlDialect = "http://schemas.microsoft.com/wbem/wsman/1/WQL";
