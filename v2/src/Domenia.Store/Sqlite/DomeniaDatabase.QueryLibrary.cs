@@ -34,6 +34,7 @@ public sealed partial class DomeniaDatabase
                 CheckIdentity(db, allowLegacy: false);
                 if (!Table(db, "domenia_v2_query_library")) { lastBackup = Backup(db, cancellationToken); } else { EnsureBackup(db, cancellationToken); }
                 db.Script("PRAGMA synchronous=FULL;"); db.Begin(); CheckIdentity(db, allowLegacy: false);
+                var previousRevision = (long?)db.Scalar("SELECT revision FROM domenia_store_state WHERE id=1;") ?? throw new InvalidDataException("Révision du stockage absente.");
                 var (before, legacy) = ReadQueryLibrary(db, rootKey);
                 var next = update(before?.ToArray());
                 if (next is null) { db.Commit(); return (QueryStoreWrite?)null; }
@@ -48,9 +49,12 @@ public sealed partial class DomeniaDatabase
                 db.Execute("UPDATE domenia_store_state SET revision=revision+1 WHERE id=1;");
                 var (inside, _) = ReadQueryLibrary(db, rootKey);
                 if (inside is null || !inside.AsSpan().SequenceEqual(next.Document)) { throw new InvalidDataException("Bibliothèque différente après écriture ; transaction annulée."); }
+                var storedRevision = (long?)db.Scalar("SELECT revision FROM domenia_store_state WHERE id=1;");
+                if (storedRevision != checked(previousRevision + 1)) { throw new InvalidDataException("Révision inattendue après écriture de bibliothèque ; transaction annulée."); }
                 db.Commit(); var (after, _) = ReadQueryLibrary(db, rootKey);
                 if (after is null || !after.AsSpan().SequenceEqual(next.Document)) { throw new InvalidDataException("Bibliothèque modifiée avant relecture du reçu."); }
-                return new QueryStoreWrite(true, true);
+                return new QueryStoreWrite(true, true) { Source = "SQLite", StoreId = StoreId, StoreRevision = storedRevision,
+                    DomainKey = rootKey, DocumentSha256 = Convert.ToHexStringLower(SHA256.HashData(after)) };
             }, cancellationToken).ConfigureAwait(false);
         }
         finally { writer.Release(); }
@@ -67,7 +71,9 @@ public sealed partial class DomeniaDatabase
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var record in root.GetProperty("recipes").EnumerateArray())
         {
-            var recipe = QueryRecipeJson.Read(record.GetProperty("definition").GetString()!);
+            var definition = record.GetProperty("definition").GetString() ?? throw new InvalidDataException("Définition de recette absente.");
+            if (Encoding.UTF8.GetByteCount(definition) > 1_048_576) { throw new InvalidDataException("Définition de recette supérieure à 1 Mio."); }
+            var recipe = QueryRecipeJson.Read(definition);
             var compiled = QueryEngine.Compile(recipe);
             if (!ids.Add(recipe.Id) || recipe.Id != record.GetProperty("id").GetString() || recipe.Id.StartsWith(QueryTemplates.Prefix, StringComparison.Ordinal)
                 || record.GetProperty("fingerprint").GetString() != compiled.Fingerprint || record.GetProperty("revision").GetInt64() <= 0)

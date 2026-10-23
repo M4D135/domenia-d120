@@ -175,7 +175,7 @@ export function mountSave(panel, store, api) {
     if (data.migratedWidgets) notes.push(plural(data.migratedWidgets, 'widget suit la nouvelle révision', 'widgets suivent la nouvelle révision'));
     if (data.droppedWidgets?.length) notes.push(plural(data.droppedWidgets.length, 'widget retiré (cible incompatible)', 'widgets retirés (cible incompatible)'));
     box.innerHTML = `<span class="rq-receipt-mark">${glyph(r.readBack ? 'check' : 'alert')}</span><div class="rq-receipt-text"><b>${esc(verb)} : « ${esc(data.name)} », révision ${esc(String(data.revision))}</b>
-      <span>${esc(r.text)}${notes.length ? ` ${esc(notes.join(' ; '))}.` : ''}</span><small class="rq-mono">${esc(r.fingerprint?.slice(0, 16) ?? '')} · ${esc(dateText(r.savedAt))}${r.persisted ? '' : ' · non persistant'}</small></div>
+      <span>${esc(r.text)}${notes.length ? ` ${esc(notes.join(' ; '))}.` : ''}</span><small class="rq-mono">${esc(r.fingerprint?.slice(0, 16) ?? '')} · ${esc(dateText(r.savedAt))}${r.persisted ? '' : ' · non persistant'}${r.storeId ? ` · base ${esc(r.storeId.slice(0, 12))} · stockage ${esc(String(r.storeRevision ?? 'inconnu'))}` : ''}</small></div>
       ${action ? `<button type="button" class="btn xs subtle rq-receipt-act">${glyph(action.icon)}${esc(action.label)}</button>` : ''}`;
     if (action) box.querySelector('.rq-receipt-act').addEventListener('click', action.run, { once: true });
     box.classList.remove('pop');

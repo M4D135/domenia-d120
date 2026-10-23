@@ -12,7 +12,7 @@ namespace Domenia.Core;
 /// the lifetime of the application); writes never. The ring keeps 64 tasks; response times, slowness and per operation samples
 /// feed the health and statistics of the screen. Thread safe; nothing here reads the disk or the network.
 /// </summary>
-public sealed class OperationActivity
+public sealed partial class OperationActivity
 {
     public const string TaskUnknown = "operations.taskUnknown";
     public const string TaskUnknownMessage = "Tâche introuvable ou déjà terminée : rien n’a été arrêté.";
@@ -105,13 +105,13 @@ public sealed class OperationActivity
     /// Starts following one request. Reads get a cancellation of their own, linked to <paramref name="lifetime"/>, so that the
     /// operator can stop them (<see cref="Stop"/>); writes keep <paramref name="lifetime"/> and are never stopped.
     /// </summary>
-    public ActivityTask Begin(string operation, TaskKind kind, CancellationToken lifetime)
+    public ActivityTask Begin(string operation, TaskKind kind, CancellationToken lifetime, string? requestId = null)
     {
         ArgumentNullException.ThrowIfNull(operation);
         var id = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
         var cancel = ActivityRules.IsStoppable(kind) ? CancellationTokenSource.CreateLinkedTokenSource(lifetime) : null;
         var now = clock.GetUtcNow();
-        var trace = new Trace(id, operation, ScreenOf(operation), kind, ActivityRules.IsForeground(operation, kind), now, clock.GetTimestamp(), cancel);
+        var trace = new Trace(id, operation, ScreenOf(operation), kind, ActivityRules.IsForeground(operation, kind), now, clock.GetTimestamp(), cancel) { RequestId = requestId };
         lock (gate)
         {
             trace.Label = declared.TryGetValue(operation, out var d) ? d.Label : operation;
@@ -561,7 +561,7 @@ public sealed class OperationActivity
         }
         if (!t.Open)
         {
-            phases.Add(new TaskPhaseRow("publish", "Publication dans l’interface", t.EngineMs ?? elapsed, null, "non mesurée", false, "affichage par l’écran qui a demandé", null));
+            phases.Add(new TaskPhaseRow("publish", "Publication dans l’interface", t.EngineMs ?? elapsed, t.PublicationMs, t.PublicationMs is double publication ? ActivityRules.Duration(publication) : "non mesurée", t.PublicationMs is not null, "réception de la réponse jusqu’au prochain rafraîchissement visible ; comprend l’attente de rendu, pas une mesure CPU", null));
         }
         if (!t.Open && info is not null)
         {
@@ -596,7 +596,7 @@ public sealed class OperationActivity
     {
         "request" => phase.Label,
         "end" => phase.Label,
-        "publish" => phase.Label + " non mesurée",
+        "publish" when !phase.Measured => phase.Label + " non mesurée",
         _ when phase.DurationMs is double => phase.Label + " " + phase.DurationText + (phase.Detail is string d ? ", " + d : ""),
         _ => phase.Label + (phase.Detail is string detail ? " " + detail : ""),
     };
@@ -649,6 +649,8 @@ public sealed class OperationActivity
         public TaskOutcome? Outcome { get; set; }
         public string? Category { get; set; }
         public long Volume { get; set; } = -1;
+        public string? RequestId { get; init; }
+        public double? PublicationMs { get; set; }
         public double? EngineMs { get; set; }
         public double? QueueMs { get; set; }
         public DateTimeOffset? EndedAt { get; set; }

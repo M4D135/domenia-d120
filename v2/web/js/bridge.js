@@ -37,7 +37,7 @@ export function call(op, args = {}) {
     return Promise.reject(bridgeError('message.size', 'Message de l’interface refusé : taille non admise.'));
   }
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    pending.set(id, { resolve, reject, op });
     try {
       webview.postMessage(message);
     } catch (err) {
@@ -72,7 +72,17 @@ if (webview) {
       return;
     }
     pending.delete(m.id);
+    const received = performance.now();
     if (m.kind === 'result') p.resolve(m.data);
     else p.reject(failure());
+    // Await continuations run before the next frame. This is an observed publication interval, not CPU rendering cost.
+    // Hidden tabs cannot provide a prompt frame; their publication remains unmeasured rather than inventing zero.
+    if (!p.op.startsWith('operations.') && document.visibilityState === 'visible') {
+      requestAnimationFrame(() => {
+        if (document.visibilityState !== 'visible') return;
+        const ms = Math.max(0, performance.now() - received);
+        if (ms <= 60000) call('operations.publication.report', { id: m.id, ms }).catch(() => {});
+      });
+    }
   });
 }

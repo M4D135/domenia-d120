@@ -57,12 +57,13 @@ public sealed partial class AdQueryWmiReader(AdDirectorySource source) : IQueryW
             [.. read.Schema.Select(p => new WmiPropertyInfo(p.Name, p.Type, p.Key, "", p.Qualifiers))], [], source.Clock.GetUtcNow());
     }
 
-    internal async Task<(DirectoryComputer Computer, WorkstationQueryRead Read)> ReadAsync(Guid guid, string ns, WqlSelect select, int limit, CancellationToken token)
+    internal async Task<(DirectoryComputer Computer, WorkstationQueryRead Read)> ReadAsync(Guid guid, string ns, WqlSelect select, int limit, CancellationToken token, Action<DirectoryComputer>? onEngaged = null)
     {
         var checkedPlan = WmiWorkstationReader.CheckWorkshopSelect(ns, select, limit);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(65), source.Clock);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(token, deadline.Token);
         using var access = await AdQueryAccess.OpenAsync(source, guid, stop.Token).ConfigureAwait(false);
+        onEngaged?.Invoke(access.Computer);
         var read = await Reader(access).ReadWorkshopSelectAsync(access.Computer.DnsHostName!, ns, checkedPlan, limit, stop.Token, access.Machine.Credential).ConfigureAwait(false);
         CheckStatus(access, read.Status, read.AuthenticationRejected, read.Detail);
         await access.ConfirmAsync(read.ReportedName, stop.Token).ConfigureAwait(false);
@@ -74,9 +75,12 @@ public sealed partial class AdQueryWmiReader(AdDirectorySource source) : IQueryW
         var epoch = source.Epoch;
         var parsed = WmiWorkstationReader.CheckWorkshopSelect(ns, select, limit);
         var key = WqlRules.RequestKey(ns, parsed.CanonicalQuery);
+        DirectoryComputer? engaged = null;
         try
         {
-            var (pc, read) = await ReadAsync(computer, ns, parsed, limit, cancellationToken).ConfigureAwait(false);
+            var local = await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
+            engaged = local.Directory.Computers.SingleOrDefault(c => c.ObjectGuid == computer);
+            var (pc, read) = await ReadAsync(computer, ns, parsed, limit, cancellationToken, pc => engaged = pc).ConfigureAwait(false);
             var (rows, truncated) = WmiWorkstationReader.WorkshopRows(read);
             var result = new WmiSelectResult(pc.Name, computer, ns, parsed.ClassName, parsed.CanonicalQuery, [.. read.Schema.Select(p => p.Name)], rows,
                 truncated, rows.Length, read.At, key, read.Detail + (truncated ? " Nombre minimal reçu, total non confirmé." : " Lecture terminée ; nombre complet."));
@@ -87,14 +91,31 @@ public sealed partial class AdQueryWmiReader(AdDirectorySource source) : IQueryW
         catch (Exception ex) when (ex is DomeniaOperationException or IOException or OperationCanceledException)
         {
             Forget(computer);
-            // Invalidate the previous verdict even for a direct SELECT, not only for a bulk collection.
-            // Recreated objects and changed sessions cannot receive the failed attempt of their predecessor.
-            if (source.Epoch == epoch)
+            if (source.Epoch == epoch && engaged is not null)
             {
-                var local = await source.ReadLocalAsync(CancellationToken.None).ConfigureAwait(false);
-                var pc = local.Directory.Computers.SingleOrDefault(c => c.ObjectGuid == computer);
-                if (pc is not null)
-                { await AdQueryMemory.For(source).SaveAsync(pc, [], [new(key, source.Clock.GetUtcNow(), false, 0, false, false)], epoch, CancellationToken.None).ConfigureAwait(false); }
+                var failure = AdQueryMemory.For(source).Invalidate(engaged, key, epoch);
+                if (failure is not null && source.LocalStore is IQueryResultsStore store)
+                {
+                    using var persistence = new CancellationTokenSource(TimeSpan.FromSeconds(2), source.Clock);
+                    try
+                    {
+                        // The store checks this engaged GUID/DN/creation atomically; never substitute the current cache object.
+                        var write = store.SaveQueryResultsAsync(failure, persistence.Token);
+                        _ = write.ContinueWith(t => { _ = t.Exception; }, CancellationToken.None,
+                            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                        await write.WaitAsync(persistence.Token).ConfigureAwait(false);
+                    }
+                    catch (Exception storageError)
+                    {
+                        ex.Data["query.invalidation"] = "Échec invalidé pour cette session ; persistance non confirmée (" + storageError.GetType().Name + ").";
+                        try
+                        {
+                            source.AccountContext?.Log.Warning("Requêtes : invalidation locale non persistée (" + storageError.GetType().Name + ") ; l’erreur initiale est conservée.");
+                            source.AccountContext?.Journal.Add(new(source.Clock.GetUtcNow(), "Requêtes : dernier échec conservé en mémoire ; la base locale n’a pas confirmé son enregistrement.", Tone.Warn));
+                        }
+                        catch (Exception diagnosticError) { ex.Data["query.invalidation.diagnostic"] = diagnosticError.GetType().Name; }
+                    }
+                }
             }
             throw;
         }

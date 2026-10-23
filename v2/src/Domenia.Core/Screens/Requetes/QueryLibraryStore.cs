@@ -4,7 +4,14 @@ namespace Domenia.Core.Queries;
 public sealed record QueryStoreUpdate(byte[] Document, bool KeepPrevious);
 
 /// <summary>Outcome of one write: stored on a durable medium or for the session only, and read back identical from it.</summary>
-public sealed record QueryStoreWrite(bool Persisted, bool ReadBack);
+public sealed record QueryStoreWrite(bool Persisted, bool ReadBack)
+{
+    public string? Source { get; init; }
+    public string? StoreId { get; init; }
+    public long? StoreRevision { get; init; }
+    public string? DomainKey { get; init; }
+    public string? DocumentSha256 { get; init; }
+}
 
 /// <summary>
 /// Medium of the query library: one document per domain (key: hash of the domain root), written atomically under an

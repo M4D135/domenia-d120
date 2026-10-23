@@ -212,7 +212,7 @@ public sealed class ShellOperations : IOperationModule
             {
                 if (context.Readers.Find<IShellReader>() is not { } reader)
                 {
-                    return new AutomationPreview(true, 0, null, request, null, null, 0, false, "Commande valide. Aperçu indisponible" + FrenchText.Colon + "la base locale n’est pas encore branchée dans ce mode.");
+                    return new AutomationPreview(true, 0, null, request, null, null, 0, false, "Commande valide. Aperçu indisponible" + FrenchText.Colon + "le lecteur de la base locale est indisponible dans cette session.");
                 }
                 var cap = Math.Min(request.Limit, PreviewRows);
                 var rows = await reader.ComputersAsync(request.Perimeter, cap, cancellationToken).ConfigureAwait(false);

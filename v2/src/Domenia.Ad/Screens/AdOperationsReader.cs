@@ -14,6 +14,7 @@ public sealed partial class AdOperationsReader(AdDirectorySource source) : IOper
     private string? postponed;
     private SurveyOffer? lastOffer;
     private CancellationTokenSource? resumedStop;
+    private IDisposable? collectionLease;
     private bool disposed;
     private IOperationsLocalStore Store => source.LocalStore as IOperationsLocalStore ?? throw Unavailable("Magasin local des relevés indisponible ; aucune collecte durable lancée.");
     private EngineContext Context => source.AccountContext ?? throw Unavailable("Contexte de collecte indisponible.");
@@ -40,8 +41,23 @@ public sealed partial class AdOperationsReader(AdDirectorySource source) : IOper
         var running = CurrentSurvey();
         var offer = Offer(read); lock (gate) { lastOffer = offer; }
         var rows = read.Runs.GroupBy(r => (r.Family, Dn: r.ScopeDn.ToUpperInvariant(), r.Subtree)).Select(g => g.MaxBy(r => r.AttemptAt)!).OrderByDescending(r => r.AttemptAt).Select(Row).ToImmutableArray();
+        var note = "";
+        if (source.AccountContext is { } context && source.KnownDomain is not null)
+        {
+            try
+            {
+                var home = await Domenia.Core.Accueil.AccueilService.From(context).CollectionsAsync(cancellationToken).ConfigureAwait(false);
+                rows = [.. rows.Concat(home.Rows.Select(r => new OperationsCollectionRunRow(
+                    ((OperationsCollectionFamily)r.Family) + ":" + r.OuDn.ToLowerInvariant() + ":" + r.Subtree,
+                    (OperationsCollectionFamily)r.Family, r.Type, r.Ou, r.OuDn, r.At, (OperationsCollectionStatus)r.Status, r.StateLabel,
+                    r.Status == Domenia.Core.Accueil.CollectionStatus.Success ? Tone.Ok : Tone.Warn, r.Postes, r.Success, r.Reason ?? "")))
+                    .GroupBy(r => r.Id, StringComparer.Ordinal).Select(g => g.MaxBy(r => r.AttemptAt)!).OrderByDescending(r => r.AttemptAt)];
+            }
+            catch (DomeniaOperationException ex) when (ex.Code is DomeniaErrors.ScopeTooWide or AdErrors.NotConnected)
+            { note = " Historique Accueil non chargé : sélectionnez une OU de travail."; }
+        }
         return new(Now, true, rows, running, offer, running is { Open: true } ? running.Status : "Aucun relevé en cours.",
-            "Progression enregistrée avant chaque reprise. Les postes déjà traités ne sont pas rejoués ; une mesure illisible reste inconnue.");
+            "Progression enregistrée avant chaque reprise. Les postes déjà traités ne sont pas rejoués ; une mesure illisible reste inconnue." + note);
     }
     public SurveyState? CurrentSurvey() { lock (gate) { return current; } }
     private SurveyOffer? Offer(OperationsLocalState state)
@@ -57,9 +73,11 @@ public sealed partial class AdOperationsReader(AdDirectorySource source) : IOper
     public async Task<SurveyState> ResumeSurveyAsync(int remaining, string token, CancellationToken cancellationToken)
     {
         await saving.WaitAsync(cancellationToken).ConfigureAwait(false);
+        IDisposable? acquired = null;
         try
         {
             lock (gate) { ObjectDisposedException.ThrowIf(disposed, this); if (current is { Open: true }) { throw new DomeniaOperationException("operations.surveyBusy", "Un relevé est déjà en cours."); } }
+            acquired = await Store.AcquireOperationsLeaseAsync(cancellationToken).ConfigureAwait(false);
             var state = await Store.ReadOperationsAsync(cancellationToken).ConfigureAwait(false); OperationsPersistence.Validate(state);
             var offer = Offer(state); var survey = state.Survey;
             if (survey is null || offer is not { Resumable: true } || remaining != offer.Remaining || token != offer.ResumeToken) { throw Changed(); }
@@ -68,13 +86,14 @@ public sealed partial class AdOperationsReader(AdDirectorySource source) : IOper
             await Store.UpdateOperationsAsync(state.Revision, next, cancellationToken).ConfigureAwait(false);
             lock (gate)
             {
+                collectionLease = acquired; acquired = null;
                 activeId = survey.Id; activeEpoch = source.Epoch; postponed = survey.Id;
                 resumedStop = new CancellationTokenSource(); current = State(next.Survey!, true);
                 _ = RunRemainingAsync(next.Survey!, resumedStop.Token);
                 return current;
             }
         }
-        finally { saving.Release(); }
+        finally { acquired?.Dispose(); saving.Release(); }
     }
     public SurveyState? StopSurvey()
     {
@@ -91,6 +110,7 @@ public sealed partial class AdOperationsReader(AdDirectorySource source) : IOper
         try
         {
             lock (gate) { if (current is { Open: true }) { throw new DomeniaOperationException("operations.surveyBusy", "Arrêtez le relevé avant de l’abandonner."); } }
+            using var exclusive = await Store.AcquireOperationsLeaseAsync(cancellationToken).ConfigureAwait(false);
             var before = await Store.ReadOperationsAsync(cancellationToken).ConfigureAwait(false);
             if (before.Survey is null) { return null; }
             await Store.UpdateOperationsAsync(before.Revision, before with { Revision = before.Revision + 1, Survey = null }, cancellationToken).ConfigureAwait(false);

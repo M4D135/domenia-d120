@@ -140,7 +140,7 @@ export function createRuns(host, env) {
         });
         if (!ok) return;
         const state = await ctx.call('operations.survey.resume', { remaining: offer.remaining, ...(offer.resumeToken ? { token: offer.resumeToken } : {}) });
-        toast(`Relevé repris${NBSP}: ${state.type} · ${state.scopeName}, ${count(state.total, 'poste', 'postes')} à lire.`, { tone: 'info' });
+        toast(`Relevé repris${NBSP}: ${state.type} · ${state.scopeName}, ${count(Math.max(0, state.total - state.done), 'poste', 'postes')} à lire.`, { tone: 'info' });
       } else if (what === 'stop') {
         const state = await ctx.call('operations.survey.stop');
         if (state) toast(`Arrêt demandé${NBSP}: les mesures reçues sont gardées, les postes restants seront proposés de nouveau.`, { tone: 'warn', life: 6000 });

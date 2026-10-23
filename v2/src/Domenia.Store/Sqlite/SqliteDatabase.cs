@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
+using Domenia.Core;
 
 namespace Domenia.Store;
 
@@ -22,7 +23,7 @@ internal sealed class SqliteDatabase : IDisposable
             Dispose();
             throw new SqliteStoreException(code, "Ouverture de la base impossible ; aucun fichier n’a été remplacé.");
         }
-        Native.sqlite3_busy_timeout(handle, Math.Clamp(busyTimeoutMs, 0, 5000));
+        Native.sqlite3_busy_timeout(handle, Math.Clamp(busyTimeoutMs, 100, 5000));
         Native.sqlite3_progress_handler(handle, 1000, progress, IntPtr.Zero);
     }
 
@@ -163,6 +164,7 @@ internal sealed class SqliteDatabase : IDisposable
     {
         if (code == expected) { return; }
         if (code == 9) { cancellationToken.ThrowIfCancellationRequested(); }
+        if ((code & 255) is 5 or 6) { OperationsMeasurements.RecordSqliteBusy(); }
         throw new SqliteStoreException(code, code is 5 or 6 ? "Base occupée ; aucun résultat vide n’a été substitué." : "Opération SQLite interrompue (code " + code.ToString(CultureInfo.InvariantCulture) + ").");
     }
 

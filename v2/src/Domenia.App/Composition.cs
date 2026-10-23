@@ -18,6 +18,7 @@ namespace Domenia.App;
 internal sealed class Composition : IDisposable
 {
     private readonly EngineContext context;
+    private int disposed;
 
     private Composition(EngineContext context, OperationRegistry registry)
     {
@@ -68,6 +69,22 @@ internal sealed class Composition : IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref disposed, 1) != 0) { return; }
+        if (context.Readers.Find<IOperationsReader>() is IOperationsStatisticsWriter statistics)
+        {
+            // Keep the context alive until the local persistence call actually ends.
+            using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try
+            {
+                Task.Run(() => statistics.PersistStatisticsAsync(stop.Token)).GetAwaiter().GetResult();
+            }
+#pragma warning disable CA1031 // Closing must preserve the diagnostic and still release engine resources.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                AppTechnicalJournal.Instance.Error("Statistiques de session non sauvegardées à la fermeture ; consultez le journal des opérations.", ex);
+            }
+        }
         context.Dispose();
         (context.Directory as IDisposable)?.Dispose();
         (context.Preferences as IDisposable)?.Dispose();

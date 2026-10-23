@@ -48,7 +48,14 @@ public sealed record QueryImportEntry(string ImportId, string Kind, string? Roll
     ImmutableArray<QueryImportChange> Items, ImmutableArray<QueryImportChange> Remaining);
 
 /// <summary>Receipt of a library write: stored on disk or for the session only, read back from the medium, revision and fingerprint.</summary>
-public sealed record QueryStoreReceipt(bool Persisted, bool ReadBack, long Revision, string Fingerprint, DateTimeOffset SavedAt, string Text);
+public sealed record QueryStoreReceipt(bool Persisted, bool ReadBack, long Revision, string Fingerprint, DateTimeOffset SavedAt, string Text)
+{
+    public string? Source { get; init; }
+    public string? StoreId { get; init; }
+    public long? StoreRevision { get; init; }
+    public string? DomainKey { get; init; }
+    public string? DocumentSha256 { get; init; }
+}
 
 /// <summary>Consumer of a recipe listed before it changes (Domenia 1 Get-DomeniaQueryRecipeImpact).</summary>
 public sealed record QueryImpactRow(string Kind, string Element, string Name, string Link, string ConsumerId);
@@ -526,7 +533,11 @@ public sealed class QueryLibrary : IDisposable
             : readBack
                 ? revision + " enregistrée dans la bibliothèque locale et relue sur le disque (empreinte " + record.Fingerprint[..12] + ")."
                 : revision + " envoyée à la bibliothèque locale, mais la relecture du disque diffère : relisez la bibliothèque avant de continuer.";
-        return new QueryStoreReceipt(persisted, readBack, record.Revision, record.Fingerprint, at, text);
+        if (write is null) { text = revision + " déjà présente dans la bibliothèque relue ; aucune nouvelle écriture."; }
+        else if (write.Source == "SQLite" && write.StoreRevision is { } storedRevision)
+        { text += " SQLite · révision du stockage " + FrenchText.Integer(storedRevision) + "."; }
+        return new QueryStoreReceipt(persisted, readBack, record.Revision, record.Fingerprint, at, text)
+        { Source = write?.Source, StoreId = write?.StoreId, StoreRevision = write?.StoreRevision, DomainKey = write?.DomainKey, DocumentSha256 = write?.DocumentSha256 };
     }
 
     private static QueryDefinitionException RevisionChanged(long current) =>

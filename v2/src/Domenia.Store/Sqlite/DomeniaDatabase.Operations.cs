@@ -7,6 +7,16 @@ namespace Domenia.Store;
 
 public sealed partial class DomeniaDatabase
 {
+    public Task<IDisposable> AcquireOperationsLeaseAsync(CancellationToken cancellationToken) => Task.Run<IDisposable>(() =>
+    {
+        cancellationToken.ThrowIfCancellationRequested(); CompatibleDirectoryCache.ValidateLocalPath(Path);
+        var lockPath = Path + ".collection.lock";
+        if (File.Exists(lockPath) && (File.GetAttributes(lockPath) & FileAttributes.ReparsePoint) != 0)
+        { throw new InvalidDataException("Verrou de collecte redirigé ; acquisition refusée."); }
+        try { return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.None); }
+        catch (IOException) { throw new DomeniaOperationException("operations.surveyBusy", "Une autre instance utilise la collecte de cette base ; aucune sonde envoyée."); }
+    }, cancellationToken);
+
     public Task<OperationsLocalState> ReadOperationsAsync(CancellationToken cancellationToken) => Task.Run(() =>
     {
         CompatibleDirectoryCache.ValidateLocalPath(Path);

@@ -7,7 +7,7 @@ namespace Domenia.Ad;
 /// <summary>Sealed, local-only sync mutations. No LDAP call or disk write is made while preparing a plan.</summary>
 public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreExecutor, IWritePlanBinder
 {
-    private sealed record Prepared(SyncLocalChange Change, long Epoch);
+    private sealed record Prepared(SyncLocalChange Change, long Epoch, string Operator);
     private readonly ConditionalWeakTable<WritePlanDraft, Prepared> drafts = new();
     private readonly Dictionary<string, Prepared> plans = new(StringComparer.Ordinal);
     private readonly Lock gate = new();
@@ -96,6 +96,15 @@ public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreEx
         string attribute, string kind, string id, string sha, int count, IEnumerable<WriteChange> effects, string notice)
     {
         if (session.Epoch != source.Epoch) { throw WriteErrors.Refusal(WriteErrors.Stale, "Session modifiée pendant la préparation."); }
+        var root = session.Domain?.RootDn;
+        if (string.IsNullOrWhiteSpace(root) && session.Domain?.DnsName is { } dns)
+        {
+            var labels = dns.Split('.');
+            if (labels.Length > 0 && labels.All(x => x.Length is > 0 and <= 63 && x.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')))
+            { root = string.Join(',', labels.Select(x => "DC=" + x)); }
+        }
+        if (string.IsNullOrWhiteSpace(root) || !DistinguishedName.AreEqual(root, local.DomainDn))
+        { throw WriteErrors.Refusal(WriteErrors.Stale, "La base ne correspond pas au domaine de cette session ; aucun plan local préparé."); }
         var head = new WriteChange(attribute, label, WriteChangeKind.Replace, null, label + " · " + SyncStoreChange.Objects(count), null, SyncStoreChange.HeadValue(kind, id, sha, count));
         var target = SyncStoreChange.IndexTarget(label, false) with { Dn = SyncLocalIdentity.Target(local.StoreId, local.DomainDn) };
         var binding = new[]
@@ -106,7 +115,7 @@ public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreEx
         var draft = SyncStoreChange.Draft(title, label, notice, target, head, binding.Concat(effects),
             [new(Tone.Info, "Sauvegarde complète vérifiée avant la transaction, puis relecture de toutes les données modifiées et du reçu.")],
             SyncStoreChange.BackedUp("La copie antérieure est conservée dans Backups."), null) with { Origin = WritePlanOrigin.From(session) };
-        drafts.Add(draft, new(change, session.Epoch));
+        drafts.Add(draft, new(change, session.Epoch, session.Account.Login));
         return draft;
     }
 
@@ -116,7 +125,9 @@ public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreEx
         {
             foreach (var id in plans.Where(x => x.Value.Change.Plan.ExpiresAt <= source.Clock.GetUtcNow()).Select(x => x.Key).ToArray()) { plans.Remove(id); }
             if (!drafts.TryGetValue(draft, out var pending) || draft.Origin?.Epoch != source.Epoch || !WritePlans.IsIntact(plan)
-                || plan.Kind != Kind || plan.Simulated || plan.Target != draft.Target || !plan.Changes.SequenceEqual(draft.Changes))
+                || plan.Kind != Kind || plan.Simulated || plan.Mode != AppInfoBuilder.DirectoryModeText || !WritePlans.IsPlanId(plan.Id)
+                || plan.Operator != pending.Operator || plan.Target != draft.Target || plan.Controller != draft.Controller
+                || plan.Confirmation != draft.Confirmation || !plan.Changes.SequenceEqual(draft.Changes))
             { throw WriteErrors.Refusal(WriteErrors.Stale, "Brouillon local absent ou modifié ; préparez un nouveau plan."); }
             if (plans.Count >= 64) { throw WriteErrors.Refusal(WriteErrors.Stale, "Trop de plans locaux en attente ; attendez leur expiration."); }
             plans.Add(plan.Id, pending with { Change = pending.Change with { Plan = plan } }); drafts.Remove(draft);
@@ -140,14 +151,22 @@ public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreEx
     public async Task<WriteOutcome> ExecuteAsync(WritePlan plan, CancellationToken cancellationToken)
     {
         var pending = Find(plan) ?? throw WriteErrors.Refusal(WriteErrors.Stale, "Plan absent, expiré ou connexion modifiée ; aucune écriture.");
-        var receipt = await Store.ApplySyncChangeAsync(pending.Change, cancellationToken).ConfigureAwait(false);
-        var head = SyncStoreChange.Head(plan);
-        if (head?.Operation == SyncStoreOperation.Batch)
+        try
         {
-            var memory = AdSyncState.For(source);
-            lock (memory.Gate) { memory.Batches.Remove(head.Id); }
+            var receipt = await Store.ApplySyncChangeAsync(pending.Change, cancellationToken).ConfigureAwait(false);
+            var head = SyncStoreChange.Head(plan);
+            if (head?.Operation == SyncStoreOperation.Batch)
+            {
+                var memory = AdSyncState.For(source);
+                lock (memory.Gate) { memory.Batches.Remove(head.Id); }
+            }
+            return new(WriteResult.Applied, receipt.Text);
         }
-        return new(WriteResult.Applied, receipt.Text);
+        finally
+        {
+            // Verification uses the durable proof; never retain a large sent batch, including an uncertain outcome.
+            lock (gate) { plans.Remove(plan.Id); }
+        }
     }
 
     public Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken) => Store.VerifySyncChangeAsync(plan, cancellationToken);

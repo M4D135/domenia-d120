@@ -47,8 +47,9 @@ public sealed partial class AdPosteReader
         using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, dn, stop.Token).ConfigureAwait(false);
         async Task ConfirmParent(CancellationToken token)
         {
-            var parent = await SecretComputerAsync(local, directory, ["objectGUID", "objectClass", "objectSid", "whenCreated", "dNSHostName", "sAMAccountName"], token).ConfigureAwait(false);
+            var parent = await SecretComputerAsync(local, directory, ["objectGUID", "objectClass", "objectSid", "whenCreated", "dNSHostName", "sAMAccountName", "userAccountControl"], token).ConfigureAwait(false);
             if (parent.Time("whenCreated") != local.Computer.WhenCreated || parent.Sid("objectSid") != local.Computer.Sid
+                || !ConfirmedTaskWorkstation(parent)
                 || !string.Equals(parent.String("dNSHostName"), local.Computer.DnsHostName, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(parent.String("sAMAccountName"), local.Computer.SamAccountName, StringComparison.OrdinalIgnoreCase))
             { throw new DomeniaOperationException(PosteErrors.ComputerUnknown, "Identité du poste modifiée ; relisez sa fiche avant une nouvelle détection."); }

@@ -53,6 +53,7 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
+            if (localMaintenance) { throw WriteErrors.Refusal(WriteErrors.Stale, "Maintenance locale en cours ; préparez un nouveau plan après sa fin."); }
             if (epoch != expected.Epoch || account is { } current && current.Login != expected.Account.Login)
             { throw WriteErrors.Refusal(WriteErrors.Stale, "Session modifiée avant les préconditions ; aucune écriture envoyée."); }
             writeLeases++;

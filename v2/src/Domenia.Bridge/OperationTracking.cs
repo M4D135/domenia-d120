@@ -26,14 +26,19 @@ public static class OperationTracking
         activity.Declare(definition.Name, kind, definition.Description);
         if (!IsTracked(definition))
         {
-            return definition;
+            return definition with { Handler = async (args, bridge, token) =>
+            {
+                using var measurements = OperationsMeasurements.Enter(activity);
+                return await definition.Handler(args, bridge, token).ConfigureAwait(false);
+            } };
         }
         var inner = definition.Handler;
         return definition with
         {
             Handler = async (arguments, bridge, cancellationToken) =>
             {
-                using var task = activity.Begin(definition.Name, kind, cancellationToken);
+                using var task = activity.Begin(definition.Name, kind, cancellationToken, bridge.RequestId);
+                using var measurements = OperationsMeasurements.Enter(activity);
                 var forward = new BridgeContext(response => Forward(activity, task, bridge, response), bridge.RequestId, bridge.Operation);
                 try
                 {

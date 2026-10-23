@@ -34,7 +34,7 @@ public sealed class AdQueryWorkshopReader(AdDirectorySource source) : IQueryWork
             if (reading is not null && reading.Machines[pc.ObjectGuid].Keys > 0) { bitlocker[pc.ObjectGuid] = 'O'; }
             // Zero visible recovery objects does not establish the encryption state of a workstation.
         }
-        var stamp = string.Join("|", epoch, stored.Revision, local.Directory.ReadAt.UtcTicks, fleet.Observations.TakenAt?.UtcTicks,
+        var stamp = string.Join("|", epoch, stored.Revision, stored.TransientRevision, local.Directory.ReadAt.UtcTicks, fleet.Observations.TakenAt?.UtcTicks,
             string.Join(";", fleet.Facts.Machines.OrderBy(p => p.Key).Select(p => p.Key + ":" + p.Value.ConsoleAt?.UtcTicks + ":" + p.Value.WmiAt?.UtcTicks)));
         var version = BitConverter.ToInt64(SHA256.HashData(Encoding.UTF8.GetBytes(stamp)), 0) & long.MaxValue;
         if (source.Epoch != epoch) { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Session modifiée ; données locales écartées."); }

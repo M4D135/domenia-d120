@@ -608,7 +608,7 @@ public sealed class SearchService : IDisposable
                 try
                 {
                     recorded.Add(Guid.Parse(outcome.Id));
-                    recordedFailed += outcome.Denied || outcome.Kind != "online" ? 1 : 0;
+                    recordedFailed += OperationsPersistence.Unconfirmed(outcome, mode) ? 1 : 0;
                     await recorder.ProgressCollectionAsync(runId, [.. recorded], recordedFailed, CancellationToken.None).ConfigureAwait(false);
                 }
                 finally { journalGate.Release(); }

@@ -68,12 +68,15 @@ internal static class NativeStorageBackupTests
         var policy = StoragePolicyRules.Default with { BackupKeep = 2 };
         var first = Seal(await writer.PlanBackupAsync(policy, "{}", StorageWritePlans.ManualSeries, None));
         await writer.ExecuteAsync(first, None);
-        await writer.ExecuteAsync(Seal(await writer.PlanBackupAsync(policy, "{}", StorageWritePlans.ManualSeries, None)), None);
+        var middle = Seal(await writer.PlanBackupAsync(policy, "{}", StorageWritePlans.ManualSeries, None));
+        await writer.ExecuteAsync(middle, None);
         var second = Seal(await writer.PlanBackupAsync(policy, "{}", StorageWritePlans.ManualSeries, None));
-        Check.Equal(first.Id, second.Changes.Single(x => x.Attribute == "backup.rotation").BeforeValue, "rotation liée à la copie approuvée");
+        var rotatedId = second.Changes.Single(x => x.Attribute == "backup.rotation").BeforeValue;
+        Check.True(rotatedId == first.Id || rotatedId == middle.Id, "rotation liée à une copie approuvée, même si les dates sont identiques");
         await writer.ExecuteAsync(second, None);
         var database = await setup.Cache.DatabaseAsync(None);
-        var oldName = first.Changes.Single(x => x.Attribute == "backup.file").AfterValue!;
+        var rotated = rotatedId == first.Id ? first : middle;
+        var oldName = rotated.Changes.Single(x => x.Attribute == "backup.file").AfterValue!;
         Check.True(File.Exists(Path.Combine(Path.GetDirectoryName(database.Path)!, "Backups", "Retired", oldName)), "original de rotation récupérable");
         var active = (await new AdSettingsReader(setup.Source).LocalStoreAsync(None)).Backups.Where(x => x.Kind == "manual").ToArray();
         Check.Equal(2, active.Length, "série limitée");

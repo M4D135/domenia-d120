@@ -33,6 +33,7 @@ public sealed partial class DomeniaDatabase
         var tables = ImmutableArray<LocalStoreTable>.Empty;
         var categories = ImmutableArray<LocalStoreCategory>.Empty;
         var scopes = ImmutableArray<LocalStoreScope>.Empty;
+        var families = ImmutableArray<LocalStoreFamily>.Empty;
         long revision = 0;
         string schema = "Non créée";
         DateTimeOffset? lastWrite = null;
@@ -49,6 +50,7 @@ public sealed partial class DomeniaDatabase
                 checks["schema"] = new("schema", "ok", "Schéma Domenia 1 compatible, version 11.");
                 db.Begin(write: false);
                 var inspection = Inspect(db);
+                families = RetentionFamilies(ReadRetentionInventory(db, cancellationToken), WritePlans.TruncateToSecond(now));
                 revision = inspection.Revision;
                 schema = inspection.SchemaVersion.ToString(CultureInfo.InvariantCulture) + "/" + inspection.SchemaRevision.ToString(CultureInfo.InvariantCulture);
                 // The closed schema determines identifiers; arbitrary names from a modified database are never interpolated.
@@ -134,7 +136,7 @@ public sealed partial class DomeniaDatabase
             ? [new(System.IO.Path.GetFileName(backup.Path), System.IO.Path.GetFileName(backup.Path), backup.At, backup.Bytes, backup.Sha256, true, backup.At, "gesture", revision, new(null, null, null, null, null, null), null, null)] : [];
         backups = backups.AddRange(registered);
         return new LocalStoreSnapshot(exists && failure is null, false, DomainDn, Path, StoreId, revision, schema, bytes, wal, lastWrite, counts, categories, tables,
-            [], backups, space, new(failure is not null, false, writer.CurrentCount == 0, 0, 0, 0, 0, 0, lastWrite, failure),
+            families, backups, space, new(failure is not null, false, writer.CurrentCount == 0, 0, 0, 0, 0, 0, lastWrite, failure),
             new(false, false, null, failure is not null, false, null, false, null), usage, report, scopes, legacy, [], failure, failure is null ? null : now);
     }, cancellationToken);
 }

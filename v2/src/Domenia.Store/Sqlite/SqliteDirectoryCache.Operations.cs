@@ -3,6 +3,11 @@ namespace Domenia.Store;
 
 public sealed partial class SqliteDirectoryCache : IOperationsLocalStore
 {
+    public async Task<IDisposable> AcquireOperationsLeaseAsync(CancellationToken cancellationToken)
+    {
+        await Database.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        return await Database.AcquireOperationsLeaseAsync(cancellationToken).ConfigureAwait(false);
+    }
     public Task<OperationsLocalState> ReadOperationsAsync(CancellationToken cancellationToken) => Database.ReadOperationsAsync(cancellationToken);
     public async Task<OperationsLocalState> UpdateOperationsAsync(long expectedRevision, OperationsLocalState next, CancellationToken cancellationToken)
     {

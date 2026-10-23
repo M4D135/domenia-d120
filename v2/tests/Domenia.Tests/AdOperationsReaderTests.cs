@@ -74,6 +74,7 @@ internal static class AdOperationsReaderTests
         await Check.ThrowsAsync<DomeniaOperationException>(() => reader.ProgressCollectionAsync(id, [], 0, CancellationToken.None), "régression refusée");
         await Check.ThrowsAsync<InvalidDataException>(() => reader.ProgressCollectionAsync(id, [target, Guid.NewGuid()], 0, CancellationToken.None), "identité étrangère");
         Check.Equal(1, (await db.ReadOperationsAsync(CancellationToken.None)).Survey!.Completed.Length, "état durable conservé");
+        await reader.FinishCollectionAsync(id, true, CancellationToken.None);
     }
 
     [Test]
@@ -111,6 +112,34 @@ internal static class AdOperationsReaderTests
             checkpoint with { Scope = new("OU=Postes,DC=foreign,DC=local", "Autre domaine", true) } })
         { Check.Throws<InvalidDataException>(() => OperationsPersistence.Validate(state with { Survey = bad }), "plan invalide"); }
     }
+    [Test]
+    public static async Task A_second_application_cannot_resume_or_forget_an_active_collection()
+    {
+        using var folder = new TemporaryFolder(); var db = new DomeniaDatabase(folder.File("operations.db"), Fixtures.Root, TestClock.Fixed());
+        using var source = new AdDirectorySource("test.local", () => @"TEST\adm", TestClock.Fixed(), connection: new AdBoundaryTests.RecordingAdConnection(), localStore: new SqliteDirectoryCache(db));
+        using var first = new AdOperationsReader(source); using var other = new AdOperationsReader(source);
+        var id = Guid.NewGuid().ToString("D");
+        await first.BeginCollectionAsync(id, new(Fixtures.Postes, "Postes", true), SurveyMode.Ping, Targets(), CancellationToken.None);
+        var offer = (await other.RunsAsync(CancellationToken.None)).Offer!;
+        var error = await Check.ThrowsAsync<DomeniaOperationException>(() => other.ResumeSurveyAsync(offer.Remaining, offer.ResumeToken!, CancellationToken.None), "base déjà utilisée");
+        Check.Equal("operations.surveyBusy", error.Code, "verrou interprocessus distinct du jeton CAS");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => other.ForgetSurveyAsync(CancellationToken.None), "plan actif non effacé");
+        await first.FinishCollectionAsync(id, true, CancellationToken.None);
+        await other.ForgetSurveyAsync(CancellationToken.None);
+        Check.Null((await db.ReadOperationsAsync(CancellationToken.None)).Survey, "verrou libéré à la fin réelle");
+    }
+
+    [Test]
+    public static void A_successful_ping_does_not_prove_a_successful_inventory()
+    {
+        var outcome = new SurveyOutcome("id", "PC1", "online", new(default, "En ligne", Tone.Ok, Fixtures.Now, Fixtures.Now, ""), null, null);
+        Check.False(OperationsPersistence.Unconfirmed(outcome, SurveyMode.Ping), "ping effectivement répondu");
+        Check.True(OperationsPersistence.Unconfirmed(outcome, SurveyMode.Complete), "inventaire sans preuve reste inconnu");
+        Check.True(OperationsPersistence.Unconfirmed(outcome with { Confirmed = false }, SurveyMode.Analyse), "inventaire partiel non qualifié");
+        Check.False(OperationsPersistence.Unconfirmed(outcome with { Confirmed = true }, SurveyMode.Complete), "inventaire prouvé");
+        Check.True(OperationsPersistence.Unconfirmed(outcome with { Confirmed = true, Denied = true }, SurveyMode.Complete), "refus prioritaire");
+    }
+
     [Test]
     public static void Legacy_collection_keeps_unknown_counters_and_prior_success()
     {

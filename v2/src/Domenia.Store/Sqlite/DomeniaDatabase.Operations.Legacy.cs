@@ -9,13 +9,38 @@ public sealed partial class DomeniaDatabase
 {
     private OperationsLocalState WithLegacyOperations(SqliteDatabase db, OperationsLocalState state)
     {
-        if (!Table(db, "domenia_domain_metadata")) { return state; }
+        var nativeRuns = ReadNativeDirectoryRuns(db);
+        state = state with { Runs = [.. nativeRuns.Concat(state.Runs).DistinctBy(r => (r.Family, Dn: r.ScopeDn.ToUpperInvariant(), r.Subtree, r.AttemptAt)).OrderByDescending(r => r.AttemptAt).Take(1000)] };
+        if (!Table(db, "domenia_domain_metadata")) { OperationsPersistence.Validate(state); return state; }
         var rows = db.Query("SELECT domain_dn,family,request_key,attempt_at,status,error,success_at,CASE WHEN length(CAST(payload AS BLOB))<=65536 THEN payload END AS payload,CASE WHEN length(CAST(attempt_payload AS BLOB))<=65536 THEN attempt_payload END AS attempt_payload FROM domenia_domain_metadata WHERE domain_dn=?1 COLLATE NOCASE ORDER BY attempt_at DESC LIMIT 1001;", DomainDn);
         if (rows.Count > 1000) { throw new InvalidDataException("Plus de 1 000 relevés hérités ; lecture bornée non présentée comme complète."); }
         var legacy = rows.Select(ParseLegacyOperation).ToArray();
         var merged = legacy.Concat(state.Runs).DistinctBy(r => (r.Family, Dn: r.ScopeDn.ToUpperInvariant(), r.Subtree, r.AttemptAt))
             .OrderByDescending(r => r.AttemptAt).Take(1000).ToImmutableArray();
         var result = state with { Runs = merged }; OperationsPersistence.Validate(result); return result;
+    }
+
+    private ImmutableArray<OperationsCollectionRun> ReadNativeDirectoryRuns(SqliteDatabase db)
+    {
+        if (!Table(db, "sync_state")) { return []; }
+        var rows = db.Query("SELECT scope,base_dn,last_sync,item_count,CASE WHEN length(details)<=16384 THEN details END AS details FROM sync_state WHERE scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%' ORDER BY last_sync DESC LIMIT 1001;");
+        if (rows.Count > 1000) { throw new InvalidDataException("Plus de 1 000 repères AD ; lecture limitée non présentée comme complète."); }
+        var runs = ImmutableArray.CreateBuilder<OperationsCollectionRun>();
+        foreach (var row in rows)
+        {
+            var dn = row["base_dn"] as string ?? ""; var details = row["details"] as string ?? "";
+            if (!DistinguishedName.AreEqual(dn, DomainDn) && !DistinguishedName.IsWithin(dn, DomainDn, true)) { continue; }
+            var depth = details.Split(';').FirstOrDefault(d => d.StartsWith("depth=", StringComparison.Ordinal))?[6..];
+            if (depth is not ("Subtree" or "OneLevel")) { continue; }
+            if (ParseStoredDate(row["last_sync"] as string) is not { } at || row["item_count"] is not long items || items is < 0 or > int.MaxValue)
+            { throw new InvalidDataException("Repère AD sans date ou compteur valide."); }
+            var partial = ((string?)row["scope"])?.StartsWith("attempt:", StringComparison.Ordinal) == true || details.Contains(";partial", StringComparison.Ordinal);
+            runs.Add(new(OperationsCollectionFamily.Directory, dn, SearchTexts.Leaf(dn), depth == "Subtree", at,
+                partial ? OperationsCollectionStatus.Partial : OperationsCollectionStatus.Success, (int)items, null, null,
+                partial ? null : at, partial ? "Copie locale partielle ; aucun total du domaine déduit." : null));
+        }
+        var all = runs.ToImmutable();
+        return [.. all.Select(r => r.SuccessAt is null ? r with { SuccessAt = all.Where(p => p.Status == OperationsCollectionStatus.Success && p.Subtree == r.Subtree && DistinguishedName.AreEqual(p.ScopeDn, r.ScopeDn) && p.AttemptAt <= r.AttemptAt).Select(p => p.SuccessAt).Max() } : r)];
     }
 
     internal static OperationsCollectionRun ParseLegacyOperation(IReadOnlyDictionary<string, object?> row)

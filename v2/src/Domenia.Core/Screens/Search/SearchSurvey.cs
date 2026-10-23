@@ -70,7 +70,10 @@ public sealed record SurveyProfile(string Id, string Label, int InventorySeconds
 /// Result of one workstation of a survey. <see cref="InventoryReused"/>: a light inventory younger than the profile was kept
 /// (no CIM request); <see cref="Denied"/>: the remote account was rejected by the workstation (selection checks suspended).
 /// </summary>
-public sealed record SurveyOutcome(string Id, string Name, string Kind, SearchPresence Presence, SearchConsole? Console, string? Detail, bool InventoryReused = false, bool Denied = false);
+public sealed record SurveyOutcome(string Id, string Name, string Kind, SearchPresence Presence, SearchConsole? Console, string? Detail, bool InventoryReused = false, bool Denied = false)
+{
+    public bool? Confirmed { get; init; }
+}
 
 /// <summary>Progress of a running survey (event « search.survey.run:progress »).</summary>
 public sealed record SurveyProgress(string RunId, int Done, int Total, int Online, int NoReply, int Errors, string Text, ImmutableArray<SurveyOutcome> Batch, SurveyStatus Status);

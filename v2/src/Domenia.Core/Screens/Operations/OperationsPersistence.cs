@@ -13,6 +13,7 @@ public sealed record OperationsLocalState(string StoreId, string DomainDn, long 
 public interface IOperationsLocalStore
 {
     Task<OperationsLocalState> ReadOperationsAsync(CancellationToken cancellationToken);
+    Task<IDisposable> AcquireOperationsLeaseAsync(CancellationToken cancellationToken);
     Task<OperationsLocalState> UpdateOperationsAsync(long expectedRevision, OperationsLocalState next, CancellationToken cancellationToken);
 }
 
@@ -31,6 +32,8 @@ public interface IOperationsConfirmedResume
 
 public static class OperationsPersistence
 {
+    public static bool Unconfirmed(SurveyOutcome outcome, SurveyMode mode) => outcome.Denied || outcome.Kind != "online" || mode != SurveyMode.Ping && outcome.Confirmed != true;
+
     public static void Validate(OperationsLocalState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -68,4 +71,10 @@ public static class OperationsPersistence
         }
         if (survey.Completed.Any(id => !ids.Contains(id))) { throw new InvalidDataException("Progression étrangère au relevé."); }
     }
+}
+
+/// <summary>Flush measured samples before disposing the engine context; no network and no synthetic measurements.</summary>
+public interface IOperationsStatisticsWriter
+{
+    Task PersistStatisticsAsync(CancellationToken cancellationToken);
 }

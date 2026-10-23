@@ -8,17 +8,19 @@ public sealed partial class AdOperationsReader
     public async Task BeginCollectionAsync(string id, ScopeSelection scope, SurveyMode mode, ImmutableArray<SurveyTarget> targets, CancellationToken cancellationToken)
     {
         await saving.WaitAsync(cancellationToken).ConfigureAwait(false);
+        IDisposable? acquired = null;
         try
         {
             lock (gate) { ObjectDisposedException.ThrowIf(disposed, this); if (current is { Open: true }) { throw new DomeniaOperationException("operations.surveyBusy", "Un relevé est déjà en cours."); } }
+            acquired = await Store.AcquireOperationsLeaseAsync(cancellationToken).ConfigureAwait(false);
             var before = await Store.ReadOperationsAsync(cancellationToken).ConfigureAwait(false);
             var checkpoint = new OperationsSurveyCheckpoint(id, before.DomainDn, scope, mode, targets, [], Now, Now, false, 0);
             var next = before with { Revision = before.Revision + 1, Survey = checkpoint };
             OperationsPersistence.Validate(next);
             await Store.UpdateOperationsAsync(before.Revision, next, cancellationToken).ConfigureAwait(false);
-            lock (gate) { activeId = id; activeEpoch = source.Epoch; current = State(checkpoint, true); }
+            lock (gate) { collectionLease = acquired; acquired = null; activeId = id; activeEpoch = source.Epoch; current = State(checkpoint, true); }
         }
-        finally { saving.Release(); }
+        finally { acquired?.Dispose(); saving.Release(); }
     }
     public async Task ProgressCollectionAsync(string id, ImmutableArray<Guid> completed, int failed, CancellationToken cancellationToken)
     {
@@ -62,7 +64,11 @@ public sealed partial class AdOperationsReader
             }
             throw;
         }
-        finally { saving.Release(); }
+        finally
+        {
+            lock (gate) { collectionLease?.Dispose(); collectionLease = null; }
+            saving.Release();
+        }
     }
 
     private async Task RunRemainingAsync(OperationsSurveyCheckpoint plan, CancellationToken token)
@@ -86,7 +92,7 @@ public sealed partial class AdOperationsReader
                     { throw Unavailable("Cible déplacée, recréée, désactivée ou non lisible ; relevé arrêté avant la sonde."); }
                 }
                 var outcome = await reader.ProbeAsync(Guid.Parse(target.Id), plan.Mode, 1, TimeSpan.Zero, token).ConfigureAwait(false);
-                done.Add(Guid.Parse(target.Id)); failed += outcome.Denied || outcome.Kind != "online" ? 1 : 0;
+                done.Add(Guid.Parse(target.Id)); failed += OperationsPersistence.Unconfirmed(outcome, plan.Mode) ? 1 : 0;
                 await ProgressCollectionAsync(plan.Id, [.. done], failed, CancellationToken.None).ConfigureAwait(false);
                 if (outcome.Denied) { interrupted = true; failure = "Compte refusé ; aucune autre cible contactée."; break; }
             }

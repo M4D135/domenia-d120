@@ -160,6 +160,40 @@ internal static class NativeSyncStoreTests
         Check.Equal(0L, (long)read.Scalar("SELECT count(*) FROM ad_snapshots;")!, "transaction sans mutation");
     }
 
+    [Test]
+    public static async Task Sync_plan_cannot_be_bound_under_another_operator()
+    {
+        using var setup = new Setup();
+        var draft = await setup.Executor.PlanSnapshotCaptureAsync("Identité", Domain, None);
+        var foreign = WritePlans.Seal(draft, WritePlans.NewId(), "other", AppMode.Directory, Fixtures.Now, TimeZoneInfo.Utc);
+        Check.Throws<DomeniaOperationException>(() => setup.Executor.Bind(draft, foreign), "opérateur différent refusé");
+        Check.False(Directory.Exists(setup.User), "aucune création après refus");
+    }
+
+    [Test]
+    public static async Task Sync_plan_refuses_a_store_from_another_session_domain()
+    {
+        using var setup = new Setup("other.local");
+        var scope = new SyncScope("DC=other,DC=local", "Autre", "Autre", true, true, "Test");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => setup.Executor.PlanSnapshotCaptureAsync("Autre domaine", scope, None), "domaine de session vérifié explicitement");
+        Check.False(Directory.Exists(setup.User), "aucune création étrangère");
+    }
+
+    [Test]
+    public static async Task A_failed_sync_send_releases_its_retained_plan_and_cannot_be_retried()
+    {
+        using var setup = new Setup();
+        var database = await setup.Cache.DatabaseAsync(None); await database.InitializeAsync(None);
+        using (var db = new SqliteDatabase(database.Path, false))
+        { db.Script("CREATE TRIGGER refuse_test AFTER INSERT ON ad_snapshots BEGIN SELECT 1; END;"); }
+        var plan = await setup.PlanCapture("Envoi unique");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => setup.Executor.ExecuteAsync(plan, None), "premier envoi refusé");
+        using (var db = new SqliteDatabase(database.Path, false)) { db.Script("DROP TRIGGER refuse_test;"); }
+        Check.False((await setup.Executor.CheckAsync(plan, None)).Current, "plan libéré malgré l’échec");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => setup.Executor.ExecuteAsync(plan, None), "aucun rejeu après retrait du déclencheur");
+        Check.Equal(0, (await setup.Cache.ReadSyncStateAsync(None)).Snapshots.Length, "aucun effet tardif");
+    }
+
     private static IndexRecord Row(string name) => new(Guid.NewGuid(), IndexObjectType.Computer, name, name + "$", name + ".test.local", null, null, "Windows", true,
         "CN=" + name + "," + Fixtures.Postes, Fixtures.Now, 12, null, LapsKind.None, null, Fixtures.Now);
 
@@ -171,10 +205,10 @@ internal static class NativeSyncStoreTests
         internal CompatibleDirectoryCache Cache { get; }
         internal AdDirectorySource Source { get; }
         internal AdSyncStoreExecutor Executor { get; }
-        internal Setup()
+        internal Setup(string cacheDomain = "test.local")
         {
             User = folder.File("profile");
-            Cache = new(folder.File("app"), User, "test.local", TestClock.Fixed());
+            Cache = new(folder.File("app"), User, cacheDomain, TestClock.Fixed());
             Source = new("test.local", () => "test", TestClock.Fixed(), connection: Ldap, localStore: Cache);
             Executor = new(Source);
         }

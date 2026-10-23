@@ -71,12 +71,14 @@ public sealed partial class AdSearchReader
         SearchConsole? console = null;
         var reused = false;
         var denied = false;
+        var confirmed = mode == SurveyMode.Ping && presence.HasReading;
         string? detail = null;
         if (presence is { HasReading: true, Answered: true } && mode != SurveyMode.Ping)
         {
             var inventory = old?.Inventory;
             reused = mode == SurveyMode.Analyse && inventoryReuse > TimeSpan.Zero && inventory is { HasReading: true, CheckedAt: { } at }
                 && source.Clock.GetUtcNow() >= at && source.Clock.GetUtcNow() - at <= inventoryReuse;
+            if (reused && source.AccountContext is { } telemetryContext) { OperationActivity.From(telemetryContext).RecordInventoryReused(); }
             if (mode is SurveyMode.Console or SurveyMode.Unaddressed || reused)
             {
                 var native = new AdRelationsReader(source) { InventoryReaderOverride = ConsoleReaderOverride };
@@ -84,6 +86,7 @@ public sealed partial class AdSearchReader
                 if (source.Epoch != generation) { throw Invalid("Session modifiée pendant la lecture de console."); }
                 denied = seen.Attempts.Any(a => a.Status is "REFUSE" or "AUTH_REJETEE");
                 detail = seen.Message;
+                confirmed = seen.ConsoleReadAt is not null && !denied;
                 if (seen.ConsoleReadAt is { } observedAt)
                 {
                     var facts = new MachineFacts(seen.Observed?.Account, observedAt, null, null, MeasureState.Known, observedAt, null);
@@ -107,6 +110,8 @@ public sealed partial class AdSearchReader
                 var mapped = MapInventory(id, reading);
                 await source.SaveFleetAsync(mapped, generation, CancellationToken.None).ConfigureAwait(false);
                 denied = qualified.Denied;
+                confirmed = !denied && reading.StatusOf(InventoryCategories.System) == SourceStatus.Ok
+                    && reading.Access.All(a => a.Status is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Skipped);
                 if (reading.Interrupted || reading.Access.Any(a => a.Status is SourceStatus.Partial or SourceStatus.Error or SourceStatus.Unreachable or SourceStatus.Refused))
                 { detail += " Relevé partiel : les sources non lues restent inconnues ; les mesures terminées sont conservées."; }
                 cancellationToken.ThrowIfCancellationRequested();
@@ -116,7 +121,7 @@ public sealed partial class AdSearchReader
             if (denied) { console = new("denied", "Lecture ou validation refusée avec le compte sélectionné", null, null, null, source.Clock.GetUtcNow()); }
         }
         var shown = SearchTexts.Presence(presence, source.Clock.GetUtcNow());
-        return new(id.ToString("D"), computer.Name, SearchSurvey.OutcomeKind(shown.State), shown, console, detail, reused, denied);
+        return new(id.ToString("D"), computer.Name, SearchSurvey.OutcomeKind(shown.State), shown, console, detail, reused, denied) { Confirmed = confirmed };
     }
 
     internal static FleetCachePatch MapInventory(Guid id, InventorySnapshot reading)

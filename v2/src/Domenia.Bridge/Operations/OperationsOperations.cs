@@ -76,6 +76,15 @@ public sealed class OperationsOperations : IOperationModule
                 return Task.FromResult<object?>(desk.Interface(renders, stall));
             }, "Mesures de l’interface : traitements de la page et battements en retard."),
 
+            new OperationDefinition("operations.publication.report", OperationClass.Local, (args, _, _) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ["id", "ms"]);
+                var id = BridgeArguments.GetString(values, "id");
+                var ms = OptionalNumber(values, "ms");
+                if (id.Length is < 1 or > 64 || ms is null || ms > 60000) { throw BridgeArguments.Invalid("Mesure de publication invalide."); }
+                return Task.FromResult<object?>(OperationActivity.From(context).RecordPublication(id, ms.Value));
+            }, "Intervalle local entre réception d’une réponse et rafraîchissement visible de l’interface."),
+
             new OperationDefinition("operations.activity", OperationClass.Local, (args, _, _) =>
             {
                 BridgeArguments.RequireNone(args);
@@ -468,18 +477,16 @@ public sealed class OperationsOperations : IOperationModule
             var waits = activity.WriteWaits();
             var collection = new List<string>(activity.ClassLines())
             {
-                "Lectures identiques partagées et requêtes WMI évitées" + FrenchText.Colon + "comptées par l’ordonnanceur de collecte à venir (Domenia.Engine et Domenia.Inventory, vague 3) ; aucune n’est estimée ici.",
-                reader?.CollectionProfile ?? ("Collecte sur les postes" + FrenchText.Colon + "arrive avec Domenia.Inventory (vague 3) ; aucune sonde ne part dans cette version."),
+                "Inventaires CIM réutilisés" + FrenchText.Colon + FrenchText.Integer(activity.InventoriesReused) + " relevés complets évités grâce à une mesure récente admissible (ce nombre n’est pas un compte de requêtes WQL).",
+                "Demandes réseau identiques : aucun partage automatique entre opérateurs ou identités ; les lectures restent isolées.",
+                reader?.CollectionProfile ?? ("Collecte sur les postes" + FrenchText.Colon + "lecteur indisponible dans ce contexte."),
             };
             var (localSave, tone) = LocalSave(zone);
             var (busy, last) = activity.SqliteBusy;
             var timeout = ActivityRules.SqliteBusyTimeout(null);
-            var sqlite = busy > 0
-                ? ActivityRules.SqliteBusySummary(busy, last, timeout, zone)
-                : simulation
-                    ? "Base locale" + FrenchText.Colon + "aucune base SQLite ouverte en simulation (annuaire fictif en mémoire) ; aucune attente de verrou possible."
-                    : "Base locale" + FrenchText.Colon + "base SQLite non branchée dans cette version ; le compteur des attentes de verrou (délai "
-                        + FrenchText.Integer(timeout) + FrenchText.Nbsp + "ms, borné de 100 à " + FrenchText.Integer(5000) + FrenchText.Nbsp + "ms) est prêt et reste à zéro.";
+            var sqlite = simulation
+                ? "Base locale" + FrenchText.Colon + "annuaire fictif en mémoire ; aucune attente SQLite de collecte en simulation."
+                : ActivityRules.SqliteBusySummary(busy, last, timeout, zone);
             return new EngineHealth(now, MemoryMb(), activity.Categories(), activity.Slow(), activity.Faults, localSave, tone, sqlite,
                 ActivityRules.ProviderLines(providers, now, zone), [.. collection], waits,
                 "Mesures locales de cette session seulement, 512 dernières par catégorie" + FrenchText.Colon + "ce n’est pas un test du réseau. Rien ne quitte le processus.");

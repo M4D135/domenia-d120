@@ -8,6 +8,7 @@ public sealed record QueryComputerReadings(Guid Computer, string Dn, DateTimeOff
 
 public sealed record QueryStoredReadings(long Revision, ImmutableArray<QueryComputerReadings> Computers)
 {
+    public long TransientRevision { get; init; }
     public static QueryStoredReadings Empty { get; } = new(0, []);
 }
 

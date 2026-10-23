@@ -883,7 +883,7 @@ public sealed class AssistanceOperations : IOperationModule
                 new("Recherche et suggestions", hasIndex, hasIndex ? "Index local (" + where + "), sans accès réseau." : "Index local indisponible dans ce mode."),
                 new("Lecture des fiches et des étapes", hasReader, hasReader
                     ? "Sur votre geste seulement" + FrenchText.Colon + "une lecture à la fois par objet, " + FrenchText.Integer(AssistanceScheduler.MaxRunning) + " en parallèle au plus."
-                    : "Lecteur de l’annuaire pas encore branché dans cette version."),
+                    : "Lecteur de l’annuaire indisponible ; consultez la connexion du domaine et l’état du moteur."),
                 new("Dossier hors ligne", hasIndex, hasIndex ? "Données locales seulement, 500 postes au plus." : "Index local indisponible dans ce mode."),
                 new("Documents", true, documents.Persistent ? "Nouveaux fichiers datés, jamais remplacés." : "Gardés en mémoire" + FrenchText.Colon + "rien n’est écrit sur le disque."),
                 new("Reçus d’écriture", true, context.Receipts.Persistent ? "Enregistrés sur le disque." : "En mémoire seulement."),

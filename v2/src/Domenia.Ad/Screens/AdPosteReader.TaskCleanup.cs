@@ -7,6 +7,9 @@ namespace Domenia.Ad;
 
 public sealed partial class AdPosteReader : IPosteTaskReadJournalReader
 {
+    private static bool ConfirmedTaskWorkstation(AdEntry entry) => entry.Raw("userAccountControl").Count == 1
+        && entry.Long("userAccountControl") is >= 0 and <= uint.MaxValue and var flags && (flags & AdValues.ServerTrustAccount) == 0;
+
     public async Task<ImmutableArray<RemoteTaskPending>> PendingTaskReadsAsync(string computerDn, CancellationToken cancellationToken)
     {
         var local = await LocalAsync(computerDn, cancellationToken).ConfigureAwait(false);
@@ -32,8 +35,9 @@ public sealed partial class AdPosteReader : IPosteTaskReadJournalReader
         {
             using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, dn, token).ConfigureAwait(false);
             using var machine = await AdWorkstationAccess.AcquireAsync(source, record.Plan.Host, token).ConfigureAwait(false);
-            var parent = await SecretComputerAsync(local, directory, ["objectGUID", "objectClass", "objectSid", "whenCreated", "dNSHostName", "sAMAccountName"], token).ConfigureAwait(false);
+            var parent = await SecretComputerAsync(local, directory, ["objectGUID", "objectClass", "objectSid", "whenCreated", "dNSHostName", "sAMAccountName", "userAccountControl"], token).ConfigureAwait(false);
             if (parent.Time("whenCreated") != local.Computer.WhenCreated || parent.Sid("objectSid") != local.Computer.Sid
+                || !ConfirmedTaskWorkstation(parent)
                 || !string.Equals(parent.String("dNSHostName"), record.Plan.Host, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(parent.String("sAMAccountName"), local.Computer.SamAccountName, StringComparison.OrdinalIgnoreCase))
             { throw WriteErrors.Refusal(WriteErrors.Stale, "Identité AD du poste modifiée ; aucun nettoyage."); }
