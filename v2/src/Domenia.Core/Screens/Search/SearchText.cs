@@ -137,6 +137,7 @@ public static partial class SearchText
         SearchTypeFilter.Computers => "(objectCategory=computer)",
         SearchTypeFilter.Groups => "(objectCategory=group)",
         SearchTypeFilter.Ous => "(|(objectClass=organizationalUnit)(objectClass=container))",
+        SearchTypeFilter.Contacts => "(objectClass=contact)",
         _ => "(|(objectCategory=person)(objectCategory=computer)(objectCategory=group)(objectClass=organizationalUnit))",
     };
 
@@ -147,6 +148,7 @@ public static partial class SearchText
         SearchTypeFilter.Computers => "Postes",
         SearchTypeFilter.Groups => "Groupes",
         SearchTypeFilter.Ous => "OU",
+        SearchTypeFilter.Contacts => "Contacts",
         _ => "Tous les types",
     };
 
@@ -211,6 +213,7 @@ public static partial class SearchText
         "Utilisateur" => SearchTypeFilter.Users,
         "Machine" => SearchTypeFilter.Computers,
         "Groupe" => SearchTypeFilter.Groups,
+        "Contact" => SearchTypeFilter.Contacts,
         _ => SearchTypeFilter.All,
     };
 

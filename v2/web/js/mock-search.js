@@ -52,7 +52,7 @@ export function createSearchOperations(h) {
   });
   const flags = (o = {}) => ({ disabled: false, locked: false, lockToCheck: false, passwordExpired: false, passwordNeverExpires: false, passwordNotRequired: false, mustChange: false, inactive: false, neverLoggedOn: false, admin: false, accountExpiring: false, accountExpired: false, ...o });
   const base = (kind, name, dn, extra) => ({
-    id: guid(), kind, kindLabel: { user: 'Utilisateur', computer: 'Poste', group: 'Groupe', ou: 'OU' }[kind], name, display: null, login: null, upn: null, mail: null, description: null,
+    id: guid(), kind, kindLabel: { user: 'Utilisateur', computer: 'Poste', group: 'Groupe', ou: 'OU', contact: 'Contact' }[kind], name, display: null, login: null, upn: null, mail: null, description: null,
     dn, container: pathOf(dn.split(',').slice(1).join(',')), os: null, osVersion: null, lastLogon: null, changed: iso(now() - Math.floor(rnd() * 40) * DAY), created: iso(now() - 400 * DAY),
     readAt: iso(now() - 12 * MIN), presence: null, console: null, association: null, address: null, group: null, verdict: null, rank: 0, ...extra,
   });
@@ -102,9 +102,9 @@ export function createSearchOperations(h) {
   const plans = new Map();
   let resume = null;
   let suspended = null;
-  const ofType = (o, type) => type === 'all' || ({ users: 'user', computers: 'computer', groups: 'group', ous: 'ou' }[type] === o.kind);
-  const typeLabel = (t) => ({ all: 'Tous les types', users: 'Personnes', computers: 'Postes', groups: 'Groupes', ous: 'OU' }[t] ?? 'Tous les types');
-  const readType = (v) => { const t = getOptionalString(v, 'type') ?? 'all'; if (!['all', 'users', 'computers', 'groups', 'ous'].includes(t)) throw invalid(`${quote('type')} vaut all, users, computers, groups ou ous.`); return t; };
+  const ofType = (o, type) => type === 'all' || ({ users: 'user', computers: 'computer', groups: 'group', ous: 'ou', contacts: 'contact' }[type] === o.kind);
+  const typeLabel = (t) => ({ all: 'Tous les types', users: 'Personnes', computers: 'Postes', groups: 'Groupes', ous: 'OU', contacts: 'Contacts' }[t] ?? 'Tous les types');
+  const readType = (v) => { const t = getOptionalString(v, 'type') ?? 'all'; if (!['all', 'users', 'computers', 'groups', 'ous', 'contacts'].includes(t)) throw invalid(`${quote('type')} vaut all, users, computers, groups, ous ou contacts.`); return t; };
   const readLimit = (v, fallback = 100) => { const n = v.limit ?? fallback; if (!Number.isInteger(n) || n < 1 || n > MAX_LIMIT) throw invalid(`${quote('limit')} doit être un entier de 1 à ${int(MAX_LIMIT)}.`); return n; };
   const requireList = (id) => { const l = lists.get(id); if (!l) throw fail('search.listUnknown', `Liste inconnue ou trop ancienne${COLON}relancez la recherche.`); return l; };
 

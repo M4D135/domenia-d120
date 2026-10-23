@@ -41,11 +41,19 @@ public static class AdDirectoryMapper
         "adminCount", "description", "managedBy", "mail", "whenCreated", "whenChanged", "uSNChanged",
     ];
 
-    /// <summary>LDAP filters of the four kinds of the directory picture (contacts and service accounts are not read).</summary>
+    public static IReadOnlyList<string> ContactAttributes { get; } =
+    [
+        "name", "cn", "objectGUID", "distinguishedName", "objectClass", "objectCategory", "displayName", "givenName", "sn",
+        "mail", "description", "title", "department", "physicalDeliveryOfficeName", "telephoneNumber", "manager",
+        "memberOf", "whenCreated", "whenChanged", "uSNChanged",
+    ];
+
+    /// <summary>LDAP filters of the kinds of the directory picture.</summary>
     public const string OuFilter = "(objectClass=organizationalUnit)";
     public const string UserFilter = "(&(objectCategory=person)(objectClass=user))";
     public const string ComputerFilter = "(objectCategory=computer)";
     public const string GroupFilter = "(objectCategory=group)";
+    public const string ContactFilter = "(objectClass=contact)";
 
     private const string LapsWindowsExpiration = "msLAPS-PasswordExpirationTime";
     private const string LapsLegacyExpiration = "ms-Mcs-AdmPwdExpirationTime";
@@ -70,6 +78,18 @@ public static class AdDirectoryMapper
             entry.String("managedBy"),
             entry.Time("whenCreated") ?? DateTimeOffset.MinValue,
             entry.Time("whenChanged") ?? DateTimeOffset.MinValue,
+            entry.Long("uSNChanged") ?? 0);
+    }
+
+    public static DirectoryContact? Contact(AdEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (entry.Guid("objectGUID") is not Guid guid || guid == Guid.Empty) { return null; }
+        return new(guid, entry.DistinguishedName, entry.String("name") ?? entry.String("cn") ?? LeafValue(entry.DistinguishedName),
+            entry.String("displayName"), entry.String("givenName"), entry.String("sn"), entry.String("mail"),
+            entry.String("description"), entry.String("title"), entry.String("department"), entry.String("physicalDeliveryOfficeName"),
+            entry.String("telephoneNumber"), entry.String("manager"), [.. entry.Strings("memberOf")],
+            entry.Time("whenCreated") ?? DateTimeOffset.MinValue, entry.Time("whenChanged") ?? DateTimeOffset.MinValue,
             entry.Long("uSNChanged") ?? 0);
     }
 

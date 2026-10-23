@@ -264,6 +264,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
                         Users = Merge(old.Users, [.. objects.Users.Where(o => next.Contains(o.ObjectGuid))], o => o.ObjectGuid),
                         Computers = Merge(old.Computers, [.. objects.Computers.Where(o => next.Contains(o.ObjectGuid))], o => o.ObjectGuid),
                         Groups = Merge(old.Groups, [.. objects.Groups.Where(o => next.Contains(o.ObjectGuid))], o => o.ObjectGuid),
+                        Contacts = old.Contacts is null && objects.Contacts is null ? null
+                            : Merge(old.Contacts ?? [], [.. (objects.Contacts ?? []).Where(o => next.Contains(o.ObjectGuid))], o => o.ObjectGuid),
                     };
                 }
             }

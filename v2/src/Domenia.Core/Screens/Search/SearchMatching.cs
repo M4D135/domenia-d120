@@ -86,6 +86,7 @@ public static class SearchMatcher
             SearchTypeFilter.Computers => candidate.Kind == SearchObjectKind.Computer,
             SearchTypeFilter.Groups => candidate.Kind == SearchObjectKind.Group,
             SearchTypeFilter.Ous => candidate.Kind == SearchObjectKind.Ou,
+            SearchTypeFilter.Contacts => candidate.Kind == SearchObjectKind.Contact,
             _ => true,
         };
     }

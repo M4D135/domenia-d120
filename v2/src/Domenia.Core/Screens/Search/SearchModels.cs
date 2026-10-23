@@ -9,6 +9,7 @@ public enum SearchObjectKind
     Computer,
     Group,
     Ou,
+    Contact,
 }
 
 /// <summary>Type selector of the bar and of the OU list (Domenia 1 Get-DomeniaTypeFilter, Get-DomeniaSearchBarTypes).</summary>
@@ -19,6 +20,7 @@ public enum SearchTypeFilter
     Computers,
     Groups,
     Ous,
+    Contacts,
 }
 
 /// <summary>How the words of the text are matched: start of the values (default) or anywhere (« contient », FO-01).</summary>

@@ -80,8 +80,9 @@ public static class AdDirectoryReader
         var users = await ReadKindAsync(connection, scope, AdDirectoryMapper.UserFilter, AdDirectoryMapper.UserAttributes, maxObjectsPerKind, AdDirectoryMapper.User, cancellationToken).ConfigureAwait(false);
         var computers = await ReadKindAsync(connection, scope, AdDirectoryMapper.ComputerFilter, AdDirectoryMapper.ComputerAttributes, maxObjectsPerKind, AdDirectoryMapper.Computer, cancellationToken).ConfigureAwait(false);
         var groups = await ReadKindAsync(connection, scope, AdDirectoryMapper.GroupFilter, AdDirectoryMapper.GroupAttributes, maxObjectsPerKind, AdDirectoryMapper.Group, cancellationToken).ConfigureAwait(false);
-        var complete = ous.Complete && users.Complete && computers.Complete && groups.Complete;
-        return new DirectorySnapshot(domain, readAt, complete, ous.Items, users.Items, computers.Items, groups.Items) { Coverage = scope };
+        var contacts = await ReadKindAsync(connection, scope, AdDirectoryMapper.ContactFilter, AdDirectoryMapper.ContactAttributes, maxObjectsPerKind, AdDirectoryMapper.Contact, cancellationToken).ConfigureAwait(false);
+        var complete = ous.Complete && users.Complete && computers.Complete && groups.Complete && contacts.Complete;
+        return new DirectorySnapshot(domain, readAt, complete, ous.Items, users.Items, computers.Items, groups.Items) { Coverage = scope, Contacts = contacts.Items };
     }
 
     /// <summary>Rejects a missing, malformed, foreign or domain-wide branch before any object search.</summary>

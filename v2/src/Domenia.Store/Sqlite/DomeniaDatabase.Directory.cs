@@ -30,7 +30,8 @@ public sealed partial class DomeniaDatabase
         var objects = snapshot.OrganizationalUnits.Select(o => new StoredObject(o.ObjectGuid, "ou", o.DistinguishedName, JsonSerializer.Serialize(o, Json)))
             .Concat(snapshot.Users.Select(o => new StoredObject(o.ObjectGuid, "user", o.DistinguishedName, JsonSerializer.Serialize(o, Json))))
             .Concat(snapshot.Computers.Select(o => new StoredObject(o.ObjectGuid, "computer", o.DistinguishedName, JsonSerializer.Serialize(o, Json))))
-            .Concat(snapshot.Groups.Select(o => new StoredObject(o.ObjectGuid, "group", o.DistinguishedName, JsonSerializer.Serialize(o, Json)))).ToArray();
+            .Concat(snapshot.Groups.Select(o => new StoredObject(o.ObjectGuid, "group", o.DistinguishedName, JsonSerializer.Serialize(o, Json))))
+            .Concat((snapshot.Contacts ?? []).Select(o => new StoredObject(o.ObjectGuid, "contact", o.DistinguishedName, JsonSerializer.Serialize(o, Json)))).ToArray();
         if (objects.Any(o => o.Guid == Guid.Empty || !InReadScope(scope, o.Dn)) || objects.Select(o => o.Guid).Distinct().Count() != objects.Length)
         {
             throw new InvalidDataException("Lot hors périmètre ou identités dupliquées : aucune écriture.");
@@ -125,6 +126,7 @@ public sealed partial class DomeniaDatabase
         var users = ImmutableArray.CreateBuilder<DirectoryUser>();
         var computers = ImmutableArray.CreateBuilder<DirectoryComputer>();
         var groups = ImmutableArray.CreateBuilder<DirectoryGroup>();
+        var contacts = ImmutableArray.CreateBuilder<DirectoryContact>();
         foreach (var row in db.Query("SELECT object_guid,kind,dn,payload,observed_at FROM domenia_v2_objects;"))
         {
             var dn = (string)row["dn"]!;
@@ -137,12 +139,14 @@ public sealed partial class DomeniaDatabase
                 "user" => JsonSerializer.Deserialize<DirectoryUser>(json, Json),
                 "computer" => JsonSerializer.Deserialize<DirectoryComputer>(json, Json),
                 "group" => JsonSerializer.Deserialize<DirectoryGroup>(json, Json),
+                "contact" => JsonSerializer.Deserialize<DirectoryContact>(json, Json),
                 _ => throw new InvalidDataException("Type de projection locale inconnu."),
             };
             var identity = item switch
             {
                 DirectoryOu o => (o.ObjectGuid, o.DistinguishedName), DirectoryUser u => (u.ObjectGuid, u.DistinguishedName),
                 DirectoryComputer c => (c.ObjectGuid, c.DistinguishedName), DirectoryGroup g => (g.ObjectGuid, g.DistinguishedName),
+                DirectoryContact c => (c.ObjectGuid, c.DistinguishedName),
                 _ => throw new InvalidDataException("Projection locale vide."),
             };
             if (identity.Item1.ToString("D") != (string)row["object_guid"]! || identity.Item2 != dn) { throw new InvalidDataException("Identité de projection incohérente."); }
@@ -155,11 +159,12 @@ public sealed partial class DomeniaDatabase
                 case DirectoryUser u: users.Add(u); break;
                 case DirectoryComputer c: computers.Add(c); break;
                 case DirectoryGroup g: groups.Add(g); break;
+                case DirectoryContact c: contacts.Add(c); break;
             }
         }
         db.Commit();
         // Retained objects can predate the last pass; the union is never presented as a complete fresh census.
-        return new DirectorySnapshot(header.Domain, header.ReadAt, false, ous.ToImmutable(), users.ToImmutable(), computers.ToImmutable(), groups.ToImmutable()) { Coverage = header.Scope, ObjectReadAt = observedAt.ToImmutable() };
+        return new DirectorySnapshot(header.Domain, header.ReadAt, false, ous.ToImmutable(), users.ToImmutable(), computers.ToImmutable(), groups.ToImmutable()) { Coverage = header.Scope, ObjectReadAt = observedAt.ToImmutable(), Contacts = contacts.ToImmutable() };
     }, cancellationToken);
 
     private void EnsureBackup(SqliteDatabase db, CancellationToken token)

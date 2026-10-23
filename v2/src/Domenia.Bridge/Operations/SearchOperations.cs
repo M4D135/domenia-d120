@@ -377,7 +377,8 @@ public sealed partial class SearchOperations : IOperationModule
         "computers" => SearchTypeFilter.Computers,
         "groups" => SearchTypeFilter.Groups,
         "ous" => SearchTypeFilter.Ous,
-        _ => throw BridgeArguments.Invalid(FrenchText.Quote("type") + " vaut all, users, computers, groups ou ous."),
+        "contacts" => SearchTypeFilter.Contacts,
+        _ => throw BridgeArguments.Invalid(FrenchText.Quote("type") + " vaut all, users, computers, groups, ous ou contacts."),
     };
 
     private static int Limit(IReadOnlyDictionary<string, JsonElement> values) => Int(values, "limit", SearchLimits.DefaultLimit, 1, SearchLimits.MaxLimit);

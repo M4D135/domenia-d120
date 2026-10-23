@@ -29,6 +29,7 @@ export const KINDS = {
   computer: { label: 'Poste', plural: 'Postes', icon: 'monitor', tone: 'accent' },
   group: { label: 'Groupe', plural: 'Groupes', icon: 'group', tone: 'ok' },
   ou: { label: 'OU', plural: 'OU', icon: 'ou', tone: 'off' },
+  contact: { label: 'Contact', plural: 'Contacts', icon: 'user', tone: 'info' },
 };
 
 export const TYPES = [
@@ -37,6 +38,7 @@ export const TYPES = [
   { id: 'computers', label: 'Postes', noun: 'poste', icon: 'monitor' },
   { id: 'groups', label: 'Groupes', noun: 'groupe', icon: 'group' },
   { id: 'ous', label: 'OU', noun: 'unité d’organisation', icon: 'ou' },
+  { id: 'contacts', label: 'Contacts', noun: 'contact d’annuaire', icon: 'user' },
 ];
 export const typeLabel = (id) => (id === 'all' ? 'Tous les types' : TYPES.find((t) => t.id === id)?.label ?? 'Tous les types');
 
@@ -259,7 +261,7 @@ export const maskSecrets = (text) => String(text ?? '').replace(SECRET, (all, ke
 export function ticketLine(row) {
   if (!row) return '';
   const flat = (v, max = 120) => String(v ?? '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
-  const parts = [{ user: 'Utilisateur', computer: 'Poste', group: 'Groupe', ou: 'OU' }[row.kind] ?? 'Objet'];
+  const parts = [KINDS[row.kind]?.label ?? 'Objet'];
   if (row.name) parts.push(flat(row.name));
   const account = row.kind === 'computer' ? row.association?.label : (row.kind === 'user' || row.kind === 'group') ? row.login : '';
   if (account) parts.push(`Compte${COLON}${flat(account)}`);

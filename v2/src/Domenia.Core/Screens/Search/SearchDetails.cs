@@ -262,6 +262,23 @@ public static class SearchDetails
                 Add("objectSid", g.Sid, true);
                 Add("objectGUID", g.ObjectGuid.ToString("D"), true);
                 break;
+            case DirectoryContact c:
+                Add("displayName", c.DisplayName);
+                Add("givenName", c.GivenName);
+                Add("sn", c.Surname);
+                Add("mail", c.Mail, true);
+                Add("title", c.Title);
+                Add("department", c.Department);
+                Add("physicalDeliveryOfficeName", c.Office);
+                Add("telephoneNumber", c.TelephoneNumber, true);
+                Add("manager", c.ManagerDn, true);
+                Add("description", c.Description);
+                Add("whenCreated", When(c.WhenCreated, zone));
+                Add("whenChanged", When(c.WhenChanged, zone));
+                Add("uSNChanged", c.UsnChanged.ToString(CultureInfo.InvariantCulture), true);
+                Add("objectGUID", c.ObjectGuid.ToString("D"), true);
+                Add("memberOf", Members(c.MemberOf));
+                break;
             case DirectoryOu ou:
                 Add("description", ou.Description);
                 Add("managedBy", ou.ManagedByDn, true);

@@ -8,7 +8,7 @@ namespace Domenia.Ad;
 internal sealed class AdObjectAccess(AdDirectorySource source)
 {
     internal static readonly ImmutableArray<string> Attributes = [.. AdDirectoryMapper.OuAttributes
-        .Concat(AdDirectoryMapper.UserAttributes).Concat(AdDirectoryMapper.ComputerAttributes).Concat(AdDirectoryMapper.GroupAttributes)
+        .Concat(AdDirectoryMapper.UserAttributes).Concat(AdDirectoryMapper.ComputerAttributes).Concat(AdDirectoryMapper.GroupAttributes).Concat(AdDirectoryMapper.ContactAttributes)
         .Distinct(StringComparer.OrdinalIgnoreCase)];
 
     internal static string GuidFilter(Guid id)
@@ -52,6 +52,7 @@ internal sealed class AdObjectAccess(AdDirectorySource source)
         var users = ImmutableArray.CreateBuilder<DirectoryUser>();
         var computers = ImmutableArray.CreateBuilder<DirectoryComputer>();
         var groups = ImmutableArray.CreateBuilder<DirectoryGroup>();
+        var contacts = ImmutableArray.CreateBuilder<DirectoryContact>();
         var ids = new HashSet<Guid>();
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in entries)
@@ -63,6 +64,7 @@ internal sealed class AdObjectAccess(AdDirectorySource source)
             var classes = entry.Strings("objectClass").ToHashSet(StringComparer.OrdinalIgnoreCase);
             object? value = classes.Contains("computer") ? AdDirectoryMapper.Computer(entry)
                 : classes.Contains("group") ? AdDirectoryMapper.Group(entry)
+                : classes.Contains("contact") ? AdDirectoryMapper.Contact(entry)
                 : classes.Contains("user") && !classes.Contains("msDS-ManagedServiceAccount") && !classes.Contains("msDS-GroupManagedServiceAccount") ? AdDirectoryMapper.User(entry)
                 : classes.Contains("organizationalUnit") || classes.Contains("container") ? AdDirectoryMapper.Ou(entry) : null;
             switch (value)
@@ -71,11 +73,12 @@ internal sealed class AdObjectAccess(AdDirectorySource source)
                 case DirectoryComputer computer: computers.Add(computer); break;
                 case DirectoryGroup group: groups.Add(group); break;
                 case DirectoryOu ou: ous.Add(ou); break;
+                case DirectoryContact contact: contacts.Add(contact); break;
                 default: throw Invalid();
             }
         }
         // An exact selection or search page is never a complete census of the domain.
-        return new(domain, readAt, false, ous.ToImmutable(), users.ToImmutable(), computers.ToImmutable(), groups.ToImmutable());
+        return new(domain, readAt, false, ous.ToImmutable(), users.ToImmutable(), computers.ToImmutable(), groups.ToImmutable()) { Contacts = contacts.ToImmutable() };
     }
 
     private static DomeniaOperationException Invalid() => new(DomeniaErrors.SourceUnavailable, "Identité, type ou périmètre LDAP illisible : résultat non publié.");

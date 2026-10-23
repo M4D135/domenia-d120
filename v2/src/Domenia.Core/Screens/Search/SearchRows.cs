@@ -184,6 +184,7 @@ public sealed class SearchRowFactory
         DirectoryComputer computer => Computer(computer, rank, verdict),
         DirectoryGroup group => Group(group, rank, verdict),
         DirectoryOu ou => Ou(ou, rank, verdict),
+        DirectoryContact contact => Contact(contact, rank, verdict),
         _ => throw new ArgumentException("Unknown directory record.", nameof(record)),
     };
 
@@ -260,6 +261,15 @@ public sealed class SearchRowFactory
             null, null, null, Date(ou.WhenChanged), Date(ou.WhenCreated), ObservedAt(ou.ObjectGuid), null, null, null, null, null, verdict, rank);
     }
 
+    public SearchRow Contact(DirectoryContact contact, int rank = 9, string? verdict = null)
+    {
+        ArgumentNullException.ThrowIfNull(contact);
+        return new(Id(contact.ObjectGuid), SearchObjectKind.Contact, "Contact", contact.Name, contact.DisplayName, null, null,
+            contact.Mail, contact.Description, contact.DistinguishedName, SearchTexts.ContainerPath(contact.DistinguishedName, dnsName),
+            new SearchState("contact", "Contact d’annuaire", Tone.Info), new(false, false, false, false, false, false, false, false, false, false, false, false),
+            null, null, null, Date(contact.WhenChanged), Date(contact.WhenCreated), ObservedAt(contact.ObjectGuid), null, null, null, null, null, verdict, rank);
+    }
+
     private DateTimeOffset ObservedAt(Guid id) => snapshot.ObjectReadAt?.GetValueOrDefault(id, snapshot.ReadAt) ?? snapshot.ReadAt;
 
     /// <summary>Candidates of every object of the snapshot, in the order of the snapshot (OUs, users, computers, groups).</summary>
@@ -284,6 +294,11 @@ public sealed class SearchRowFactory
         foreach (var g in snapshot.Groups)
         {
             list.Add(new SearchCandidate(SearchObjectKind.Group, g.ObjectGuid, g.Sid, g.DistinguishedName, g.Name, g.Name, g.SamAccountName, null, null, null, null, g.Mail, null, g));
+        }
+        foreach (var c in snapshot.Contacts ?? [])
+        {
+            list.Add(new SearchCandidate(SearchObjectKind.Contact, c.ObjectGuid, null, c.DistinguishedName, c.Name, c.Name, null,
+                c.DisplayName, c.GivenName, c.Surname, null, c.Mail, null, c));
         }
         return list.MoveToImmutable();
     }

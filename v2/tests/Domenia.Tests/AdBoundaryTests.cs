@@ -47,7 +47,7 @@ internal static class AdBoundaryTests
             var snapshot = await AdDirectoryReader.ReadSnapshotAsync(connection, Fixtures.Domain, selected, 10, TestClock.Fixed(), CancellationToken.None);
             Check.True(snapshot.Complete, "lecture vide complète");
             Check.Equal(selected, snapshot.Coverage, "périmètre explicite du relevé");
-            Check.Equal(4, connection.Searches.Count, "quatre classes d’objets");
+            Check.Equal(5, connection.Searches.Count, "cinq classes d’objets, contacts compris");
             foreach (var search in connection.Searches)
             {
                 Check.Equal(selected.Dn, search.BaseDn, "l’OU, jamais la racine");
@@ -77,8 +77,8 @@ internal static class AdBoundaryTests
         using var connection = new RecordingAdConnection();
         using var source = new AdDirectorySource("test.local", () => @"TEST\adm", TestClock.Fixed(), connection: connection);
         await source.RefreshAsync(MeasureFamily.Directory, new ScopeSelection(Fixtures.Postes, "Postes", false), CancellationToken.None);
-        var objects = connection.Searches.Where(s => s.Filter is AdDirectoryMapper.OuFilter or AdDirectoryMapper.UserFilter or AdDirectoryMapper.ComputerFilter or AdDirectoryMapper.GroupFilter).ToArray();
-        Check.Equal(4, objects.Length, "relecture des quatre classes");
+        var objects = connection.Searches.Where(s => s.Filter is AdDirectoryMapper.OuFilter or AdDirectoryMapper.UserFilter or AdDirectoryMapper.ComputerFilter or AdDirectoryMapper.GroupFilter or AdDirectoryMapper.ContactFilter).ToArray();
+        Check.Equal(5, objects.Length, "relecture des cinq classes");
         Check.True(objects.All(s => s.BaseDn == Fixtures.Postes && s.Scope == AdSearchScope.OneLevel), "aucun élargissement silencieux");
         var calls = connection.Calls;
         await source.ReadLocalAsync(CancellationToken.None);
