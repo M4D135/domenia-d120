@@ -54,7 +54,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         var current = await ReadTargetAsync(plan, cancellationToken).ConfigureAwait(false);
         var check = await CheckCurrentAsync(plan, current, session, cancellationToken).ConfigureAwait(false);
         if (!check.Current) { throw WriteErrors.Refusal(WriteErrors.Stale, check.Detail); }
-        if (ObjectWrites.AlreadyApplied(plan, current, _ => false))
+        if (AlreadyApplied(plan, current))
         { return new(WriteResult.NoChange, "État déjà conforme au plan ; aucune requête de modification envoyée."); }
         return await SendAsync(plan, current!, cancellationToken).ConfigureAwait(false);
     }
@@ -136,7 +136,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         return await CheckRulesAsync(plan, current, token).ConfigureAwait(false);
     }
 
-    private async Task<bool> ReferencesAsync(WritePlan plan, CancellationToken token)
+    private protected virtual async Task<bool> ReferencesAsync(WritePlan plan, CancellationToken token)
     {
         foreach (var change in plan.Changes.Where(c => c.ReferenceGuid is not null))
         {
@@ -147,6 +147,8 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         }
         return true;
     }
+
+    private protected virtual bool AlreadyApplied(WritePlan plan, FicheEntry? current) => ObjectWrites.AlreadyApplied(plan, current, _ => false);
 
     private protected virtual Task<WritePrecheck> CheckRulesAsync(WritePlan plan, FicheEntry? current, CancellationToken token) => Task.FromResult(ObjectWrites.Check(plan, current, _ => false));
     private protected virtual Task<WriteVerification> VerifyCurrentAsync(WritePlan plan, FicheEntry? current, CancellationToken token) => Task.FromResult(ObjectWrites.Verify(plan, current, _ => false));

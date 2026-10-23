@@ -337,3 +337,9 @@ Le plan annuaire conserve toujours l’ancien `pwdLastSet`, même lorsque le cha
 `poste.accountState` et `poste.profile` utilisent les mêmes gardes de session, GUID, valeurs concurrentes et relecture que Fiche, avec leurs plans propres. Le profil conserve les champs omis et efface les champs explicitement vides ; `managedBy` doit désigner un utilisateur ou groupe du domaine, relu et scellé par GUID. L’état du compte ne modifie que le bit de désactivation, par retrait de la valeur exacte puis ajout du résultat confirmé.
 
 La confirmation de Poste porte sur `sAMAccountName` sans `$`, même si le CN a déjà été renommé. Les contrôleurs du domaine sont refusés. La relecture actualise le cache brut et l’index typé. Trois tests supplémentaires sont écrits et compilés seulement ; qualification AD finale encore à faire.
+
+## 21. Renommage et déplacement des postes (23 octobre 2026)
+
+`poste.rename` ne modifie que le CN : nom de compte, nom DNS et nom Windows restent inchangés. Les homonymes ordinateur sont signalés ; une collision de DN, même avec un autre type d’objet, interdit le plan. `poste.move` conserve le RDN et exige une OU du domaine. Dans les deux cas, le GUID du parent est scellé puis revérifié, le poste et le parent sont désignés par GUID dans ModifyDN, et le nom de compte ainsi que le DN complet sont relus. Un objet déplacé ou renommé ailleurs demande un nouveau plan ; un état déjà conforme ne provoque aucun second envoi.
+
+La relecture d’un poste dont les appartenances sont tronquées conserve la fiche brute avec son indicateur de limite, sans publier ces appartenances comme une projection typée complète. Trois tests couvrent les deux déplacements, les identités remplacées, collisions et limites de lecture. Compilés en Debug/Release dans la VM, sans erreur ni avertissement ; exécution et recette AD en fin de développement.

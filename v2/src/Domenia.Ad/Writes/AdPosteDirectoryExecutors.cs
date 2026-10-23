@@ -31,7 +31,9 @@ public abstract class AdPosteDirectoryExecutor(AdDirectorySource source) : AdFic
 
     private protected override async Task<WriteVerification> VerifyCurrentAsync(WritePlan plan, FicheEntry? current, CancellationToken token)
     {
-        var read = await base.VerifyCurrentAsync(plan, current, token).ConfigureAwait(false);
+        var read = await VerifyComputerAsync(plan, current, token).ConfigureAwait(false);
+        if (current?.First("__memberOfComplete") == "FALSE")
+        { return read with { Detail = read.Detail + " Appartenances partiellement lues ; l’index typé reste inchangé pour ne pas publier une liste incomplète comme complète." }; }
         if (current is not null)
         {
             var computer = Computer(current);
@@ -43,18 +45,27 @@ public abstract class AdPosteDirectoryExecutor(AdDirectorySource source) : AdFic
         return read;
     }
 
+    private protected virtual Task<WriteVerification> VerifyComputerAsync(WritePlan plan, FicheEntry? current, CancellationToken token) => base.VerifyCurrentAsync(plan, current, token);
+
+    private protected static AdEntry NativeEntry(FicheEntry entry)
+    {
+        var fields = entry.Attributes.Where(p => !p.Key.StartsWith("__", StringComparison.Ordinal))
+            .ToDictionary(p => p.Key, p => (IReadOnlyList<object>)p.Value.Cast<object>().ToArray(), StringComparer.OrdinalIgnoreCase);
+        fields["objectGUID"] = [entry.ObjectGuid.ToByteArray()];
+        if (entry.First("objectSid") is { } sidText)
+        {
+            try { var sid = new SecurityIdentifier(sidText); var bytes = new byte[sid.BinaryLength]; sid.GetBinaryForm(bytes, 0); fields["objectSid"] = [bytes]; }
+            catch (ArgumentException) { throw AdAttributeRange.Incomplete(); }
+        }
+        return new(entry.Dn, fields);
+    }
+
     private protected static DirectoryComputer Computer(FicheEntry entry)
     {
         if (entry.Kind != FicheKind.Computer || entry.Int32("userAccountControl") is null || string.IsNullOrWhiteSpace(entry.First("sAMAccountName"))
-            || entry.First("objectSid") is not { } sidText)
+            || entry.First("objectSid") is null)
         { throw WriteErrors.Refusal(WriteErrors.TargetUnknown, "Identité ou état du compte ordinateur illisible ; aucun plan préparé."); }
-        byte[] sid;
-        try { var value = new SecurityIdentifier(sidText); sid = new byte[value.BinaryLength]; value.GetBinaryForm(sid, 0); }
-        catch (ArgumentException) { throw AdAttributeRange.Incomplete(); }
-        var fields = entry.Attributes.Where(p => !p.Key.StartsWith("__", StringComparison.Ordinal))
-            .ToDictionary(p => p.Key, p => (IReadOnlyList<object>)p.Value.Cast<object>().ToArray(), StringComparer.OrdinalIgnoreCase);
-        fields["objectGUID"] = [entry.ObjectGuid.ToByteArray()]; fields["objectSid"] = [sid];
-        return AdDirectoryMapper.Computer(new(entry.Dn, fields)) ?? throw AdAttributeRange.Incomplete();
+        return AdDirectoryMapper.Computer(NativeEntry(entry)) ?? throw AdAttributeRange.Incomplete();
     }
 }
 

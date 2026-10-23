@@ -400,6 +400,69 @@ internal static class AdFicheWriteTests
         Check.Equal(0, ldap.Writes, "aucune mutation");
     }
 
+    [Test]
+    public static async Task Poste_rename_and_move_use_GUIDs_and_preserve_account_and_DNS_names()
+    {
+        foreach (var move in new[] { false, true })
+        {
+            using var ldap = new Connection(); using var source = Source(ldap);
+            ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+            ldap.Objects[Dn]["dNSHostName"] = ["pc-orig.test.local"];
+            const string destination = "OU=Destination," + Fixtures.Root;
+            foreach (var parent in new[] { Fixtures.People, destination })
+            { ldap.Objects[parent] = new(StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Fixtures.IdOf(parent).ToByteArray()], ["name"] = [DistinguishedName.Parse(parent)[0].Value], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] }; }
+            using var writers = WriteExecutors.Discover(source, [typeof(AdDirectorySource).Assembly]);
+            IWriteExecutor writer = move ? writers.Require<IPosteMoveExecutor>() : writers.Require<IPosteRenameExecutor>();
+            var draft = move ? await ((IPosteMoveExecutor)writer).PlanAsync(Dn, destination, CancellationToken.None)
+                : await ((IPosteRenameExecutor)writer).PlanAsync(Dn, "pc-nouveau", CancellationToken.None);
+            var plan = Seal(draft);
+            await writer.ExecuteAsync(plan, CancellationToken.None);
+            Check.Equal("<GUID=" + Fixtures.IdOf(move ? destination : Fixtures.People).ToString("D") + ">", ldap.RenamedParent, "parent par GUID");
+            Check.Equal(move ? "CN=Compte" : "CN=PC-NOUVEAU", ldap.RenamedRdn, "seul le changement confirmé de RDN");
+            Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "nom et emplacement relus");
+            var computer = source.CurrentDirectory!.Computers.Single();
+            Check.Equal("PC-ORIG$", computer.SamAccountName, "compte inchangé"); Check.Equal("pc-orig.test.local", computer.DnsHostName, "DNS inchangé");
+            Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "aucun second ModifyDN");
+            Check.Equal(1, ldap.Writes, "une seule mutation");
+        }
+    }
+
+    [Test]
+    public static async Task Poste_rename_warns_about_other_names_and_refuses_a_replaced_parent_or_any_collision()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Fixtures.People] = new(StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Fixtures.IdOf(Fixtures.People).ToByteArray()], ["name"] = ["People"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        ldap.Objects[Manager]["objectClass"] = ["top", "computer"]; ldap.Objects[Manager]["userAccountControl"] = ["4096"]; ldap.Objects[Manager]["sAMAccountName"] = ["PC-NOUVEAU$"];
+        var writer = new AdPosteRenameExecutor(source);
+        var draft = await writer.PlanAsync(Dn, "pc-nouveau", CancellationToken.None);
+        Check.True(draft.Risks.Any(r => r.Text.Contains("autre compte ordinateur", StringComparison.Ordinal)), "homonyme du nom de compte signalé");
+        var plan = Seal(draft);
+        var parentId = ldap.Objects[Fixtures.People]["objectGUID"];
+        ldap.Objects[Fixtures.People]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "parent recréé");
+        ldap.Objects[Fixtures.People]["objectGUID"] = parentId;
+        var collision = "CN=PC-NOUVEAU," + Fixtures.People;
+        ldap.Objects[collision] = new(ldap.Objects[Manager], StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Guid.NewGuid().ToByteArray()], ["objectClass"] = ["top", "contact"] };
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "collision même avec un autre type d’objet");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
+    [Test]
+    public static async Task Poste_readback_does_not_publish_partial_memberships_as_a_complete_typed_object()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Dn]["memberOf"] = Enumerable.Range(0, 2000).Select(n => (object)("CN=Groupe-" + n + "," + Fixtures.Root)).ToArray();
+        var writer = new AdPosteProfileExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Dn, "Nouvelle", null, null, CancellationToken.None));
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        var verified = await writer.VerifyAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, verified.State, "description relue conforme");
+        Check.True(verified.Detail.Contains("partiellement", StringComparison.Ordinal), "limite explicitée");
+        Check.Equal(0, source.CurrentDirectory?.Computers.Length ?? 0, "aucune fausse liste complète publiée");
+    }
+
     private static AdEntry Schema(string name, string syntax, int om, Dictionary<string, IReadOnlyList<object>>? extras = null)
     {
         var fields = extras ?? new(StringComparer.OrdinalIgnoreCase);
@@ -451,6 +514,12 @@ internal static class AdFicheWriteTests
             if (request.Scope == AdSearchScope.OneLevel && request.BaseDn.StartsWith("CN=Schema,", StringComparison.OrdinalIgnoreCase))
             { return Task.FromResult<IReadOnlyList<AdEntry>>([.. Schema.Where(p => request.Filter.Contains("(lDAPDisplayName=" + p.Key + ")", StringComparison.OrdinalIgnoreCase)).Select(p => p.Value)]); }
             var selected = Objects.Where(p => request.Scope == AdSearchScope.Base ? FicheValues.SameDn(p.Key, request.BaseDn) : request.Scope == AdSearchScope.OneLevel ? FicheValues.SameDn(DistinguishedName.Parent(p.Key), request.BaseDn) : request.Filter == AdObjectAccess.GuidFilter(Id(p.Key)));
+            if (request.Filter.StartsWith("(&(objectClass=computer)(|", StringComparison.Ordinal))
+            {
+                var names = LdapFilterText.Parse(request.Filter).Children.Single(c => c.Kind == LdapFilterKind.Or).Children;
+                selected = Objects.Where(p => p.Value["objectClass"].Contains("computer") && names.Any(n => p.Value.TryGetValue(n.Attribute!, out var values)
+                    && values.OfType<string>().Any(v => v.Equals(n.Text, StringComparison.OrdinalIgnoreCase))));
+            }
             if (request.Filter.Contains("(member=", StringComparison.Ordinal))
             {
                 var filter = LdapFilterText.Parse(request.Filter);
@@ -462,8 +531,11 @@ internal static class AdFicheWriteTests
             {
                 var values = new Dictionary<string, IReadOnlyList<object>>(p.Value, StringComparer.OrdinalIgnoreCase)
                 { ["allowedAttributes"] = p.Value.Keys.Concat(["mail", "manager", "managedBy"]).Distinct(StringComparer.OrdinalIgnoreCase).Select(a => (object)a).ToArray() };
-                if (request.Attributes.Contains("member;range=0-1499") && values.TryGetValue("member", out var members) && members.Count > 1499)
-                { values.Remove("member"); values["member;range=0-1499"] = members.Take(1500).ToArray(); }
+                foreach (var ranged in new[] { "member", "memberOf" })
+                {
+                    if (request.Attributes.Contains(ranged + ";range=0-1499") && values.TryGetValue(ranged, out var members) && members.Count > 1500)
+                    { values.Remove(ranged); values[ranged + ";range=0-1499"] = members.Take(1500).ToArray(); }
+                }
                 return new AdEntry(p.Key, values);
             })]);
         }
@@ -505,7 +577,8 @@ internal static class AdFicheWriteTests
             var parent = Objects.Keys.Single(dn => newParentDn == "<GUID=" + Id(dn).ToString("D") + ">");
             var moved = newRdn + "," + parent;
             if (Objects.ContainsKey(moved)) { throw new DomeniaOperationException(AdErrors.Exists, "Collision"); }
-            Objects[moved] = Objects[target]; Objects.Remove(target); Writes++;
+            Objects[moved] = Objects[target]; Objects.Remove(target);
+            Objects[moved]["name"] = [DistinguishedName.Parse(moved)[0].Value]; Objects[moved]["cn"] = [DistinguishedName.Parse(moved)[0].Value]; Writes++;
             return Task.CompletedTask;
         }
         public Task AddAsync(string distinguishedName, IReadOnlyDictionary<string, IReadOnlyList<object>> attributes, CancellationToken cancellationToken)
