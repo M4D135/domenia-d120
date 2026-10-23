@@ -335,3 +335,11 @@ Si les registres machine ont échoué sans fournir d’entrée, une requête bor
 Sept tests supplémentaires écrits et compilés seulement couvrent le cycle du shell, les sorties étrangères, les interruptions, les pertes de réponse, les plafonds, les options et le filtrage SCCM. Les comportements natifs COM, le shell et l’identité effective restent à qualifier dans la VM à la recette finale.
 
 Références : [création d’un shell](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wsmv/593f3ed0-0c7a-4158-a4be-0b429b597e31), [réception et délai de sortie](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wsmv/50cc2c38-e094-4d59-aec2-39e09f314862), [fournisseur SCCM et effets du fournisseur MSI](https://github.com/MicrosoftDocs/SupportArticles-docs/blob/main/support/windows-server/admin-development/windows-installer-reconfigured-all-applications.md).
+
+## 15. Defender et version Windows déclarée (23/10/2026)
+
+Le relevé antivirus lit `MSFT_MpComputerStatus` indépendamment de `SecurityCenter2`, notamment sur les serveurs. Les protections, âges et version proviennent des propriétés déclarées ; le mode est lu séparément pour conserver le relevé principal lorsqu’une ancienne classe ne l’expose pas. Les booléens inconnus restent inconnus, 65535 jours est présenté comme « jamais », et aucune analyse en cours n’est déduite d’anciennes dates. Un mode passif ne prouve pas à lui seul qu’un autre antivirus est présent. Les valeurs sont visibles dans le tableau de bord, les sondes et la grille/export d’inventaire.
+
+L’inventaire rapide/complet ajoute UBR et DisplayVersion depuis le registre Windows : révision zéro conservée, version déclarée distincte du build. Ces deux lectures ne sont pas ajoutées au relevé court de recherche. Trois tests ajoutés et compilés seulement ; qualification native en recette finale.
+
+Référence : [propriétés et sentinelles MSFT_MpComputerStatus](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/defender/msft-mpcomputerstatus).

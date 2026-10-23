@@ -555,7 +555,7 @@ public static class PosteReadings
         if (d.Defender is { } def)
         {
             facts.Add(PosteText.Fact("Defender · protections", "Antivirus " + Yes(def.AntivirusEnabled) + ", temps réel " + Yes(def.RealTime) + ", comportement " + Yes(def.Behavior) + (def.Passive == true ? " · mode passif" : ""),
-                FactState.Observed, "MSFT_MpComputerStatus", def.Passive == true ? "Defender passif : un autre antivirus est déclaré." : null, at: at, tone: def.RealTime == true ? Tone.Ok : Tone.Warn));
+                FactState.Observed, "MSFT_MpComputerStatus", def.Passive == true ? "Mode passif déclaré ; les autres produits doivent être vérifiés séparément." : null, at: at, tone: def.ProtectionTone));
             facts.Add(PosteText.Fact("Defender · signatures et analyses", "Signatures de " + Days(def.SignatureAgeDays) + ", analyse rapide " + Days(def.QuickScanAgeDays) + ", complète " + Days(def.FullScanAgeDays) + (def.Version is null ? "" : " · version " + def.Version),
                 FactState.Observed, "MSFT_MpComputerStatus", "65535 jours signifie « jamais ».", def.SignatureAgeDays is > 7 ? "Signatures de plus de 7 jours : vérifier la source des mises à jour." : null, at, def.SignatureAgeDays is > 7 ? Tone.Warn : Tone.Info));
         }

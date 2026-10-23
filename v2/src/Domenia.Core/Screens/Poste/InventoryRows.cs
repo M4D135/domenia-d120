@@ -79,6 +79,7 @@ public static class InventoryRows
         {
             yield return R(InventoryCategories.System, "Système", os.Caption);
             yield return R(InventoryCategories.System, "Version", os.Version + " (build " + os.Build + (os.Revision is int rev ? "." + rev.ToString(CultureInfo.InvariantCulture) : "") + ")");
+            if (os.DisplayVersion is { } declared) { yield return R(InventoryCategories.System, "Version déclarée", declared); }
             yield return R(InventoryCategories.System, "Architecture", os.Architecture);
             if (os.Language is int lang)
             {
@@ -166,6 +167,16 @@ public static class InventoryRows
         {
             var (enabled, upToDate) = PosteLabels.AntivirusState(av.ProductState);
             yield return R(InventoryCategories.Antivirus, av.Name, av.ProductState?.ToString(CultureInfo.InvariantCulture) ?? "", (enabled == true ? "Actif" : "Inactif ou inconnu") + (upToDate == true ? ", signatures à jour" : ""));
+        }
+        if (d.Defender is { } defender)
+        {
+            static string Flag(bool? value) => value switch { true => "Actif", false => "Inactif", _ => "Non établi" };
+            yield return R(InventoryCategories.Antivirus, "Defender · antivirus", defender.AntivirusEnabled?.ToString(CultureInfo.InvariantCulture), Flag(defender.AntivirusEnabled));
+            yield return R(InventoryCategories.Antivirus, "Defender · temps réel", defender.RealTime?.ToString(CultureInfo.InvariantCulture), defender.ProtectionText);
+            yield return R(InventoryCategories.Antivirus, "Defender · comportement", defender.Behavior?.ToString(CultureInfo.InvariantCulture), Flag(defender.Behavior));
+            yield return R(InventoryCategories.Antivirus, "Defender · signatures", Num(defender.SignatureAgeDays), defender.SignaturesText);
+            yield return R(InventoryCategories.Antivirus, "Defender · mode", defender.RunningMode, defender.RunningMode ?? (defender.Passive switch { true => "Passif", false => "Actif", _ => "Non établi" }));
+            yield return R(InventoryCategories.Antivirus, "Defender · version", defender.Version, defender.Version ?? "Non lue");
         }
         foreach (var h in d.Hotfixes.OrderByDescending(h => h.InstalledOn).Take(30))
         {

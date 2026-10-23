@@ -41,6 +41,8 @@ public sealed record OsInfo(string Caption, string Version, string Build, int? R
 {
     [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? SystemDrive { get; init; }
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? DisplayVersion { get; init; }
 }
 
 public sealed record SystemInfo(string Manufacturer, string Model, string? SerialNumber, ImmutableArray<int> ChassisTypes, int? PcSystemType, long? TotalPhysicalMemory, int? LogicalProcessors, string? Hypervisor, string? UserName);
@@ -86,7 +88,18 @@ public sealed record FirewallProfile(string Name, bool? LocalEnabled, bool? Poli
 
 public sealed record AntivirusProduct(string Name, int? ProductState, DateTimeOffset? Timestamp);
 
-public sealed record DefenderStatus(bool? AntivirusEnabled, bool? RealTime, bool? Behavior, int? SignatureAgeDays, int? QuickScanAgeDays, int? FullScanAgeDays, string? Version, bool? Passive, bool? ScanRunning);
+public sealed record DefenderStatus(bool? AntivirusEnabled, bool? RealTime, bool? Behavior, int? SignatureAgeDays, int? QuickScanAgeDays, int? FullScanAgeDays, string? Version, bool? Passive, bool? ScanRunning)
+{
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? RunningMode { get; init; }
+    [global::System.Text.Json.Serialization.JsonIgnore]
+    public string ProtectionText => RealTime switch { true => "Protection en temps réel active", false => "Protection en temps réel inactive", _ => "Protection en temps réel non établie" };
+    [global::System.Text.Json.Serialization.JsonIgnore]
+    public Tone ProtectionTone => AntivirusEnabled == false || RealTime == false || Behavior == false || SignatureAgeDays >= 7 ? Tone.Warn
+        : AntivirusEnabled is null || RealTime is null || Behavior is null || SignatureAgeDays is null ? Tone.Off : Tone.Ok;
+    [global::System.Text.Json.Serialization.JsonIgnore]
+    public string SignaturesText => SignatureAgeDays switch { null => "Âge des signatures non lu", 65535 => "Signatures jamais mises à jour", var age => "Signatures de " + FrenchText.Count(age.Value, "jour", "jours") };
+}
 
 public sealed record Hotfix(string Id, string? Description, DateTimeOffset? InstalledOn);
 

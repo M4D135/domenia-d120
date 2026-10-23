@@ -577,12 +577,14 @@ public static class PosteBoardBuilder
             }
             if (inv.Defender is { } defender)
             {
-                facts.Add(PosteText.Fact("Microsoft Defender", (defender.RealTime == true ? "Protection en temps réel active" : "Protection en temps réel inactive") + (defender.Passive == true ? " (mode passif)" : "")
-                    + (defender.SignatureAgeDays is int age ? " · signatures de " + FrenchText.Count(age, "jour", "jours") : ""), FactState.Observed, "MSFT_MpComputerStatus",
-                    defender.Passive == true ? "Mode passif : un autre antivirus est déclaré." : null, at: inv.CollectedAt, tone: defender.RealTime == true && defender.SignatureAgeDays is null or < 7 ? Tone.Ok : Tone.Warn));
+                facts.Add(PosteText.Fact("Microsoft Defender", defender.ProtectionText + (defender.RunningMode is { } mode ? " (" + mode + ")" : defender.Passive == true ? " (mode passif)" : "")
+                    + " · " + defender.SignaturesText, FactState.Observed, "MSFT_MpComputerStatus",
+                    defender.Passive == true ? "Mode passif déclaré ; cela ne prouve pas la présence d’un autre antivirus." : null, at: inv.CollectedAt, tone: defender.ProtectionTone));
             }
-            var value = inv.Antivirus.IsEmpty ? "Aucun produit déclaré" : active ? string.Join(", ", inv.Antivirus.Select(a => a.Name)) : "Aucun produit actif";
-            var state = active ? Tone.Ok : Tone.Warn;
+            var complete = inv.StatusOf(InventoryCategories.Antivirus) is SourceStatus.Ok or SourceStatus.Empty;
+            var value = active ? string.Join(", ", inv.Antivirus.Select(a => a.Name)) : inv.Defender is { } known ? "Defender · " + known.ProtectionText.ToLowerInvariant()
+                : !complete ? "État antivirus non établi" : inv.Antivirus.IsEmpty ? "Aucun produit déclaré" : inv.Antivirus.Any(a => PosteLabels.AntivirusState(a.ProductState).Enabled is null) ? "Activité des produits non établie" : "Aucun produit actif";
+            var state = active ? Tone.Ok : inv.Defender?.ProtectionTone ?? (complete ? Tone.Warn : Tone.Off);
             lines["computer.antivirus"] = new SheetLine("computer.antivirus", "Antivirus", value, null, state, false);
             sections.Add(new BoardSection("antivirus", "Antivirus et Defender", value, "Produits déclarés au Centre de sécurité ; un serveur peut ne pas en avoir.", state, facts.ToImmutable()));
         }

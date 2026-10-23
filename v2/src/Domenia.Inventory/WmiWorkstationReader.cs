@@ -282,7 +282,7 @@ public sealed partial class WmiWorkstationReader
         ],
         _ =>
         [
-            new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
+            new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token, detailed: true)),
             new(InventoryCategories.Bios, "BIOS et démarrage", static (session, current, access, token) => ReadBios(session, current, access, token)),
             new(InventoryCategories.Processor, "Processeur", static (session, current, access, token) => ReadProcessors(session, current, access, token)),
             new(InventoryCategories.Memory, "Mémoire", static (session, current, access, token) => ReadMemory(session, current, access, token)),
@@ -363,12 +363,16 @@ public sealed partial class WmiWorkstationReader
 
     // ------------------------------------------------------------------ collectors
 
-    private static InventorySnapshot ReadSystem(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    private static InventorySnapshot ReadSystem(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool detailed = false)
     {
         var operating = session.Read(InventoryCategories.System, Cimv2, OperatingSystemQuery, 1, CimBudgets.Query);
         var computer = session.Read(InventoryCategories.System, Cimv2, ComputerSystemQuery, 1, CimBudgets.Query);
         var enclosure = session.Read(InventoryCategories.System, Cimv2, EnclosureQuery, 4, CimBudgets.Query);
-        AddAccess(access, session, InventoryCategories.System, operating, computer);
+        var revision = detailed ? Registry(session, InventoryRegistry.WindowsVersion, "UBR", RegistryMethod.Dword) : null;
+        var release = detailed ? Registry(session, InventoryRegistry.WindowsVersion, "DisplayVersion", RegistryMethod.String) : null;
+        AddAccess(access, session, InventoryCategories.System, [operating, computer, .. detailed ? new[] { RegistryAccess(InventoryCategories.System, revision!), RegistryAccess(InventoryCategories.System, release!) } : []]);
+        if (revision?.Number is > int.MaxValue || release is { Found: true } && (release.Text is null || release.Text.Length > 64 || release.Text.Any(char.IsControl)))
+        { Incomplete(access, InventoryCategories.System, "Version déclarée ou révision Windows illisible."); }
         AddAccess(access, session, InventoryCategories.Board, computer, enclosure);
         if (!operating.Answered && !computer.Answered)
         {
@@ -389,14 +393,14 @@ public sealed partial class WmiWorkstationReader
                     os?.Text("Caption") ?? "",
                     os?.Text("Version") ?? "",
                     os?.Text("BuildNumber") ?? "",
-                    null,
+                    revision?.Number is long rev and <= int.MaxValue ? (int)rev : null,
                     os?.Text("OSArchitecture") ?? cs?.Text("SystemType") ?? "",
                     os?.Int("OSLanguage"),
                     os?.Dmtf("InstallDate"),
                     os?.Dmtf("LastBootUpTime"),
                     cs?.Int("DomainRole"),
                     cs?.Text("Domain"),
-                    os?.Dmtf("LocalDateTime")) { SystemDrive = os?.Text("SystemDrive") },
+                    os?.Dmtf("LocalDateTime")) { SystemDrive = os?.Text("SystemDrive"), DisplayVersion = release?.Text is { Length: <= 64 } declared && !declared.Any(char.IsControl) ? declared : null },
             System = cs is null && chassis.Length == 0
                 ? null
                 : new SystemInfo(
@@ -673,18 +677,22 @@ public sealed partial class WmiWorkstationReader
 
     private static InventorySnapshot ReadAntivirus(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
     {
-        var reading = session.Read(InventoryCategories.Antivirus, SecurityCenter, "SELECT displayName, productState FROM AntiVirusProduct", 8, CimBudgets.Query);
-        AddAccess(access, session, InventoryCategories.Antivirus, reading);
-        if (!reading.Answered)
-        {
-            return current with { Antivirus = [] };
-        }
-
+        var products = session.Read(InventoryCategories.Antivirus, SecurityCenter, "SELECT displayName, productState FROM AntiVirusProduct", 8, CimBudgets.Query);
+        const string defenderNs = @"root\Microsoft\Windows\Defender";
+        var status = session.Read(InventoryCategories.Antivirus, defenderNs,
+            "SELECT AntivirusEnabled, RealTimeProtectionEnabled, BehaviorMonitorEnabled, AntivirusSignatureAge, QuickScanAge, FullScanAge, AMProductVersion FROM MSFT_MpComputerStatus", 1, CimBudgets.Query);
+        var mode = status.Instances.Count > 0 ? session.Read(InventoryCategories.Antivirus, defenderNs, "SELECT AMRunningMode FROM MSFT_MpComputerStatus", 1, TimeSpan.FromSeconds(3)) : null;
+        AddAccess(access, session, InventoryCategories.Antivirus, [products, status, .. mode is null ? Array.Empty<CimReading>() : [mode]]);
         token.ThrowIfCancellationRequested();
-        return current with
-        {
-            Antivirus = [.. reading.Instances.Select(a => new AntivirusProduct(a.Text("displayName") ?? "", a.Int("productState"), null))],
-        };
+        var instance = status.Instances.FirstOrDefault();
+        int? Age(string field) => instance?.Number(field) is long days and >= 0 and <= 65535 ? (int)days : null;
+        var runningMode = mode?.Instances.FirstOrDefault()?.Text("AMRunningMode");
+        var defender = instance is null ? null : new DefenderStatus(instance.Bool("AntivirusEnabled"), instance.Bool("RealTimeProtectionEnabled"), instance.Bool("BehaviorMonitorEnabled"),
+            Age("AntivirusSignatureAge"), Age("QuickScanAge"), Age("FullScanAge"), instance.Text("AMProductVersion"),
+            runningMode?.ToUpperInvariant() switch { "NORMAL" => false, "PASSIVE MODE" or "SXS PASSIVE MODE" => true, _ => null }, null) { RunningMode = runningMode };
+        if (defender is not null && (defender.AntivirusEnabled is null || defender.RealTime is null || defender.SignatureAgeDays is null))
+        { Incomplete(access, InventoryCategories.Antivirus, "État de protection ou âge des signatures non établi."); }
+        return current with { Antivirus = [.. products.Instances.Where(a => a.Text("displayName") is not null).Select(a => new AntivirusProduct(a.Text("displayName")!, a.Int("productState"), null))], Defender = defender };
     }
 
     private static InventorySnapshot ReadHotfixes(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
