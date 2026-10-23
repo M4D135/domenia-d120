@@ -26,7 +26,11 @@ public sealed partial class AdPosteReader
         return value;
     }
 
-    private sealed record LocalPoste(DirectorySnapshot Directory, DirectoryComputer Computer, CachedFleet Fleet, WorkstationObservation? Observation, long Epoch);
+    private sealed record LocalPoste(DirectorySnapshot Directory, DirectoryComputer Computer, CachedFleet Fleet, WorkstationObservation? Observation, long Epoch)
+    {
+        public ImmutableArray<StoredRelation> Relations { get; init; } = [];
+        public string? RelationNotice { get; init; }
+    }
 
     private async Task<LocalPoste> LocalAsync(string dn, CancellationToken token)
     {
@@ -41,7 +45,9 @@ public sealed partial class AdPosteReader
         EnsureEpoch(epoch);
         var computer = candidates[0];
         var fleet = source.FleetDetails;
-        return new(local.Directory, computer, fleet, fleet.Observations.Workstations.FirstOrDefault(o => o.ComputerGuid == computer.ObjectGuid), epoch);
+        var relations = await StoredRelationsAsync(token).ConfigureAwait(false); EnsureEpoch(epoch);
+        return new(local.Directory, computer, fleet, fleet.Observations.Workstations.FirstOrDefault(o => o.ComputerGuid == computer.ObjectGuid), epoch)
+        { Relations = new RelationLookup(relations).For(computer), RelationNotice = relations is { Truncated: true } or { Rejected: > 0 } or { UncertainDates: > 0 } ? relations.Notice : null };
     }
 
     private static InventorySnapshot? Inventory(LocalPoste local) => local.Fleet.Inventories.TryGetValue(local.Computer.ObjectGuid, out var inventory)
@@ -70,6 +76,7 @@ public sealed partial class AdPosteReader
         ImmutableArray<AssociationEvent> history = detected is null ? [] : [new(detected.ReadAt, detected.User.Login, detected.Source,
             "Lu pendant cette session. " + (detected.History ? "Indice historique ; pas une session actuelle. " : "Nom de console. ")
             + (detected.SidCompared ? "SID comparé." : "SID non comparé."))];
+        if (StoredAssociation(local, declared: true, history) is { } storedDeclaration) { return storedDeclaration; }
         if (declared.Length == 1)
         {
             var user = declared[0];
@@ -84,6 +91,7 @@ public sealed partial class AdPosteReader
                 (detected.EvidenceAt is null ? "Date de lecture, date de connexion inconnue. " : "")
                 + "Compte AD résolu, aucune affectation déduite. " + (detected.SidCompared ? "SID comparé." : "SID de l’observation non lu."), detected.SidCompared, history, source.Zone);
         }
+        if (StoredAssociation(local, declared: false, history) is { } storedObservation) { return storedObservation; }
         var machine = local.Fleet.Facts.Machines.GetValueOrDefault(computer.ObjectGuid);
         if (machine is { ConsoleAt: { } seen, ConsoleUser: { Length: > 0 } login } && seen >= computer.WhenCreated)
         {
@@ -102,11 +110,14 @@ public sealed partial class AdPosteReader
         var local = await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
         if (scope is not null) { AdFicheObjects.ValidateDn(scope.Dn); AdFicheObjects.EnsureDomain(scope.Dn, local.Directory.Domain.RootDn); }
         var fleet = source.FleetDetails;
+        var relations = await StoredRelationsAsync(cancellationToken).ConfigureAwait(false); EnsureEpoch(epoch);
+        var relationIndex = new RelationLookup(relations);
         var observations = fleet.Observations.Workstations.ToDictionary(o => o.ComputerGuid);
         var names = Names(local.Directory);
         var words = FrenchText.Fold(text?.Trim() ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var candidates = local.Directory.Computers.Where(c => (c.UserAccountControl & AdValues.ServerTrustAccount) == 0 && (scope is null || ScopeRules.Contains(scope, c.DistinguishedName)))
-            .Select(c => new LocalPoste(local.Directory, c, fleet, observations.GetValueOrDefault(c.ObjectGuid), epoch))
+            .Select(c => new LocalPoste(local.Directory, c, fleet, observations.GetValueOrDefault(c.ObjectGuid), epoch)
+            { Relations = relationIndex.For(c), RelationNotice = relations is { Truncated: true } or { Rejected: > 0 } or { UncertainDates: > 0 } ? relations.Notice : null })
             .Select(c => (Local: c, Association: Association(c)))
             .Where(c => words.All(w => FrenchText.Fold(string.Join(" ", c.Local.Computer.Name, c.Local.Computer.DnsHostName, c.Local.Computer.SamAccountName,
                 c.Local.Computer.OperatingSystem, c.Local.Computer.Description, c.Association.User?.Name, c.Association.User?.Login, Inventory(c.Local)?.Site,

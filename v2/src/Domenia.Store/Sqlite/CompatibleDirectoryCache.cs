@@ -8,8 +8,10 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Deferred local discovery of the Domenia 1 layout. No disk or network in the constructor.</summary>
-public sealed class CompatibleDirectoryCache(string appFolder, string userFolder, string joinedDomain, TimeProvider clock, bool isolated = false) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, ILegacySearchCache, IFicheCache, IDirectoryDeletionCache
+public sealed class CompatibleDirectoryCache(string appFolder, string userFolder, string joinedDomain, TimeProvider clock, bool isolated = false) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, ILegacySearchCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalCache
 {
+    public async Task<RelationCacheSnapshot> ReadRelationsAsync(CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadRelationsAsync(cancellationToken).ConfigureAwait(false);
     private readonly SemaphoreSlim loading = new(1, 1);
     private SqliteDirectoryCache? cache;
 

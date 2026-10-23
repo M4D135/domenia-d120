@@ -21,6 +21,9 @@ public enum AssociationBadge
     History,
     Contradictory,
     None,
+    Imported,
+    Hint,
+    ToCheck,
 }
 
 /// <summary>Kind of machine estimated from its name, its chassis and its battery (never asserted).</summary>

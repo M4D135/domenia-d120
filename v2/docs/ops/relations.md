@@ -335,3 +335,11 @@ imbriqués, principal, boucles, privilèges, ticket), projection, pont (formes J
 contrôle optimiste, plan exécuté une fois). Scénarios E2E : `tests/e2e/relations/*.json` (sujet et vues, association avec
 l’état « Enregistrée », retrait depuis la liste, détection, lecture de session, moisson et lots, relevé et effacement,
 orphelines, import et annulation, comparaison, journal).
+
+## 9. Lecture compatible de la table D1 (23/10/2026)
+
+`IRelationLocalCache` fournit les relations de la base avec leur clé physique originale, l’empreinte SHA-256 de leur projection bornée, leur nature et leurs GUID. La lecture respecte l’identité de la base et du domaine ; elle ne crée pas de fichier, n’ajoute pas de colonne et ne réécrit aucun lien. Plusieurs lignes d’un même poste, avec les clés secondaires de D1, restent distinctes. Le jeton « Lot dʼimport … » est reconnu quand aucune colonne batch_id n’est renseignée. La migration additive de cette colonne et les écritures transactionnelles restent à raccorder.
+
+Pagination de 512 lignes sous une même transaction de lecture, plafonds 50 000 lignes et 32 Mio, cellules bornées dans la projection SQL avant allocation managée. Les lignes trop grandes, GUID malformés ou DN étrangers sont écartés de la vue avec un compteur ; leurs originaux restent en base. Une date sans décalage suit le fuseau local ; heure ambiguë/inexistante au changement d’heure, date future ou illisible donnent une date inconnue signalée, jamais une heure inventée.
+
+La console Poste utilise déjà ce lecteur local sans contacter l’annuaire. Les affectations déclarées sont conservées, les noms sans GUID ne sont pas transformés en identités actuelles. Six tests écrits et compilés seulement ; Debug/Release sans avertissement. Le journal historique, les modifications de relations, leur mémorisation automatique autorisée le 22/10 et l’écran Relations réel restent à terminer. Le §1.1 historique décrivant une attente d’autorisation est antérieur à cette décision : il n’impose pas de nouvelle demande d’accord.

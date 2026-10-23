@@ -72,6 +72,9 @@ public static class PosteHeaderRules
         AssociationBadge.Observed => "Observé",
         AssociationBadge.History => "Historique",
         AssociationBadge.Contradictory => "Contradictoire",
+        AssociationBadge.Imported => "Importé",
+        AssociationBadge.Hint => "Indice",
+        AssociationBadge.ToCheck => "À vérifier",
         _ => "Aucune",
     };
 
@@ -80,6 +83,8 @@ public static class PosteHeaderRules
         AssociationBadge.Declared => Tone.Info,
         AssociationBadge.Observed => Tone.Ok,
         AssociationBadge.Contradictory => Tone.Warn,
+        AssociationBadge.Imported or AssociationBadge.Hint => Tone.Info,
+        AssociationBadge.ToCheck => Tone.Warn,
         _ => Tone.Off,
     };
 
