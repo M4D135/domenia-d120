@@ -410,8 +410,9 @@ public sealed partial class WmiWorkstationReader
 
     private static InventorySnapshot ReadSystem(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool detailed = false)
     {
-        var operating = session.Read(InventoryCategories.System, Cimv2, OperatingSystemQuery, 1, CimBudgets.Query);
-        var computer = session.Read(InventoryCategories.System, Cimv2, ComputerSystemQuery, 1, CimBudgets.Query);
+        var operating = session.Read(InventoryCategories.System, Cimv2, OperatingSystemQuery, 2, CimBudgets.Query);
+        var computer = session.Read(InventoryCategories.System, Cimv2, ComputerSystemQuery, 2, CimBudgets.Query);
+        var consoleAt = session.Clock.GetUtcNow();
         var enclosure = session.Read(InventoryCategories.System, Cimv2, EnclosureQuery, 4, CimBudgets.Query);
         var revision = detailed ? Registry(session, InventoryRegistry.WindowsVersion, "UBR", RegistryMethod.Dword) : null;
         var release = detailed ? Registry(session, InventoryRegistry.WindowsVersion, "DisplayVersion", RegistryMethod.String) : null;
@@ -421,17 +422,21 @@ public sealed partial class WmiWorkstationReader
         AddAccess(access, session, InventoryCategories.Board, computer, enclosure);
         if (!operating.Answered && !computer.Answered)
         {
-            return current with { Os = null, System = null, Memory = null };
+            return current with { Os = null, System = null, Console = null, Memory = null };
         }
 
-        var os = operating.Instances.FirstOrDefault();
-        var cs = computer.Instances.FirstOrDefault();
+        var os = operating.Status == SourceStatus.Ok && operating.Items == 1 ? operating.Instances[0] : null;
+        var cs = computer.Status == SourceStatus.Ok && computer.Items == 1 ? computer.Instances[0] : null;
+        if (operating.Answered && os is null || computer.Answered && cs is null)
+        { Incomplete(access, InventoryCategories.System, "Instance système absente, multiple ou partielle ; aucune instance choisie arbitrairement."); }
+        var console = cs is not null && HasConsoleValue(cs) ? new InventoryConsole(cs.Text("UserName"), consoleAt) : null;
         var chassis = enclosure.Answered ? enclosure.Instances.SelectMany(i => i.Ints("ChassisTypes")).ToArray() : [];
         var serial = enclosure.Instances.FirstOrDefault()?.Text("SerialNumber");
         token.ThrowIfCancellationRequested();
         return current with
         {
             ReportedName = cs?.Text("Name"),
+            Console = console,
             Os = os is null && cs is null
                 ? null
                 : new OsInfo(
@@ -457,7 +462,7 @@ public sealed partial class WmiWorkstationReader
                     cs?.Number("TotalPhysicalMemory"),
                     cs?.Int("NumberOfLogicalProcessors"),
                     null,
-                    cs?.Text("UserName")),
+                    console?.Account),
             Memory = os is null ? null : new MemoryUsage(os.Number("TotalVisibleMemorySize"), os.Number("FreePhysicalMemory")),
         };
     }

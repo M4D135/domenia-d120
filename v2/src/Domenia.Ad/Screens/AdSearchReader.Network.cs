@@ -128,7 +128,7 @@ public sealed partial class AdSearchReader
         var disk = reading.Volumes.FirstOrDefault(d => string.Equals(d.Id, reading.Os?.SystemDrive, StringComparison.OrdinalIgnoreCase));
         var measure = new InventoryMeasure(status, at, disk?.SizeBytes, disk?.FreeBytes, reading.Os?.LastBoot,
             reading.System?.Model, reading.System?.TotalPhysicalMemory, reading.Os?.Caption, reading.Os?.Build);
-        var facts = new MachineFacts(reading.System?.UserName, system is SourceStatus.Ok or SourceStatus.Empty && reading.System is not null ? at : null,
+        var facts = new MachineFacts(reading.Console?.Account, reading.Console?.At,
             reading.Bios?.Version, reading.Bios is null ? null : at, status, at, status == MeasureState.Known ? null : "Inventaire incomplet ou refusé.");
         var addresses = reading.Network.SelectMany(n => n.Ipv4.Select(ip => new SearchAddressReading(ip, SearchText.ParseAddress(n.Mac)?.Value, at, "Adresse observée lors du relevé CIM ; elle peut avoir changé.")))
             .Where(a => SearchText.ParseAddress(a.Ip)?.Kind == "ipv4").Distinct().Take(256).ToImmutableArray();

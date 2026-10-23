@@ -143,16 +143,16 @@ public sealed partial class AdPosteReader
         var now = value.CollectedAt;
         var boot = value.Os?.LastBoot is { } at && at <= now ? at : (DateTimeOffset?)null;
         var system = value.StatusOf(InventoryCategories.System);
-        var user = value.System?.UserName is { Length: > 0 } login ? new UserRef(login, login, null, null) : null;
+        var user = value.Console?.Account is { Length: > 0 } login ? new UserRef(login, login, null, null) : null;
         var sessionStatus = value.StatusOf(InventoryCategories.Sessions);
         var sessions = PosteSessions.View(local.Computer.Name, sessionStatus, value.Sessions, now, "Compte machine sélectionné", source.Zone);
         var count = sessionStatus is SourceStatus.Ok or SourceStatus.Empty && sessions.UnreadSessions == 0 ? sessions.UserSessions : (int?)null;
-        var consoleKnown = value.System is not null && system is SourceStatus.Ok or SourceStatus.Empty;
+        var consoleKnown = value.Console is not null;
         var consoleText = user?.Name ?? (consoleKnown ? "Aucun utilisateur à la console" : "Compte de console non lu");
         var facts = ImmutableArray.Create(
             PosteText.Fact("Présence", presence.Answered == true ? "Répond au ping" : presence.Answered == false ? "Ne répond pas au ping" : "Inconnue", presence.Answered is null ? FactState.Unknown : FactState.Observed, presence.Source, at: presence.CheckedAt),
             PosteText.Fact("Durée de fonctionnement", boot is null ? "Non lue" : PosteText.Duration(now - boot.Value), boot is null ? FactState.Unknown : FactState.Observed, "Win32_OperatingSystem", "Heure déclarée par Windows.", at: now),
-            PosteText.Fact("Utilisateur connecté", consoleText, user is not null || consoleKnown ? FactState.Observed : ReadState(system), "Win32_ComputerSystem", "Nom de console ; aucun GUID utilisateur déduit du seul nom.", at: now),
+            PosteText.Fact("Utilisateur connecté", consoleText, user is not null || consoleKnown ? FactState.Observed : ReadState(system), "Win32_ComputerSystem", "Nom de console ; aucun GUID utilisateur déduit du seul nom.", at: value.Console?.At),
             PosteText.Fact("Sessions", sessions.StatusText, sessions.ReadState, "Sessions CIM", sessions.Partial ? "Lecture partielle ; total inconnu." : null, at: now));
         var live = new PosteLive(presence, boot, boot is null ? null : PosteText.Duration(now - boot.Value), user, consoleText, count, sessions.StatusText, now, facts);
         if (WorkstationIdentity.Matches(local.Computer, value.ReportedName))

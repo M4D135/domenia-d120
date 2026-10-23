@@ -555,3 +555,12 @@ Les relevés de console de Rechercher utilisent le lecteur de Relations. Ils exi
 La date native de console n’est exposée qu’après validation finale. Un champ illisible, un refus tardif ou un poste recréé ne deviennent jamais une console vide et ne rafraîchissent pas l’ancienne date. Un compte étranger reste un texte observé sans relation de domaine. Le ping terminé reste conservé indépendamment d’un rejet ultérieur de l’inventaire ou de la console.
 
 Sept tests vérifient ce partage, console vide réelle, compte étranger, champs invalides/refus, changement de parent, GUID attendu et refus AD après une lecture vide. Debug/Release compilés en VM sans avertissement ni erreur, tests non exécutés. Les inventaires complets et autres lectures de sessions restent le raccordement suivant.
+
+
+## 30. Console réellement reçue dans un inventaire (23/10/2026)
+
+L’inventaire porte une observation de console distincte du statut global « Système ». Elle existe uniquement lorsque l’unique instance Windows renvoie un champ UserName bien typé ; sa date est prise au retour de cette lecture. Un null natif est un constat vide, un champ absent ou mal formé reste inconnu. Deux instances sont demandées au maximum pour détecter un retour ambigu ; aucune identité système n’est choisie arbitrairement.
+
+Le cache et le direct Poste utilisent cette observation. Les anciens instantanés sans ce champ ne rafraîchissent pas la date et ne vident pas le compte conservé. Une source système écartée supprime aussi sa preuve de console, tandis qu’un refus distinct de l’OS ou d’une autre source n’efface pas une console effectivement lue. Cette preuve de lecture n’est pas à elle seule une association AD : sa qualification et mémorisation communes restent à raccorder.
+
+Six tests couvrent champs invalides, null réel/date, instances multiples, source OS refusée, retrait sélectif des sources et compatibilité du cache ancien. Compilations Debug/Release en VM sans erreur ni avertissement ; tests non exécutés à ce stade.

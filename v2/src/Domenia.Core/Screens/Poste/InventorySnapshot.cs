@@ -171,6 +171,9 @@ public sealed record CertificateEntry(string Subject, string Issuer, DateTimeOff
 
 public sealed record ConnectionEntry(string Protocol, string Local, string Remote, string State, string? Process);
 
+/// <summary>A console value actually returned by the system instance; null Account means an explicit native null, not an unread field.</summary>
+public sealed record InventoryConsole(string? Account, DateTimeOffset At);
+
 /// <summary>
 /// What a quick or full inventory read (Domenia 1 ComputerInventory worker), normalised and typed: the same shape whatever
 /// the source (simulation today, WMI/CIM by DCOM in directory mode). Arrays are empty, never null; a source that was not
@@ -227,6 +230,10 @@ public sealed record InventorySnapshot(
     [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ReportedName { get; init; }
 
+    /// <summary>Independent from overall system status; old cached snapshots without it cannot prove an empty console.</summary>
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public InventoryConsole? Console { get; init; }
+
     [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ProcessesResult? ProcessSample { get; init; }
 
@@ -261,6 +268,7 @@ public sealed record InventorySnapshot(
             Access = access,
             Os = Off(InventoryCategories.System) ? null : Os,
             System = Off(InventoryCategories.System) ? null : System,
+            Console = Off(InventoryCategories.System) ? null : Console,
             Memory = Off(InventoryCategories.System) ? null : Memory,
             ClockSkewSeconds = Off(InventoryCategories.System) ? null : ClockSkewSeconds,
             Bios = Off(InventoryCategories.Bios) ? null : Bios,
