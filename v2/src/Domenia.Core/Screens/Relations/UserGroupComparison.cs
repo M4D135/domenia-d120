@@ -195,7 +195,7 @@ public static partial class UserGroupComparer
             Attribute("title", "Fonction", left.Title, right.Title),
             Attribute("company", "Société", companyOf?.Invoke(left), companyOf?.Invoke(right)),
             Attribute("physicalDeliveryOfficeName", "Bureau", left.Office, right.Office),
-            Attribute("manager", "Responsable", ManagerName(left.ManagerDn, directory), ManagerName(right.ManagerDn, directory)));
+            ManagerAttribute(left.ManagerDn, right.ManagerDn, directory));
 
         var limits = ImmutableArray.CreateBuilder<string>();
         if (leftMap.Truncated || rightMap.Truncated)
@@ -317,6 +317,15 @@ public static partial class UserGroupComparer
         var l = string.IsNullOrWhiteSpace(left) ? null : left.Trim();
         var r = string.IsNullOrWhiteSpace(right) ? null : right.Trim();
         return new UserAttributeComparison(attribute, label, l, r, string.Equals(l, r, StringComparison.Ordinal));
+    }
+
+    private static UserAttributeComparison ManagerAttribute(string? left, string? right, DirectorySnapshot directory)
+    {
+        var a = ManagerName(left, directory); var b = ManagerName(right, directory);
+        var same = string.IsNullOrWhiteSpace(left) && string.IsNullOrWhiteSpace(right)
+            || !string.IsNullOrWhiteSpace(left) && !string.IsNullOrWhiteSpace(right) && SameDn(left, right);
+        if (!same && string.Equals(a, b, StringComparison.OrdinalIgnoreCase)) { a = left; b = right; }
+        return new("manager", "Responsable", a, b, same);
     }
 
     private static string? ManagerName(string? managerDn, DirectorySnapshot directory)
