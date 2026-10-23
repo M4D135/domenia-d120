@@ -146,40 +146,73 @@ public sealed partial class CimSession
         }
     }
 
+    private RegistryChannel? registryChannel;
+
+    // One provider per bounded operation, owned by its worker; never shared across hosts or credentials.
+    internal T RegistryBatch<T>(Func<T> read)
+    {
+        if (registryChannel is not null) { return read(); }
+        using var channel = new RegistryChannel(this);
+        registryChannel = channel;
+        try { return read(); }
+        finally { registryChannel = null; }
+    }
+
     private RegistryReply RegistryQuery(RegistryRequest request, TimeSpan timeout)
     {
-        var begin = clock.GetTimestamp();
-        var options = new ConnectionOptions { Impersonation = ImpersonationLevel.Impersonate, Authentication = AuthenticationLevel.PacketPrivacy,
-            EnablePrivileges = false, Timeout = timeout < CimBudgets.Connect ? timeout : CimBudgets.Connect };
-        ManagementScope? scope = null;
-        ManagementClass? provider = null;
-        try
+        if (registryChannel is not null) { return registryChannel.Query(request, timeout); }
+        using var channel = new RegistryChannel(this);
+        return channel.Query(request, timeout);
+    }
+
+    private sealed class RegistryChannel(CimSession session) : IDisposable
+    {
+        private ConnectionOptions? options;
+        private ManagementScope? scope;
+        private ManagementClass? provider;
+        private readonly ManagementNamedValueCollection context = new() { { "__ProviderArchitecture", 64 }, { "__RequiredArchitecture", true } };
+
+        internal RegistryReply Query(RegistryRequest request, TimeSpan timeout)
         {
-            if (credential is { Session: false }) { options.Username = credential.Account; options.SecurePassword = credential.Password; }
-            scope = new ManagementScope(@"\\" + Host + @"\root\default", options); scope.Connect();
-            cancellationToken.ThrowIfCancellationRequested();
-            var left = timeout - clock.GetElapsedTime(begin);
-            if (left <= TimeSpan.Zero) { throw new TimeoutException(); }
-            var context = new ManagementNamedValueCollection { { "__ProviderArchitecture", 64 }, { "__RequiredArchitecture", true } };
-            provider = new(scope, new ManagementPath("StdRegProv"), new ObjectGetOptions { Timeout = left, Context = context });
+            var begin = session.clock.GetTimestamp();
+            TimeSpan Left()
+            {
+                session.cancellationToken.ThrowIfCancellationRequested();
+                var left = timeout - session.clock.GetElapsedTime(begin);
+                if (left <= TimeSpan.Zero) { throw new TimeoutException(); }
+                return left;
+            }
+            if (provider is null)
+            {
+                options = new ConnectionOptions { Impersonation = ImpersonationLevel.Impersonate, Authentication = AuthenticationLevel.PacketPrivacy,
+                    EnablePrivileges = false, Timeout = timeout < CimBudgets.Connect ? timeout : CimBudgets.Connect };
+                if (session.credential is { Session: false } credential) { options.Username = credential.Account; options.SecurePassword = credential.Password; }
+                scope = new ManagementScope(@"\\" + session.Host + @"\root\default", options);
+                try
+                {
+                    scope.Connect();
+                    provider = new(scope, new ManagementPath("StdRegProv"), new ObjectGetOptions { Timeout = Left(), Context = context });
+                }
+                catch { Dispose(); throw; }
+            }
+            provider.Options.Timeout = Left();
             var method = request.Method switch { RegistryMethod.Keys => "EnumKey", RegistryMethod.String => "GetStringValue", RegistryMethod.Dword => "GetDWORDValue", RegistryMethod.Strings => "GetMultiStringValue", _ => throw new InvalidOperationException() };
             using var input = provider.GetMethodParameters(method);
             input["hDefKey"] = request.Hive; input["sSubKeyName"] = request.Key;
             if (request.Method != RegistryMethod.Keys) { input["sValueName"] = request.Name; }
-            left = timeout - clock.GetElapsedTime(begin);
-            if (left <= TimeSpan.Zero) { throw new TimeoutException(); }
-            using var output = provider.InvokeMethod(method, input, new InvokeMethodOptions { Timeout = left, Context = context });
+            using var output = provider.InvokeMethod(method, input, new InvokeMethodOptions { Timeout = Left(), Context = context });
             var code = WmiInstance.AsNumber(output?["ReturnValue"]);
             if (code is null or < 0 or > uint.MaxValue) { return new(uint.MaxValue, null); }
             var field = request.Method == RegistryMethod.Keys ? "sNames" : request.Method == RegistryMethod.Dword ? "uValue" : "sValue";
             var value = code == 0 ? output?[field] : null;
             return new((uint)code, value is Array array ? array.Clone() : value);
         }
-        finally
+
+        public void Dispose()
         {
-            if (provider is not null) { provider.Scope.Options.SecurePassword = null; provider.Dispose(); }
-            if (scope is not null) { scope.Options.SecurePassword = null; }
-            options.SecurePassword = null;
+            if (provider is not null) { provider.Scope.Options.SecurePassword = null; provider.Dispose(); provider = null; }
+            if (scope is not null) { scope.Options.SecurePassword = null; scope = null; }
+            if (options is not null) { options.SecurePassword = null; options = null; }
         }
     }
 }

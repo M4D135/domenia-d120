@@ -304,6 +304,7 @@ public sealed partial class WmiWorkstationReader
             new(InventoryCategories.Sessions, "Sessions", static (session, current, access, token) => ReadSessions(session, current, access, token)),
             new(InventoryCategories.Reboot, "Redémarrage en attente", static (session, current, access, token) => ReadReboot(session, current, access, token)),
             new(InventoryCategories.Site, "Site AD", static (session, current, access, token) => ReadSite(session, current, access, token)),
+            new(InventoryCategories.Software, "Logiciels installés", static (session, current, access, token) => ReadSoftwareInventory(session, current, access, token)),
             .. reading == WorkstationReading.Full
                 ? new[]
                 {
