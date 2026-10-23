@@ -8,6 +8,7 @@ namespace Domenia.Store;
 public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalCache
 {
     public Task<RelationCacheSnapshot> ReadRelationsAsync(CancellationToken cancellationToken) => Database.ReadRelationsAsync(cancellationToken);
+    public Task<RelationJournalCache> ReadRelationJournalAsync(CancellationToken cancellationToken) => Database.ReadRelationJournalAsync(cancellationToken);
     public Task<ImmutableArray<FleetSnapshot>> ReadFleetHistoryAsync(ScopeSelection scope, CancellationToken cancellationToken) => Database.ReadFleetHistoryAsync(scope, cancellationToken);
 
     public DomeniaDatabase Database { get; } = database;

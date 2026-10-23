@@ -12,6 +12,8 @@ public sealed class CompatibleDirectoryCache(string appFolder, string userFolder
 {
     public async Task<RelationCacheSnapshot> ReadRelationsAsync(CancellationToken cancellationToken) =>
         await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadRelationsAsync(cancellationToken).ConfigureAwait(false);
+    public async Task<RelationJournalCache> ReadRelationJournalAsync(CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadRelationJournalAsync(cancellationToken).ConfigureAwait(false);
     private readonly SemaphoreSlim loading = new(1, 1);
     private SqliteDirectoryCache? cache;
 
