@@ -369,6 +369,39 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
         finally { refreshing.Release(); }
     }
 
+    internal async Task<DirectoryDeletionLinks> ForgetDeletedAsync(WriteTarget target, DateTimeOffset observedAt, CancellationToken token)
+    {
+        var id = Guid.ParseExact(target.ObjectGuid, "D");
+        await LoadLocalAsync(token).ConfigureAwait(false);
+        await refreshing.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            var removed = LocalStore is IDirectoryDeletionCache cache
+                ? await cache.ApplyDeletionAsync(target, observedAt, token).ConfigureAwait(false) : new DirectoryDeletionLinks(0, 0);
+            lock (gate)
+            {
+                if (state is { } old)
+                {
+                    var directory = old.Directory;
+                    state = old with { Directory = directory with
+                    {
+                        Complete = false, OrganizationalUnits = [.. directory.OrganizationalUnits.Where(o => o.ObjectGuid != id)],
+                        Users = [.. directory.Users.Where(o => o.ObjectGuid != id)], Computers = [.. directory.Computers.Where(o => o.ObjectGuid != id)],
+                        Groups = [.. directory.Groups.Where(o => o.ObjectGuid != id)], Contacts = directory.Contacts is null ? null : [.. directory.Contacts.Value.Where(o => o.ObjectGuid != id)],
+                        ObjectReadAt = directory.ObjectReadAt?.Remove(id),
+                    } };
+                }
+            }
+            if (AccountContext is { } context)
+            {
+                (context.Readers.Find<IFicheReader>() as AdFicheReader)?.Forget(id);
+                FicheSession.From(context).Forget(target.Dn, id);
+            }
+            return removed;
+        }
+        finally { refreshing.Release(); }
+    }
+
     private static ImmutableArray<T> Merge<T>(ImmutableArray<T> before, ImmutableArray<T> after, Func<T, Guid> identity) =>
         [.. before.Concat(after).GroupBy(identity).Select(g => g.Last())];
 

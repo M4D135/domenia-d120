@@ -55,7 +55,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         var check = await CheckCurrentAsync(plan, current, session, cancellationToken).ConfigureAwait(false);
         if (!check.Current) { throw WriteErrors.Refusal(WriteErrors.Stale, check.Detail); }
         if (ObjectWrites.AlreadyApplied(plan, current, _ => false))
-        { return new(WriteResult.NoChange, "Champs déjà conformes au plan ; aucune requête de modification envoyée."); }
+        { return new(WriteResult.NoChange, "État déjà conforme au plan ; aucune requête de modification envoyée."); }
         return await SendAsync(plan, current!, cancellationToken).ConfigureAwait(false);
     }
 

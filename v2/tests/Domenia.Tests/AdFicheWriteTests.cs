@@ -302,6 +302,52 @@ internal static class AdFicheWriteTests
         Check.Equal(0, ldap.Writes, "aucun envoi");
     }
 
+    [Test]
+    public static async Task Delete_targets_the_confirmed_GUID_and_leaves_a_recreated_homonym_alone()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var writer = new AdObjectDeleteExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Dn, FicheSecurityPolicy.Default, CancellationToken.None));
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal("<GUID=" + plan.Target.ObjectGuid + ">", ldap.DeletedTarget, "suppression par identité");
+        ldap.Objects[Dn] = new(ldap.Objects[Manager], StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Guid.NewGuid().ToByteArray()] };
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "ancien GUID absent");
+        Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "aucune seconde suppression");
+        Check.True(ldap.Objects.ContainsKey(Dn), "homonyme recréé intact");
+        Check.Equal(1, ldap.Writes, "une requête seulement");
+    }
+
+    [Test]
+    public static async Task Delete_refuses_children_that_appear_after_the_plan_and_a_new_native_OU_restriction()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var native = FicheSecurityPolicy.Default with { AllowContainerDelete = true };
+        var writer = new AdObjectDeleteExecutor(source, _ => Task.FromResult(native));
+        var plan = Seal(await writer.PlanAsync(Dn, native, CancellationToken.None));
+        var child = "CN=Enfant," + Dn;
+        ldap.Objects[child] = new(ldap.Objects[Manager], StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Guid.NewGuid().ToByteArray()] };
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "nouvel enfant avant envoi");
+        ldap.Objects.Remove(child);
+        ldap.Objects[Manager]["objectClass"] = ["top", "organizationalUnit"];
+        var ouPlan = Seal(await writer.PlanAsync(Manager, native, CancellationToken.None));
+        native = FicheSecurityPolicy.Default;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(ouPlan, CancellationToken.None), "suppression d’OU refermée par la politique native");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
+    [Test]
+    public static async Task Delete_refuses_the_operator_and_privileged_objects_before_preparing_a_plan()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap, Dn);
+        var writer = new AdObjectDeleteExecutor(source);
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, FicheSecurityPolicy.Default, CancellationToken.None), "compte opérateur");
+        ldap.Objects[Manager]["adminCount"] = ["1"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Manager, FicheSecurityPolicy.Default, CancellationToken.None), "compte à privilèges");
+        ldap.Objects[Manager].Remove("adminCount"); ldap.Objects[Manager]["isCriticalSystemObject"] = ["TRUE"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Manager, FicheSecurityPolicy.Default, CancellationToken.None), "objet système");
+        Check.Equal(0, ldap.Writes, "aucune mutation");
+    }
+
     private static AdEntry Schema(string name, string syntax, int om, Dictionary<string, IReadOnlyList<object>>? extras = null)
     {
         var fields = extras ?? new(StringComparer.OrdinalIgnoreCase);
@@ -321,6 +367,7 @@ internal static class AdFicheWriteTests
     private sealed class Connection : IAdConnection
     {
         internal Dictionary<string, Dictionary<string, IReadOnlyList<object>>> Objects { get; } = new(StringComparer.OrdinalIgnoreCase);
+        internal string? DeletedTarget { get; private set; }
         internal string? AddedDn { get; private set; }
         internal IReadOnlyDictionary<string, IReadOnlyList<object>>? AddedAttributes { get; private set; }
         internal string? RenamedTarget { get; private set; }
@@ -351,7 +398,7 @@ internal static class AdFicheWriteTests
             cancellationToken.ThrowIfCancellationRequested();
             if (request.Scope == AdSearchScope.OneLevel && request.BaseDn.StartsWith("CN=Schema,", StringComparison.OrdinalIgnoreCase))
             { return Task.FromResult<IReadOnlyList<AdEntry>>([.. Schema.Where(p => request.Filter.Contains("(lDAPDisplayName=" + p.Key + ")", StringComparison.OrdinalIgnoreCase)).Select(p => p.Value)]); }
-            var selected = Objects.Where(p => request.Scope == AdSearchScope.Base ? FicheValues.SameDn(p.Key, request.BaseDn) : request.Filter == AdObjectAccess.GuidFilter(Id(p.Key)));
+            var selected = Objects.Where(p => request.Scope == AdSearchScope.Base ? FicheValues.SameDn(p.Key, request.BaseDn) : request.Scope == AdSearchScope.OneLevel ? FicheValues.SameDn(DistinguishedName.Parent(p.Key), request.BaseDn) : request.Filter == AdObjectAccess.GuidFilter(Id(p.Key)));
             if (request.Filter.Contains("(member=", StringComparison.Ordinal))
             {
                 var filter = LdapFilterText.Parse(request.Filter);
@@ -419,7 +466,12 @@ internal static class AdFicheWriteTests
             Writes++;
             return Task.CompletedTask;
         }
-        public Task DeleteAsync(string distinguishedName, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task DeleteAsync(string distinguishedName, CancellationToken cancellationToken)
+        {
+            var target = Objects.Keys.Single(dn => distinguishedName == "<GUID=" + Id(dn).ToString("D") + ">");
+            if (Objects.Keys.Any(dn => FicheValues.SameDn(DistinguishedName.Parent(dn), target))) { throw new DomeniaOperationException(AdErrors.Constraint, "Objet non vide"); }
+            DeletedTarget = distinguishedName; Objects.Remove(target); Writes++; return Task.CompletedTask;
+        }
         public void Dispose() { }
     }
 }

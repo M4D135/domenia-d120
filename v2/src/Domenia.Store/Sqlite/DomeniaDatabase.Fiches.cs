@@ -66,6 +66,8 @@ public sealed partial class DomeniaDatabase
                 db.Script("PRAGMA synchronous=FULL;");
                 db.Begin();
                 CheckIdentity(db, allowLegacy: false);
+                if ((long)db.Scalar("SELECT count(*) FROM domenia_v2_deletions WHERE object_guid=?1 AND julianday(observed_at)>=julianday(?2);", fiche.Entry.ObjectGuid.ToString("D"), Stamp(fiche.ReadAt))! > 0)
+                { throw new InvalidDataException("Cette lecture précède une disparition confirmée ; elle ne peut pas rétablir la fiche."); }
                 db.Execute("INSERT INTO domenia_v2_fiches(object_guid,dn_key,payload,summary,sha256,observed_at,summary_sha256) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(object_guid) DO UPDATE SET dn_key=excluded.dn_key,payload=excluded.payload,summary=excluded.summary,summary_sha256=excluded.summary_sha256,sha256=excluded.sha256,observed_at=excluded.observed_at WHERE julianday(excluded.observed_at)>=julianday(domenia_v2_fiches.observed_at);",
                     fiche.Entry.ObjectGuid.ToString("D"), FicheKey(fiche.Entry.Dn), payload, summary, hash, Stamp(fiche.ReadAt), FicheHash(summary, ""));
                 db.Execute("UPDATE domenia_store_state SET revision=revision+1 WHERE id=1;");

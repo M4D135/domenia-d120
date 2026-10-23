@@ -78,6 +78,7 @@ public sealed partial class DomeniaDatabase
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var guid = obj.Guid.ToString("D");
+                    if ((long)db.Scalar("SELECT count(*) FROM domenia_v2_deletions WHERE object_guid=?1 AND julianday(observed_at)>=julianday(?2);", guid, observed)! > 0) { continue; }
                     if ((long)db.Scalar("SELECT count(*) FROM ad_objects WHERE object_guid=?1 AND julianday(synced_at)>julianday(?2);", guid, observed)! > 0) { continue; }
                     // A late read cannot erase a newer object. An identity moved between OUs remains a single GUID.
                     var changed = db.Execute("INSERT INTO domenia_v2_objects(object_guid,kind,dn,payload,observed_at) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(object_guid) DO UPDATE SET kind=excluded.kind,dn=excluded.dn,payload=excluded.payload,observed_at=excluded.observed_at WHERE julianday(excluded.observed_at)>=julianday(domenia_v2_objects.observed_at);", guid, obj.Kind, obj.Dn, obj.Json, observed);

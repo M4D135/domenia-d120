@@ -5,11 +5,18 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Initializes or migrates on the first explicit stored read, with the native store's backup rules.</summary>
-public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache
+public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache
 {
     public Task<ImmutableArray<FleetSnapshot>> ReadFleetHistoryAsync(ScopeSelection scope, CancellationToken cancellationToken) => Database.ReadFleetHistoryAsync(scope, cancellationToken);
 
     public DomeniaDatabase Database { get; } = database;
+
+    public Task<DirectoryDeletionLinks> CountDeletionLinksAsync(WriteTarget target, CancellationToken cancellationToken) => Database.CountDeletionLinksAsync(target, cancellationToken);
+    public async Task<DirectoryDeletionLinks> ApplyDeletionAsync(WriteTarget target, DateTimeOffset observedAt, CancellationToken cancellationToken)
+    {
+        await Database.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        return await Database.ApplyDeletionAsync(target, observedAt, cancellationToken).ConfigureAwait(false);
+    }
 
     public Task<FicheLocalRead?> ReadFicheAsync(string dn, CancellationToken cancellationToken) => Database.ReadFicheAsync(dn, cancellationToken);
     public Task<ImmutableArray<FicheSummary>> ReadFicheIndexAsync(CancellationToken cancellationToken) => Database.ReadFicheIndexAsync(cancellationToken);

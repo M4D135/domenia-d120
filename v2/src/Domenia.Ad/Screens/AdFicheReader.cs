@@ -40,6 +40,9 @@ public sealed partial class AdFicheReader(AdDirectorySource source) : IFicheRead
         }
     }
 
+    internal void Forget(Guid id)
+    { lock (localGate) { recent.Remove(id); seen.Remove(id); } }
+
     private void ResetRecent()
     {
         if (recentEpoch != source.Epoch) { recent.Clear(); seen.Clear(); recentEpoch = source.Epoch; }
