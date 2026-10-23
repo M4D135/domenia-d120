@@ -604,14 +604,20 @@ public static partial class FicheCallSheets
         {
             return ("notRead", "Non lues", null, 0);
         }
-        if (reading.State == "failed")
+        if (reading.State is not ("read" or "incomplete"))
         {
-            var refused = reading.Error is not null && Regex.IsMatch(reading.Error, "(?i)acc[eè]s\\s+refus|access\\s+(is\\s+)?denied|refus[eé]");
+            var refused = reading.State == "refused" || reading.Error is not null && Regex.IsMatch(reading.Error, "(?i)acc[eè]s\\s+refus|access\\s+(is\\s+)?denied|refus[eé]");
             return (refused ? "refused" : "error", "Lecture non confirmée" + C + (reading.Error ?? "erreur inconnue"), reading.ReadAt, 0);
         }
-        var name = login.Contains('\\', StringComparison.Ordinal) ? login[(login.LastIndexOf('\\') + 1)..] : login;
-        var mine = reading.Rows.Where(r => string.Equals(r.User, name, StringComparison.OrdinalIgnoreCase)).ToList();
-        var others = reading.Rows.Count(r => r.User.Length > 0 && !string.Equals(r.User, name, StringComparison.OrdinalIgnoreCase));
+        var name = CredentialRules.Parse(login);
+        bool Matches(string user)
+        {
+            var candidate = CredentialRules.Parse(user);
+            return candidate.Name.Equals(name.Name, StringComparison.OrdinalIgnoreCase)
+                && (candidate.Authority.Length == 0 || name.Authority.Length == 0 || candidate.Authority.Equals(name.Authority, StringComparison.OrdinalIgnoreCase));
+        }
+        var mine = reading.Rows.Where(r => Matches(r.User)).ToList();
+        var others = reading.Rows.Count(r => r.User.Length > 0 && !Matches(r.User));
         var state = reading.Unread > 0 || reading.State == "incomplete" ? "incomplete" : "known";
         string value;
         if (mine.Count > 0)
@@ -850,7 +856,7 @@ public static partial class FicheCallSheets
             facts.Add(NotMeasured("Mémoire", "La mémoire libre est"));
         }
         var disks = inventory.Disks.Where(d => d.Size > 0).ToList();
-        var system = disks.FirstOrDefault(d => string.Equals(d.Name, "C:", StringComparison.OrdinalIgnoreCase)) ?? disks.FirstOrDefault();
+        var system = disks.FirstOrDefault(d => string.Equals(d.Name, inventory.SystemDrive ?? "C:", StringComparison.OrdinalIgnoreCase));
         if (system is not null)
         {
             var freePercent = 100d * system.Free / system.Size;

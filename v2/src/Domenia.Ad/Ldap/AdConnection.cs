@@ -62,6 +62,11 @@ public sealed class AdConnection : IAdConnection
     /// <inheritdoc />
     public string? Server => _server;
 
+    /// <summary>Independent connection to a known domain controller, retaining this session's exact identity.</summary>
+    internal AdConnection ForServer(string server) => new(options with { Server = server, ConnectTimeout = TimeSpan.FromSeconds(8) });
+
+    internal bool UsesWindowsIdentity => options.Credential is null;
+
     /// <summary>A caller-owned secure copy for another Windows protocol of this same connection identity.</summary>
     internal (string? User, string? Domain, System.Security.SecureString? Password) CopyCredential()
     {

@@ -109,8 +109,11 @@ internal sealed class AdFicheObjects(AdDirectorySource source)
                 if (range!.Start != 0 || range.End is { } end && end + 1 != raw.Count) { throw AdAttributeRange.Incomplete(); }
                 if (range.End is not null)
                 {
-                    values.Add("__" + attribute + "Complete", new[] { "FALSE" });
-                    values.Add("__" + attribute + "Note", new[] { "Première tranche lue seulement ; la liste est incomplète." });
+                    var canonical = attribute.Equals("memberOf", StringComparison.OrdinalIgnoreCase) ? "memberOf"
+                        : attribute.Equals("member", StringComparison.OrdinalIgnoreCase) ? "member" : null;
+                    if (canonical is null) { throw AdAttributeRange.Incomplete(); }
+                    values.Add("__" + canonical + "Complete", new[] { "FALSE" });
+                    values.Add("__" + canonical + "Note", new[] { "Première tranche lue seulement ; la liste est incomplète." });
                 }
             }
         }

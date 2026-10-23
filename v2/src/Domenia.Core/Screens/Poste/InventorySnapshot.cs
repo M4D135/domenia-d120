@@ -182,6 +182,9 @@ public sealed record InventorySnapshot(
     [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ReportedName { get; init; }
 
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ProcessesResult? ProcessSample { get; init; }
+
     /// <summary>Status of one category of the access report (Skipped when the category was not part of this reading).</summary>
     public SourceStatus StatusOf(string category) =>
         Access.FirstOrDefault(a => string.Equals(a.Category, category, StringComparison.Ordinal))?.Status ?? SourceStatus.Skipped;
@@ -245,6 +248,7 @@ public sealed record InventorySnapshot(
             Site = Off(InventoryCategories.Site) ? null : Site,
             Proxy = Off(InventoryCategories.Site) ? null : Proxy,
             Processes = Off(InventoryCategories.Processes) ? [] : Processes,
+            ProcessSample = Off(InventoryCategories.Processes) ? null : ProcessSample,
             SystemEvents = Off(InventoryCategories.Events) ? [] : SystemEvents,
             Tasks = Off(InventoryCategories.Tasks) ? [] : Tasks,
             Certificates = Off(InventoryCategories.Certificates) ? [] : Certificates,

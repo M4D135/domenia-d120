@@ -86,7 +86,12 @@ public sealed record FicheInventoryReading(
     ImmutableArray<string> RebootReasons,
     string? Model,
     string? Os,
-    string? Error);
+    string? Error)
+{
+    /// <summary>Actual OS system drive; empty means unread. Null preserves older locally stored inventories.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SystemDrive { get; init; }
+}
 
 /// <summary>One attribute change kept by the controller (replication metadata), for the history of a fiche.</summary>
 public sealed record FicheAttributeChange(string Attribute, DateTimeOffset At, string Controller, int Version);

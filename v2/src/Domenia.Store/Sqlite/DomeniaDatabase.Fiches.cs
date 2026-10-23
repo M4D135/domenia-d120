@@ -51,7 +51,7 @@ public sealed partial class DomeniaDatabase
         fiche = fiche with { Entry = fiche.Entry with { Attributes = fiche.Entry.Attributes.WithComparers(StringComparer.OrdinalIgnoreCase) } };
         var payload = JsonSerializer.Serialize(fiche, Json);
         if (Encoding.UTF8.GetByteCount(payload) > 4_194_304) { throw new InvalidDataException("Fiche trop volumineuse pour le stockage local."); }
-        var summary = JsonSerializer.Serialize(FicheSummary.From(fiche.Entry), Json);
+        var summary = JsonSerializer.Serialize(FicheSummary.From(fiche.Entry, fiche.ReadAt), Json);
         var hash = FicheHash(payload, summary);
         await writer.WaitAsync(token).ConfigureAwait(false);
         try
@@ -89,8 +89,13 @@ public sealed partial class DomeniaDatabase
         var attrs = fiche.Entry.Attributes;
         if (attrs.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != attrs.Count) { throw new InvalidDataException("Attributs de fiche dupliqués."); }
         fiche = fiche with { Entry = fiche.Entry with { Attributes = attrs.WithComparers(StringComparer.OrdinalIgnoreCase) } };
+        var storedSummary = JsonSerializer.Deserialize<FicheSummary>(summary, Json) ?? throw new InvalidDataException("Résumé de fiche absent.");
+        var summaryDate = storedSummary.ObservedAt;
+        var expectedSummary = FicheSummary.From(fiche.Entry, summaryDate);
+        if (storedSummary.Mail is null) { expectedSummary = expectedSummary with { Mail = null }; }
         if (fiche.Entry.ObjectGuid.ToString("D") != (string)row["object_guid"]! || FicheKey(fiche.Entry.Dn) != (string)row["dn_key"]!
-            || Stamp(fiche.ReadAt) != (string)row["observed_at"]! || JsonSerializer.Serialize(FicheSummary.From(fiche.Entry), Json) != summary)
+            || Stamp(fiche.ReadAt) != (string)row["observed_at"]! || summaryDate is not null && summaryDate != fiche.ReadAt
+            || JsonSerializer.Serialize(expectedSummary, Json) != summary)
         { throw new InvalidDataException("Identité, résumé ou date de fiche incohérente."); }
         return fiche;
     }

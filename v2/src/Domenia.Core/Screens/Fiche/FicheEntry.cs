@@ -100,12 +100,18 @@ public sealed record FicheSummary(
     int? AdminCount = null,
     string? Upn = null)
 {
-    public static FicheSummary From(FicheEntry entry)
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ObservedAt { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Mail { get; init; }
+
+    public static FicheSummary From(FicheEntry entry, DateTimeOffset? observedAt = null)
     {
         ArgumentNullException.ThrowIfNull(entry);
         return new(entry.Dn, entry.First("displayName") ?? entry.Name, entry.Kind, entry.First("sAMAccountName"),
             entry.First("description") ?? entry.First("mail"), entry.Int32("userAccountControl") is { } uac && AdValues.IsDisabled(uac),
-            entry.ObjectGuid, entry.First("objectSid"), entry.Int32("groupType"), entry.Int32("adminCount"), entry.First("userPrincipalName"));
+            entry.ObjectGuid, entry.First("objectSid"), entry.Int32("groupType"), entry.Int32("adminCount"), entry.First("userPrincipalName")) { ObservedAt = observedAt, Mail = entry.First("mail") };
     }
 }
 

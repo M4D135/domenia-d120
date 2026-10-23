@@ -16,6 +16,9 @@ public enum WorkstationReading
     /// <summary>Live state (10 s): uptime, console account, sessions.</summary>
     Live,
 
+    /// <summary>Fiche triage: system, processor, volumes and a measured process sample, in 10 seconds.</summary>
+    Triage,
+
     /// <summary>Search survey: system, volumes and addresses in 15 seconds.</summary>
     Survey,
 
@@ -176,6 +179,7 @@ public sealed class WmiWorkstationReader
         WorkstationReading.Survey => TimeSpan.FromSeconds(15),
         WorkstationReading.SurveyComplete => TimeSpan.FromSeconds(30),
         WorkstationReading.Live => CimBudgets.Live,
+        WorkstationReading.Triage => TimeSpan.FromSeconds(10),
         WorkstationReading.Quick => CimBudgets.QuickInventory,
         WorkstationReading.Full => CimBudgets.FullInventory,
         WorkstationReading.Services => CimBudgets.Services,
@@ -249,6 +253,13 @@ public sealed class WmiWorkstationReader
                 new Step(InventoryCategories.Hotfixes, "Correctifs", static (session, current, access, token) => ReadHotfixes(session, current, access, token)),
                 new Step(InventoryCategories.Services, "Services automatiques arrêtés", static (session, current, access, token) => ReadServices(session, current, access, token, automaticStopped: true)),
             } : [],
+        ],
+        WorkstationReading.Triage =>
+        [
+            new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
+            new(InventoryCategories.Processor, "Processeur", static (session, current, access, token) => ReadProcessors(session, current, access, token)),
+            new(InventoryCategories.Volumes, "Disques logiques", static (session, current, access, token) => ReadVolumes(session, current, access, token)),
+            new(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token)),
         ],
         WorkstationReading.Live =>
         [
@@ -727,6 +738,8 @@ public sealed class WmiWorkstationReader
             return current with { Processes = [] };
         }
 
+        var sampleStarted = session.Clock.GetTimestamp();
+
         try
         {
             // Two reads of the same class over a bounded interval give the processor time used meanwhile.
@@ -765,7 +778,10 @@ public sealed class WmiWorkstationReader
             rows.Add(new ProcessEntry(id, process.Text("Name") ?? "", process.Number("WorkingSetSize"), share, null, process.Dmtf("CreationDate")));
         }
 
-        return current with { Processes = [.. rows.OrderByDescending(r => r.CpuSeconds ?? -1).ThenBy(r => r.Name, StringComparer.Ordinal)] };
+        var elapsedMs = (int)Math.Clamp(session.Clock.GetElapsedTime(sampleStarted).TotalMilliseconds, 1, int.MaxValue);
+        var prior = first.Instances.Select(p => new ProcessEntry(p.Int("ProcessId") ?? 0, p.Text("Name") ?? "", p.Number("WorkingSetSize"), TotalSeconds(p), null, p.Dmtf("CreationDate"))).ToArray();
+        var sample = PosteProcesses.Measure(current.Computer, prior, rows, elapsedMs, current.System?.LogicalProcessors ?? 0, session.Clock.GetUtcNow(), session.Clock.LocalTimeZone);
+        return current with { Processes = [.. rows.OrderByDescending(r => r.CpuSeconds ?? -1).ThenBy(r => r.Name, StringComparer.Ordinal)], ProcessSample = sample };
     }
 
     private static InventorySnapshot ReadEvents(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)

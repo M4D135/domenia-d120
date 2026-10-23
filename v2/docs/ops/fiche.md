@@ -167,7 +167,7 @@ Les budgets ci-dessous sont des plafonds : une lecture tronquée le dit (`comple
 
 | Lecture | Moyen | Budget |
 |---|---|---|
-| `fiche.lockouts` | Journal Sécurité de l’émulateur PDC, requête XPath sur l’événement 4740 et le seul SID du compte (`EventLogQuery`), fenêtre de 1 à 720 h | 200 événements, 15 s |
+| `fiche.lockouts` | Journal Sécurité de l’émulateur PDC, requête XPath sur l’événement 4740 et le seul SID du compte (`wevtapi.dll`, sans dépendance supplémentaire), fenêtre de 1 à 720 h | 200 événements, 15 s |
 | `fiche.presence` | Un `Ping` ICMP vers le `dNSHostName` du poste (ou du poste associé) | 1 essai, 1,5 s |
 | `fiche.callSheet.read sessions` | Sessions du poste : WTS (`WTSEnumerateSessions`) puis `Win32_LogonSession` en repli | 5 s |
 | `fiche.callSheet.read triage` | CIM sur le poste (DCOM puis WSMan selon la configuration) : `Win32_OperatingSystem` (mémoire, démarrage), `Win32_LogicalDisk` (`DriveType = 3`), `Win32_PerfFormattedData_PerfProc_Process` (5 processus les plus lourds) | 10 s, aucune connexion sans geste |
@@ -201,3 +201,45 @@ Aucun relevé ne porte sur tout le domaine : chaque lecture vise l’objet ouver
 Le transport exige des noms d’attributs explicites et exclut les secrets avant connexion. Les lecteurs peuvent demander des tranches sans expansion automatique (`ExpandRanges = false`) : les noms `member;range=…` restent alors visibles pour compter et annoncer les limites. L’expansion automatique est bornée à 50 000 valeurs, vérifie la continuité des tranches et la stabilité GUID/USN sur le même contrôleur, et refuse un résultat incomplet. Chaque recherche a aussi un budget total (3 min par défaut, configurable jusqu’à 10 min) en plus du délai par page. Le contrôle `ReadOwnerAndDacl` limite le descripteur aux droits et au propriétaire, sans SACL.
 
 La matérialisation utilise les valeurs de `SearchResultAttributeCollection` : son énumérateur direct est celui de `DictionaryBase`, pas une suite d’attributs ([contrat .NET](https://learn.microsoft.com/en-us/dotnet/api/system.directoryservices.protocols.searchresultattributecollection)). Ce correctif est compilé ; la recette AD reste à faire.
+
+### Lecteur annuaire raccordé le 23/10/2026
+
+`AdFicheReader` est découvert en mode annuaire. L’ouverture stocke la fiche brute contrôlée avant de la publier ;
+l’aperçu, l’index, les suggestions, les relations AD déjà connues et les observations du poste restent locaux.
+Les fiches SQLite gardent leur GUID, leur DN, leur date et des empreintes vérifiées. Un ancien DN ne réapparaît pas
+lorsqu’un relevé local plus récent a constaté un déplacement. Les résumés de l’index sont datés ; les contacts
+sans SID restent utilisables. Une absence de census complet laisse le nombre d’enfants inconnu.
+
+Les enfants directs sont bornés à 2 000 avec sentinelle. Les membres sont comptés par tranches jusqu’à 50 000,
+2 000 affichés au plus ; GUID, USN et continuité sont contrôlés. Le graphe reste limité à 2 000 groupes,
+16 niveaux et 10 s ; les branches refusées ou étrangères sont inconnues, jamais une preuve de non-appartenance.
+Une première tranche ne sert pas à conclure à des groupes retirés depuis la fiche précédente.
+
+Le journal 4740 utilise le lecteur natif partagé de Comptes, avec un budget global de 15 s pour la Fiche et
+les vrais refus locaux du garde de comptes. Les lectures de connexion interrogent au plus 50 contrôleurs,
+8 en parallèle, 8 s chacun, par GUID et avec le même compte LDAP ; un attribut illisible ne devient pas « jamais
+connecté ». La stratégie résultante lit le PSO annoncé, sinon les attributs du domaine, sans valeurs par défaut.
+Les métadonnées de réplication sont décodées sans DTD ni résolution externe ; celles des secrets sont exclues.
+
+Les droits restent une estimation : tokenGroups du compte réellement identifié, propriétaire et DACL seulement,
+ordre réel des ACE préservé. Une ACE propre à un attribut ne donne pas de droit global ; une condition non
+interprétable rend l’estimation inconnue. Le contrôleur décide toujours lors de l’écriture.
+
+Le lecteur WTS ne dispose que d’API de consultation ; il ne ferme ni ne déconnecte aucune session. Tampons et
+poignées restent détenus jusqu’au retour natif, même si le budget de 5 s est atteint ; quatre appels natifs
+simultanés au plus. Les informations WTS suivent le contrat Windows : **WTSClientProtocolType = 16**,
+**WTSSessionInfo = 24** et horloges de `WTSINFOW`. Les anciens champs `WTSIdleTime`/`WTSLogonTime` sont non pris
+en charge, contrairement à ce que supposait le lecteur historique D1, conservé intact.
+Sources : [énumération WTS_INFO_CLASS](https://learn.microsoft.com/en-us/windows/win32/api/wtsapi32/ne-wtsapi32-wts_info_class),
+[structure WTSINFOW](https://learn.microsoft.com/en-us/windows/win32/api/wtsapi32/ns-wtsapi32-wtsinfow),
+[énumération des sessions](https://learn.microsoft.com/en-us/windows/win32/api/wtsapi32/nf-wtsapi32-wtsenumeratesessionsw).
+
+Le tri CIM est borné à 10 s : système, processeur, disques et deux lectures de `Win32_Process`. Les parts CPU
+utilisent le temps réellement écoulé et le nombre de processeurs logiques ; aucune part n’est attribuée à un PID
+réutilisé. Le disque système provient de l’OS. Les mesures sont conservées sous GUID après contrôle du nom CIM.
+Les associations déclarées/importées de D1, le repli WTS vers CIM, le compte poste secondaire, WSMan et les
+indicateurs de registre restent à raccorder dans leurs lots respectifs. Ils ne sont pas qualifiés par ce lot.
+
+Validation à ce stade : compilation Windows Debug/Release, zéro avertissement. Treize tests supplémentaires
+écrits et compilés, **exécution et recette AD/native réservées à la validation finale**. Aucun statut du catalogue
+requalifié sur cette seule compilation.

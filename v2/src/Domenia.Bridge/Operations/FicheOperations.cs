@@ -270,6 +270,18 @@ public sealed class FicheOperations : IOperationModule
             var duration = session.Policy(entry.ObjectGuid)?.Reading.LockoutDuration ?? TimeSpan.Zero;
             // Refusals recorded by the account guard of Domenia for this account over the window read (FIC-045), plus the tolerance.
             var refusals = await reader.RefusalsAsync(entry.Dn, read.ReadAt - TimeSpan.FromHours(read.Hours) - TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
+            if (context.Directory.Kind == DirectorySourceKind.ActiveDirectory)
+            {
+                var identity = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
+                var sam = entry.First("sAMAccountName");
+                if (sam is not null)
+                {
+                    keys.Add(CredentialRules.AccountKey((identity.Domain?.NetbiosName ?? identity.Domain?.DnsName) + "\\" + sam, identity.Domain?.DnsName, identity.Domain?.NetbiosName, null));
+                    keys.Add(CredentialRules.AccountKey(entry.First("userPrincipalName") ?? sam + "@" + identity.Domain?.DnsName, identity.Domain?.DnsName, identity.Domain?.NetbiosName, null));
+                }
+                refusals = [.. refusals, .. AccountAccess.From(context).Refusals().Where(r => r.At >= read.ReadAt - TimeSpan.FromHours(read.Hours) - TimeSpan.FromMinutes(5))
+                    .Select(r => new FicheDomeniaRefusal(r.At, r.AccountKey, r.Kind))];
+            }
             var diagnosis = FicheDiagnostics.Lockouts(entry, read, refusals, keys, duration, clock.GetUtcNow(), Zone());
             session.KeepLockouts(entry.ObjectGuid, diagnosis);
             return diagnosis;

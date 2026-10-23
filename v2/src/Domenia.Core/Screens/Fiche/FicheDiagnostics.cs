@@ -85,7 +85,12 @@ public sealed record FichePolicyView(bool Known, string Source, DateTimeOffset? 
 public sealed record FicheAce(bool Deny, string Trustee, long Rights, bool ResetPassword, string? InheritedFrom);
 
 /// <summary>Security descriptor read for the rights estimate (reader output of fiche.rights).</summary>
-public sealed record FicheSecurityReading(bool Available, string? Error, string Owner, int TokenSids, ImmutableArray<FicheAce> Aces, DateTimeOffset ReadAt);
+public sealed record FicheSecurityReading(bool Available, string? Error, string Owner, int TokenSids, ImmutableArray<FicheAce> Aces, DateTimeOffset ReadAt)
+{
+    /// <summary>The entries retain their actual DACL order. Older synthetic inputs are unordered.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool InDirectoryOrder { get; init; }
+}
 
 /// <summary>One capability of the estimate (Start-PermissionAnalysis), with the entry that decides it (improvement of FIC-003).</summary>
 public sealed record FicheCapability(string Id, string Capability, string State, string StateLabel, string Source, string Detail, string? Ace);
@@ -616,13 +621,14 @@ public static class FicheDiagnostics
         bool genericAllow = false, genericDeny = false, resetAllow = false, resetDeny = false;
         foreach (var ace in reading.Aces)
         {
+            var rights = reading.InDirectoryOrder ? ace.Rights & ~(allow | deny) : ace.Rights;
             if (ace.Deny)
             {
-                deny |= ace.Rights;
+                deny |= rights;
             }
             else
             {
-                allow |= ace.Rights;
+                allow |= rights;
             }
             if ((ace.Rights & GenericAll) == GenericAll)
             {
@@ -635,7 +641,8 @@ public static class FicheDiagnostics
                     genericAllow = true;
                 }
             }
-            if (ace.ResetPassword || ((ace.Rights & ExtendedRight) != 0 && (ace.Rights & GenericAll) == GenericAll))
+            if ((!reading.InDirectoryOrder || !resetAllow && !resetDeny)
+                && (ace.ResetPassword || ((ace.Rights & ExtendedRight) != 0 && (ace.Rights & GenericAll) == GenericAll)))
             {
                 if (ace.Deny)
                 {
@@ -646,6 +653,11 @@ public static class FicheDiagnostics
                     resetAllow = true;
                 }
             }
+        }
+        if (reading.InDirectoryOrder)
+        {
+            genericAllow = (allow & GenericAll) == GenericAll;
+            genericDeny = (deny & GenericAll) == GenericAll;
         }
         var rows = new List<FicheCapability>();
         foreach (var (id, label, mask, detail) in Capabilities)
@@ -670,6 +682,12 @@ public static class FicheDiagnostics
                     ?? reading.Aces.FirstOrDefault(a => !a.Deny && ((a.Rights & mask) != 0 || (a.Rights & GenericAll) == GenericAll));
             }
             var stateLabel = state switch { "allowed" => "Autorisé", "denied" => "Refusé", _ => "Indéterminé" };
+            if (reading.InDirectoryOrder && state != "unknown")
+            {
+                decisive = reading.Aces.FirstOrDefault(a => a.Deny == (state == "denied")
+                    && (id == "password" ? a.ResetPassword || (a.Rights & GenericAll) == GenericAll
+                        : id == "secrets" ? (a.Rights & GenericAll) == GenericAll : (a.Rights & mask) != 0));
+            }
             // An undetermined right says why: no entry of the access list concerns it for the SIDs of the session token.
             var why = state == "unknown"
                 ? detail + ". Aucune entrée de la liste d’accès ne concerne ce droit pour votre compte ou ses groupes" + C + "le contrôleur décidera, le plus souvent par un refus."

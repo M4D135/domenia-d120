@@ -45,6 +45,9 @@ public sealed class FicheSession
         var groups = entry.All("memberOf");
         lock (gate)
         {
+            // A first range cannot establish a baseline or prove that earlier memberships disappeared.
+            if (string.Equals(entry.First("__memberOfComplete"), "FALSE", StringComparison.OrdinalIgnoreCase))
+            { return baselines.GetValueOrDefault(entry.ObjectGuid); }
             if (!baselines.TryGetValue(entry.ObjectGuid, out var baseline))
             {
                 baselines[entry.ObjectGuid] = new FicheGroupBaseline(at, groups, []);
