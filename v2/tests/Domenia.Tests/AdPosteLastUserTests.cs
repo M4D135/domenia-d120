@@ -51,6 +51,7 @@ internal static class AdPosteLastUserTests
         Check.Equal(RelationKind.Console, stored.Kind, "observation, pas affectation déclarée");
         Check.Equal(1, (await db.ReadRelationJournalAsync(CancellationToken.None)).Entries.Length, "journal durable relu");
         Check.Equal(3, ldap.Searches.Count, "seulement les trois lectures de validation prévues");
+        Check.Equal("CONFIRME", (await db.ReadRelationSweepsAsync(CancellationToken.None)).Rows.Single().Status, "passage console partagé avec Relations");
     }
 
     [Test]

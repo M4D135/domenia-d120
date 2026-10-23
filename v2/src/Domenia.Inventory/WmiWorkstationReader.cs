@@ -168,7 +168,7 @@ public sealed partial class WmiWorkstationReader
             var reading = session.Read(InventoryCategories.System, Cimv2, "SELECT Name, UserName FROM Win32_ComputerSystem", 2, CimBudgets.ConsoleSession);
             var instance = reading.Items == 1 ? reading.Instances[0] : null;
             var complete = reading.Status == SourceStatus.Ok && instance is not null
-                && instance.Names.Contains("UserName", StringComparer.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(instance.Text("Name"));
+                && HasConsoleValue(instance) && !string.IsNullOrWhiteSpace(instance.Text("Name"));
             var status = complete ? instance!.Text("UserName") is null ? SourceStatus.Empty : SourceStatus.Ok
                 : reading.Answered ? SourceStatus.Partial : reading.Status;
             return new ConsoleAccountReading(host, status, complete ? instance!.Text("UserName") : null, instance?.Text("Name"))

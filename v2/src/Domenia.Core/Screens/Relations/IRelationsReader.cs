@@ -14,9 +14,9 @@ public sealed record RelationSweepRequest(int Limit, ScopeSelection? Scope, IRea
 public sealed record RelationImportRequest(string Id, RelationImportAdapter Adapter, string FileName, string Text);
 
 /// <summary>
-/// Read interface of the « Utilisateurs et postes » screen (docs/ops/relations.md). Served by the simulated directory now
-/// (Domenia.Simulation, Screens/Relations), by Active Directory and the local base later (wave 3). Read only by construction:
-/// associations change only through the write circuit (<see cref="IRelationChangeExecutor"/>, write.execute).
+/// Read interface of the « Utilisateurs et postes » screen (docs/ops/relations.md). Served by the simulated directory
+/// (Domenia.Simulation, Screens/Relations) and by Active Directory with the local base. Directory objects are read only:
+/// technical passage memory is updated after native gestures; associations change only through the write circuit (<see cref="IRelationChangeExecutor"/>, write.execute).
 /// <list type="bullet">
 /// <item>local reads, no network in any mode: <see cref="OverviewAsync"/>, <see cref="ListAsync"/>, <see cref="SubjectAsync"/>,
 /// <see cref="SubjectsAsync"/>, <see cref="JournalAsync"/>, <see cref="ImportPreviewAsync"/>, <see cref="HarvestEstimateAsync"/>,

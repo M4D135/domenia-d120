@@ -18,6 +18,7 @@ public sealed partial class AdRelationsReader
         var expected = local.Lookup.Find(dn);
         if (expected is not { Kind: RelationSubjectKind.Computer })
         { throw new DomeniaOperationException(RelationErrors.NotRelationObject, "Poste absent ou ambigu dans l’index ; relisez sa fiche avant de demander sa console."); }
+        var memory = await AdRelationPassMemory.BeginAsync(source, local.Directory.Domain.RootDn, local.Epoch, cancellationToken).ConfigureAwait(false);
         var read = await ReadConsoleAsync(local.Directory.Domain, expected, local.Epoch, cancellationToken).ConfigureAwait(false);
         EnsureEpoch(local.Epoch); cancellationToken.ThrowIfCancellationRequested();
         var resultId = ""; var message = read.Message; var savable = false;
@@ -36,6 +37,8 @@ public sealed partial class AdRelationsReader
             message += " " + receipt.Reason;
         }
         var pc = read.Computer;
+        message += " " + await memory.CompleteAsync(new(pc.Guid, pc.Dn, pc.Name, source.Clock.GetUtcNow(),
+            AdRelationPassMemory.Status(read.Status, read.Relation is not null), read.Observed?.Account), cancellationToken).ConfigureAwait(false);
         var subject = new RelationSubject(pc.Kind, pc.Dn, pc.Guid.ToString("D"), pc.Name, pc.Login, pc.Detail,
             RelationRules.Path(pc.Dn, local.Directory.Domain.DnsName), pc.Enabled, pc.LastLogon, pc.Created);
         return new(resultId, subject, read.Attempts, read.Observed, savable, message);

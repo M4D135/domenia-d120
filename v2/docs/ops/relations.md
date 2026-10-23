@@ -537,3 +537,12 @@ Avant suppression, le magasin produit une sauvegarde SQLite vérifiée avec SHA-
 La postcondition relit la mémoire et contrôle le nombre exact de modifications de la connexion. [SQLite total_changes](https://sqlite.org/c3ref/total_changes.html) inclut les modifications des déclencheurs et des actions de clés étrangères ; un effet supplémentaire fait annuler relevés, génération et reçu dans la même transaction. La vérification finale ne dépend pas de la préparation en mémoire et reste possible avec un nouvel exécuteur.
 
 Huit tests couvrent sauvegarde/colonnes D1, empreinte des valeurs brutes, conflits, générations, reçus, déclencheurs, confirmation et consommation des plans. Ils sont compilés uniquement ; exécution et recette native restent réservées à la fin du développement.
+
+
+## 28. Contrat natif et passages partagés (23/10/2026)
+
+Le lecteur AD implémente maintenant le contrat complet de l’écran. Navigation, listes et journal restent locaux ; chaque geste réseau conserve ses limites décrites ci-dessus. La console unitaire et la détection du dernier utilisateur de Poste capturent la génération des relevés avant le réseau puis mémorisent leur passage. Un effacement intervenu pendant la lecture empêche son retour ; le résultat et ses relations qualifiées restent affichables et enregistrables indépendamment d’un échec du cache.
+
+Un historique LogonUI ou de profil ne constitue pas une console actuelle. Une console locale non résolue reste à relire, même si un utilisateur historique est trouvé ensuite. Une console réellement vide est validée par une seconde lecture de l’identité AD du poste, y compris lorsqu’aucun historique n’est trouvé. Seul un champ UserName explicitement null signifie vide : champ absent, nombre, tableau, texte blanc, caractères de contrôle ou valeur excessive restent partiels. La date courante est prise à la fin de la lecture native.
+
+Sept tests supplémentaires vérifient découverte du contrat, navigation sans réseau, dates/compteurs, effacement pendant lecture, échec local, séparation historique/console vide et champs mal formés. Un test du dernier utilisateur vérifie aussi le passage partagé. Compilations Debug/Release en VM sans erreur ni avertissement ; suites non exécutées à ce stade. L’harmonisation des producteurs Rechercher et des inventaires/sessions de Poste se poursuit.

@@ -22,6 +22,8 @@ public sealed partial class AdPosteReader
         using var timeout = new CancellationTokenSource(CimBudgets.LastUser, source.Clock);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
         var local = await LocalAsync(dn, stop.Token).ConfigureAwait(false);
+        var memory = await AdRelationPassMemory.BeginAsync(source, local.Directory.Domain.RootDn, local.Epoch, stop.Token).ConfigureAwait(false);
+        RelationSweepUpdate? consolePass = null;
         var attempts = ImmutableArray.CreateBuilder<DetectionAttempt>();
         var old = Association(local);
         void Attempt(string method, string status, string detail, int duration = 0, string? candidate = null)
@@ -57,6 +59,16 @@ public sealed partial class AdPosteReader
                 if (read.ReportedName is not null) { ConfirmIdentity(local.Computer, read.ReportedName); }
                 if (read.Access.Status == SourceStatus.Refused || read.Access.AuthenticationRejected)
                 { machine.Refused(host, "Détection du dernier utilisateur", read.Access.AuthenticationRejected); }
+                if (kind == UserDetectionSource.Console)
+                {
+                    var passStatus = read.Access.AuthenticationRejected ? "AUTH_REJETEE" : read.Access.Status switch
+                    {
+                        SourceStatus.Empty when WorkstationIdentity.Matches(local.Computer, read.ReportedName) => "LU",
+                        SourceStatus.Refused => "REFUSE", SourceStatus.Interrupted => "DELAI", _ => "ERREUR",
+                    };
+                    consolePass = new(local.Computer.ObjectGuid, local.Computer.DistinguishedName, WorkstationIdentity.ExpectedName(local.Computer)!,
+                        source.Clock.GetUtcNow(), passStatus, read.Candidates.Length == 1 ? read.Candidates[0].Account : null);
+                }
                 if (read.Access.AuthenticationRejected)
                 { Attempt(method, "AUTH_REJETEE", "Compte machine suspendu ; aucune autre source ni aucun autre compte essayé.", read.Access.DurationMs); break; }
                 var state = read.Access.Status switch
@@ -78,18 +90,22 @@ public sealed partial class AdPosteReader
                 }
                 if (detected is not null) { break; }
             }
-            if (detected is not null)
+            if (detected is not null || consolePass?.Status == "LU")
             {
                 await ConfirmParent().ConfigureAwait(false);
                 directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
-                Recent(local.Computer.ObjectGuid, local.Epoch, new(detected.ReadAt, Detected: detected));
+                if (detected is not null)
+                {
+                    Recent(local.Computer.ObjectGuid, local.Epoch, new(detected.ReadAt, Detected: detected));
+                    if (!detected.History && consolePass is not null) { consolePass = consolePass with { Status = "CONFIRME" }; }
+                }
             }
         }
         catch (OperationCanceledException)
-        { detected = null; Attempt("Détection", "ARRETE", "Arrêt ou budget de 25 secondes atteint ; aucun nouveau lien publié sans vérification finale."); }
+        { detected = null; consolePass = null; Attempt("Détection", "ARRETE", "Arrêt ou budget de 25 secondes atteint ; aucun nouveau lien publié sans vérification finale."); }
         catch (DomeniaOperationException ex) when (ex.Code is AdErrors.Timeout or AdErrors.Credentials or AdErrors.AccessDenied or AdErrors.Unavailable or MachineErrors.AccountPaused or "machine.busy")
-        { detected = null; Attempt("Détection", ex.Code is AdErrors.Credentials or AdErrors.AccessDenied or MachineErrors.AccountPaused ? "REFUSE" : "NON_EFFECTUE", "Lecture ou validation AD non aboutie ; association existante conservée, aucun autre compte essayé."); }
-        directory.EnsureCurrent(); EnsureEpoch(local.Epoch);
+        { detected = null; consolePass = null; Attempt("Détection", ex.Code is AdErrors.Credentials or AdErrors.AccessDenied or MachineErrors.AccountPaused ? "REFUSE" : "NON_EFFECTUE", "Lecture ou validation AD non aboutie ; association existante conservée, aucun autre compte essayé."); }
+        directory.EnsureCurrent(); EnsureEpoch(local.Epoch); cancellationToken.ThrowIfCancellationRequested();
         string? memorization = null;
         if (detected is { User.Guid: { } userGuid, User.Dn: { } userDn })
         {
@@ -108,12 +124,15 @@ public sealed partial class AdPosteReader
             }
             EnsureEpoch(local.Epoch);
         }
+        string? passageNotice = null;
+        if (consolePass is not null) { passageNotice = await memory.CompleteAsync(consolePass, cancellationToken).ConfigureAwait(false); }
         var association = Association(local);
         var verdict = detected is null ? "Aucun nouveau compte confirmé ; l’association existante est conservée."
             : "Compte AD résolu : " + detected.User.Name + " (" + detected.User.Login + "). "
                 + (detected.History ? "Indice historique, pas une session actuelle. " : "Nom observé à la console. ")
                 + (detected.SidCompared ? "SID comparé à l’annuaire. " : "Le SID de l’observation n’a pas été lu. ")
                 + "Aucune affectation déclarée remplacée. " + memorization;
+        if (passageNotice is not null) { verdict += " " + passageNotice; }
         return new(local.Computer.Name, source.Clock.GetUtcNow(), attempts.ToImmutable(), detected?.User, detected is not null, verdict, association, 25);
     }
 

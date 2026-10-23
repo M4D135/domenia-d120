@@ -3,8 +3,8 @@ using Domenia.Core;
 
 namespace Domenia.Ad;
 
-// The screen contract will be exposed once its explicitly requested network gestures are also implemented.
-public sealed partial class AdRelationsReader(AdDirectorySource source)
+// Local navigation and explicit native gestures share the same store and qualified session observations.
+public sealed partial class AdRelationsReader(AdDirectorySource source) : IRelationsReader
 {
     private sealed record LocalRelations(DirectorySnapshot Directory, AdRelationLookup Lookup, RelationCacheSnapshot Stored, RelationJournalCache Journal,
         ImmutableArray<StoredRelation> Session, long Epoch)

@@ -10,6 +10,11 @@ public sealed record WorkstationUserReading(string? ReportedName, SourceAccess A
 
 public sealed partial class WmiWorkstationReader
 {
+    // Only an explicitly returned null proves an empty console; malformed values remain unreadable.
+    private static bool HasConsoleValue(WmiInstance instance) => instance.Names.Contains("UserName", StringComparer.OrdinalIgnoreCase)
+        && (instance.Raw("UserName") is null || instance.Raw("UserName") is string value && value.Length is > 0 and <= 320
+            && !string.IsNullOrWhiteSpace(value) && !value.Any(char.IsControl) && value == value.Trim());
+
     /// <summary>One closed source, at most six seconds, without scripts, profile mounting or service changes.</summary>
     public async Task<WorkstationUserReading> ReadUserSourceAsync(string host, UserDetectionSource kind, CancellationToken token, RemoteProbeCredential? credential = null)
     {
@@ -34,7 +39,7 @@ public sealed partial class WmiWorkstationReader
         finally { DisposeAfter(work, stop); }
     }
 
-    private static WorkstationUserReading ReadUserSource(CimSession session, UserDetectionSource kind, DateTimeOffset now)
+    private WorkstationUserReading ReadUserSource(CimSession session, UserDetectionSource kind, DateTimeOffset now)
     {
         var identity = session.Read("user.identity", Cimv2, "SELECT Name, UserName FROM Win32_ComputerSystem", 2, TimeSpan.FromSeconds(3));
         var name = identity.Status == SourceStatus.Ok && identity.Items == 1 ? identity.Instances[0].Text("Name") : null;
@@ -46,10 +51,10 @@ public sealed partial class WmiWorkstationReader
         if (kind == UserDetectionSource.Console)
         {
             var account = identity.Instances[0].Text("UserName");
-            var present = identity.Instances[0].Names.Contains("UserName", StringComparer.OrdinalIgnoreCase);
+            var present = HasConsoleValue(identity.Instances[0]);
             return new(name, identity.ToAccess(session.Transport) with { Status = present ? account is null ? SourceStatus.Empty : SourceStatus.Ok : SourceStatus.Partial,
-                Detail = present ? "Compte de console à la date de lecture ; SID du jeton non lu." : "Attribut utilisateur absent de la réponse ; console non déterminée." },
-                account is null ? [] : [new(account, null, now, "Win32_ComputerSystem.UserName")]);
+                Detail = present ? "Compte de console à la date de lecture ; SID du jeton non lu." : "Attribut utilisateur absent ou illisible ; console non déterminée." },
+                !present || account is null ? [] : [new(account, null, clock.GetUtcNow(), "Win32_ComputerSystem.UserName")]);
         }
         if (kind == UserDetectionSource.LogonUi)
         {
