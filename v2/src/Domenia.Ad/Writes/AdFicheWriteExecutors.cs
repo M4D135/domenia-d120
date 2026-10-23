@@ -83,7 +83,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         return Task.FromResult<IReadOnlyList<AdModification>>(changes);
     }
 
-    public async Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken)
+    public virtual async Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken)
     {
         ValidatePlan(plan);
         _ = await Source.DomainAsync(cancellationToken).ConfigureAwait(false);

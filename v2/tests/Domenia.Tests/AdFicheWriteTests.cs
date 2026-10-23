@@ -250,6 +250,58 @@ internal static class AdFicheWriteTests
         Check.Equal(0, ldap.Writes, "rien envoyé");
     }
 
+    [Test]
+    public static async Task Ou_creation_is_one_add_with_an_escaped_name_and_never_a_parent_update()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Fixtures.Root] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(Fixtures.Root).ToByteArray()], ["name"] = ["test"], ["objectClass"] = ["top", "domainDNS"], ["uSNChanged"] = ["1"], ["isCriticalSystemObject"] = ["TRUE"] };
+        var writer = new AdOuCreateExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Fixtures.Root, "Équipe, Paris", CancellationToken.None));
+        Check.Equal(Fixtures.IdOf(Fixtures.Root).ToString("D"), plan.Target.ObjectGuid, "identité du parent confirmée");
+        Check.True((await writer.CheckAsync(plan, CancellationToken.None)).Current, "nom encore libre");
+        var outcome = await writer.ExecuteAsync(plan, CancellationToken.None);
+        var child = DistinguishedName.Child("OU", "Équipe, Paris", Fixtures.Root);
+        Check.Equal(child, ldap.AddedDn, "nom échappé");
+        Check.True(ldap.AddedAttributes!.Keys.Order().SequenceEqual(new[] { "objectClass", "ou" }.Order()), "seule la nouvelle OU est envoyée");
+        Check.Equal(1, ldap.Writes, "une requête Add");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyOutcomeAsync(plan, outcome.Result, CancellationToken.None)).State, "acceptation et emplacement relus");
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "nom désormais pris, aucune seconde création");
+        Check.Equal("TRUE", (string)ldap.Objects[Fixtures.Root]["isCriticalSystemObject"][0], "parent intact");
+    }
+
+    [Test]
+    public static async Task An_unknown_ou_add_response_is_never_proved_by_a_same_name_object()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Fixtures.People] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(Fixtures.People).ToByteArray()], ["name"] = ["People"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        var writer = new AdOuCreateExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Fixtures.People, "Nouvelle", CancellationToken.None));
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Unknown, (await writer.VerifyOutcomeAsync(plan, WriteResult.Unknown, CancellationToken.None)).State, "présence ne prouve pas origine de création");
+        Check.Equal(VerificationState.Unknown, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "relecture sans reçu d’acceptation conservatrice");
+        Check.Equal(VerificationState.Mismatch, (await writer.VerifyOutcomeAsync(plan, WriteResult.NotApplied, CancellationToken.None)).State, "refus n’est pas un succès");
+        ldap.Objects[Fixtures.People]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.Equal(VerificationState.Mismatch, (await writer.VerifyOutcomeAsync(plan, WriteResult.Applied, CancellationToken.None)).State, "parent remplacé");
+    }
+
+    [Test]
+    public static async Task Ou_creation_refuses_invalid_names_and_parent_replacement_before_add()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Fixtures.People] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(Fixtures.People).ToByteArray()], ["name"] = ["People"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        var writer = new AdOuCreateExecutor(source);
+        foreach (var name in new[] { " ", "#Interdit", new string('a', 65), "inter\nrompu" })
+        { await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Fixtures.People, name, CancellationToken.None), "nom non admis"); }
+        var plan = Seal(await writer.PlanAsync(Fixtures.People, "Nouvelle", CancellationToken.None));
+        ldap.Objects[Fixtures.People]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "ancien parent absent");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "pas de création sous un homonyme");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
     private static AdEntry Schema(string name, string syntax, int om, Dictionary<string, IReadOnlyList<object>>? extras = null)
     {
         var fields = extras ?? new(StringComparer.OrdinalIgnoreCase);
@@ -269,6 +321,8 @@ internal static class AdFicheWriteTests
     private sealed class Connection : IAdConnection
     {
         internal Dictionary<string, Dictionary<string, IReadOnlyList<object>>> Objects { get; } = new(StringComparer.OrdinalIgnoreCase);
+        internal string? AddedDn { get; private set; }
+        internal IReadOnlyDictionary<string, IReadOnlyList<object>>? AddedAttributes { get; private set; }
         internal string? RenamedTarget { get; private set; }
         internal string? RenamedParent { get; private set; }
         internal string? RenamedRdn { get; private set; }
@@ -355,7 +409,16 @@ internal static class AdFicheWriteTests
             Objects[moved] = Objects[target]; Objects.Remove(target); Writes++;
             return Task.CompletedTask;
         }
-        public Task AddAsync(string distinguishedName, IReadOnlyDictionary<string, IReadOnlyList<object>> attributes, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task AddAsync(string distinguishedName, IReadOnlyDictionary<string, IReadOnlyList<object>> attributes, CancellationToken cancellationToken)
+        {
+            if (Objects.ContainsKey(distinguishedName)) { throw new DomeniaOperationException(AdErrors.Exists, "Existe déjà"); }
+            if (!Objects.ContainsKey(DistinguishedName.Parent(distinguishedName)!)) { throw new DomeniaOperationException(AdErrors.NoSuchObject, "Parent absent"); }
+            AddedDn = distinguishedName; AddedAttributes = attributes;
+            Objects[distinguishedName] = new(attributes, StringComparer.OrdinalIgnoreCase)
+            { ["objectGUID"] = [Guid.NewGuid().ToByteArray()], ["name"] = [DistinguishedName.Parse(distinguishedName)[0].Value], ["uSNChanged"] = ["1"] };
+            Writes++;
+            return Task.CompletedTask;
+        }
         public Task DeleteAsync(string distinguishedName, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public void Dispose() { }
     }
