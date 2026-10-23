@@ -98,6 +98,82 @@ internal static class AdFicheWriteTests
         Check.Equal(0, ldap.Writes, "aucune modification");
     }
 
+    [Test]
+    public static async Task Raw_binary_changes_preserve_octets_and_are_verified_after_a_single_modify()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["customBinary"] = [new byte[] { 0, 255, 128 }];
+        ldap.Schema["customBinary"] = Schema("customBinary", "2.5.5.10", 4);
+        var policy = FicheSecurityPolicy.Default with { AllowRawAttributeWrite = true };
+        var writer = new AdRawAttributeExecutor(source, _ => Task.FromResult(policy));
+        var plan = Seal(await writer.PlanAsync(Dn, "customBinary", "fefe00", policy, CancellationToken.None));
+        Check.Equal("00FF80", plan.Changes[0].BeforeValue, "octets précédents exacts");
+        Check.Equal("FEFE00", plan.Changes[0].AfterValue, "hexadécimal canonique confirmé");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "politique non déposée");
+        writer.Remember(plan.Id, plan.ExpiresAt, policy);
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(1, ldap.Writes, "une requête");
+        Check.True(((byte[])ldap.Changes[0].Values[0]).SequenceEqual(new byte[] { 0, 255, 128 }), "suppression compare les vrais octets");
+        Check.True(((byte[])ldap.Changes[1].Values[0]).SequenceEqual(new byte[] { 254, 254, 0 }), "nouvelle valeur binaire, aucun texte UTF-8");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "octets relus");
+    }
+
+    [Test]
+    public static async Task Raw_write_rechecks_native_policy_schema_and_reference_identity()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Schema["manager"] = Schema("manager", "2.5.5.1", 127);
+        var policy = FicheSecurityPolicy.Default with { AllowRawAttributeWrite = true };
+        var native = policy;
+        var writer = new AdRawAttributeExecutor(source, _ => Task.FromResult(native));
+        var plan = Seal(await writer.PlanAsync(Dn, "manager", Manager.ToLowerInvariant(), policy, CancellationToken.None));
+        Check.Equal(ldap.Id(Manager).ToString("D"), plan.Changes[0].ReferenceGuid, "référence scellée même dans l’éditeur brut");
+        writer.Remember(plan.Id, plan.ExpiresAt, policy);
+        native = FicheSecurityPolicy.Default;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "politique native refermée");
+        native = policy;
+        ldap.Schema["manager"] = Schema("manager", "2.5.5.1", 127, new() { ["systemOnly"] = ["TRUE"] });
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "attribut devenu système");
+        ldap.Schema["manager"] = Schema("manager", "2.5.5.1", 127);
+        ldap.Objects[Manager]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "responsable remplacé");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
+    [Test]
+    public static async Task Raw_native_default_never_trusts_a_page_policy_that_opens_writes()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var writer = new AdRawAttributeExecutor(source);
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, "description", "Autre", FicheSecurityPolicy.Simulation, CancellationToken.None), "configuration hôte requise");
+        Check.Equal(0, ldap.Writes, "aucune mutation");
+    }
+
+    [Test]
+    public static void Raw_schema_refuses_composite_system_backlink_or_malformed_values()
+    {
+        var binary = AdRawAttributeSchema.From(Schema("customBinary", "2.5.5.10", 4, new() { ["rangeUpper"] = ["2"] }));
+        Check.Equal("00FF", binary.Normalize("00ff"), "normalisation hexadécimale");
+        foreach (var value in new[] { "XYZ", "0", "001122" }) { Check.Throws<DomeniaOperationException>(() => binary.Encode(value), "hexadécimal invalide ou trop long"); }
+        foreach (var extra in new Dictionary<string, IReadOnlyList<object>>[]
+        {
+            new() { ["systemOnly"] = ["TRUE"] }, new() { ["isDefunct"] = ["TRUE"] }, new() { ["systemFlags"] = ["4"] }, new() { ["linkID"] = ["3"] },
+            new() { ["systemFlags"] = ["illisible"] }, new() { ["rangeUpper"] = ["-1"] },
+        }) { Check.Throws<DomeniaOperationException>(() => AdRawAttributeSchema.From(Schema("custom", "2.5.5.12", 64, extra)), "schéma non modifiable"); }
+        Check.Throws<DomeniaOperationException>(() => AdRawAttributeSchema.From(Schema("descriptor", "2.5.5.15", 66)), "descripteur partiel interdit au brut");
+        Check.Throws<DomeniaOperationException>(() => AdRawAttributeSchema.From(Schema("custom", "2.5.5.12", 4)), "couple syntaxe OM incohérent");
+        var number = AdRawAttributeSchema.From(Schema("customNumber", "2.5.5.9", 2));
+        Check.Equal("12", number.Normalize("+0012"), "entier canonique");
+        Check.Throws<DomeniaOperationException>(() => number.Normalize("2147483648"), "débordement refusé");
+    }
+
+    private static AdEntry Schema(string name, string syntax, int om, Dictionary<string, IReadOnlyList<object>>? extras = null)
+    {
+        var fields = extras ?? new(StringComparer.OrdinalIgnoreCase);
+        fields["lDAPDisplayName"] = [name]; fields["attributeSyntax"] = [syntax]; fields["oMSyntax"] = [om.ToString(System.Globalization.CultureInfo.InvariantCulture)];
+        return new("CN=" + name + ",CN=Schema,CN=Configuration," + Fixtures.Root, fields);
+    }
+
     private static WritePlan Seal(WritePlanDraft draft) => WritePlans.Seal(draft, WritePlans.NewId(), Login, AppMode.Directory, Fixtures.Now, TimeZoneInfo.Utc);
     private static AdDirectorySource Source(Connection ldap, string? operatorDn = null)
     {
@@ -112,6 +188,7 @@ internal static class AdFicheWriteTests
         internal Dictionary<string, Dictionary<string, IReadOnlyList<object>>> Objects { get; } = new(StringComparer.OrdinalIgnoreCase);
         internal int Writes { get; private set; }
         internal IReadOnlyList<AdModification> Changes { get; private set; } = [];
+        internal Dictionary<string, AdEntry> Schema { get; } = new(StringComparer.OrdinalIgnoreCase);
         public string Server => "DC1.test.local";
         internal Guid Id(string dn) => new((byte[])Objects[dn]["objectGUID"][0]);
         internal Connection()
@@ -127,11 +204,13 @@ internal static class AdFicheWriteTests
                 };
             }
         }
-        public Task<AdRootDse> RootDseAsync(CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<AdRootDse> RootDseAsync(CancellationToken cancellationToken) => Task.FromResult(new AdRootDse(Fixtures.Root, "CN=Configuration," + Fixtures.Root, "CN=Schema,CN=Configuration," + Fixtures.Root, Fixtures.Root, Server, null, 7, [], Fixtures.Now));
         public Task<AdEntry?> ReadAsync(string distinguishedName, IReadOnlyList<string> attributes, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<IReadOnlyList<AdEntry>> SearchAsync(AdSearchRequest request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (request.Scope == AdSearchScope.OneLevel && request.BaseDn.StartsWith("CN=Schema,", StringComparison.OrdinalIgnoreCase))
+            { return Task.FromResult<IReadOnlyList<AdEntry>>([.. Schema.Where(p => request.Filter.Contains("(lDAPDisplayName=" + p.Key + ")", StringComparison.OrdinalIgnoreCase)).Select(p => p.Value)]); }
             var selected = Objects.Where(p => request.Scope == AdSearchScope.Base ? FicheValues.SameDn(p.Key, request.BaseDn) : request.Filter == AdObjectAccess.GuidFilter(Id(p.Key)));
             return Task.FromResult<IReadOnlyList<AdEntry>>([.. selected.Select(p =>
             {
@@ -149,7 +228,7 @@ internal static class AdFicheWriteTests
             {
                 if (change.Kind == AdModificationKind.Delete)
                 {
-                    if (!next.TryGetValue(change.Attribute, out var old) || !old.SequenceEqual(change.Values)) { throw new DomeniaOperationException(AdErrors.Constraint, "Valeur concurrente"); }
+                    if (!next.TryGetValue(change.Attribute, out var old) || !old.Zip(change.Values).All(p => p.First is byte[] a && p.Second is byte[] b ? a.SequenceEqual(b) : Equals(p.First, p.Second)) || old.Count != change.Values.Count) { throw new DomeniaOperationException(AdErrors.Constraint, "Valeur concurrente"); }
                     next.Remove(change.Attribute);
                 }
                 else

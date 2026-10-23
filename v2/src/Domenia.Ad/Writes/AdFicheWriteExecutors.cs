@@ -54,6 +54,13 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         if (!check.Current) { throw WriteErrors.Refusal(WriteErrors.Stale, check.Detail); }
         if (ObjectWrites.AlreadyApplied(plan, current, _ => false))
         { return new(WriteResult.NoChange, "Champs déjà conformes au plan ; aucune requête de modification envoyée."); }
+        var changes = await ModificationsAsync(plan, current!, cancellationToken).ConfigureAwait(false);
+        await Source.Connection.ModifyAsync(GuidDn(plan.Target.ObjectGuid), changes, cancellationToken).ConfigureAwait(false);
+        return new(WriteResult.Applied, "Champs acceptés par le contrôleur dans une seule requête ; relecture en cours.");
+    }
+
+    private protected virtual Task<IReadOnlyList<AdModification>> ModificationsAsync(WritePlan plan, FicheEntry current, CancellationToken token)
+    {
         var changes = new List<AdModification>();
         foreach (var change in plan.Changes)
         {
@@ -66,8 +73,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
             if (change.AfterValue is not null)
             { changes.Add(new(change.Attribute, AdModificationKind.Add, [change.ReferenceGuid is { } id ? GuidDn(id) : change.AfterValue])); }
         }
-        await Source.Connection.ModifyAsync(GuidDn(plan.Target.ObjectGuid), changes, cancellationToken).ConfigureAwait(false);
-        return new(WriteResult.Applied, "Champs acceptés par le contrôleur dans une seule requête ; relecture en cours.");
+        return Task.FromResult<IReadOnlyList<AdModification>>(changes);
     }
 
     public async Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken)
@@ -119,6 +125,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         }
         if (!await ReferencesAsync(plan, token).ConfigureAwait(false))
         { return WritePrecheck.Stale("Objet référencé remplacé, déplacé ou absent ; préparez un nouveau plan."); }
+        await ValidateCurrentAsync(plan, current, session, token).ConfigureAwait(false);
         return ObjectWrites.Check(plan, current, _ => false);
     }
 
@@ -133,6 +140,8 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
         }
         return true;
     }
+
+    private protected virtual Task ValidateCurrentAsync(WritePlan plan, FicheEntry? current, SessionSnapshot session, CancellationToken token) => Task.CompletedTask;
 
     private protected virtual void Protect(FicheEntry entry, SessionSnapshot session, WritePlan? plan)
     {
