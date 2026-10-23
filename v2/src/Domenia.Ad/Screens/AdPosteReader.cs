@@ -178,7 +178,11 @@ public sealed partial class AdPosteReader
         EnsureEpoch(local.Epoch);
         return new(computer, header, association, Recent(computer.Guid, local.Epoch)?.Live, summary, PosteBoardBuilder.Build(computer, inv, policy, now, source.Zone),
             inv is null ? "Aucun inventaire validé pour ce poste ; un inventaire rapide nécessite un geste explicite." : null,
-            secrets, consent, Options, false, false, notes.ToImmutable());
+            secrets, consent, Options, false, false, notes.ToImmutable())
+        {
+            CachedSessions = PosteSessionCache.Applicable(local.Fleet.WorkstationSessions.GetValueOrDefault(computer.Guid), local.Computer.WhenCreated, now) is { } sessions
+                ? PosteSessions.Stored(sessions, source.Zone) : null,
+        };
     }
 
     public async Task<InventoryResult?> CachedInventoryAsync(string dn, PosteHealthPolicy policy, CancellationToken cancellationToken)

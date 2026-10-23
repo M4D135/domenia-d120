@@ -4,7 +4,11 @@ using System.Globalization;
 namespace Domenia.Core.Poste;
 
 /// <summary>One session as the page lists it: readable account, protocol, state, local opening time, idle time.</summary>
-public sealed record SessionRow(string Session, string User, string? Login, string State, string Protocol, string Opened, string Idle, string? ClientName, bool AccountUnread);
+public sealed record SessionRow(string Session, string User, string? Login, string State, string Protocol, string Opened, string Idle, string? ClientName, bool AccountUnread)
+{
+    /// <summary>Qualified identity for navigation; never resolve an unqualified/local account as an AD homonym.</summary>
+    public string? AccountReference { get; init; }
+}
 
 /// <summary>
 /// Honest view of the sessions of a workstation (Domenia 1 ConvertTo-DomeniaSessionView): lines without account are counted,
@@ -24,7 +28,12 @@ public sealed record SessionsResult(
     int DisconnectedSessions,
     string EmptyText,
     string StatusText,
-    string Reader);
+    string Reader)
+{
+    public bool Cached { get; init; }
+    public string? CacheNotice { get; init; }
+    public SessionsResult? LastComplete { get; init; }
+}
 
 /// <summary>What the restart panel says of the sessions read just before (Domenia 1 Get-DomeniaRestartSessionSummary).</summary>
 public sealed record RestartSessions(bool Known, int Count, ImmutableArray<string> Lines, string Text);
@@ -72,7 +81,7 @@ public static class PosteSessions
         return slash >= 0 ? account[(slash + 1)..].Trim() : account;
     }
 
-    public static SessionsResult View(string computer, SourceStatus status, IReadOnlyList<LocalSession>? sessions, DateTimeOffset? readAt, string reader, TimeZoneInfo zone)
+    public static SessionsResult View(string computer, SourceStatus status, IReadOnlyList<LocalSession>? sessions, DateTimeOffset? readAt, string reader, TimeZoneInfo zone, int unreadCount = 0)
     {
         ArgumentNullException.ThrowIfNull(zone);
         var partial = status == SourceStatus.Partial;
@@ -102,7 +111,8 @@ public static class PosteSessions
                 var idle = IdleText(s.Idle);
                 if (string.IsNullOrWhiteSpace(s.User))
                 {
-                    if (s.State.Contains("partiel", StringComparison.OrdinalIgnoreCase))
+                    if (s.State.Contains("partiel", StringComparison.OrdinalIgnoreCase) || s.State.Equals("Non lu", StringComparison.OrdinalIgnoreCase)
+                        || s.State.Equals("Nonlu", StringComparison.OrdinalIgnoreCase))
                     {
                         unread++;
                         rows.Add(new SessionRow(label, "Compte non lu", null, s.State, s.Protocol, opened, idle, s.ClientName, true));
@@ -111,7 +121,7 @@ public static class PosteSessions
                     system++;
                     continue;
                 }
-                var account = string.IsNullOrWhiteSpace(s.Domain) ? s.User! : s.Domain + "\\" + s.User;
+                var account = s.User!.Contains('\\') || s.User.Contains('@') || string.IsNullOrWhiteSpace(s.Domain) ? s.User : s.Domain + "\\" + s.User;
                 if (s.Protocol.Equals("Console", StringComparison.OrdinalIgnoreCase) && consoleUser is null)
                 {
                     consoleUser = account;
@@ -124,10 +134,13 @@ public static class PosteSessions
                 {
                     disconnected++;
                 }
-                rows.Add(new SessionRow(label, account, s.User, s.State, s.Protocol, opened, idle, s.ClientName, false));
+                rows.Add(new SessionRow(label, account, AccountName(s.User), s.State, s.Protocol, opened, idle, s.ClientName, false)
+                { AccountReference = account.Contains('\\') || account.Contains('@') ? account : null });
             }
         }
         var users = rows.Count - unread;
+        unread = Math.Max(unread, unreadCount);
+        partial |= unread > 0;
         var empty = EmptyText(status, incomplete, users, rdp, consoleUser is not null, unread);
         var parts = new List<string>();
         if (readAt is DateTimeOffset at)
@@ -164,6 +177,20 @@ public static class PosteSessions
         }
         var statusText = (parts.Count > 0 ? string.Join(" · ", parts) + ". " : "") + "Consultation seule : aucune déconnexion depuis cet écran.";
         return new SessionsResult(computer, readAt, state, partial, rows.ToImmutable(), users, unread, system, consoleUser, rdp, disconnected, empty, statusText, reader);
+    }
+
+    public static SessionsResult Stored(WorkstationSessionMemory memory, TimeZoneInfo zone, bool cached = true)
+    {
+        SessionsResult Read(WorkstationSessionRead read)
+        {
+            var view = View(memory.Computer, read.Status, read.Rows, read.At, read.Reader, zone, read.Unread);
+            return view with { StatusText = view.StatusText + (string.IsNullOrEmpty(read.Detail) ? "" : " " + read.Detail), Cached = true };
+        }
+        return Read(memory.Latest) with
+        {
+            Cached = cached,
+            LastComplete = memory.LastComplete is { } complete && complete.At < memory.Latest.At ? Read(complete) : null,
+        };
     }
 
     /// <summary>What an empty or partial list means (Get-DomeniaSessionEmptyText).</summary>

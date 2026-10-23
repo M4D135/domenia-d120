@@ -549,3 +549,12 @@ Le cache local conserve par GUID la dernière tentative et la dernière liste co
 Chaque lecture est limitée à 512 lignes et l’ensemble à 2 Mio. Identifiants dupliqués, lignes nulles, dates futures, durées négatives, champs démesurés ou caractères de contrôle sont refusés, ainsi que les états prétendant une liste complète malgré des éléments non lus. Les écritures vérifient le GUID dans la base du domaine. Les détails D1 `Sessions/WTS` restent intacts : ce nouveau stockage ne les remplace pas et leur lecture compatible reste à raccorder.
 
 Cinq tests couvrent refus/succès, ordre temporel, limites, identité après recréation, réouverture SQLite et préservation D1. Debug/Release compilés sans erreur ni avertissement ; tests non exécutés. Raccordement du lecteur WTS et affichage local en cours.
+
+
+## 36. Sessions natives et historique visible (23/10/2026)
+
+Une lecture WTS conserve le même bail annuaire du contrôle initial au contrôle final. Le compte ordinateur (GUID, SID, création) et la cible DNS/SAM doivent rester identiques. Un refus sans contenu est conservé après le contrôle initial, sans relancer une identité potentiellement suspendue. Le repli CIM fournit des ouvertures de session ; il reste partiel pour l’état du bureau et ne remplace jamais une liste WTS complète. Aucune preuve de SID Windows distant n’est déduite de WTS.
+
+Le résultat est enregistré avant accusé, avec la dernière liste complète conservée séparément. Un défaut d’enregistrement est affiché explicitement. L’ouverture locale expose ces lectures sans nouveau contact réseau. L’écran permet de choisir la dernière tentative ou la dernière liste complète datée ; un échec de commande laisse l’ancienne lecture visible. L’identité transmise à la fiche conserve le domaine, et un nom non qualifié n’est pas navigable. Les éléments non lus, même sans ligne retournée, ne deviennent pas un total nul.
+
+Cinq tests ajoutés couvrent persistance et réouverture, historique après refus, modification du parent pendant WTS, refus LDAP final, comptes homonymes et nombre d’éléments non lus. Debug/Release compilés en VM sans erreur ni avertissement. Tests et validation visuelle différés à la recette finale.

@@ -170,7 +170,10 @@ public sealed record PosteConsole(
     PosteOptions Options,
     bool ReadOnly,
     bool Simulated,
-    ImmutableArray<PosteFact> Notes);
+    ImmutableArray<PosteFact> Notes)
+{
+    public SessionsResult? CachedSessions { get; init; }
+}
 
 /// <summary>Health of a workstation in the master list, from the directory and the stored observations only.</summary>
 public sealed record PosteRowHealth(Tone Level, int Points, string Label);

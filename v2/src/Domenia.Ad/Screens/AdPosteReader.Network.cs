@@ -46,23 +46,29 @@ public sealed partial class AdPosteReader
         using var elapsed = new CancellationTokenSource(TimeSpan.FromSeconds(10), source.Clock);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(token, elapsed.Token);
         using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, dn, budget.Token).ConfigureAwait(false);
+        return await NetworkIdentityAsync(local, directory, budget.Token, machine).ConfigureAwait(false);
+    }
+
+    private async Task<LocalPoste> NetworkIdentityAsync(LocalPoste local, AdReadAccess directory, CancellationToken token, bool machine = true)
+    {
+        var dn = local.Computer.DistinguishedName;
         IReadOnlyList<AdEntry> rows;
         try
         {
             rows = await directory.SearchAsync(new(dn, "(objectClass=computer)", AdSearchScope.Base, [.. AdDirectoryMapper.ComputerAttributes, "objectClass"])
-            { PageSize = 1, SizeLimit = 2, Timeout = TimeSpan.FromSeconds(8), Budget = TimeSpan.FromSeconds(10), ExpandRanges = true, MaxRangeValues = 50_000 }, budget.Token).ConfigureAwait(false);
+            { PageSize = 1, SizeLimit = 2, Timeout = TimeSpan.FromSeconds(8), Budget = TimeSpan.FromSeconds(10), ExpandRanges = true, MaxRangeValues = 50_000 }, token).ConfigureAwait(false);
         }
         catch (DomeniaOperationException ex) when (ex.Code == AdErrors.NoSuchObject) { rows = []; }
         var entry = rows.Count == 1 && DistinguishedName.AreEqual(rows[0].DistinguishedName, dn) ? rows[0] : null;
         var computer = entry is not null && entry.Strings("objectClass").Contains("computer", StringComparer.OrdinalIgnoreCase) ? AdDirectoryMapper.Computer(entry) : null;
         if (computer is null || computer.ObjectGuid != local.Computer.ObjectGuid || computer.Sid != local.Computer.Sid || computer.WhenCreated != local.Computer.WhenCreated
             || computer.WhenCreated == DateTimeOffset.MinValue || computer.WhenCreated > source.Clock.GetUtcNow())
-        { throw new DomeniaOperationException(PosteErrors.ComputerUnknown, "Le compte ordinateur a disparu ou changé d’identité ; aucun contact machine envoyé."); }
+        { throw new DomeniaOperationException(PosteErrors.ComputerUnknown, "Le compte ordinateur a disparu ou changé d’identité ; lecture interrompue, aucun contenu attribué à ce poste."); }
         if (machine && (computer.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(computer) is null))
         { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte machine et nom DNS absents, invalides ou incohérents ; aucun contact distant."); }
-        directory.EnsureCurrent(); EnsureEpoch(local.Epoch); budget.Token.ThrowIfCancellationRequested();
+        directory.EnsureCurrent(); EnsureEpoch(local.Epoch); token.ThrowIfCancellationRequested();
         // The selected LDAP lease expands memberships before this projection can replace the local computer object.
-        await source.RememberObjectsAsync(new(local.Directory.Domain, source.Clock.GetUtcNow(), false, [], [], [computer], []), local.Epoch, budget.Token).ConfigureAwait(false);
+        await source.RememberObjectsAsync(new(local.Directory.Domain, source.Clock.GetUtcNow(), false, [], [], [computer], []), local.Epoch, token).ConfigureAwait(false);
         directory.EnsureCurrent(); EnsureEpoch(local.Epoch);
         return local with { Computer = computer };
     }
@@ -265,16 +271,21 @@ public sealed partial class AdPosteReader
 
     public async Task<SessionsResult> SessionsAsync(string dn, CancellationToken cancellationToken)
     {
-        var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
-        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+        var local = await LocalAsync(dn, cancellationToken).ConfigureAwait(false);
+        using var elapsed = new CancellationTokenSource(TimeSpan.FromSeconds(25), source.Clock);
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, elapsed.Token);
+        // A one-shot LDAP identity belongs to this entire gesture, including the final parent check.
+        using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, dn, budget.Token).ConfigureAwait(false);
+        local = await NetworkIdentityAsync(local, directory, budget.Token).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, budget.Token).ConfigureAwait(false);
         EnsureEpoch(local.Epoch);
         var credential = access.Credential;
         var name = CredentialRules.Parse(credential.Account);
         var user = credential.Session ? null : name.Form == AccountNameForm.Upn ? credential.Account : name.Name;
         var domain = credential.Session || name.Form == AccountNameForm.Upn ? null : name.Authority;
         var started = source.Clock.GetTimestamp();
-        var read = SessionsOverride is { } injected ? await injected(local.Computer.DnsHostName!, credential, cancellationToken).ConfigureAwait(false)
-            : await new WindowsSessionsReader(source.Clock).ReadAsync(local.Computer.DnsHostName!, user, domain, credential.Password, cancellationToken, TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+        var read = SessionsOverride is { } injected ? await injected(local.Computer.DnsHostName!, credential, budget.Token).ConfigureAwait(false)
+            : await new WindowsSessionsReader(source.Clock).ReadAsync(local.Computer.DnsHostName!, user, domain, credential.Password, budget.Token, TimeSpan.FromSeconds(3)).ConfigureAwait(false);
         if (SessionsOverride is null && WmiLogonSessionsReader.NeedsFallback(read))
         {
             access.EnsureCurrent();
@@ -283,15 +294,46 @@ public sealed partial class AdPosteReader
             {
                 try
                 {
-                    var fallback = await new WmiLogonSessionsReader(source.Clock).ReadAsync(local.Computer.DnsHostName!, credential, remaining, cancellationToken, access.Settings).ConfigureAwait(false);
-                    read = fallback with { Detail = "WTS : " + read.Detail + " " + fallback.Detail };
+                    var fallback = await new WmiLogonSessionsReader(source.Clock).ReadAsync(local.Computer.DnsHostName!, credential, remaining, budget.Token, access.Settings).ConfigureAwait(false);
+                    read = fallback with
+                    {
+                        // CIM logons are useful history, but never establish a complete WTS desktop list (including zero).
+                        Status = fallback.Status is SourceStatus.Ok or SourceStatus.Empty ? SourceStatus.Partial : fallback.Status,
+                        Detail = "WTS : " + read.Detail + " " + fallback.Detail,
+                    };
                 }
                 catch (DomeniaOperationException ex) when (ex.Code == "machine.busy") { read = read with { Detail = read.Detail + " Lecteurs CIM occupés ; repli non envoyé." }; }
             }
         }
         access.EnsureCurrent(); EnsureEpoch(local.Epoch);
         if (read.Status == SourceStatus.Refused || read.AuthenticationRejected) { access.Refused(local.Computer.DnsHostName!, "Sessions", read.AuthenticationRejected); }
-        var result = PosteSessions.View(local.Computer.Name, read.Status, read.Sessions, read.At, credential.Account, source.Zone);
-        return result with { StatusText = result.StatusText + (string.IsNullOrEmpty(read.Detail) ? "" : " " + read.Detail) };
+        if (!read.Sessions.IsEmpty || read.Status is SourceStatus.Ok or SourceStatus.Empty)
+        {
+            var final = await NetworkIdentityAsync(local, directory, budget.Token).ConfigureAwait(false);
+            if (!string.Equals(final.Computer.DnsHostName, local.Computer.DnsHostName, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(final.Computer.SamAccountName, local.Computer.SamAccountName, StringComparison.OrdinalIgnoreCase))
+            { throw new DomeniaOperationException(PosteErrors.ComputerUnknown, "Cible DNS ou compte machine modifié pendant la lecture ; sessions non attribuées."); }
+        }
+        directory.EnsureCurrent(); access.EnsureCurrent(); EnsureEpoch(local.Epoch); budget.Token.ThrowIfCancellationRequested();
+        var attempt = new WorkstationSessionRead(read.At, read.Status, read.Sessions, read.Unread, credential.Account, PosteText.Flat(read.Detail ?? "", 2048))
+        { AuthenticationRejected = read.AuthenticationRejected };
+        var memory = new WorkstationSessionMemory(WorkstationIdentity.ExpectedName(local.Computer)!, attempt, attempt.Complete ? attempt : null);
+        PosteSessionCache.Validate(memory, source.Clock.GetUtcNow());
+        if (attempt.At < local.Computer.WhenCreated) { throw new InvalidDataException("Lecture de sessions antérieure au compte ordinateur."); }
+        var previous = PosteSessionCache.Applicable(source.FleetDetails.WorkstationSessions.GetValueOrDefault(local.Computer.ObjectGuid), local.Computer.WhenCreated, source.Clock.GetUtcNow());
+        var notice = source.LocalStore is IAccueilCache ? "Lecture enregistrée dans la base locale." : "Lecture conservée dans cette session ; base locale indisponible.";
+        try
+        {
+            var saved = await source.SaveFleetAsync(FleetCachePatch.Empty with
+            { WorkstationSessions = ImmutableDictionary<Guid, WorkstationSessionMemory>.Empty.Add(local.Computer.ObjectGuid, memory) }, local.Epoch, CancellationToken.None).ConfigureAwait(false);
+            memory = saved.WorkstationSessions[local.Computer.ObjectGuid];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            memory = PosteSessionCache.Merge(previous, memory);
+            notice = "Lecture reçue, mais enregistrement local non confirmé ; la base antérieure reste disponible.";
+        }
+        EnsureEpoch(local.Epoch);
+        return PosteSessions.Stored(memory, source.Zone, cached: memory.Latest != attempt) with { CacheNotice = notice };
     }
 }

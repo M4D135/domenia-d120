@@ -527,8 +527,17 @@ function processes(host, state) {
 
 function sessions(host, state) {
   let alive = true;
+  let reading = false;
+  let latest = state.data.cachedSessions ?? null;
+  let history = false;
   host.innerHTML = `<div class="grid ps-grid">
     <section class="card ps-card span-12 reveal">${cardHead('users', 'Sessions Windows', '<span data-slot="summary">Lecture à la demande par l’API WTS ; consultation seule (aucune déconnexion).</span>', `<button class="btn primary" type="button" data-act="read">${ico('refresh')}Lire les sessions</button>`)}
+      <p class="ps-badge-line" data-slot="provenance" data-tone="info" hidden></p>
+      <div class="ps-badge-line" data-slot="history" role="group" aria-label="Lectures conservées" hidden>
+        <button class="btn sm" type="button" data-act="latest" aria-pressed="true">Dernière tentative</button>
+        <button class="btn sm" type="button" data-act="complete" aria-pressed="false">Dernière liste complète</button>
+      </div>
+      <p class="ps-badge-line" data-slot="failure" data-tone="warn" role="status" hidden></p>
       <p class="ps-badge-line" data-slot="empty" data-tone="info" hidden></p><div data-slot="grid"></div></section></div>`;
   const grid = createGrid(host.querySelector('[data-slot="grid"]'), {
     key: 'poste.sessions',
@@ -546,36 +555,71 @@ function sessions(host, state) {
     ],
     empty: { icon: 'users', title: 'Sessions non lues', text: 'Une console vide ne prouve jamais l’absence de session RDP.' },
     onActivate: (row) => openAccount(row),
-    contextMenu: ({ row }) => [{ label: 'Ouvrir la fiche du compte', icon: 'user', disabled: !row?.login, reason: 'Ligne sans compte : aucune recherche lancée.', run: () => openAccount(row) }],
+    contextMenu: ({ row }) => [{ label: 'Ouvrir la fiche du compte', icon: 'user', disabled: !row?.accountReference, reason: 'Identité sans domaine : aucune fiche AD déduite du seul nom.', run: () => openAccount(row) }],
   });
   fitGrid(grid, 0);
-  /** The account of a session by its sAMAccountName, domain removed (Domenia 1 Open-DomeniaSessionFiche), then its card. */
+  /** Keep the domain: a local or foreign account must never open a same-named AD user. */
   async function openAccount(row) {
-    if (!row?.login) { toast('Ligne sans compte : aucune recherche lancée.', { tone: 'info' }); return; }
+    if (!row?.accountReference) { toast('Identité sans domaine : aucune fiche AD déduite du seul nom.', { tone: 'info' }); return; }
     try {
-      const user = await state.call('poste.account.find', { login: row.login });
+      const user = await state.call('poste.account.find', { login: row.accountReference });
+      if (!alive) return;
       if (user?.dn) state.ctx.navigate('fiche', { dn: user.dn });
-      else toast(`Aucun compte ${row.login} dans l’annuaire connu${NBSP}: la session peut être un compte local du poste.`, { tone: 'info' });
+      else toast(`Aucun compte ${row.accountReference} dans l’annuaire connu${NBSP}: la session peut appartenir à un compte local ou à un autre domaine.`, { tone: 'info' });
     } catch (err) {
-      toast(errorText(err), { tone: 'warn' });
+      if (alive) toast(errorText(err), { tone: 'warn' });
     }
   }
+  function paint() {
+    const r = history ? latest?.lastComplete : latest;
+    if (!r) return;
+    host.querySelector('[data-slot="summary"]').textContent = r.statusText;
+    const provenance = host.querySelector('[data-slot="provenance"]');
+    provenance.hidden = false;
+    provenance.textContent = (history ? 'Historique : dernière liste complète conservée. Elle ne décrit pas les sessions actuelles. '
+      : r.cached ? 'Base locale : aucune nouvelle lecture réseau. ' : 'Lecture reçue à la demande. ') + (r.cacheNotice ?? '');
+    host.querySelector('[data-slot="history"]').hidden = !latest.lastComplete;
+    host.querySelector('[data-act="latest"]').setAttribute('aria-pressed', String(!history));
+    host.querySelector('[data-act="complete"]').setAttribute('aria-pressed', String(history));
+    const e = host.querySelector('[data-slot="empty"]');
+    e.hidden = !r.emptyText;
+    e.textContent = r.emptyText ?? '';
+    grid.setRows(r.rows);
+    fitGrid(grid, r.rows.length, { max: 420 });
+  }
   async function read() {
+    if (reading) return;
+    reading = true;
+    const button = host.querySelector('[data-act="read"]');
+    const failure = host.querySelector('[data-slot="failure"]');
+    button.disabled = true;
+    failure.hidden = true;
     grid.setLoading(true);
     try {
       const r = await state.call('poste.sessions', { dn: state.dn });
       if (!alive) return;
-      host.querySelector('[data-slot="summary"]').textContent = r.statusText;
-      const e = host.querySelector('[data-slot="empty"]');
-      e.hidden = !r.emptyText;
-      e.innerHTML = r.emptyText ? `${ico('info')}<span>${esc(r.emptyText)}</span>` : '';
-      grid.setRows(r.rows);
-      fitGrid(grid, r.rows.length, { max: 420 });
+      latest = r;
+      state.data.cachedSessions = { ...r, cached: true };
+      history = false;
+      paint();
     } catch (err) {
-      if (alive) grid.setError(errorText(err), { retry: read });
+      if (!alive) return;
+      failure.hidden = false;
+      failure.textContent = errorText(err) + (latest ? ' La lecture antérieure reste affichée ci-dessous.' : ' Aucune liste de sessions obtenue.');
+      if (latest) { latest = { ...latest, cached: true, cacheNotice: null }; paint(); }
+      else grid.setError(errorText(err), { retry: read });
+    } finally {
+      reading = false;
+      if (alive) { button.disabled = false; grid.setLoading(false); }
     }
   }
-  host.addEventListener('click', (e) => { if (e.target instanceof Element && e.target.closest('[data-act="read"]')) read(); });
+  host.addEventListener('click', (e) => {
+    if (!(e.target instanceof Element)) return;
+    if (e.target.closest('[data-act="read"]')) read();
+    if (e.target.closest('[data-act="latest"]')) { history = false; paint(); }
+    if (e.target.closest('[data-act="complete"]') && latest?.lastComplete) { history = true; paint(); }
+  });
+  paint();
   if (state.essai === 'sessions') read();
   return () => { alive = false; grid.destroy(); };
 }
