@@ -583,3 +583,14 @@ Les notices d’inventaire portent une tonalité explicite : information pour la
 La source du journal doit être le poste demandé ; `WorkstationName` peut désigner son client et n’est pas pris pour son identité. Les candidats portent le SID cible, le domaine et la date de l’événement. Cinq SID récents au plus, un événement récent par SID ; comptes système, lectures réseau/service, doublons contradictoires et mauvaises dates exclus. Ces candidats suivent la validation AD et le contrôle final du parent déjà employés par les autres sources. Ils restent historiques et ne remplacent aucune affectation déclarée. Un rejet d’identifiants interrompt la chaîne avant publication des candidats.
 
 Les méthodes CIM de la détection sont désormais bornées à trois secondes chacune, dans l’enveloppe globale de vingt-cinq secondes. Six tests ajoutés et compilés en VM sans erreur ni avertissement ; tests et recette native non exécutés à ce stade. Les sources WinRM, registre distant et repli autorisé restent à terminer.
+
+
+## 40. Console et propriétaires Explorer par WinRM (23/10/2026)
+
+La détection peut lire la console et les propriétaires Explorer par un script WinRM fixe, sans argument utilisateur, dans le budget de trois secondes de la méthode. WinRM ou CIM désactivé interdit l’ouverture de ce shell. Aucun profil PowerShell chargé, aucune commande d’intervention ; le shell propre à cette lecture est fermé, sans toucher aux sessions du bureau. Une fermeture non confirmée reste explicite et ne provoque pas une nouvelle création.
+
+Seize processus Explorer au plus sont examinés avec leurs PID et dates de création. Les deux lectures de propriétaire sont encadrées par la vérification de l’identité du processus. Microsoft documente [GetOwner](https://learn.microsoft.com/fr-fr/windows/win32/cimwin32prov/getowner-method-in-class-win32-process) pour le nom/domaine et [GetOwnerSid](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/getownersid-method-in-class-win32-process) pour le SID ; seul un code de retour nul est accepté.
+
+La réponse est limitée à 64 Kio et dix-sept candidats (console plus processus), sans doublon de console/PID/propriété, avec nom Windows et dates vérifiés. La console porte sa date de lecture, sans SID de jeton inventé ; le propriétaire Explorer reste un indice historique dont la date de connexion est inconnue. Son SID est comparé à AD. La console WinRM confirmée rejoint les observations et passages partagés, sans remplacer une affectation déclarée.
+
+Six tests ajoutés couvrent la nature des preuves, contrat et limites, options désactivées, fermeture incertaine, rejet d’identité et intégration au lecteur AD. Debug/Release compilés en VM sans erreur ni avertissement ; tests et recette native toujours différés à la fin du développement.

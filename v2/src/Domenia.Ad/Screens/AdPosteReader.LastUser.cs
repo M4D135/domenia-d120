@@ -15,6 +15,7 @@ public sealed partial class AdPosteReader
         UserDetectionSource.Console => "CIM utilisateur courant",
         UserDetectionSource.LogonUi => "LogonUI (dernier nom affiché)",
         UserDetectionSource.Security => "Journal Sécurité 4624 (optionnel)",
+        UserDetectionSource.WinRm => "WinRM · console et propriétaires Explorer",
         _ => "Profils CIM par SID",
     };
 
@@ -50,11 +51,13 @@ public sealed partial class AdPosteReader
             { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte machine et nom DNS incohérents ; aucun contact distant."); }
             using var machine = await AdWorkstationAccess.AcquireAsync(source, host, stop.Token).ConfigureAwait(false);
             var reader = InventoryReader(machine);
-            foreach (var kind in Enum.GetValues<UserDetectionSource>())
+            UserDetectionSource[] methods = [UserDetectionSource.Console, UserDetectionSource.LogonUi, UserDetectionSource.WinRm, UserDetectionSource.Profiles, UserDetectionSource.Security];
+            for (var index = 0; index < methods.Length; index++)
             {
+                var kind = methods[index];
                 stop.Token.ThrowIfCancellationRequested(); directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
                 var method = DetectionMethod(kind);
-                progress?.Report(new((int)kind + 1, Enum.GetValues<UserDetectionSource>().Length, method));
+                progress?.Report(new(index + 1, methods.Length, method));
                 var read = kind == UserDetectionSource.Security
                     ? await new WindowsLastUserEventsReader(source.Clock).ReadAsync(host, local.Computer.WhenCreated, machine.Settings, machine.Credential, stop.Token).ConfigureAwait(false)
                     : await reader.ReadUserSourceAsync(host, kind, stop.Token, machine.Credential).ConfigureAwait(false);
@@ -88,7 +91,10 @@ public sealed partial class AdPosteReader
                     Attempt("Vérification AD · " + candidate.Origin, user is null ? "A_REVOIR" : "CONFIRME", reason,
                         (int)source.Clock.GetElapsedTime(begin).TotalMilliseconds, PosteText.Flat(candidate.Account ?? candidate.Sid ?? "", 320));
                     if (user is null) { continue; }
-                    detected = new(user, source.Clock.GetUtcNow(), candidate.EvidenceAt, candidate.Origin, kind != UserDetectionSource.Console, candidate.Sid is not null);
+                    detected = new(user, source.Clock.GetUtcNow(), candidate.EvidenceAt, candidate.Origin, kind != UserDetectionSource.Console && !candidate.CurrentConsole, candidate.Sid is not null);
+                    if (candidate.CurrentConsole)
+                    { consolePass = new(local.Computer.ObjectGuid, local.Computer.DistinguishedName, WorkstationIdentity.ExpectedName(local.Computer)!,
+                        candidate.EvidenceAt ?? detected.ReadAt, "CONFIRME", candidate.Account); }
                     break;
                 }
                 if (detected is not null) { break; }
@@ -155,7 +161,7 @@ public sealed partial class AdPosteReader
             || !HasClass(entry, "user") || HasClass(entry, "computer") || entry.Guid("objectGUID") is not { } id || id == Guid.Empty
             || foundSid is null || !foundSid.StartsWith(domain.DomainSid + "-", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(sam)
             || created is null || created == DateTimeOffset.MinValue || created > source.Clock.GetUtcNow()
-            || candidate.EvidenceAt is { } at && at < created)
+            || candidate.EvidenceAt is { } at && (at < created || at > source.Clock.GetUtcNow().AddMinutes(2)))
         { return (null, "Identité AD ou dates incohérentes ; candidat écarté."); }
         var match = RelationRules.MatchAccount(new(sam, domain.NetbiosName, domain.DnsName, foundSid, entry.String("userPrincipalName")), candidate.Account, candidate.Sid, local.Computer.DnsHostName);
         if (!match.Match) { return (null, match.Reason); }

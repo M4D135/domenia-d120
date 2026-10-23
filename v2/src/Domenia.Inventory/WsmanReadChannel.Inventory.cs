@@ -1,6 +1,6 @@
 namespace Domenia.Inventory;
 
-internal enum InventoryShellRead { Certificates, Tasks }
+internal enum InventoryShellRead { Certificates, Tasks, UserIdentity }
 
 internal sealed partial class WsmanReadChannel
 {
@@ -8,6 +8,7 @@ internal sealed partial class WsmanReadChannel
     {
         InventoryShellRead.Certificates => CertificatesScript,
         InventoryShellRead.Tasks => TasksScript,
+        InventoryShellRead.UserIdentity => UserIdentityScript,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     }, timeout);
 
@@ -47,6 +48,36 @@ internal sealed partial class WsmanReadChannel
             }
         } catch {$code=$_.Exception.HResult}
         [Console]::Out.Write(([pscustomobject]@{Format='Domenia.TasksRead/1';Computer=[Environment]::MachineName;Code=$code;Truncated=$truncated;Rows=$rows.ToArray()} | ConvertTo-Json -Depth 4 -Compress))
+        exit 0
+        """;
+
+    private const string UserIdentityScript = """
+        $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
+        [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
+        $rows=[Collections.Generic.List[object]]::new();$code=0;$truncated=$false
+        try {
+            try {
+                $cs=@(Get-CimInstance -ClassName Win32_ComputerSystem -Property Name,UserName -OperationTimeoutSec 1 -ErrorAction Stop)
+                if($cs.Count -ne 1 -or $cs[0].Name -ine [Environment]::MachineName){throw 'Identite systeme non confirmee'}
+                if($cs[0].UserName){$rows.Add([pscustomobject]@{Kind='Console';Account=[string]$cs[0].UserName;Sid=$null;ProcessId=$null;CreatedUtc=$null})}
+            } catch {$truncated=$true;$code=$_.Exception.HResult}
+            $examined=0
+            Get-CimInstance -ClassName Win32_Process -Filter "Name='explorer.exe'" -Property Name,ProcessId,CreationDate -OperationTimeoutSec 1 -ErrorAction Stop | Select-Object -First 17 | ForEach-Object {
+                $examined++
+                if($examined -gt 16){$truncated=$true}
+                else {
+                    try {
+                        $p=$_;if(-not $p.CreationDate){throw 'Creation du processus inconnue'}
+                        $owner=Invoke-CimMethod -InputObject $p -MethodName GetOwner -OperationTimeoutSec 1 -ErrorAction Stop
+                        $sid=Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid -OperationTimeoutSec 1 -ErrorAction Stop
+                        $again=@(Get-CimInstance -ClassName Win32_Process -Filter ('ProcessId='+([uint32]$p.ProcessId).ToString([Globalization.CultureInfo]::InvariantCulture)) -Property Name,ProcessId,CreationDate -OperationTimeoutSec 1 -ErrorAction Stop)
+                        if($owner.ReturnValue -ne 0 -or $sid.ReturnValue -ne 0 -or -not $owner.User -or -not $owner.Domain -or -not $sid.Sid -or $again.Count -ne 1 -or $again[0].Name -ine 'explorer.exe' -or $again[0].CreationDate -ne $p.CreationDate){throw 'Identite du processus non confirmee'}
+                        $rows.Add([pscustomobject]@{Kind='Explorer';Account=([string]$owner.Domain+'\'+[string]$owner.User);Sid=[string]$sid.Sid;ProcessId=[uint32]$p.ProcessId;CreatedUtc=$p.CreationDate.ToUniversalTime().ToString('o')})
+                    } catch {$truncated=$true}
+                }
+            }
+        } catch {$truncated=$true;$code=$_.Exception.HResult}
+        [Console]::Out.Write(([pscustomobject]@{Format='Domenia.UserIdentityRead/1';Computer=[Environment]::MachineName;Code=$code;Truncated=$truncated;Rows=$rows.ToArray()} | ConvertTo-Json -Depth 4 -Compress))
         exit 0
         """;
 }
