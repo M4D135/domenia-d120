@@ -325,7 +325,15 @@ public static partial class PosteSecrets
 public sealed record OtherAccountResult(string Computer, string Resource, bool Accepted, string Identity, string Text, bool Simulated);
 
 /// <summary>One workstation of the secrets index of the OU (metadata only).</summary>
-public sealed record SecretsIndexRow(string Dn, string Computer, int? BitLockerKeys, FactState BitLockerState, DateTimeOffset? LapsExpiration, bool LapsExpired, string LapsKind);
+public sealed record SecretsIndexRow(string Dn, string Computer, int? BitLockerKeys, FactState BitLockerState, DateTimeOffset? LapsExpiration, bool LapsExpired, string LapsKind)
+{
+    public DateTimeOffset? BitLockerReadAt { get; init; }
+    public string? Detail { get; init; }
+}
 
 /// <summary>Result of poste.secrets.index: counts, the sentence above the list and the rows (no value, no key).</summary>
-public sealed record SecretsIndex(ScopeSelection Scope, DateTimeOffset ReadAt, int Total, int WithKeys, int WithoutKeys, int Refused, int LapsExpired, int LapsMissing, bool Truncated, string Summary, ImmutableArray<SecretsIndexRow> Rows);
+public sealed record SecretsIndex(ScopeSelection Scope, DateTimeOffset ReadAt, int Total, int WithKeys, int WithoutKeys, int Refused, int LapsExpired, int LapsMissing, bool Truncated, string Summary, ImmutableArray<SecretsIndexRow> Rows)
+{
+    public int Unknown { get; init; }
+    public string? Identity { get; init; }
+}

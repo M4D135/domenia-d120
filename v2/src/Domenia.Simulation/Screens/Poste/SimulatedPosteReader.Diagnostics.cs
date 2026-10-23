@@ -619,6 +619,7 @@ public sealed partial class SimulatedPosteReader
             var machine = Sim.Machine(c);
             observations.TryGetValue(c.ObjectGuid, out var observation);
             int? keys;
+            DateTimeOffset? presenceAt = null;
             FactState bitLockerState;
             if (PosteSimulation.BitLockerDenied(machine) && Sim.OtherAccount(c.ObjectGuid, "bitlocker") is null)
             {
@@ -629,6 +630,7 @@ public sealed partial class SimulatedPosteReader
             else if (Sim.BitLockerIndex(c.ObjectGuid) is (int readKeys, DateTimeOffset readAt))
             {
                 keys = readKeys;
+                presenceAt = readAt;
                 bitLockerState = FactState.Observed;
                 if (readKeys > 0)
                 {
@@ -643,6 +645,7 @@ public sealed partial class SimulatedPosteReader
                      && PosteSecrets.IndexApplies(holder, storedAt, c.ObjectGuid, c.WhenCreated))
             {
                 keys = storedKeys;
+                presenceAt = storedAt;
                 bitLockerState = FactState.Estimated;
                 if (storedKeys > 0)
                 {
@@ -657,7 +660,6 @@ public sealed partial class SimulatedPosteReader
             {
                 keys = null;
                 bitLockerState = FactState.Unknown;
-                withoutKeys++;
             }
             var expiration = AdValues.FromFileTime(c.LapsExpiration);
             var expired = c.Laps != LapsKind.None && expiration is DateTimeOffset exp && exp < now;
@@ -669,7 +671,8 @@ public sealed partial class SimulatedPosteReader
             {
                 lapsMissing++;
             }
-            rows.Add(new SecretsIndexRow(c.DistinguishedName, c.Name, keys, bitLockerState, expiration, expired, c.Laps.ToString()));
+            rows.Add(new SecretsIndexRow(c.DistinguishedName, c.Name, keys, bitLockerState, expiration, expired, c.Laps.ToString())
+            { BitLockerReadAt = presenceAt, Detail = bitLockerState == FactState.Estimated ? "Présence fictive mémorisée à la date indiquée." : "Métadonnées fictives de la simulation ; aucune valeur secrète." });
             done++;
             if (done % 25 == 0 || done == computers.Count)
             {
@@ -682,10 +685,11 @@ public sealed partial class SimulatedPosteReader
         }
         var truncated = computers.Count > rows.Count;
         var summary = FrenchText.Count(rows.Count, "poste", "postes") + " de l’OU " + scope.Label
-            + " · " + FrenchText.Integer(withKeys) + " avec au moins une clé BitLocker lisible, " + FrenchText.Integer(refused) + " lecture refusée"
+            + " · " + FrenchText.Integer(withKeys) + " avec présence BitLocker datée, " + FrenchText.Integer(refused) + " lecture refusée"
             + " · " + FrenchText.Integer(lapsExpired) + " expiration LAPS échue, " + FrenchText.Integer(lapsMissing) + " sans publication LAPS"
             + (truncated ? " · liste tronquée à " + FrenchText.Integer(Cap) + " lignes" : "") + " ; aucune clé, aucune valeur.";
-        return new SecretsIndex(scope, now, computers.Count, withKeys, withoutKeys, refused, lapsExpired, lapsMissing, truncated, summary, rows.ToImmutable());
+        return new SecretsIndex(scope, now, computers.Count, withKeys, withoutKeys, refused, lapsExpired, lapsMissing, truncated, summary, rows.ToImmutable())
+        { Unknown = rows.Count(r => r.BitLockerKeys is null) };
     }
 
     /// <summary>The user account of a session login (domain or UPN prefix removed), for the card link of PST-073.</summary>

@@ -21,10 +21,28 @@ public sealed partial class AdPosteReader
 
     private async Task SaveSecretMetadataAsync(LocalPoste local, AdReadAccess access, WorkstationSecretMetadata metadata)
     {
+        metadata = PosteSecretCache.Merge(StoredSecrets(local.Fleet, local.Computer), metadata);
         access.EnsureCurrent(); EnsureEpoch(local.Epoch); PosteSecretCache.Validate(metadata, source.Clock.GetUtcNow());
         await source.SaveFleetAsync(FleetCachePatch.Empty with
         { WorkstationSecrets = ImmutableDictionary<Guid, WorkstationSecretMetadata>.Empty.Add(local.Computer.ObjectGuid, metadata) }, local.Epoch, CancellationToken.None).ConfigureAwait(false);
         access.EnsureCurrent(); EnsureEpoch(local.Epoch);
+    }
+
+    private WorkstationSecretMetadata? StoredSecrets(CachedFleet fleet, DirectoryComputer computer)
+    {
+        var now = source.Clock.GetUtcNow();
+        var value = PosteSecretCache.Applicable(fleet.WorkstationSecrets.GetValueOrDefault(computer.ObjectGuid), computer.WhenCreated, now);
+        var previous = fleet.Facts.BitLocker.Where(b => computer.WhenCreated != DateTimeOffset.MinValue && b.At >= computer.WhenCreated && b.At <= now.AddMinutes(2)
+            && b.Machines.TryGetValue(computer.ObjectGuid, out var count) && count.Keys is > 0 and <= 100_000
+            && (count.Newest is null || count.Newest != DateTimeOffset.MinValue && count.Newest <= b.At))
+            .OrderByDescending(b => b.At).FirstOrDefault();
+        if (previous is not null)
+        {
+            var fact = previous.Machines[computer.ObjectGuid];
+            var legacy = new WorkstationSecretMetadata(new(previous.At, FactState.Estimated, fact.Keys, fact.Newest), null, null);
+            value = PosteSecretCache.Merge(legacy, value ?? legacy);
+        }
+        return value;
     }
 
     private async Task<AdEntry> SecretComputerAsync(LocalPoste local, AdReadAccess access, IReadOnlyList<string> attributes, CancellationToken token)

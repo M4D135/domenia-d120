@@ -299,9 +299,10 @@ export function renderSecrets(panel, state) {
       return;
     }
     host.innerHTML = `${head}<div class="ps-index-sums">
-        <span class="ps-sum" data-tone="ok"><b>${int(idx.withKeys)}</b>avec clé BitLocker</span><span class="ps-sum" data-tone="off"><b>${int(idx.withoutKeys)}</b>sans clé visible</span>
+        <span class="ps-sum" data-tone="ok"><b>${int(idx.withKeys)}</b>présences BitLocker datées</span><span class="ps-sum" data-tone="off"><b>${int(idx.withoutKeys)}</b>sans objet visible</span>
         <span class="ps-sum" data-tone="alert"><b>${int(idx.refused)}</b>${esc(idx.refused > 1 ? 'lectures refusées' : 'lecture refusée')}</span><span class="ps-sum" data-tone="warn"><b>${int(idx.lapsExpired)}</b>LAPS échu</span>
-        <span class="ps-sum" data-tone="info"><b>${int(idx.lapsMissing)}</b>sans LAPS</span></div><div data-slot="index-grid"></div>`;
+        <span class="ps-sum" data-tone="info"><b>${int(idx.lapsMissing)}</b>expirations LAPS non visibles</span>
+        ${idx.unknown > 0 ? `<span class="ps-sum" data-tone="off"><b>${int(idx.unknown)}</b>lectures BitLocker non concluantes</span>` : ''}</div><div data-slot="index-grid"></div>`;
     indexGrid = createGrid(host.querySelector('[data-slot="index-grid"]'), {
       key: 'poste.secrets.index',
       label: 'Index des secrets de l’OU',
@@ -311,10 +312,12 @@ export function renderSecrets(panel, state) {
         { id: 'computer', label: 'Poste', required: true, width: 170, mono: true },
         { id: 'bitLockerKeys', label: 'Clés BitLocker', type: 'number', width: 140 },
         { id: 'bitLockerState', label: 'Lecture BitLocker', type: 'enum', width: 170, options: [
-          { value: 'observed', label: 'Lue', tone: 'ok' }, { value: 'estimated', label: 'Base locale', tone: 'info' }, { value: 'refused', label: 'Refusée', tone: 'alert' }, { value: 'unknown', label: 'Non lue', tone: 'off' }] },
+          { value: 'observed', label: 'Objets visibles', tone: 'ok' }, { value: 'estimated', label: 'Présence datée ou partielle', tone: 'info' }, { value: 'refused', label: 'Refusée', tone: 'alert' }, { value: 'unknown', label: 'Non concluante', tone: 'off' }, { value: 'unavailable', label: 'Non aboutie', tone: 'off' }] },
+        { id: 'bitLockerReadAt', label: 'Constat BitLocker', type: 'date', width: 170 },
+        { id: 'detail', label: 'Précision de lecture', width: 320 },
         { id: 'lapsExpiration', label: 'Expiration LAPS', type: 'date', width: 170 },
         { id: 'lapsExpired', label: 'LAPS échu', type: 'bool', width: 120 },
-        { id: 'lapsKind', label: 'Type LAPS', width: 140, format: (v) => (v === 'Windows' ? 'Windows LAPS' : v === 'Legacy' ? 'LAPS historique' : v === 'None' ? 'Aucun' : v) },
+        { id: 'lapsKind', label: 'Type LAPS', width: 140, format: (v) => (v === 'Windows' ? 'Windows LAPS' : v === 'Legacy' ? 'LAPS historique' : v === 'None' ? 'Aucun' : v === 'Unknown' ? 'Non déterminé' : v) },
         { id: 'dn', label: 'Chemin (DN)', mono: true, hidden: true, width: 420 },
       ],
       empty: { icon: 'database', title: 'Aucun poste', text: 'Aucun poste dans l’OU de travail.' },
