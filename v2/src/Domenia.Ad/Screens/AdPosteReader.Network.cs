@@ -14,7 +14,7 @@ public sealed partial class AdPosteReader
     private readonly Lock recentGate = new();
     private readonly Dictionary<Guid, RecentPoste> recent = [];
     private long recentEpoch = -1;
-    private sealed record RecentPoste(DateTimeOffset At, PosteLive? Live = null, SoftwareResult? Software = null);
+    private sealed record RecentPoste(DateTimeOffset At, PosteLive? Live = null, SoftwareResult? Software = null, DetectedUser? Detected = null);
 
     private RecentPoste? Recent(Guid guid, long epoch, RecentPoste? next = null)
     {
@@ -31,6 +31,7 @@ public sealed partial class AdPosteReader
                     At = old.At > next.At ? old.At : next.At,
                     Live = next.Live is null || old.Live?.At > next.Live.At ? old.Live : next.Live,
                     Software = next.Software is null || old.Software?.ReadAt > next.Software.ReadAt ? old.Software : next.Software,
+                    Detected = next.Detected is null || old.Detected?.ReadAt > next.Detected.ReadAt ? old.Detected : next.Detected,
                 };
             }
             recent[guid] = next;

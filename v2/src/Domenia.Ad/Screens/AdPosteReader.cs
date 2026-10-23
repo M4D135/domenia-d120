@@ -66,12 +66,23 @@ public sealed partial class AdPosteReader
         var computer = local.Computer;
         var declared = computer.ManagedByDn is { } dn
             ? local.Directory.Users.Where(u => DistinguishedName.AreEqual(u.DistinguishedName, dn)).Take(2).ToArray() : [];
+        var detected = Recent(computer.ObjectGuid, local.Epoch)?.Detected;
+        ImmutableArray<AssociationEvent> history = detected is null ? [] : [new(detected.ReadAt, detected.User.Login, detected.Source,
+            "Lu pendant cette session. " + (detected.History ? "Indice historique ; pas une session actuelle. " : "Nom de console. ")
+            + (detected.SidCompared ? "SID comparé." : "SID non comparé."))];
         if (declared.Length == 1)
         {
             var user = declared[0];
             return PosteHeaderRules.Association(new(user.DisplayName ?? user.Cn, user.SamAccountName, user.DistinguishedName, user.ObjectGuid), AssociationBadge.Declared,
                 "managedBy (annuaire)", local.Directory.ReadAt == DateTimeOffset.MinValue ? null : local.Directory.ReadAt,
-                "Gestionnaire déclaré ; cela ne prouve pas qui utilise actuellement le poste", false, [], source.Zone);
+                "Gestionnaire déclaré ; cela ne prouve pas qui utilise actuellement le poste", false, history, source.Zone);
+        }
+        if (detected is not null)
+        {
+            return PosteHeaderRules.Association(detected.User, detected.History ? AssociationBadge.History : AssociationBadge.Observed,
+                detected.Source + " · session uniquement", detected.EvidenceAt ?? detected.ReadAt,
+                (detected.EvidenceAt is null ? "Date de lecture, date de connexion inconnue. " : "")
+                + "Compte AD résolu, aucune affectation déduite. " + (detected.SidCompared ? "SID comparé." : "SID de l’observation non lu."), detected.SidCompared, history, source.Zone);
         }
         var machine = local.Fleet.Facts.Machines.GetValueOrDefault(computer.ObjectGuid);
         if (machine is { ConsoleAt: { } seen, ConsoleUser: { Length: > 0 } login } && seen >= computer.WhenCreated)

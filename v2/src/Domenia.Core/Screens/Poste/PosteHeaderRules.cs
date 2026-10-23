@@ -100,7 +100,7 @@ public static class PosteHeaderRules
             text = user.Name + " · " + BadgeLabel(badge) + " · " + source + (at is DateTimeOffset seen ? " · " + PosteText.LocalDateTime(seen, zone) : "") + " · règle : " + rule;
             if (!identityProven)
             {
-                text += " · identité non vérifiable (lien hérité sans GUID)";
+                text += user.Guid is null ? " · identité non vérifiable (lien hérité sans GUID)" : " · identité de l’observation non vérifiée";
             }
         }
         return new PosteAssociation(user, user is null ? AssociationBadge.None : badge, BadgeLabel(user is null ? AssociationBadge.None : badge), BadgeTone(user is null ? AssociationBadge.None : badge), source, at, rule, text, identityProven, history);
