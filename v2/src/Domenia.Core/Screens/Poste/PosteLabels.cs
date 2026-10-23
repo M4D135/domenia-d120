@@ -281,6 +281,7 @@ public static class PosteLabels
         InventoryTransport.PsExec => "PsExec",
         InventoryTransport.ScheduledTask => "Tâche planifiée",
         InventoryTransport.NetApi => "NetAPI (RPC)",
+        InventoryTransport.EventLog => "Journal Windows (RPC)",
         _ => "Local",
     };
 

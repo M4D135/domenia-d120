@@ -574,3 +574,12 @@ L’ouverture de Poste combine cet historique avec les données V2 par leurs dat
 Avant redémarrage, une liste provenant du cache, non datée ou partielle laisse le total des sessions inconnu. Les personnes déjà identifiées restent affichées ; seule une lecture fraîche complète peut établir un total nul. La simulation respecte elle aussi l’autorité des comptes et l’UPN exact lors de l’ouverture d’une fiche, sans réattribuer un homonyme local ou étranger au domaine.
 
 Les notices d’inventaire portent une tonalité explicite : information pour la provenance et la mémorisation, avertissement pour un refus, une identité non confirmée ou une proposition de repli. Une simple confirmation de lecture n’apparaît plus comme une alerte. Trois tests ajoutés et compilés ; Debug/Release sans erreur ni avertissement, tests et validation visuelle toujours à effectuer en fin de développement.
+
+
+## 39. Historique Sécurité du dernier utilisateur (23/10/2026)
+
+`Remote.UseSecurityLog` active explicitement la source ; son défaut reste faux et n’ouvre aucun journal. La lecture RPC utilise le compte machine déjà sélectionné, sans repli d’identité, et le lecteur natif borné des événements. Le profil Poste accepte seulement 40 événements 4624 de types 2, 10 ou 11, au cours des trente derniers jours et après la création du compte ordinateur. Budget de trois secondes ; ressources et copie du secret restent détenues jusqu’à la fermeture réelle du worker.
+
+La source du journal doit être le poste demandé ; `WorkstationName` peut désigner son client et n’est pas pris pour son identité. Les candidats portent le SID cible, le domaine et la date de l’événement. Cinq SID récents au plus, un événement récent par SID ; comptes système, lectures réseau/service, doublons contradictoires et mauvaises dates exclus. Ces candidats suivent la validation AD et le contrôle final du parent déjà employés par les autres sources. Ils restent historiques et ne remplacent aucune affectation déclarée. Un rejet d’identifiants interrompt la chaîne avant publication des candidats.
+
+Les méthodes CIM de la détection sont désormais bornées à trois secondes chacune, dans l’enveloppe globale de vingt-cinq secondes. Six tests ajoutés et compilés en VM sans erreur ni avertissement ; tests et recette native non exécutés à ce stade. Les sources WinRM, registre distant et repli autorisé restent à terminer.

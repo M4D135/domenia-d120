@@ -4,7 +4,7 @@ using Domenia.Core.Poste;
 
 namespace Domenia.Inventory;
 
-public enum UserDetectionSource { Console, LogonUi, Profiles }
+public enum UserDetectionSource { Console, LogonUi, Profiles, Security }
 public sealed record WorkstationUserCandidate(string? Account, string? Sid, DateTimeOffset? EvidenceAt, string Origin);
 public sealed record WorkstationUserReading(string? ReportedName, SourceAccess Access, ImmutableArray<WorkstationUserCandidate> Candidates);
 
@@ -15,11 +15,11 @@ public sealed partial class WmiWorkstationReader
         && (instance.Raw("UserName") is null || instance.Raw("UserName") is string value && value.Length is > 0 and <= 320
             && !string.IsNullOrWhiteSpace(value) && !value.Any(char.IsControl) && value == value.Trim());
 
-    /// <summary>One closed source, at most six seconds, without scripts, profile mounting or service changes.</summary>
+    /// <summary>One closed CIM source, at most three seconds, without scripts, profile mounting or service changes.</summary>
     public async Task<WorkstationUserReading> ReadUserSourceAsync(string host, UserDetectionSource kind, CancellationToken token, RemoteProbeCredential? credential = null)
     {
-        if (!CimQuery.IsHostName(host) || !Enum.IsDefined(kind)) { throw new ArgumentException("Source de détection invalide."); }
-        var budget = TimeSpan.FromSeconds(6);
+        if (!CimQuery.IsHostName(host) || kind is not (UserDetectionSource.Console or UserDetectionSource.LogonUi or UserDetectionSource.Profiles)) { throw new ArgumentException("Source de détection CIM invalide."); }
+        var budget = TimeSpan.FromSeconds(3);
         var stop = CancellationTokenSource.CreateLinkedTokenSource(token);
         var began = clock.GetTimestamp();
         Task<WorkstationUserReading> work;

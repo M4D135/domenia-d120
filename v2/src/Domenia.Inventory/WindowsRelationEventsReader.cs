@@ -10,7 +10,11 @@ using Domenia.Core.Poste;
 
 namespace Domenia.Inventory;
 
-public sealed record RelationLogRequest(string Controller, DateTimeOffset From, DateTimeOffset To, int Maximum, string? SubjectSid = null);
+public sealed record RelationLogRequest(string Controller, DateTimeOffset From, DateTimeOffset To, int Maximum, string? SubjectSid = null)
+{
+    /// <summary>One workstation: at most forty interactive 4624 events and three seconds, never a DC harvest.</summary>
+    public bool WorkstationInteractive { get; init; }
+}
 public sealed record RelationLogEvent(long RecordId, int EventId, DateTimeOffset At, string Account, string? Domain, string? UserSid,
     string? Address, string? Workstation, int? LogonType);
 public sealed record RelationLogReading(ImmutableArray<RelationLogEvent> Events, int Read, int Rejected, int Ignored, bool Truncated,
@@ -39,7 +43,7 @@ public sealed class WindowsRelationEventsReader(TimeProvider clock)
         try { owned = credential is null ? null : new(credential.Account, credential.Password?.Copy(), credential.Session); }
         catch { Workers.Release(); throw; }
         var tracked = SecureCredentialCopies.Track(owned?.Password);
-        var timeout = request.SubjectSid is null ? TimeSpan.FromSeconds(60) : TimeSpan.FromSeconds(15);
+        var timeout = TimeSpan.FromSeconds(request.WorkstationInteractive ? 3 : request.SubjectSid is null ? 60 : 15);
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var latest = new Progress([], 0, 0, 0, false);
         RelationLogReading Snapshot(Progress value, SourceStatus? status = null, bool authentication = false, string? detail = null) => new(
@@ -122,12 +126,14 @@ public sealed class WindowsRelationEventsReader(TimeProvider clock)
         ArgumentNullException.ThrowIfNull(request);
         if (!CimQuery.IsHostName(request.Controller) || !request.Controller.Contains('.') || IPAddress.TryParse(request.Controller, out _)
             || request.From == DateTimeOffset.MinValue || request.From >= request.To || request.To - request.From > TimeSpan.FromDays(30)
-            || request.Maximum is < 1 or > 20_000 || request.SubjectSid is { } sid && (!AccountsRules.IsDomainSid(sid) || request.Maximum > 100))
+            || request.Maximum is < 1 or > 20_000 || request.SubjectSid is { } sid && (!AccountsRules.IsDomainSid(sid) || request.Maximum > 100)
+            || request.WorkstationInteractive && (request.SubjectSid is not null || request.Maximum > 40))
         { throw new ArgumentException("Contrôleur, période, SID ou limite du journal invalide."); }
         static string At(DateTimeOffset at) => at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture);
-        return "*[System[Provider[@Name='" + Provider + "'] and " + (request.SubjectSid is null ? "(EventID=4768 or EventID=4769 or EventID=4624)" : "EventID=4768")
+        return "*[System[Provider[@Name='" + Provider + "'] and " + (request.WorkstationInteractive ? "EventID=4624" : request.SubjectSid is null ? "(EventID=4768 or EventID=4769 or EventID=4624)" : "EventID=4768")
             + " and TimeCreated[@SystemTime >= '" + At(request.From) + "' and @SystemTime <= '" + At(request.To) + "']]]"
-            + (request.SubjectSid is null ? "" : " and *[EventData[Data[@Name='TargetSid']='" + request.SubjectSid + "' and Data[@Name='Status']='0x0']]");
+            + (request.WorkstationInteractive ? " and *[EventData[Data[@Name='LogonType']='2' or Data[@Name='LogonType']='10' or Data[@Name='LogonType']='11']]"
+                : request.SubjectSid is null ? "" : " and *[EventData[Data[@Name='TargetSid']='" + request.SubjectSid + "' and Data[@Name='Status']='0x0']]");
     }
 
     internal static RelationLogEvent? Map(RelationLogRaw raw, RelationLogRequest request, out bool ignored)
@@ -164,6 +170,7 @@ public sealed class WindowsRelationEventsReader(TimeProvider clock)
             if (!uint.TryParse(hex ? status[2..] : status, hex ? NumberStyles.AllowHexSpecifier : NumberStyles.None, CultureInfo.InvariantCulture, out var code)) { return null; }
             if (code != 0) { ignored = true; return null; }
         }
+        if (request.WorkstationInteractive && (raw.Id != 4624 || logonType is not (2 or 10 or 11))) { ignored = true; return null; }
         // ServiceSid is deliberately not selected: in 4769 it identifies the ticket's destination, not the user or client.
         var userSid = raw.Id == 4624 ? sid4624 : raw.Id == 4768 ? sid4768 : null;
         if (userSid is not null && !AccountsRules.IsDomainSid(userSid))

@@ -14,6 +14,7 @@ public sealed partial class AdPosteReader
     {
         UserDetectionSource.Console => "CIM utilisateur courant",
         UserDetectionSource.LogonUi => "LogonUI (dernier nom affiché)",
+        UserDetectionSource.Security => "Journal Sécurité 4624 (optionnel)",
         _ => "Profils CIM par SID",
     };
 
@@ -53,8 +54,10 @@ public sealed partial class AdPosteReader
             {
                 stop.Token.ThrowIfCancellationRequested(); directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
                 var method = DetectionMethod(kind);
-                progress?.Report(new(attempts.Count, 4, method));
-                var read = await reader.ReadUserSourceAsync(host, kind, stop.Token, machine.Credential).ConfigureAwait(false);
+                progress?.Report(new((int)kind + 1, Enum.GetValues<UserDetectionSource>().Length, method));
+                var read = kind == UserDetectionSource.Security
+                    ? await new WindowsLastUserEventsReader(source.Clock).ReadAsync(host, local.Computer.WhenCreated, machine.Settings, machine.Credential, stop.Token).ConfigureAwait(false)
+                    : await reader.ReadUserSourceAsync(host, kind, stop.Token, machine.Credential).ConfigureAwait(false);
                 directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
                 if (read.ReportedName is not null) { ConfirmIdentity(local.Computer, read.ReportedName); }
                 if (read.Access.Status == SourceStatus.Refused || read.Access.AuthenticationRejected)

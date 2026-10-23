@@ -30,6 +30,7 @@ public enum InventoryTransport
     ScheduledTask,
     Local,
     NetApi,
+    EventLog,
 }
 
 /// <summary>Access report line of one source (Domenia 1 DgInventoryAccess).</summary>
