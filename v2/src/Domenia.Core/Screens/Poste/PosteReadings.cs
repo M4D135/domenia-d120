@@ -569,9 +569,9 @@ public static class PosteReadings
     {
         foreach (var p in d.Firewall)
         {
-            var effective = p.PolicyEnabled ?? p.LocalEnabled;
-            facts.Add(PosteText.Fact("Profil " + p.Name, (effective switch { true => "activé", false => "désactivé", _ => "inconnu" }) + (p.PolicyEnabled is null ? " (magasin local)" : " (stratégie)"),
-                effective is null ? FactState.Unknown : FactState.Observed, "MSFT_NetFirewallProfile", "Origine GPO lue par l’inventaire complet, pas par cette classe.", at: at, tone: effective == false ? Tone.Warn : Tone.Ok));
+            var effective = p.EffectiveEnabled;
+            facts.Add(PosteText.Fact("Profil " + p.Name, (effective switch { true => "activé", false => "désactivé", _ => "inconnu" }) + (p.PolicyRead == false ? " (stratégie non établie)" : p.PolicyEnabled is null ? " (magasin local)" : " (stratégie)"),
+                effective is null ? FactState.Unknown : FactState.Observed, p.Source ?? "MSFT_NetFirewallProfile", "Configuration déclarée ; ne constitue pas un test de filtrage réseau.", at: at, tone: effective is null ? Tone.Off : effective == false ? Tone.Warn : Tone.Ok));
         }
         foreach (var n in d.Network.Where(n => n.Profile is not null))
         {

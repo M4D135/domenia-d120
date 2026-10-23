@@ -195,7 +195,7 @@ internal static class AdSearchTests
         {
             SessionFactory = (host, budget, token) => new CimSession(host, budget, clock, cancellationToken: token)
             {
-                ReadOverride = (_, query, _) => query.Contains("FROM Win32_OperatingSystem", StringComparison.Ordinal)
+                RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, query, _) => query.Contains("FROM Win32_OperatingSystem", StringComparison.Ordinal)
                     ? [Row(("Caption", "Windows"), ("BuildNumber", "26100"), ("SystemDrive", "D:"))]
                     : query.Contains("FROM Win32_ComputerSystem", StringComparison.Ordinal) ? [Row(("Name", "PC"), ("Model", "modèle"))]
                     : query.Contains("FROM Win32_LogicalDisk", StringComparison.Ordinal) ? [Row(("DeviceID", "C:"), ("Size", 100L), ("FreeSpace", 5L)), Row(("DeviceID", "D:"), ("Size", 2048L), ("FreeSpace", 1024L))]

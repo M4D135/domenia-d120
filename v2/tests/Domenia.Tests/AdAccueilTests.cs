@@ -118,7 +118,7 @@ internal static class AdAccueilTests
         var clock = TestClock.Fixed();
         var reader = new WmiFleetProbeReader(clock)
         {
-            SessionFactory = (host, budget, token) => new(host, budget, clock, cancellationToken: token) { ReadOverride = (_, query, _) => { calls++; return query == "SELECT Name FROM Win32_ComputerSystem" ? [new WmiInstance(new Dictionary<string, object?> { ["Name"] = "DC1" })] : []; } },
+            SessionFactory = (host, budget, token) => new(host, budget, clock, cancellationToken: token) { RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, query, _) => { calls++; return query == "SELECT Name FROM Win32_ComputerSystem" ? [new WmiInstance(new Dictionary<string, object?> { ["Name"] = "DC1" })] : []; } },
         };
         var dc = Fixtures.Computer("DC1") with { UserAccountControl = 8192 };
         var result = await reader.ReadAsync(dc, ["sec.localusers", "hw.model"], CancellationToken.None);

@@ -72,7 +72,17 @@ public sealed record SecureBootInfo(bool? Enabled, string? Firmware, bool? VbsRu
 public sealed record NetworkAdapter(string Name, int? Status, long? SpeedBitsPerSecond, string? Mac, bool Physical, bool Wireless, ImmutableArray<string> Ipv4, int? PrefixLength, string? Gateway, ImmutableArray<string> Dns, bool? Dhcp, string? Profile);
 
 /// <summary>One firewall profile: local value and policy value (the policy wins), with the active connections it applies to.</summary>
-public sealed record FirewallProfile(string Name, bool? LocalEnabled, bool? PolicyEnabled, ImmutableArray<string> Connections);
+public sealed record FirewallProfile(string Name, bool? LocalEnabled, bool? PolicyEnabled, ImmutableArray<string> Connections)
+{
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? PolicyRead { get; init; }
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ConnectionsRead { get; init; }
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
+    [global::System.Text.Json.Serialization.JsonIgnore]
+    public bool? EffectiveEnabled => PolicyRead == false ? null : PolicyEnabled ?? LocalEnabled;
+}
 
 public sealed record AntivirusProduct(string Name, int? ProductState, DateTimeOffset? Timestamp);
 
@@ -81,7 +91,18 @@ public sealed record DefenderStatus(bool? AntivirusEnabled, bool? RealTime, bool
 public sealed record Hotfix(string Id, string? Description, DateTimeOffset? InstalledOn);
 
 /// <summary>Windows Update configuration: WSUS address and whether it is really used (UseWUServer = 1), last CBS update.</summary>
-public sealed record UpdateConfig(string? WsusServer, bool? UseWsus, string? Source, DateTimeOffset? LastSuccess, string? LastResult);
+public sealed record UpdateConfig(string? WsusServer, bool? UseWsus, string? Source, DateTimeOffset? LastSuccess, string? LastResult)
+{
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? PolicyRead { get; init; }
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? LastSuccessReported { get; init; }
+    [global::System.Text.Json.Serialization.JsonIgnore]
+    public string WsusText => PolicyRead == false || UseWsus is null
+        ? WsusServer is null ? "Configuration WSUS non établie" : WsusServer + " (application non établie)"
+        : UseWsus == true ? WsusServer ?? "WSUS activé, adresse non renseignée"
+        : WsusServer is null ? "Aucun (Windows Update)" : WsusServer + " (non appliqué)";
+}
 
 /// <summary>One software entry as an uninstall key, SCCM, a user hive or an Appx package declares it.</summary>
 public sealed record SoftwareEntry(
@@ -117,7 +138,11 @@ public sealed record ShareInfo(string Name, string Path, string? Description);
 public sealed record PrinterInfo(string Name, string? Driver, string? Port, bool? Network, bool? Default, bool? Offline, bool? Error);
 
 /// <summary>Pending reboot indicators of the registry: confirmed obligations and partial hints are kept apart.</summary>
-public sealed record PendingReboot(ImmutableArray<string> Confirmed, ImmutableArray<string> Partial);
+public sealed record PendingReboot(ImmutableArray<string> Confirmed, ImmutableArray<string> Partial)
+{
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Complete { get; init; }
+}
 
 public sealed record ProcessEntry(int Id, string Name, long? WorkingSetBytes, double? CpuSeconds, string? User, DateTimeOffset? StartedAt);
 

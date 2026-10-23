@@ -106,7 +106,7 @@ internal static class MachineAccountIntegrationTests
         Check.False(WindowsAuthenticationErrors.IsRejected(unchecked((int)0x80041003)), "WMI AccessDenied n’est pas une preuve de mauvais secret");
         var calls = 0;
         var session = new CimSession("PC-1", TimeSpan.FromSeconds(15), TimeProvider.System)
-        { ReadOverride = (_, _, _) => { calls++; throw new COMException("fixture", unchecked((int)0x8007052E)); } };
+        { RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, _, _) => { calls++; throw new COMException("fixture", unchecked((int)0x8007052E)); } };
         var first = session.Read("system", @"root\cimv2", "SELECT Name FROM Win32_ComputerSystem", 1);
         var second = session.Read("bios", @"root\cimv2", "SELECT SMBIOSBIOSVersion FROM Win32_BIOS", 1);
         Check.Equal(1, calls, "pas de répétition du mauvais secret");
@@ -142,7 +142,7 @@ internal static class MachineAccountIntegrationTests
         var reader = new WmiFleetProbeReader(TimeProvider.System)
         {
             SessionFactory = (host, budget, token) => new CimSession(host, budget, TimeProvider.System, cancellationToken: token)
-            { ReadOverride = (_, _, _) => { calls++; return [new WmiInstance(new Dictionary<string, object?> { ["Name"] = "OTHER" })]; } },
+            { RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, _, _) => { calls++; return [new WmiInstance(new Dictionary<string, object?> { ["Name"] = "OTHER" })]; } },
         };
         var dc = Fixtures.Computer("DC1") with { UserAccountControl = 8192 };
         var skipped = await reader.ReadAsync(dc, ["sec.localusers"], CancellationToken.None);

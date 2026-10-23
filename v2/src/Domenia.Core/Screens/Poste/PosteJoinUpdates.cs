@@ -197,6 +197,11 @@ public static class PosteUpdates
         ArgumentNullException.ThrowIfNull(zone);
         var facts = ImmutableArray.CreateBuilder<PosteFact>();
         facts.Add(Provider("Windows Update", config.LastSuccess, config.LastResult, config.Source ?? "Client Windows Update", true, now, zone));
+        if (config.LastSuccessReported is { } reported)
+        {
+            facts.Add(PosteText.Fact("Dernière réussite déclarée", PosteText.Flat(reported, 128), FactState.Unknown, "Registre Windows Update",
+                "Le fuseau n’est pas établi : cette date brute ne sert pas à calculer une ancienneté.", at: now));
+        }
         return facts.ToImmutable();
     }
 

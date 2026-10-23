@@ -159,8 +159,8 @@ public static class InventoryRows
         }
         foreach (var p in d.Firewall)
         {
-            var effective = p.PolicyEnabled ?? p.LocalEnabled;
-            yield return R(InventoryCategories.Firewall, "Profil " + p.Name, effective?.ToString(CultureInfo.InvariantCulture) ?? "", effective switch { true => "Activé", false => "Désactivé", _ => "Inconnu" } + (p.PolicyEnabled is null ? " (local)" : " (stratégie)"));
+            var effective = p.EffectiveEnabled;
+            yield return R(InventoryCategories.Firewall, "Profil " + p.Name, effective?.ToString(CultureInfo.InvariantCulture) ?? "", effective switch { true => "Activé", false => "Désactivé", _ => "Inconnu" } + (p.PolicyRead == false ? " (stratégie non établie)" : p.PolicyEnabled is null ? " (local)" : " (stratégie)"));
         }
         foreach (var av in d.Antivirus)
         {
@@ -173,7 +173,7 @@ public static class InventoryRows
         }
         if (d.Updates is { } u)
         {
-            yield return R(InventoryCategories.Updates, "Serveur WSUS", u.WsusServer ?? "", u.WsusServer is null ? "Aucun (Windows Update)" : u.WsusServer + (u.UseWsus == true ? "" : " (non appliqué)"));
+            yield return R(InventoryCategories.Updates, "Serveur WSUS", u.WsusServer ?? "", u.WsusText);
             yield return R(InventoryCategories.Updates, "Dernière réussite", date(u.LastSuccess));
         }
         foreach (var s in d.Software.Take(400))
@@ -223,7 +223,7 @@ public static class InventoryRows
         }
         if (d.PendingReboot is { } reboot)
         {
-            yield return R(InventoryCategories.Reboot, "Obligation confirmée", string.Join(", ", reboot.Confirmed), reboot.Confirmed.IsEmpty ? "Aucune" : string.Join(", ", reboot.Confirmed));
+            yield return R(InventoryCategories.Reboot, "Obligation confirmée", string.Join(", ", reboot.Confirmed), reboot.Confirmed.IsEmpty ? reboot.Complete == false ? "Non établi complètement" : "Aucune" : string.Join(", ", reboot.Confirmed));
             if (!reboot.Partial.IsEmpty)
             {
                 yield return R(InventoryCategories.Reboot, "Indices partiels", string.Join(", ", reboot.Partial));

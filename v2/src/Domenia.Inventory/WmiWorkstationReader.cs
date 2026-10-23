@@ -50,14 +50,14 @@ public enum WorkstationReading
 /// console and the relations screen both use it: the console for its inventories, services, processes, sessions and events,
 /// the relations screen for the account at the console of a workstation.
 /// <para>
-/// Read only by construction. No method of any CIM class is invoked — not <c>StartService</c>, not <c>ChangeStartMode</c>,
+/// Read only by construction. No mutating method of any CIM class is invoked — not <c>StartService</c>, not <c>ChangeStartMode</c>,
 /// not <c>Reboot</c>: a service is read, never started, and the remote actions of the console belong to the write circuit
 /// (docs/WRITES.md). Every source is bounded by its own delay inside the budget of the reading, answers with a
 /// <see cref="SourceStatus"/>, and is emptied when it did not answer, so nothing unread is ever displayed.
 /// </para>
 /// <para>
 /// The registry sources of § 8.2 (Secure Boot, WSUS, keys of reboot pending) go through <c>StdRegProv</c>, which is a method
-/// call: they are not part of this reader yet, and the categories they feed stay « non lues » rather than guessed.
+/// call: they use the closed internal read-only contract of the CIM session; no write method is admitted.
 /// </para>
 /// </summary>
 public sealed partial class WmiWorkstationReader
@@ -289,6 +289,7 @@ public sealed partial class WmiWorkstationReader
             new(InventoryCategories.BitLocker, "BitLocker", static (session, current, access, token) => ReadBitLocker(session, current, access, token)),
             new(InventoryCategories.Tpm, "TPM", static (session, current, access, token) => ReadTpm(session, current, access, token)),
             new(InventoryCategories.Network, "Cartes réseau", static (session, current, access, token) => ReadNetwork(session, current, access, token)),
+            new(InventoryCategories.Firewall, "Pare-feu", static (session, current, access, token) => ReadFirewall(session, current, access, token)),
             new(InventoryCategories.Antivirus, "Antivirus", static (session, current, access, token) => ReadAntivirus(session, current, access, token)),
             new(InventoryCategories.Hotfixes, "Correctifs", static (session, current, access, token) => ReadHotfixes(session, current, access, token)),
             new(InventoryCategories.Updates, "Mises à jour", static (session, current, access, token) => ReadUpdateSource(session, current, access, token)),
@@ -301,6 +302,8 @@ public sealed partial class WmiWorkstationReader
             new(InventoryCategories.Shares, "Partages", static (session, current, access, token) => ReadShares(session, current, access, token)),
             new(InventoryCategories.Printers, "Imprimantes", static (session, current, access, token) => ReadPrinters(session, current, access, token)),
             new(InventoryCategories.Sessions, "Sessions", static (session, current, access, token) => ReadSessions(session, current, access, token)),
+            new(InventoryCategories.Reboot, "Redémarrage en attente", static (session, current, access, token) => ReadReboot(session, current, access, token)),
+            new(InventoryCategories.Site, "Site AD", static (session, current, access, token) => ReadSite(session, current, access, token)),
             .. reading == WorkstationReading.Full
                 ? new[]
                 {
@@ -410,11 +413,9 @@ public sealed partial class WmiWorkstationReader
     private static InventorySnapshot ReadBios(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
     {
         var reading = session.Read(InventoryCategories.Bios, Cimv2, "SELECT Manufacturer, BIOSVersion, SMBIOSBIOSVersion, ReleaseDate FROM Win32_BIOS", 1, CimBudgets.Query);
-        AddAccess(access, session, InventoryCategories.Bios, reading);
-        if (!reading.Answered)
-        {
-            return current with { Bios = null };
-        }
+        var secureBoot = Registry(session, InventoryRegistry.SecureBoot, "UEFISecureBootEnabled", RegistryMethod.Dword);
+        AddAccess(access, session, InventoryCategories.Bios, reading, RegistryAccess(InventoryCategories.Bios, secureBoot));
+        if (secureBoot.Found && secureBoot.Flag is null) { Incomplete(access, InventoryCategories.Bios, "Drapeau Secure Boot illisible."); }
 
         var bios = reading.Instances.FirstOrDefault();
         token.ThrowIfCancellationRequested();
@@ -426,8 +427,8 @@ public sealed partial class WmiWorkstationReader
                 bios?.Text("SMBIOSBIOSVersion"),
                 null,
                 bios?.Text("Manufacturer")),
-            // Secure Boot and the firmware type live in the registry (StdRegProv): not read here, so not shown.
-            SecureBoot = null,
+            // The registry value does not establish the firmware type when Secure Boot is off.
+            SecureBoot = new(secureBoot.Flag, secureBoot.Flag == true ? "UEFI" : null, null, null),
         };
     }
 
@@ -703,15 +704,8 @@ public sealed partial class WmiWorkstationReader
         };
     }
 
-    private static InventorySnapshot ReadUpdateSource(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
-    {
-        // The WSUS address, the applied policy and the last CBS result live in the registry (StdRegProv): not read here.
-        // The provider of update facts is Windows Update alone (docs/DECISIONS.md, WAPT abandoned), so the source is said
-        // « not read » rather than answered by anything else.
-        _ = token;
-        access.Add(new SourceAccess(InventoryCategories.Updates, SourceStatus.Skipped, "source des mises à jour dans le registre : non branchée dans cette version", 0, 0, session.Transport));
-        return current with { Updates = null };
-    }
+    private static InventorySnapshot ReadUpdateSource(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token) =>
+        ReadUpdateRegistry(session, current, access, token);
 
     private static InventorySnapshot ReadServices(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool automaticStopped = false)
     {

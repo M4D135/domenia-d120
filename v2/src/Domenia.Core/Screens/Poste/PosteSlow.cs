@@ -153,7 +153,7 @@ public static class PosteSlow
         if (data.PendingReboot is { } reboot)
         {
             Add(reboot.Confirmed.IsEmpty
-                ? new SlowFinding("reboot", null, "Redémarrage en attente", reboot.Partial.IsEmpty ? "Aucun indicateur" : "Indices partiels seulement", "Pas d’obligation confirmée.", null, 0)
+                ? new SlowFinding("reboot", null, "Redémarrage en attente", reboot.Complete == false ? "Lecture incomplète" : reboot.Partial.IsEmpty ? "Aucun indicateur" : "Indices partiels seulement", reboot.Complete == false ? "Sources non lues ; absence d’obligation non établie." : "Pas d’obligation confirmée.", null, 0)
                 : new SlowFinding("reboot", AttentionLevel.Warn, "Redémarrage en attente", "Confirmé par " + string.Join(", ", reboot.Confirmed), "Les mises à jour ne sont pas terminées tant que le poste n’a pas redémarré.", RestartAction, 10));
         }
 

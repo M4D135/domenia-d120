@@ -74,7 +74,7 @@ public static class PosteProbeDetails
             "soft.startupdetails" => d.Startup.Select(s => new Dictionary<string, string?> { ["Name"] = s.Name, ["Location"] = s.Location, ["User"] = s.User }),
             "soft.installed" => d.Software.Select(s => new Dictionary<string, string?> { ["Name"] = s.Name, ["Vendor"] = s.Publisher, ["Version"] = s.Version }),
             "sec.defenderdetails" => d.Defender is { } def ? [new() { ["AMProductVersion"] = def.Version, ["AntivirusEnabled"] = B(def.AntivirusEnabled), ["RealTimeProtectionEnabled"] = B(def.RealTime), ["BehaviorMonitorEnabled"] = B(def.Behavior) }] : [],
-            "sec.firewallprofiles" => d.Firewall.Select(p => new Dictionary<string, string?> { ["Name"] = p.Name, ["Enabled"] = B(p.PolicyEnabled ?? p.LocalEnabled) }),
+            "sec.firewallprofiles" => d.Firewall.Select(p => new Dictionary<string, string?> { ["Name"] = p.Name, ["Enabled"] = B(p.EffectiveEnabled) }),
             "sec.deviceguard" => d.SecureBoot is { } sb ? [new() { ["VirtualizationBasedSecurityStatus"] = sb.VbsRunning switch { true => "2", false => "0", _ => null } }] : [],
             "sec.bitlockervolumes" => d.BitLocker.Select(v => new Dictionary<string, string?> { ["DriveLetter"] = v.Drive, ["ProtectionStatus"] = N(v.Protection), ["ConversionStatus"] = N(v.Conversion), ["EncryptionMethod"] = N(v.Method) }),
             "sec.tpmdetails" => d.Tpm is { } tpm ? [new() { ["SpecVersion"] = tpm.Specification, ["IsEnabled_InitialValue"] = B(tpm.Enabled), ["IsActivated_InitialValue"] = B(tpm.Activated), ["IsOwned_InitialValue"] = B(tpm.Owned) }] : [],

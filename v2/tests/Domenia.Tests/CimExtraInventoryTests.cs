@@ -13,7 +13,7 @@ internal static class CimExtraInventoryTests
         return new(clock)
         {
             SessionFactory = (host, budget, token) => new(host, budget, clock, cancellationToken: token)
-            { ReadOverride = (_, query, _) => read(query) },
+            { RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, query, _) => read(query) },
         };
     }
 

@@ -533,8 +533,8 @@ public static class PosteBoardBuilder
             var appliedOff = new List<string>();
             foreach (var profile in inv.Firewall)
             {
-                var effective = profile.PolicyEnabled ?? profile.LocalEnabled;
-                var origin = profile.PolicyEnabled is null ? "clé locale" : "stratégie de groupe";
+                var effective = profile.EffectiveEnabled;
+                var origin = profile.PolicyRead == false ? "stratégie non établie" : profile.PolicyEnabled is null ? "clé locale" : "stratégie de groupe";
                 var applied = profile.Connections.Length > 0;
                 if (effective == false)
                 {
@@ -544,7 +544,7 @@ public static class PosteBoardBuilder
                         appliedOff.Add(profile.Name);
                     }
                 }
-                facts.Add(PosteText.Fact("Profil " + profile.Name, (effective switch { true => "Activé", false => "Désactivé", _ => "Inconnu" }) + " (" + origin + ")" + (applied ? " · appliqué à " + string.Join(", ", profile.Connections) : " · aucune connexion active"),
+                facts.Add(PosteText.Fact("Profil " + profile.Name, (effective switch { true => "Activé", false => "Désactivé", _ => "Inconnu" }) + " (" + origin + ")" + (applied ? " · appliqué à " + string.Join(", ", profile.Connections) : profile.ConnectionsRead == false ? " · connexions non établies" : " · aucune connexion active"),
                     effective is null ? FactState.Unknown : FactState.Observed, "Pare-feu Windows", null, at: inv.CollectedAt, tone: effective == false ? (applied ? Tone.Alert : Tone.Warn) : effective == true ? Tone.Ok : Tone.Off));
             }
             if (appliedOff.Count > 0)
@@ -555,9 +555,10 @@ public static class PosteBoardBuilder
             {
                 Note(points, policy, AttentionLevel.Warn, "Pare-feu désactivé : " + string.Join(", ", off) + ".", "firewall", null);
             }
-            var value = off.Count == 0 ? "Activé sur tous les profils" : "Désactivé sur " + string.Join(", ", off);
-            var state = appliedOff.Count > 0 ? Tone.Alert : off.Count > 0 ? Tone.Warn : Tone.Ok;
-            lines["computer.firewall"] = new SheetLine("computer.firewall", "Pare-feu", off.Count == 0 ? "Activé" : "Désactivé (" + string.Join(", ", off) + ")", null, state, false);
+            var complete = inv.Firewall.Length == 3 && inv.Firewall.All(p => p.EffectiveEnabled is not null);
+            var value = off.Count == 0 ? complete ? "Activé sur les profils lus" : "État non établi sur tous les profils" : "Désactivé sur " + string.Join(", ", off);
+            var state = appliedOff.Count > 0 ? Tone.Alert : off.Count > 0 ? Tone.Warn : complete ? Tone.Ok : Tone.Off;
+            lines["computer.firewall"] = new SheetLine("computer.firewall", "Pare-feu", off.Count == 0 ? complete ? "Activé selon les clés lues" : "État incomplet" : "Désactivé (" + string.Join(", ", off) + ")", null, state, false);
             sections.Add(new BoardSection("firewall", "Pare-feu par profil effectif", value, "La stratégie prime sur la clé locale ; profil désactivé appliqué nommé en premier.", state,
                 [.. facts.ToImmutable().OrderByDescending(f => f.Tone == Tone.Alert)]));
         }
@@ -594,10 +595,10 @@ public static class PosteBoardBuilder
             {
                 Note(points, policy, AttentionLevel.Warn, "Redémarrage en attente, confirmé par : " + string.Join(", ", reboot.Confirmed) + ".", "reboot", Restart);
             }
-            var value = pending ? "Oui" : reboot.Partial.IsEmpty ? "Non" : "Indices partiels";
-            var detail = pending ? "Confirmé par " + string.Join(", ", reboot.Confirmed) : reboot.Partial.IsEmpty ? "Aucun indicateur du registre" : "Indices partiels : " + string.Join(", ", reboot.Partial) + " (pas une obligation)";
-            var state = pending ? Tone.Warn : Tone.Ok;
-            lines["computer.reboot"] = new SheetLine("computer.reboot", "Redémarrage en attente", value, detail, pending ? Tone.Warn : reboot.Partial.IsEmpty ? Tone.Ok : null, false);
+            var value = pending ? "Oui" : reboot.Complete == false ? "Non établi complètement" : reboot.Partial.IsEmpty ? "Non" : "Indices partiels";
+            var detail = pending ? "Confirmé par " + string.Join(", ", reboot.Confirmed) : reboot.Complete == false ? "Au moins une source n’a pas pu être lue ; aucune absence de redémarrage déduite." : reboot.Partial.IsEmpty ? "Aucun indicateur du registre" : "Indices partiels : " + string.Join(", ", reboot.Partial) + " (pas une obligation)";
+            var state = pending ? Tone.Warn : reboot.Complete == false ? Tone.Off : Tone.Ok;
+            lines["computer.reboot"] = new SheetLine("computer.reboot", "Redémarrage en attente", value, detail, pending ? Tone.Warn : reboot.Complete == false ? Tone.Off : reboot.Partial.IsEmpty ? Tone.Ok : null, false);
             sections.Add(new BoardSection("reboot", "Redémarrage en attente", value, detail, state,
                 [
                     .. reboot.Confirmed.Select(c => PosteText.Fact(c, "Obligation confirmée", FactState.Observed, "Registre", null, at: inv.CollectedAt, tone: Tone.Warn)),
@@ -629,15 +630,9 @@ public static class PosteBoardBuilder
             }
             if (inv.Updates is { } updates)
             {
-                if (!string.IsNullOrWhiteSpace(updates.WsusServer))
-                {
-                    facts.Add(PosteText.Fact("Serveur WSUS", updates.UseWsus == true ? updates.WsusServer! : "Adresse déclarée, non appliquée (UseWUServer) : " + updates.WsusServer, FactState.Observed, "Registre (stratégie Windows Update)",
-                        "Configuration lue, pas un contact avec le serveur.", at: inv.CollectedAt, tone: updates.UseWsus == true ? Tone.Info : Tone.Warn));
-                }
-                else
-                {
-                    facts.Add(PosteText.Fact("Source des mises à jour", "Windows Update (aucun serveur WSUS configuré)", FactState.Observed, "Registre (stratégie Windows Update)", null, at: inv.CollectedAt, tone: Tone.Info));
-                }
+                facts.Add(PosteText.Fact("Source des mises à jour", updates.WsusText,
+                    updates.PolicyRead == false || updates.UseWsus is null ? FactState.Unknown : FactState.Observed,
+                    "Registre (stratégie Windows Update)", "Configuration déclarée, pas un contact avec le serveur.", at: inv.CollectedAt, tone: Tone.Info));
                 facts.AddRange(PosteUpdates.Facts(updates, now, zone));
             }
             var value = latest?.InstalledOn is DateTimeOffset at ? "Dernier correctif " + PosteText.Age(at, now) : "Aucun correctif daté";
@@ -652,12 +647,12 @@ public static class PosteBoardBuilder
             {
                 Note(points, policy, AttentionLevel.Warn, "Secure Boot désactivé sur un micrologiciel UEFI.", "secureboot", null);
             }
-            var value = boot.Enabled switch { true => "Activé", false => uefi ? "Désactivé" : "Non applicable (BIOS hérité)", _ => "Non mesuré" };
+            var value = boot.Enabled switch { true => "Activé", false => uefi ? "Désactivé" : boot.Firmware is null ? "Désactivé (micrologiciel non établi)" : "Non applicable (BIOS hérité)", _ => "Non mesuré" };
             var state = boot.Enabled == true ? Tone.Ok : boot.Enabled == false && uefi ? Tone.Warn : Tone.Off;
             lines["computer.secureboot"] = new SheetLine("computer.secureboot", "Démarrage sécurisé", value, "Micrologiciel " + (boot.Firmware ?? "non renseigné"), state, false);
             sections.Add(new BoardSection("secureboot", "Démarrage sécurisé", value, "Micrologiciel " + (boot.Firmware ?? "non renseigné"), state,
                 [
-                    PosteText.Fact("Secure Boot", value, boot.Enabled is null ? FactState.Unknown : FactState.Observed, "Registre (SecureBoot\\State)", uefi ? null : "BIOS hérité ou valeur absente : non mesuré.", at: inv.CollectedAt, tone: state),
+                    PosteText.Fact("Secure Boot", value, boot.Enabled is null ? FactState.Unknown : FactState.Observed, "Registre (SecureBoot\\State)", uefi ? null : "Le type de micrologiciel n’est pas déduit de l’absence d’activation de Secure Boot.", at: inv.CollectedAt, tone: state),
                     PosteText.Fact("Sécurité basée sur la virtualisation", boot.VbsRunning switch { true => "En cours", false => "Arrêtée", _ => "Non lue" }, boot.VbsRunning is null ? FactState.Unknown : FactState.Observed, "Win32_DeviceGuard", null, at: inv.CollectedAt, tone: Tone.Info),
                 ]));
         }

@@ -15,7 +15,7 @@ internal static class CimInventoryTests
         var calls = 0;
         var session = new CimSession("PC1.test.local", TimeSpan.FromSeconds(10), TestClock.Fixed())
         {
-            ReadOverride = (_, _, _) => { calls++; return []; },
+            RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, _, _) => { calls++; return []; },
         };
         foreach (var query in new[] { "SELECTX Name FROM Win32_ComputerSystem", "SELECT Name FROM Win32_Product", "SELECT Password FROM Win32_ComputerSystem", "SELECT Name FROM Win32_UserAccount", "SELECT Name FROM __Namespace", Query + "; DELETE" })
         {
@@ -35,9 +35,9 @@ internal static class CimInventoryTests
     public static void Cim_exact_limit_is_complete_and_extra_instance_marks_truncation()
     {
         var row = Row(("Name", "PC1"));
-        var session = new CimSession("PC1", TimeSpan.FromSeconds(10), TestClock.Fixed()) { ReadOverride = (_, _, _) => [row] };
+        var session = new CimSession("PC1", TimeSpan.FromSeconds(10), TestClock.Fixed()) { RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, _, _) => [row] };
         Check.Equal(SourceStatus.Ok, session.Read("Système", @"root\cimv2", Query, 1).Status, "une instance demandée et reçue");
-        session = new CimSession("PC1", TimeSpan.FromSeconds(10), TestClock.Fixed()) { ReadOverride = (_, _, _) => [row, row] };
+        session = new CimSession("PC1", TimeSpan.FromSeconds(10), TestClock.Fixed()) { RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, _, _) => [row, row] };
         var partial = session.Read("Système", @"root\cimv2", Query, 1);
         Check.Equal(SourceStatus.Partial, partial.Status, "instance sentinelle");
         Check.Equal(1, partial.Items, "sentinelle non conservée");
@@ -51,7 +51,7 @@ internal static class CimInventoryTests
             yield return Row(("Name", "PC1"));
             throw new TimeoutException();
         }
-        var session = new CimSession("PC1", TimeSpan.FromSeconds(10), TestClock.Fixed()) { ReadOverride = (_, _, _) => Failing() };
+        var session = new CimSession("PC1", TimeSpan.FromSeconds(10), TestClock.Fixed()) { RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, _, _) => Failing() };
         var result = session.Read("Système", @"root\cimv2", Query, 10);
         Check.Equal(SourceStatus.Partial, result.Status, "erreur après une observation");
         Check.Equal("PC1", result.Instances.Single().Text("Name"), "donnée conservée");
@@ -66,7 +66,7 @@ internal static class CimInventoryTests
         var timeout = TimeSpan.Zero;
         var session = new CimSession("PC1", TimeSpan.FromSeconds(5), clock, cancellationToken: stop.Token)
         {
-            ReadOverride = (_, _, allowed) => { calls++; timeout = allowed; return []; },
+            RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, _, allowed) => { calls++; timeout = allowed; return []; },
         };
         clock.Advance(TimeSpan.FromSeconds(4));
         session.Read("Système", @"root\cimv2", Query, 10, TimeSpan.FromSeconds(90));
@@ -96,7 +96,7 @@ internal static class CimInventoryTests
         {
             SessionFactory = (host, budget, token) => new CimSession(host, budget, clock, cancellationToken: token)
             {
-                ReadOverride = (_, query, _) => query.Contains("FROM Win32_OperatingSystem", StringComparison.Ordinal)
+                RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, query, _) => query.Contains("FROM Win32_OperatingSystem", StringComparison.Ordinal)
                     ? [Row(("Caption", "Windows"), ("TotalVisibleMemorySize", 1000UL), ("FreePhysicalMemory", 500UL))]
                     : query.Contains("FROM Win32_ComputerSystem", StringComparison.Ordinal) ? [Row(("Name", "PC1"), ("PCSystemType", 2), ("DomainRole", 1), ("Model", "Portable"))]
                     : query.Contains("FROM MSFT_PhysicalDisk", StringComparison.Ordinal) ? [Row(("DeviceId", "0"), ("FriendlyName", "SSD"))] : [],
@@ -119,7 +119,7 @@ internal static class CimInventoryTests
         {
             SessionFactory = (host, budget, token) => new CimSession(host, budget, clock, cancellationToken: token)
             {
-                ReadOverride = (_, query, _) =>
+                RegistryOverride = (_, _) => new(2, null), ReadOverride = (_, query, _) =>
                 {
                     if (query.Contains("FROM Win32_BIOS", StringComparison.Ordinal)) { stop.Cancel(); }
                     return query.Contains("FROM Win32_OperatingSystem", StringComparison.Ordinal) ? [Row(("Caption", "Windows"))] : [];

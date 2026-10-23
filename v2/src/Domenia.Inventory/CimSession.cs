@@ -27,8 +27,8 @@ public sealed record CimReading(string Category, SourceStatus Status, string Det
 /// Read-only CIM session of one workstation (CIM over DCOM, Windows session of the operator, Kerberos, packet privacy), as
 /// <see cref="WmiWorkstationProbe"/> opens it. Three things make it safe to point at a real machine:
 /// <list type="bullet">
-/// <item>only plain SELECT projections leave the process — <see cref="CimQuery.IsReadOnlySelect"/> refuses anything else,
-/// and no method of any class is ever invoked, so the session cannot change the workstation;</item>
+/// <item>only plain SELECT projections leave the query path — <see cref="CimQuery.IsReadOnlySelect"/> refuses anything else,
+/// the separate internal registry path admits only four read methods of StdRegProv on fixed inventory keys;</item>
 /// <item>every read is bounded three times over: the bind, each query by its own delay, and the whole reading by the budget
 /// given at construction — past the budget, the remaining sources answer « Interrompu » and what was read is kept;</item>
 /// <item>a failure is classified, never swallowed: refused (access denied), unreachable (RPC, network), interrupted
@@ -37,7 +37,7 @@ public sealed record CimReading(string Category, SourceStatus Status, string Det
 /// Synchronous by design: it is called from a worker thread by <see cref="WmiWorkstationReader"/>, never on the UI thread.
 /// Scopes are opened per read and never kept, so no WMI object outlives the read that created it.
 /// </summary>
-public sealed class CimSession
+public sealed partial class CimSession
 {
     private readonly TimeProvider clock;
     private readonly ITechnicalJournal? journal;
