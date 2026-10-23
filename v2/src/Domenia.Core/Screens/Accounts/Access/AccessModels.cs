@@ -242,7 +242,11 @@ public sealed record AccessValidation(
     Tone Tone,
     string RightsNote,
     bool Simulated,
-    DateTimeOffset At);
+    DateTimeOffset At)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? VaultSaveTicket { get; init; }
+}
 
 /// <summary>Validation and the state after it (activate, recover).</summary>
 public sealed record AccessChange(AccessValidation Result, AccessOverview State);

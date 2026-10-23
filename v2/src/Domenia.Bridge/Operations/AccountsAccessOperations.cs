@@ -12,14 +12,14 @@ namespace Domenia.Bridge;
 /// </summary>
 public sealed class AccountsAccessOperations : IOperationModule
 {
-    private static readonly string[] CredentialArguments = ["usage", "login", "password"];
+    private static readonly string[] CredentialArguments = ["usage", "login", "password", "theme"];
     private static readonly string[] UsageArguments = ["usage"];
-    private static readonly string[] RecoverArguments = ["id", "login", "password", "lease", "minutes", "target"];
+    private static readonly string[] RecoverArguments = ["id", "login", "password", "lease", "minutes", "target", "theme"];
     private static readonly string[] IdArguments = ["id"];
     private static readonly string[] KeyArguments = ["key"];
     private static readonly string[] ComputerArguments = ["computer"];
-    private static readonly string[] PasswordArguments = ["password"];
-    private static readonly string[] SwitchArguments = ["login", "password"];
+    private static readonly string[] PasswordArguments = ["password", "theme"];
+    private static readonly string[] SwitchArguments = ["login", "password", "theme"];
 
     public string Screen => "accounts";
 
@@ -47,8 +47,13 @@ public sealed class AccountsAccessOperations : IOperationModule
                 var values = BridgeArguments.ReadObject(args, CredentialArguments);
                 var usage = Usage(values);
                 var login = AccountsArguments.GetLogin(values, "login");
-                using var password = AccountsArguments.GetPassword(values, "password");
-                return await access.TestAsync(usage, login, password, cancellationToken).ConfigureAwait(false);
+                var (entry, targets) = await AccountsCredentialEntry.AskAsync(context, values, login, usage == AccessUsage.Remote ? CredentialRules.Remote : "Secrets", null, "Valider le compte secondaire", cancellationToken).ConfigureAwait(false);
+                using (entry)
+                {
+                    if (entry is null) { return AccountsCredentialEntry.Cancelled(context); }
+                    var result = await access.TestAsync(usage, login, entry.Password, cancellationToken).ConfigureAwait(false);
+                    return await AccountsCredentialEntry.CompleteAsync(context, entry, targets, result, cancellationToken).ConfigureAwait(false);
+                }
             }, "Valide un compte secondaire sans l’activer (une seule validation à la fois, 12 s au plus).", ServedInSimulation: true),
 
             new OperationDefinition("accounts.access.activate", OperationClass.NetworkRead, async (args, _, cancellationToken) =>
@@ -56,8 +61,13 @@ public sealed class AccountsAccessOperations : IOperationModule
                 var values = BridgeArguments.ReadObject(args, CredentialArguments);
                 var usage = Usage(values);
                 var login = AccountsArguments.GetLogin(values, "login");
-                using var password = AccountsArguments.GetPassword(values, "password");
-                return await access.ActivateAsync(usage, login, password, cancellationToken).ConfigureAwait(false);
+                var (entry, targets) = await AccountsCredentialEntry.AskAsync(context, values, login, usage == AccessUsage.Remote ? CredentialRules.Remote : "Secrets", null, "Activer le compte secondaire", cancellationToken).ConfigureAwait(false);
+                using (entry)
+                {
+                    if (entry is null) { return new AccessChange(AccountsCredentialEntry.Cancelled(context), await access.OverviewAsync(cancellationToken).ConfigureAwait(false)); }
+                    var result = await access.ActivateAsync(usage, login, entry.Password, cancellationToken).ConfigureAwait(false);
+                    return await AccountsCredentialEntry.CompleteAsync(context, entry, targets, result, cancellationToken).ConfigureAwait(false);
+                }
             }, "Valide puis active un compte Postes ou Secrets\u00A0; l’identifiant (jamais le mot de passe) est mémorisé.", ServedInSimulation: true),
 
             new OperationDefinition("accounts.access.clear", OperationClass.LocalRead, async (args, _, cancellationToken) =>
@@ -81,8 +91,15 @@ public sealed class AccountsAccessOperations : IOperationModule
                 {
                     throw BridgeArguments.Invalid(FrenchText.Quote("target") + " doit être un nom de poste valide ou null.");
                 }
-                using var password = AccountsArguments.GetPassword(values, "password");
-                return await access.RecoverAsync(id, login, password, lease, minutes, target, cancellationToken).ConfigureAwait(false);
+                var overview = await access.OverviewAsync(cancellationToken).ConfigureAwait(false);
+                var request = overview.Pending.FirstOrDefault(item => item.Id == id) ?? throw new DomeniaOperationException(AccountAccess.RequestUnknown, "Cet accès n’est plus en attente.");
+                var (entry, targets) = await AccountsCredentialEntry.AskAsync(context, values, login, request.Scope, target ?? request.Target, "Utiliser un autre compte", cancellationToken).ConfigureAwait(false);
+                using (entry)
+                {
+                    if (entry is null) { return new AccessChange(AccountsCredentialEntry.Cancelled(context), overview); }
+                    var result = await access.RecoverAsync(id, login, entry.Password, lease, minutes, target, cancellationToken).ConfigureAwait(false);
+                    return await AccountsCredentialEntry.CompleteAsync(context, entry, targets, result, cancellationToken).ConfigureAwait(false);
+                }
             }, "Utilise un autre compte pour la ressource d’un accès refusé (contexte contrôlé, une validation, bail)\u00A0; rien n’est rejoué.", ServedInSimulation: true),
 
             new OperationDefinition("accounts.access.dismiss", OperationClass.Local, async (args, _, cancellationToken) =>
@@ -128,16 +145,27 @@ public sealed class AccountsAccessOperations : IOperationModule
             new OperationDefinition("accounts.connection.correct", OperationClass.NetworkRead, async (args, _, cancellationToken) =>
             {
                 var values = BridgeArguments.ReadObject(args, PasswordArguments);
-                using var password = AccountsArguments.GetPassword(values, "password");
-                return await access.CorrectConnectionAsync(password, cancellationToken).ConfigureAwait(false);
+                var session = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+                var (entry, targets) = await AccountsCredentialEntry.AskAsync(context, values, session.Account.Login, CredentialRules.Directory, null, "Corriger le mot de passe de connexion", cancellationToken).ConfigureAwait(false);
+                using (entry)
+                {
+                    if (entry is null) { return AccountsCredentialEntry.Cancelled(context); }
+                    var result = await access.CorrectConnectionAsync(entry.Password, cancellationToken).ConfigureAwait(false);
+                    return await AccountsCredentialEntry.CompleteAsync(context, entry, targets, result, cancellationToken).ConfigureAwait(false);
+                }
             }, "Corrige le mot de passe du compte de connexion sans reconnecter (même identité seulement).", ServedInSimulation: true),
 
             new OperationDefinition("accounts.connection.switch", OperationClass.NetworkRead, async (args, _, cancellationToken) =>
             {
                 var values = BridgeArguments.ReadObject(args, SwitchArguments);
                 var login = AccountsArguments.GetLogin(values, "login");
-                using var password = AccountsArguments.GetPassword(values, "password");
-                return await access.SwitchAsync(login, password, cancellationToken).ConfigureAwait(false);
+                var (entry, targets) = await AccountsCredentialEntry.AskAsync(context, values, login, CredentialRules.Directory, null, "Changer de compte", cancellationToken).ConfigureAwait(false);
+                using (entry)
+                {
+                    if (entry is null) { return new AccessSwitch(AccountsCredentialEntry.Cancelled(context), null, (await access.OverviewAsync(cancellationToken).ConfigureAwait(false)).Epoch); }
+                    var result = await access.SwitchAsync(login, entry.Password, cancellationToken).ConfigureAwait(false);
+                    return await AccountsCredentialEntry.CompleteAsync(context, entry, targets, result, cancellationToken).ConfigureAwait(false);
+                }
             }, "Change de compte sans fermer Domenia\u00A0: une validation, nouvelle session, comptes et refus de la session précédente oubliés\u00A0; rien n’est rejoué.", ServedInSimulation: true),
 
             new OperationDefinition("accounts.remembered.forget", OperationClass.LocalWrite, async (args, _, cancellationToken) =>

@@ -1334,3 +1334,15 @@ hexadécimaux). ».
 ### Précision du 23 octobre 2026 — couverture réelle
 
 Les compteurs `directory.ou.*.counts` peuvent être `null` : la navigation LDAP ne lit que les OU et ne déduit aucun zéro pour leurs objets. Un relevé complet est complet pour sa branche et sa profondeur seulement ; les trois indicateurs de comptes du domaine restent non mesurés sans census exhaustif du domaine. Les chiffres de parc issus d’un cache partiel l’annoncent, sans bilan sain ni garantie d’exhaustivité.
+
+
+### Complément du 23/10/2026 — comptes et coffre natif
+
+En mode annuaire, `accounts.access.test`, `accounts.access.activate`, `accounts.access.recover`, `accounts.connection.correct` et `accounts.connection.switch` ouvrent la fenêtre native de saisie. `theme` est facultatif (`dark`, `light`, `contrast`) ; toute propriété `password` est refusée. Le contrat de saisie fictive reste inchangé en simulation. Le verdict `AccessValidation` peut porter `vaultSaveTicket` après consentement explicite dans la fenêtre et authentification réussie.
+
+| Opération | Classe | Arguments | Résultat |
+| --- | --- | --- | --- |
+| `accounts.vault.save` | `LocalWrite` | `ticket` opaque à usage unique, 60 s | `complete`, `changed`, `requested`, `message` ; aucun secret |
+| `accounts.vault.delete` | `LocalWrite` | `usage` (`directory`, `remote`, `secrets`), `login` exact, `target` facultatif pour un compte local | même reçu, absence traitée comme déjà oubliée |
+
+Le coffre est indisponible en simulation. Une panne partielle reste distincte d’un succès complet ; aucune relance automatique. Voir `ops/comptes.md` pour les clés compatibles Domenia 1, la garde des refus et la durée de détention des copies.

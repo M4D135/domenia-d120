@@ -35,6 +35,7 @@ internal sealed class PasswordWindow : Form
     private readonly Button okButton = new();
     private readonly Button cancelButton = new();
     private bool generatedActive;
+    private FichePasswordEntry? accepted;
 
     public PasswordWindow(FichePasswordRequest request)
     {
@@ -75,14 +76,13 @@ internal sealed class PasswordWindow : Form
     /// <summary>The password given (read-only copy, owned by the caller); the fields are wiped. Null unless the window was accepted.</summary>
     public FichePasswordEntry? TakeEntry()
     {
-        if (DialogResult != DialogResult.OK || first.SecretLength == 0 || !first.SameAs(second))
-        {
-            WipeAll();
-            return null;
-        }
-        var entry = new FichePasswordEntry(first.CopySecret(), generatedActive);
-        WipeAll();
-        return entry;
+        var result = accepted; accepted = null; return result;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) { accepted?.Dispose(); accepted = null; }
+        base.Dispose(disposing);
     }
 
     private void Build()
@@ -156,6 +156,8 @@ internal sealed class PasswordWindow : Form
         {
             if (Ready())
             {
+                accepted?.Dispose();
+                accepted = new FichePasswordEntry(first.CopySecret(), generatedActive);
                 DialogResult = DialogResult.OK;
                 Close();
             }

@@ -1,8 +1,8 @@
 // Comptes screen, tab « Accès de Domenia » (Domenia 1 CPT-001 to CPT-018, CPT-021): accesses to review after a refusal,
 // the connection account (read only, correction in place, « Changer de compte »), the identities used, the accounts in
 // service, the secondary accounts (workstations, secrets) with their validation, the trial on a workstation and the
-// accounts kept in memory. Passwords are typed in the page, sent once to the engine (accounts.access.*: SecureString up to
-// the Windows API) and cleared from the fields at once; only names come back.
+// accounts kept in memory. Real credentials use the native secure window; simulation keeps fictitious page input.
+// Only names, verdicts and single-use vault tickets return to the page.
 //
 // The tab is built ONCE; afterwards only its state zones are repainted (pending, connection facts, identities, « En ce
 // moment », statuses, memory), never a form: an identifier or a password being typed in another card is never erased
@@ -24,7 +24,7 @@ function resourceIcon(key) {
 }
 
 /** A password field with its reveal button (CSP: no inline handler; wired by bindReveal of shared.js). */
-function passwordField(id, label, { hint = '', disabled = false } = {}) {
+function webPasswordField(id, label, { hint = '', disabled = false } = {}) {
   return `<div class="k-field"><label for="${id}">${esc(label)}</label>
     <div class="cpt-pwd-input"><input class="input mono" id="${id}" type="password" autocomplete="off" spellcheck="false" maxlength="256" data-secret${disabled ? ' disabled' : ''}>
       <button class="btn ghost icon sm" type="button" data-reveal aria-label="Afficher le mot de passe quelques secondes" aria-pressed="false"${disabled ? ' disabled' : ''}>${glyph('eye')}</button></div>
@@ -52,6 +52,32 @@ function errorMarkup(err) {
  * @param {{ params: any, setCount: (n: number) => void, onSession?: () => void }} page
  */
 export function mountAcces(panel, ctx, page) {
+  const nativeEntry = () => !page.simulated();
+  const passwordField = (id, label, options) => nativeEntry()
+    ? `<p id="${id}" class="k-hint" tabindex="-1">Le mot de passe sera demandé dans une fenêtre sécurisée après ce formulaire.</p>`
+    : webPasswordField(id, label, options);
+  async function credentialCall(operation, args) {
+    const values = { ...args };
+    if (nativeEntry()) {
+      delete values.password;
+      values.theme = document.documentElement.dataset.theme === 'light' ? 'light' : document.documentElement.dataset.theme === 'contrast' ? 'contrast' : 'dark';
+    }
+    const result = await ctx.call(operation, values);
+    const validation = result.result ?? result;
+    if (validation.vaultSaveTicket) {
+      const ticket = validation.vaultSaveTicket;
+      delete validation.vaultSaveTicket;
+      try {
+        const receipt = await ctx.call('accounts.vault.save', { ticket });
+        validation.hint = `${validation.hint ?? ''} ${receipt.message}`.trim();
+        if (!receipt.complete) validation.tone = 'warn';
+      } catch (error) {
+        validation.hint = `${validation.hint ?? ''} Compte validé, mais coffre non enregistré : ${errorSentence(error)}`.trim();
+        validation.tone = 'warn';
+      }
+    }
+    return result;
+  }
   let state = null;
   let alive = true;
   let built = false;
@@ -141,7 +167,7 @@ export function mountAcces(panel, ctx, page) {
             <p class="cpt-reason" data-zone="correct-reason" hidden></p>
             <div class="cpt-form-out" data-out="correct"></div>
           </div>
-          <div class="card-actions cpt-conn-actions"><button class="btn" type="button" data-relogin>${glyph('refresh')}Changer de compte…</button>
+          <div class="card-actions cpt-conn-actions"><button class="btn" type="button" data-relogin>${glyph('refresh')}Changer de compte…</button>${nativeEntry() ? `<button class="btn subtle" type="button" data-vault-forget="directory">${glyph('key')}Oublier dans le coffre…</button>` : ''}
             <span class="cpt-muted cpt-small" data-zone="relogin-reason"></span></div>
         </section>
         <section class="card span-5 cpt-ids reveal in" aria-labelledby="cpt-ids-t">
@@ -193,7 +219,7 @@ export function mountAcces(panel, ctx, page) {
         <div class="k-field"><label for="cpt-${usage}-login">Identifiant</label>
           <input class="input mono" id="cpt-${usage}-login" type="text" spellcheck="false" maxlength="260" autocomplete="off" placeholder="DOMAINE\\compte ou compte@domaine"></div>
         ${passwordField(`cpt-${usage}-pwd`, 'Mot de passe')}
-        <label class="k-check-row off" data-tip="${esc(s.vault.reason)}"><input class="k-checkbox" type="checkbox" disabled><span>Mémoriser sur ce PC (coffre Windows)</span></label>
+        ${nativeEntry() ? `<p class="k-hint">La fenêtre sécurisée propose le coffre Windows après validation.</p><button class="btn xs subtle" type="button" data-vault-forget="${usage}">Oublier dans le coffre…</button>` : `<label class="k-check-row off" data-tip="${esc(s.vault.reason)}"><input class="k-checkbox" type="checkbox" disabled><span>Mémoriser sur ce PC (coffre Windows)</span></label>`}
         <div class="cpt-second-actions">
           <span data-zone="${usage}-clear"></span>
           <button class="btn subtle" type="button" data-test="${usage}">${glyph('eye')}Tester</button>
@@ -201,7 +227,7 @@ export function mountAcces(panel, ctx, page) {
         </div>
       </form>
       <div class="cpt-form-out" data-out="${usage}"></div>
-      <p class="cpt-small cpt-muted">${glyph('shield')}La validation vérifie l’identité dans l’annuaire, pas les droits sur ${remote ? 'les postes' : 'LAPS et BitLocker'}. Le mot de passe reste en mémoire protégée, jamais sur le disque.</p>
+      <p class="cpt-small cpt-muted">${glyph('shield')}La validation vérifie l’identité dans l’annuaire, pas les droits sur ${remote ? 'les postes' : 'LAPS et BitLocker'}. Le mot de passe reste en mémoire protégée ; seule une mémorisation choisie explicitement utilise le coffre Windows.</p>
       ${trial}
     </section>`;
   }
@@ -390,11 +416,11 @@ export function mountAcces(panel, ctx, page) {
     const loginInput = form.querySelector(`#cpt-${usage}-login`);
     const secret = form.querySelector('[data-secret]');
     const login = loginInput.value.trim();
-    if (!login || !secret.value) { toast('Saisissez l’identifiant et le mot de passe.', { tone: 'warn' }); (login ? secret : loginInput).focus(); return; }
-    const password = secret.value;
-    secret.value = '';
+    if (!login || (!nativeEntry() && !secret?.value)) { toast('Saisissez l’identifiant et le mot de passe.', { tone: 'warn' }); (login ? secret : loginInput)?.focus(); return; }
+    const password = secret?.value;
+    if (secret) secret.value = '';
     peek?.hideAll();
-    const result = await guarded(usage, activate ? 'Validation puis activation…' : 'Validation du compte…', () => ctx.call(activate ? 'accounts.access.activate' : 'accounts.access.test', { usage, login, password }));
+    const result = await guarded(usage, activate ? 'Validation puis activation…' : 'Validation du compte…', () => credentialCall(activate ? 'accounts.access.activate' : 'accounts.access.test', { usage, login, password }));
     if (!result || !alive) return;
     if (activate) {
       if (result.result.success) dirty.delete(`cpt-${usage}-login`);
@@ -413,7 +439,8 @@ export function mountAcces(panel, ctx, page) {
     root.addEventListener('click', async (e) => {
       const t = e.target instanceof Element ? e.target.closest('button') : null;
       if (!t || t.disabled) return;
-      if (t.dataset.recover) recover(state.pending.find((p) => p.id === t.dataset.recover));
+      if (t.dataset.vaultForget) { await forgetVault(t.dataset.vaultForget); }
+      else if (t.dataset.recover) recover(state.pending.find((p) => p.id === t.dataset.recover));
       else if (t.dataset.dismiss) run(() => ctx.call('accounts.access.dismiss', { id: t.dataset.dismiss }), 'Compte actuel conservé.');
       else if (t.dataset.test) secondary(t.dataset.test, false);
       else if (t.dataset.clear) run(() => ctx.call('accounts.access.clear', { usage: t.dataset.clear }), 'Retour au compte de connexion.');
@@ -448,6 +475,30 @@ export function mountAcces(panel, ctx, page) {
     }
   }
 
+  async function forgetVault(usage) {
+    const initial = usage === 'directory' ? state.connection.identity : panel.querySelector(`#cpt-${usage}-login`)?.value.trim();
+    const body = document.createElement('div');
+    body.innerHTML = `<p>Supprime uniquement les entrées de ce compte pour ${usage === 'directory' ? 'la connexion annuaire' : usage === 'remote' ? 'les postes' : 'LAPS et BitLocker'}. Le compte en mémoire reste actif.</p>
+      <div class="k-field"><label for="cpt-vault-account">Identifiant exact mémorisé</label><input id="cpt-vault-account" class="input mono" type="text" spellcheck="false" maxlength="256" value="${esc(initial ?? '')}"><p class="k-hint">Les formes DOMAINE\\compte et compte@domaine ont chacune leur entrée.</p></div>
+      ${usage === 'remote' ? '<div class="k-field"><label for="cpt-vault-target">Poste (pour un compte local)</label><input id="cpt-vault-target" class="input mono" type="text" maxlength="253"></div>' : ''}
+      <div role="status" data-vault-result></div>`;
+    const drawer = openDrawer({ title: 'Oublier dans le coffre Windows', icon: 'key', key: 'accounts-vault-forget', width: 480, body,
+      actions: [{ id: 'cancel', label: 'Annuler', run: (p) => p.close() }, { id: 'forget', label: 'Oublier dans le coffre', icon: 'trash', run: async () => {
+        const login = body.querySelector('#cpt-vault-account').value.trim();
+        const target = body.querySelector('#cpt-vault-target')?.value.trim() || null;
+        if (!login) { body.querySelector('#cpt-vault-account').focus(); return; }
+        drawer.setBusy(true);
+        try {
+          const receipt = await ctx.call('accounts.vault.delete', { usage, login, target });
+          body.querySelector('[data-vault-result]').textContent = receipt.message;
+          toast(receipt.message, { tone: receipt.complete ? 'ok' : 'warn' });
+          if (receipt.complete) drawer.close();
+        } catch (error) { body.querySelector('[data-vault-result]').textContent = errorSentence(error); }
+        finally { drawer.setBusy(false); }
+      } }],
+    });
+  }
+
   /** « Tout oublier » (CPT-005): asks first, like Domenia 1 (safeguard « Confirmation »). */
   async function forgetAll() {
     const temporaries = state.memory.filter((m) => m.key.startsWith('temporary:'));
@@ -473,11 +524,11 @@ export function mountAcces(panel, ctx, page) {
 
   async function correct(form) {
     const secret = form.querySelector('[data-secret]');
-    if (!secret.value) { secret.focus(); return; }
-    const password = secret.value;
-    secret.value = '';
+    if (!nativeEntry() && !secret?.value) { secret?.focus(); return; }
+    const password = secret?.value;
+    if (secret) secret.value = '';
     peek?.hideAll();
-    const r = await guarded('correct', 'Validation du même compte…', () => ctx.call('accounts.connection.correct', { password }));
+    const r = await guarded('correct', 'Validation du même compte…', () => credentialCall('accounts.connection.correct', { password }));
     if (r && alive) {
       out('correct').innerHTML = resultMarkup(r);
       if (r.success) { refresh(); accessChanged(); }
@@ -538,9 +589,9 @@ export function mountAcces(panel, ctx, page) {
       const loginInput = body.querySelector(`#${ids}-login`);
       const secret = body.querySelector(`#${ids}-pwd`);
       const value = loginInput.value.trim();
-      if (!value || !secret.value) { (value ? secret : loginInput).focus(); return; }
-      const password = secret.value;
-      secret.value = '';
+      if (!value || (!nativeEntry() && !secret?.value)) { (value ? secret : loginInput)?.focus(); return; }
+      const password = nativeEntry() ? undefined : secret.value;
+      if (!nativeEntry()) secret.value = '';
       drawerPeek?.hideAll();
       const box = body.querySelector('[data-drw-out]');
       box.innerHTML = progressMarkup('Validation du compte proposé…');
@@ -588,7 +639,7 @@ export function mountAcces(panel, ctx, page) {
         const target = remote ? (body.querySelector('#cpt-rec-target').value.trim() || null) : null;
         const lease = body.querySelector('input[name="lease"]:checked')?.value ?? 'inactivity';
         const minutes = Number(body.querySelector('.cpt-lease-min').value) || state.lease.defaultMinutes;
-        const r = await ctx.call('accounts.access.recover', { id: req.id, login, password, lease, minutes: Math.min(state.lease.maxMinutes, Math.max(state.lease.minMinutes, minutes)), target });
+        const r = await credentialCall('accounts.access.recover', { id: req.id, login, password, lease, minutes: Math.min(state.lease.maxMinutes, Math.max(state.lease.minMinutes, minutes)), target });
         if (alive) apply(r.state);
         if (r.result.success) {
           toast(`Compte validé et gardé pour ${req.scopeLabel}${NBSP}: relancez l’action vous-même.`, { tone: 'ok', life: 6000 });
@@ -626,7 +677,7 @@ export function mountAcces(panel, ctx, page) {
         </ul>
         ${state.validation?.busy ? `<p class="cpt-reason">${glyph('info')}Une validation est en cours${NBSP}: attendez son résultat.</p>` : ''}`,
       onSubmit: async ({ login, password, box, body, drawer }) => {
-        const r = await ctx.call('accounts.connection.switch', { login, password });
+        const r = await credentialCall('accounts.connection.switch', { login, password });
         if (!r.result.success) { if (body.isConnected) box.innerHTML = resultMarkup(r.result); return; }
         toast(`${r.result.message} ${r.result.hint ?? ''}`.trim(), { tone: 'ok', life: 7000 });
         drawer.close();

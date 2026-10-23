@@ -59,6 +59,7 @@ internal sealed class Composition : IDisposable
         catch
         {
             context.Dispose();
+            (context.Directory as IDisposable)?.Dispose();
             (context.Preferences as IDisposable)?.Dispose();
             (context.Receipts as IDisposable)?.Dispose();
             throw;
@@ -68,6 +69,7 @@ internal sealed class Composition : IDisposable
     public void Dispose()
     {
         context.Dispose();
+        (context.Directory as IDisposable)?.Dispose();
         (context.Preferences as IDisposable)?.Dispose();
         (context.Receipts as IDisposable)?.Dispose();
     }

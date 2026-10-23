@@ -311,10 +311,7 @@ réglage de Windows.
 
 ## 6. Mots de passe et secrets
 
-- La page n’envoie un mot de passe qu’au geste « Préparer » (réinitialisation) ou « Activer / Tester / Valider » (comptes) ;
-  les champs sont vidés aussitôt. Le moteur le convertit en **`SecureString` en lecture seule** dès la lecture des arguments
-  (`AccountsArguments.GetPassword`) ; la chaîne JSON du message reste en mémoire gérée jusqu’au ramasse-miettes (comme le
-  champ texte de Domenia 1, SE-16) : elle n’est **ni journalisée, ni copiée, ni renvoyée**.
+- En mode annuaire, « Activer / Tester / Valider », correction et changement de compte utilisent désormais la fenêtre native (`IAccountsCredentialWindow`) : leur champ JSON `password` est refusé. La simulation conserve sa saisie fictive. La réinitialisation de la Fiche utilise aussi une fenêtre native ; la réinitialisation de la page Comptes conserve provisoirement sa saisie JSON, à aligner dans le lot suivant. Pour ce chemin restant, `AccountsArguments.GetPassword` convertit la valeur dès réception en `SecureString` et ne la renvoie ni ne la journalise.
 - Réinitialisation : la stratégie est vérifiée sur une copie temporaire des caractères, effacée aussitôt
   (`PasswordSecrets.Inspect`) — longueur minimale du domaine (1 au moins) ; trois classes sur quatre, ni le compte ni une partie
   du nom affiché **seulement si le domaine exige la complexité** (`pwdProperties`, sinon le contrôleur tranche, comme Domenia 1)
@@ -450,3 +447,17 @@ L’essai sur poste transmet le compte Postes choisi ou l’identité explicite 
 Les diagnostics LDAP 49 ne conservent qu’un type d’échec issu d’une liste fermée : identifiants, expiration, changement imposé, désactivation, verrouillage ou restriction. Les codes sont ceux de [WinError 1300–1699](https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1300-1699-) et [1700–3999](https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1700-3999-). Le texte brut du contrôleur n’est jamais exposé ni journalisé. Un diagnostic absent reste un refus générique.
 
 Onze tests contrôlés avec doubles couvrent les bascules, refus, annulations tardives, correction sans deuxième authentification, preuve à usage unique, copies de secrets et nom du poste. Ils sont compilés, pas encore exécutés. Les essais Windows réels, le coffre, la saisie native et l’usage de ces comptes dans tous les écrans restent à terminer avant la recette globale.
+
+### Fenêtre native et coffre Windows (23/10/2026)
+
+Les cinq opérations `accounts.access.test`, `.activate`, `.recover`, `accounts.connection.correct` et `.switch` demandent leur secret dans la fenêtre native en mode annuaire. La page envoie l’identité, le contexte et `theme` (`dark`, `light`, `contrast`), sans propriété `password`. La saisie fictive et le contrat existant restent utilisés en simulation. Annuler la fenêtre ne lance pas d’authentification. Les champs de la page conservent les identifiants en cours de saisie.
+
+La fenêtre présente le compte exact, un champ `SecureEntry`, une révélation limitée à 5 s, un bouton explicite « Utiliser le coffre » et un choix de mémorisation non coché. Un refus enregistré désactive la lecture du coffre et demande une correction manuelle. Lire le coffre ne lance pas un bind et ne réarme pas la garde. La fenêtre ne modifie pas le coffre elle-même.
+
+Après une authentification réussie et le choix de mémorisation, le verdict peut contenir `vaultSaveTicket` : confirmation opaque, 60 s, usage unique, liée à l’époque de source et au domaine/compte/usages exacts. La page l’envoie à `accounts.vault.save` (`LocalWrite`). Le secret reste dans une copie `SecureString` côté moteur, jamais dans le ticket. Le compte Secrets conserve deux entrées distinctes, Laps et BitLocker. Un échec ou une interruption après une première écriture annonce le nombre exact déjà traité ; le compte validé en mémoire reste utilisable. `accounts.vault.delete` (`LocalWrite`, `usage`, `login`, `target` facultatif) ne supprime que les entrées explicitement choisies ; une forme UPN et une forme DOMAINE\compte ne sont pas confondues. La page propose le retrait dans les cartes secondaires et dans la carte de connexion.
+
+Le stockage utilise `CRED_TYPE_GENERIC=1`, `CRED_PERSIST_LOCAL_MACHINE=2`, `CredReadW`, `CredWriteW`, `CredDeleteW` et `CredFree`, uniquement dans le profil du bureau et jamais sous une identité empruntée. Les clés `Domenia:v1:<SHA-256>` reprennent exactement les composants préfixés par longueur de Domenia 1 (`dev/wad/modules/Domenia-CredentialVault.Model.ps1`, en lecture seule). Aucun secret dans SQLite, les préférences, les tickets ou le journal. Aucune énumération du coffre. Identité et taille native contrôlées ; buffers temporaires effacés par longueur explicite avant libération. Le backend est indisponible en simulation.
+
+Sources Windows : [CredReadW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credreadw), [CredWriteW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew), [CREDENTIALW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw). Le test natif aller-retour et les captures des fenêtres restent à exécuter pendant la recette finale ; les huit tests de cette étape ne font aucun accès au coffre réel.
+
+La fenêtre de réinitialisation Fiche conserve maintenant sa copie acceptée avant `FormClosed` : effacer les contrôles ne détruit plus la valeur avant le transfert au moteur. Cette copie est transférée une seule fois, ou détruite à la fermeture si elle n’a pas été prise. Les fenêtres de secrets partagent la même gestion d’annulation et d’exclusion mutuelle.

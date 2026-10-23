@@ -52,6 +52,7 @@ public sealed class AccountAccess : IDisposable
     private readonly IDirectorySource directory;
     private readonly IAccountsAccessReader? reader;
     private readonly IAccountsConfigurationReader? settings;
+    private readonly IAccountsCredentialVault? vault;
     private readonly IPreferenceStore preferences;
     private readonly OperationJournal journal;
     private readonly TimeProvider clock;
@@ -87,7 +88,8 @@ public sealed class AccountAccess : IDisposable
         ITechnicalJournal log,
         AppMode mode,
         Func<CancellationToken, Task<int>> pendingWrites,
-        IAccountsConfigurationReader? settings = null)
+        IAccountsConfigurationReader? settings = null,
+        IAccountsCredentialVault? vault = null)
     {
         ArgumentNullException.ThrowIfNull(directory);
         ArgumentNullException.ThrowIfNull(preferences);
@@ -98,6 +100,7 @@ public sealed class AccountAccess : IDisposable
         this.directory = directory;
         this.reader = reader;
         this.settings = settings;
+        this.vault = vault;
         this.preferences = preferences;
         this.journal = journal;
         this.clock = clock;
@@ -123,7 +126,7 @@ public sealed class AccountAccess : IDisposable
                     return 1;
                 }
             },
-            c.Readers.Find<IAccountsConfigurationReader>()));
+            c.Readers.Find<IAccountsConfigurationReader>(), c.Readers.Find<IAccountsCredentialVault>()));
     }
 
     /// <summary>Settings of Domenia.config.json in force for the accounts (defaults of Domenia 1 without the file).</summary>
@@ -1348,7 +1351,15 @@ public sealed class AccountAccess : IDisposable
 
     private VaultState Vault() => mode == AppMode.Simulation
         ? new VaultState(false, "Indisponible en simulation, comme dans Domenia 1" + FrenchText.Colon + "aucun mot de passe n’est enregistré sur ce PC.")
-        : new VaultState(false, "Coffre Windows (Gestionnaire d’identification) en attente de décision de David et du branchement natif" + FrenchText.Colon + "aucun mot de passe n’est enregistré.");
+        : vault?.Available == true
+            ? new VaultState(true, "Coffre Windows facultatif : lecture explicite et mémorisation après authentification réussie.")
+            : new VaultState(false, "Coffre Windows indisponible dans ce mode d’exécution.");
+
+    public async Task<bool> CanUseVaultAsync(string login, string? target, CancellationToken token)
+    {
+        var session = await SessionAsync(token).ConfigureAwait(false);
+        lock (gate) { return !faults.ContainsKey(Key(session, login, target)); }
+    }
 
     private static string? RootHash(SessionSnapshot session)
     {
