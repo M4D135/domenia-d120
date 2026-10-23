@@ -527,3 +527,7 @@ La console et sa liste relisent localement les associations conservées dans `us
 Une affectation déclarée conserve sa priorité sur une détection récente. Les origines importée, indice et à vérifier ont désormais leurs propres badges. L’historique est borné à dix lignes ; un résultat de lecture partiel ou comportant des dates non qualifiées le dit. La liste construit une fois son index des relations par GUID et nom hérité, sans rescanner toutes les associations pour chaque poste.
 
 Six tests ajoutés et compilés seulement, dont ouverture sans LDAP, identité après renommage, homonymie et préservation des données D1. Debug/Release sans avertissement ; les écritures et la mémorisation commune des relations, les sources complémentaires de détection et la recette finale restent en cours.
+
+## 33. Dernier utilisateur : mémorisation locale (23/10/2026)
+
+Après vérification de l’utilisateur et relecture du parent, la détection verse une observation par GUID au service partagé des relations puis tente sa mémorisation locale autorisée. Le verdict distingue enregistrement, attente ou interruption. Les dates de la source sont conservées ; LogonUI ne reçoit pas une fausse date de connexion. Déclarations et anciens liens sans GUID restent intacts. Une panne locale ne transforme pas l’observation confirmée en affectation ni ne lance une boucle réseau. Voir `relations.md` §12. Le lecteur Poste complet et sa recette native restent en cours.

@@ -5,6 +5,7 @@ using Domenia.Ad;
 using Domenia.Core;
 using Domenia.Core.Poste;
 using Domenia.Inventory;
+using Domenia.Store;
 
 namespace Domenia.Tests;
 
@@ -33,6 +34,24 @@ internal static class AdPosteLastUserTests
         SessionFactory = (host, budget, token) => new(host, budget, TestClock.Fixed(), cancellationToken: token)
         { ReadOverride = (_, query, _) => read(query), RegistryOverride = (request, _) => registry?.Invoke(request) ?? new(2, null) },
     };
+
+    [Test]
+    public static async Task Confirmed_native_last_user_is_memorized_in_SQLite_with_a_durable_journal_and_without_AD_writes()
+    {
+        using var folder = new TemporaryFolder(); var pc = Fixtures.Computer("PC1"); var alice = Fixtures.User("alice");
+        var db = new DomeniaDatabase(folder.File("last-user.db"), Fixtures.Root, TestClock.Fixed()); var cache = new SqliteDirectoryCache(db);
+        await cache.SaveObjectsAsync(Fixtures.Snapshot(computers: [pc], users: [alice]), null, CancellationToken.None);
+        var ldap = new AdBoundaryTests.RecordingAdConnection { SearchAnswer = q => q.BaseDn == pc.DistinguishedName ? [AdPosteNetworkTests.Entry(pc)] : [User(alice)] };
+        using var source = new AdDirectorySource("test.local", () => @"TEST\operator", TestClock.Fixed(), connection: ldap, localStore: cache);
+        var reader = new AdPosteReader(source) { InventoryReaderOverride = _ => Reader(_ => [Row(("Name", "PC1"), ("UserName", @"TEST\alice"))]) };
+        var result = await reader.DetectLastUserAsync(pc.DistinguishedName, null, CancellationToken.None);
+        Check.True(result.Verified, "compte confirmé"); Check.Contains("mémorisée", result.Verdict, "stockage local annoncé");
+        var stored = (await db.ReadRelationsAsync(CancellationToken.None)).Rows.Single().Relation;
+        Check.Equal(alice.ObjectGuid, stored.UserGuid!.Value, "utilisateur vérifié conservé"); Check.Equal(pc.ObjectGuid, stored.ComputerGuid!.Value, "poste vérifié conservé");
+        Check.Equal(RelationKind.Console, stored.Kind, "observation, pas affectation déclarée");
+        Check.Equal(1, (await db.ReadRelationJournalAsync(CancellationToken.None)).Entries.Length, "journal durable relu");
+        Check.Equal(3, ldap.Searches.Count, "seulement les trois lectures de validation prévues");
+    }
 
     [Test]
     public static async Task Last_user_detection_stops_at_a_resolved_console_name_without_claiming_a_token_SID_or_replacing_an_assignment()

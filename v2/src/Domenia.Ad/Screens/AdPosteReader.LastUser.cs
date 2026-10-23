@@ -90,12 +90,30 @@ public sealed partial class AdPosteReader
         catch (DomeniaOperationException ex) when (ex.Code is AdErrors.Timeout or AdErrors.Credentials or AdErrors.AccessDenied or AdErrors.Unavailable or MachineErrors.AccountPaused or "machine.busy")
         { detected = null; Attempt("Détection", ex.Code is AdErrors.Credentials or AdErrors.AccessDenied or MachineErrors.AccountPaused ? "REFUSE" : "NON_EFFECTUE", "Lecture ou validation AD non aboutie ; association existante conservée, aucun autre compte essayé."); }
         directory.EnsureCurrent(); EnsureEpoch(local.Epoch);
+        string? memorization = null;
+        if (detected is { User.Guid: { } userGuid, User.Dn: { } userDn })
+        {
+            var shared = AdRelationSession.For(source);
+            var relation = new StoredRelation(detected.User.Login, userGuid, userDn, WorkstationIdentity.ExpectedName(local.Computer)!,
+                local.Computer.ObjectGuid, local.Computer.DistinguishedName, detected.History ? RelationKind.History : RelationKind.Console,
+                detected.Source, detected.History ? detected.EvidenceAt : detected.EvidenceAt ?? detected.ReadAt,
+                "Détection du dernier utilisateur. " + (detected.History ? "Historique ; date de connexion " + (detected.EvidenceAt is null ? "inconnue. " : "lue dans la source. ") : "Console à la date de lecture. ")
+                    + (detected.SidCompared ? "SID comparé à AD." : "Nom de domaine résolu ; SID de l’observation non lu."), true, null, null);
+            var receipt = shared.ObserveValidated(relation, local.Epoch);
+            memorization = receipt.Reason;
+            if (receipt.Accepted)
+            {
+                try { memorization = (await shared.SaveAsync(local.Epoch, stop.Token).ConfigureAwait(false)).Text; }
+                catch (OperationCanceledException) { memorization = "Observation confirmée gardée dans la session ; mémorisation locale différée après arrêt."; }
+            }
+            EnsureEpoch(local.Epoch);
+        }
         var association = Association(local);
         var verdict = detected is null ? "Aucun nouveau compte confirmé ; l’association existante est conservée."
             : "Compte AD résolu : " + detected.User.Name + " (" + detected.User.Login + "). "
                 + (detected.History ? "Indice historique, pas une session actuelle. " : "Nom observé à la console. ")
                 + (detected.SidCompared ? "SID comparé à l’annuaire. " : "Le SID de l’observation n’a pas été lu. ")
-                + "Constat conservé dans cette session ; aucune affectation déclarée remplacée.";
+                + "Aucune affectation déclarée remplacée. " + memorization;
         return new(local.Computer.Name, source.Clock.GetUtcNow(), attempts.ToImmutable(), detected?.User, detected is not null, verdict, association, 25);
     }
 
