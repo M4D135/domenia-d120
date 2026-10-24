@@ -5,6 +5,10 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. Reprise active — Codex, 23/10/2026
 
+### 24/10/2026 — Retour full Spark demandé après le renfort
+
+Décision David : « go full spark on commence a plus avoir de token ». Les trois agents Codex sont interrompus. Les lots journal012B, sauvegardes et migration Parc sont compilés et poussés (dernier commit59069abd, capture065 Debug/Release sans avertissement/erreur). Les brouillons ordonnanceur Bridge, publication SharedPark et consommateurs Poste/Logiciels sont conservés sans les déclarer compilés :23fichiers transférés au relais natif après comparaison des SHA,1337fichiers applicatifs vérifiés, état antérieur sauvegardé. OpenCode CLI sur le Spark reprend seul, même modèle `kbza/spark-local`, contexte neuf documenté sans prétendre une saturation. Premier mandat013 limité aux corrections de l’ordonnanceur ; prochaine capture066 après revue. Codex garde récupération/revue/VM. Aucun test exécuté, aucune livraison annoncée.
+
 ### 24/10/2026 — Renfort Codex : migration explicite des dispositions D1 du Parc
 
 Aperçu local des trois dispositions D1 et import effectif du Parc dans Accueil, provenance et texte original conservés. Relecture de la source et contrôle SHA avant import, écriture atomique disposition/preuve sous verrou, préservation des choix D2 existants même vides/incompatibles/concurrents, rechargement correct de `[]`. Préférences opérateur exclues en capture/E2E. Dix-neuf tests écrits et compilés, **aucun exécuté**. Capture065 : Debug/Release dans la VM, zéro avertissement/erreur,114s ; sources exactes et journal conservés. Les dispositions Poste/Logiciels restent explicitement non appliquées par ce premier lot ; les consommateurs réels sont le lot suivant. Recette visuelle et finale dans les deux VM encore requise, aucune déclaration de parité complète ni livraison.
