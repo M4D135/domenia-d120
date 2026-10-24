@@ -1,0 +1,9 @@
+# Revue MICRO011-FIX1 — capture055
+
+Les trois fichiers finaux ont été récupérés après arrêt naturel du worker1423303. Le dernier événement de fin vaut `length`, sans erreur publique et sans rapport READY011-FIX1. Ils correspondent exactement aux SHA du candidat055 : Debug/Release VM, zéro avertissement/erreur, 33 secondes. Vingt tests sont écrits/compilés mais aucun exécuté. Les sources sont intégrées dans main sans commit ; aucun test ni recette finale n’est annoncé comme passé.
+
+Les deux gardes demandées sont corrigées : qualification de la racine et des ancêtres dans l’ordre avant de conclure à une absence ; qualification du spool local avant toute lecture de base/TSV, avec ajout de sa racine canonique aux protections conservées. Les tests ajoutent un ancêtre fichier suivi de niveaux manquants, un profil réellement neuf, un fichier non SQLite et l’ordre du refus d’un spool non local. La fixture de fusion porte des GUID/DN explicites et une révision réelle, tout en contrôlant l’intégrité physique des sources.
+
+Un point reste à corriger dans `A_non_sqlite_base_is_refused_and_no_reservation_is_retained` : `Check.ThrowsAsync<Exception>` accepte aussi un NullReferenceException ou une autre panne sans rapport avec SQLite ; exclure seulement TestFailureException et OperationCanceledException ne prouve pas le motif attendu. Le wrapper `SqliteDatabase.Check` lève `SqliteStoreException` avec sa propriété publique `SqliteCode`. Le test doit exiger cette exception et son code primaire26, puis conserver ses vérifications d’intégrité et de réservation.
+
+Source primaire vérifiée : https://www.sqlite.org/rescode.html#notadb — SQLITE_NOTADB vaut26 pour un fichier qui n’est pas une base SQLite ; le code primaire occupe les huit bits de poids faible. Cette observation est une revue de l’assertion, pas un résultat d’exécution de test.

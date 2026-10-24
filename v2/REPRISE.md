@@ -5,6 +5,14 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. Reprise active — Codex, 23/10/2026
 
+### 24/10/2026 — aperçu réel du parc partagé, MICRO011/FIX1/FIX2
+
+L’aperçu relie maintenant la lecture SQLite locale, le TSV explicitement demandé, la fusion et le spool privé borné. Le contrat Core ne conserve que des scalaires et empreintes ; le propriétaire interne ferme sa propre lease. La qualification des ancêtres précède toute conclusion d’absence locale ; un spool non local est refusé avant les lectures. Les identités physiques SQLite restent inchangées. Les 20 tests écrits couvrent le parcours réel, les absences, refus, contexte, expiration et compacité ; l’assertion de base corrompue exige SqliteStoreException et SQLITE_NOTADB au lieu d’accepter toute exception.
+
+Les sources finales des deux premiers passages, arrêtés naturellement sur length sans rapport, ont été récupérées et comparées aux captures054/055. Le passage FIX2 a terminé normalement avec son rapport. La capture056 compile Debug et Release dans la VM Windows avec zéro avertissement et zéro erreur (72 s). Journaux054–056 et manifeste complet056 conservés dans docs/reprise/rapports. Aucun test de suite exécuté : 20 tests d’aperçu compilés, la validation reste réservée à la fin du développement.
+
+SharedPark reste incomplet : sauvegardes et intention durable, verrou/double CAS/publication/vérification/reçu, puis cache/annuaire/simulation/UI restent à raccorder. Le wrapper incomplet et les quatre WIP de recette native sont préservés hors capture. Aucune publication GitHub ni validation finale AD/deux VM annoncée.
+
 ### 24/10/2026 — aperçu SharedPark : spool privé borné et expirant (MICRO010)
 
 Le spool temporaire du parc partagé est intégré après récupération/revue du Spark natif et deux retours de compilation. Il lie session/époque, identité de base, existence locale/distante, révision/génération, empreintes et durée de vie ; ses octets proposés sont conservés dans un fichier privé tenu, créé avec sa DACL et relu depuis le même handle. Bornes : 50 000 lignes, 16 Mio de payload, 64 Kio d’en-tête, 15 minutes, 8 leases et 128 Mio par processus. Les réservations sont libérées par identité après fermeture ; une lecture expirée ferme aussi sa lease. Aucun tableau complet n’est retenu dans la lease.

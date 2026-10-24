@@ -27,7 +27,7 @@ public sealed partial class DomeniaDatabase
     internal Task<SharedParkLocalRead> ReadSharedParkLocalAsync(CancellationToken cancellationToken) => Task.Run(() =>
     {
         CompatibleDirectoryCache.ValidateLocalPath(Path);
-        if (!File.Exists(Path)) { return AbsentSharedParkLocal(); }
+        if (LocalBaseAbsent(cancellationToken)) { return AbsentSharedParkLocal(); }
         using var db = new SqliteDatabase(Path, readOnly: true, cancellationToken: cancellationToken);
         db.Begin(false);
         CheckIdentity(db, allowLegacy: true);
@@ -85,6 +85,62 @@ public sealed partial class DomeniaDatabase
         var empty = EmptySweeps();
         return new(false, false, StoreId, DomainDn, 0, 0, empty.Fingerprint, SharedParkLocalFingerprint(StoreId, DomainDn, 0, 0, false, empty.Fingerprint), empty);
     }
+
+    /// <summary>
+    /// Local presence qualification that never turns an access error into an absence and never reads a directory as an absent file.
+    /// The real root and every existing ancestor are qualified first, in path order; only a genuinely missing terminal file, or a
+    /// genuinely missing component under already qualified parents, answers <c>true</c> (Exists stays false, nothing is created). A
+    /// directory standing where the base should be, a reparse/junction anywhere on the path, an unavailable root, and a component
+    /// that is not a directory refuse the whole read; an access or other IO error surfaces instead of masquerading as absent. A
+    /// present but unreadable or foreign file is left to <see cref="SqliteDatabase"/> and <c>CheckIdentity</c>, never initialized.
+    /// Every step is cancellable and creates no directory, no file and no base.
+    /// </summary>
+    private bool LocalBaseAbsent(CancellationToken token)
+    {
+        var root = System.IO.Path.GetPathRoot(Path);
+        if (string.IsNullOrEmpty(root)) { throw new InvalidDataException("Racine de la base locale absente ; une absence de profil n’est jamais déduite d’un chemin sans racine."); }
+        token.ThrowIfCancellationRequested();
+        FileAttributes rootAttributes;
+        try { rootAttributes = File.GetAttributes(root); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        { throw new InvalidDataException("Racine de la base locale inaccessible : « " + root + " » ; une racine indisponible n’est jamais un nouveau profil.", ex); }
+        if ((rootAttributes & FileAttributes.ReparsePoint) != 0) { throw new InvalidDataException("Racine de la base locale est un point d’analyse, une jonction ou un lien : « " + root + " » ; la lecture s’arrête là."); }
+        if ((rootAttributes & FileAttributes.Directory) == 0) { throw new InvalidDataException("Racine de la base locale n’est pas un répertoire : « " + root + " » ; aucune lecture engagée."); }
+
+        var directory = System.IO.Path.GetDirectoryName(Path)!;
+        string relative;
+        try { relative = System.IO.Path.GetRelativePath(root, directory); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        { throw new InvalidDataException("Chemin de la base locale impossible à qualifier sous sa racine : « " + Path + " » ; aucune absence n’est supposée.", ex); }
+        var current = root;
+        if (!string.IsNullOrEmpty(relative) && relative != ".")
+        {
+            foreach (var segment in relative.Split(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar))
+            {
+                token.ThrowIfCancellationRequested();
+                if (segment.Length == 0) { continue; }
+                current = System.IO.Path.Combine(current, segment);
+                FileAttributes attributes;
+                try { attributes = File.GetAttributes(current); }
+                catch (Exception ex) when (ex is DirectoryNotFoundException or FileNotFoundException) { return true; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                { throw new InvalidDataException("Parent de la base locale inaccessible : « " + current + " » ; une erreur d’accès n’est jamais convertie en absence.", ex); }
+                if ((attributes & FileAttributes.ReparsePoint) != 0) { throw new InvalidDataException("Parent de la base locale est un point d’analyse, une jonction ou un lien : « " + current + " » ; la lecture s’arrête là."); }
+                if ((attributes & FileAttributes.Directory) == 0) { throw new InvalidDataException("Parent de la base locale n’est pas un répertoire : « " + current + " » ; aucune lecture engagée."); }
+            }
+        }
+
+        token.ThrowIfCancellationRequested();
+        FileAttributes terminal;
+        try { terminal = File.GetAttributes(Path); }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { return true; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        { throw new InvalidDataException("Base locale inaccessible : « " + Path + " » ; une erreur d’accès n’est jamais convertie en absence.", ex); }
+        if ((terminal & FileAttributes.ReparsePoint) != 0) { throw new InvalidDataException("La base locale est un point d’analyse, une jonction ou un lien ; la lecture s’arrête là."); }
+        if ((terminal & FileAttributes.Directory) != 0) { throw new InvalidDataException("La cible de la base locale est un dossier ; aucun dossier n’est lu comme une base."); }
+        return false;
+    }
+
 
     /// <summary>A Domenia 1 base without the storage checkpoint stays Domenia 1: revision zero, declared inherited, never migrated here.</summary>
     private (long Revision, bool Legacy) ReadSharedParkRevision(SqliteDatabase db)
