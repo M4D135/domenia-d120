@@ -1,0 +1,11 @@
+# Revue009 — corrections avant intégration
+
+Revue des deux fichiers complets reçus ; aucun test exécuté. Les chemins, octets et sources restent conservés. Compilation048 terminée : Debug en échec sur CS1061 DirectoryInfo.CreateJunction, zéro avertissement ; Release non tenté.
+
+1. Absence terminale faussement classée reparse : `new FileInfo(file).Attributes` retourne `(FileAttributes)(-1)` si le fichier n’existe pas. Le `catch (FileNotFoundException)` ne traite donc pas cette situation, puis le bit ReparsePoint est vu à tort. Le test présent-vide vs absent ne peut pas passer avec ce code. Même sentinelle pour DirectoryInfo.Attributes, avec diagnostic incorrect pour un parent absent. Employer une lecture d’attributs qui distingue effectivement l’absence terminale des erreurs (par exemple File.GetAttributes), sans convertir les autres erreurs en absence et sans recours à Exists.
+   Source vérifiée : [FileSystemInfo.Attributes, remarques](https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo.attributes?view=net-10.0).
+2. Qualification lexicale incomplète : le serveur et le partage UNC sont seulement filtrés par InvalidComponentChars ; les règles dot/dotdot, espace/point final et noms réservés ne leur sont pas appliquées. Exemples à refuser sans accès réseau : `\\serveur\..\parc.tsv`, `\\serveur\partage.\parc.tsv`, `\\serveur\partage \parc.tsv`. Les noms de périphériques COM/LPT avec exposants1/2/3 manquent aussi. Ajouter ces cas avec tests proportionnés ; les noms voisins ordinaires doivent rester autorisés.
+   Source vérifiée pour les noms réservés : [Conventions de nommage Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file).
+3. Annulation finale : après la seconde QualifyTree, la dernière lecture d’attributs distante peut s’achever avec un jeton annulé ; ReadAsync retourne encore un succès. Vérifier le jeton après cette requalification, juste avant le retour, et avant l’accès terminal dans QualifyTree. Pas de test temporisé instable.
+
+Les gardes avant/après restent des gardes de lecture, aucune preuve de CAS ou d’atomicité. Ni publication ni écriture réseau dans009. La correction et ses tests doivent être produits par la même session OpenCode sur le Spark ; le diagnostic complet048 sera joint.
