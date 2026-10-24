@@ -1,0 +1,29 @@
+vm.sh : lot spark-native, build — VM réservée.
+sync ok -> C:\DomeniaDev\src\spark-native\v2
+Arborescence : C:\DomeniaDev\src\spark-native\v2 (lot spark-native)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Domenia.Core -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Core\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Core.dll
+  Domenia.E2E -> C:\DomeniaDev\src\spark-native\v2\tests\Domenia.E2E\bin\x64\Debug\net10.0-windows\win-x64\Domenia.E2E.dll
+  Domenia.Engine -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Engine\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Engine.dll
+  Domenia.Simulation -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Simulation\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Simulation.dll
+  Domenia.Bridge -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Bridge\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Bridge.dll
+  Domenia.Inventory -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Inventory\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Inventory.dll
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Sqlite\SharedParkPreviewFile.cs(341,28): error CS0117: 'Directory' does not contain a definition for 'GetAttributes' [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Domenia.Store.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Sqlite\SharedParkPreviewFile.cs(345,108): error CS0117: 'FileSystemRights' does not contain a definition for 'ReadWrite' [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Domenia.Store.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Sqlite\SharedParkPreviewFile.cs(446,20): error CS1929: 'FileStream' does not contain a definition for 'GetAccessControl' and the best extension method overload 'FileSystemAclExtensions.GetAccessControl(DirectoryInfo, AccessControlSections)' requires a receiver of type 'System.IO.DirectoryInfo' [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Domenia.Store.csproj]
+  Domenia.Ad -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Ad.dll
+
+Build FAILED.
+
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Sqlite\SharedParkPreviewFile.cs(341,28): error CS0117: 'Directory' does not contain a definition for 'GetAttributes' [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Domenia.Store.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Sqlite\SharedParkPreviewFile.cs(345,108): error CS0117: 'FileSystemRights' does not contain a definition for 'ReadWrite' [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Domenia.Store.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Sqlite\SharedParkPreviewFile.cs(446,20): error CS1929: 'FileStream' does not contain a definition for 'GetAccessControl' and the best extension method overload 'FileSystemAclExtensions.GetAccessControl(DirectoryInfo, AccessControlSections)' requires a receiver of type 'System.IO.DirectoryInfo' [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Domenia.Store.csproj]
+    0 Warning(s)
+    3 Error(s)
+
+FileLogger wrote to: C:\DomeniaDev\build-logs\spark-native\build-Debug.log
+
+Time Elapsed 00:00:09.76
+Compilation Debug interrompue (code 1). Journal : C:\DomeniaDev\build-logs\spark-native\build-Debug.log
+vm.sh : compilation Debug en échec (lot spark-native).
