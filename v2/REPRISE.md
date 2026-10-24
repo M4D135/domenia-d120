@@ -5,6 +5,12 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. Reprise active — Codex, 23/10/2026
 
+### 24 octobre 2026 — journal d’intention 012B, renfort Codex autorisé
+
+David a demandé un renfort d’agents Codex après le relais fullSpark. Le worker natif012B avait terminé normalement avec deux fichiers et20tests ; la compilation062 a révélé deux CS1501, et la revue des défauts de quota, DACL, verrou, qualification et fixtures. Le renfort a corrigé ces défauts, sans toucher au codec012A : journal local privé immuable, absence qualifiée, DACL relues et jamais réparées silencieusement, création exclusive et preuve conservée, quota128 sous verrou propre, annulation/expiration contrôlées, lecture après expiration. Les faux positifs de dates et de plan absent sont corrigés ;29tests comportementaux écrits et compilés, **aucun exécuté**.
+
+**Snapshot063 : Debug et Release dans la VM, zéro avertissement et zéro erreur,72s.** Les journaux062–063, manifeste complet et revue sont conservés dans `docs/reprise/rapports/`. Ce journal ne certifie aucune sauvegarde ni publication : copies physiques, doubleCAS/publication/reçu et raccordements restent à terminer. Les agents poursuivent les sauvegardes et dispositions D1 dans des fichiers distincts. Les deux VM tournent ; la session console et la relation de confiance domaine ont été vérifiées en lecture seulement, aucune recette applicative exécutée. Le wrapper SharedPark incomplet et les quatre WIP natifs restent conservés hors snapshot. Livraison interdite avant toutes les validations finales.
+
 ### 24 octobre 2026 — format d’intention SharedPark intégré (MICRO012A/FIX1–FIX3)
 
 - Codec pur versionné d’intention, liaison plan/magasin/domaine/lot, empreinte SHA256 du JSON exact, propriétés requises et refus des clés inconnues/dupliquées ; métadonnées compactes bornées64Kio et chaînes bornées avant empreinte/sérialisation. Aucune I/O ni attestation de sauvegarde/publication.
