@@ -68,6 +68,7 @@ export function createBoard(host, o) {
       ...(st.editing && st.undo.length ? [{ id: 'undo', label: 'Annuler', icon: 'undo', pinned: true, run: () => undo() }] : []),
       { id: 'catalog', label: 'Ajouter un widget', icon: 'plus', run: () => o.onTool('catalog') },
       { id: 'presets', label: 'Dispositions', icon: 'layers', items: presetItems() },
+      { id: 'migrate-d1', label: 'Reprendre la disposition D1', icon: 'history', run: () => migrateD1() },
       { id: 'search', label: 'Ouvrir les postes dans Rechercher', icon: 'search', disabled: !o.onOpenSearch?.(true),
         reason: `Choisissez une OU de travail${NBSP}: Rechercher ne s’ouvre jamais sur tout le domaine.`, run: () => o.onOpenSearch?.(false) },
       { id: 'explain', label: 'Comprendre le score', icon: 'gauge', run: () => o.onTool('explain') },
@@ -78,6 +79,34 @@ export function createBoard(host, o) {
   }
   const bar = createCommandBar(host.querySelector('.fw-tools'), { label: 'Outils du tableau du parc', size: 'sm', items: toolItems(), moreLabel: 'Plus d’outils du tableau' });
   const syncBar = () => { if (st.alive) bar.setItems(toolItems()); };
+
+  async function migrateD1() {
+    try {
+      const preview = await ctx.call('shell.interface.migration.preview');
+      if (!st.alive) return;
+      const fleet = preview.boards?.find((b) => b.board === 'Fleet');
+      const boardLabels = { Fleet: 'Parc', Computer: 'Poste', Software: 'Logiciels' };
+      const canApply = preview.available && !preview.fleetChoiceExists && fleet?.state === 'ready';
+      const body = document.createElement('div');
+      body.innerHTML = `<p>Reprenez votre tableau du parc de Domenia 1 dans Accueil. Les fichiers D1 restent intacts.</p>
+        ${preview.reason ? `<p>${esc(preview.reason)}</p>` : ''}
+        ${preview.fleetChoiceExists ? '<p>Une disposition D2 ou une migration est déjà enregistrée, même vide. Elle sera conservée.</p>' : ''}
+        ${preview.sourcePath ? `<p>Source locale : <span class="code">${esc(preview.sourcePath)}</span></p>` : ''}
+        <ul>${(preview.boards ?? []).map((b) => `<li><strong>${esc(boardLabels[b.board] ?? 'Tableau')}</strong> — ${esc(b.summary)}${b.state === 'ready' ? ` (${formatNumber(b.count)} widgets)` : ''}</li>`).join('')}</ul>
+        ${(preview.warnings ?? []).map((w) => `<p>${esc(w)}</p>`).join('')}
+        ${fleet?.state === 'ready' && fleet.items.length ? `<ol>${fleet.items.map((i) => `<li>${esc(i.title || i.key)}${i.paused ? ' — en pause' : ''}</li>`).join('')}</ol>` : ''}`;
+      const d = openDialog({ title: 'Disposition Domenia 1', icon: 'history', size: 'md', body,
+        actions: [{ id: 'cancel', label: 'Fermer', safe: true }, ...(canApply ? [{ id: 'apply', label: 'Importer dans Accueil', primary: true }] : [])] });
+      if (await d.result !== 'apply' || !st.alive) return;
+      const result = await ctx.call('shell.interface.migrate', { sourceSha256: preview.sourceSha256 });
+      if (!st.alive) return;
+      st.undo = [];
+      ctx.toast(result.summary, { tone: result.applied ? 'ok' : 'info' });
+      await load();
+    } catch (err) {
+      if (st.alive) ctx.toast(reported(err), { tone: 'warn' });
+    }
+  }
 
   function skeletonGroups() {
     const card = (size) => `<article class="card fw size-${size}">${skStack('sk-line w40', 'sk-title w55', 'sk-line w85')}</article>`;

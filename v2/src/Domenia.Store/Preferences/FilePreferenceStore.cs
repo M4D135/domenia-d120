@@ -20,7 +20,7 @@ namespace Domenia.Store;
 /// anything: it is traced, its values are ignored and it is kept aside (« .illisible ») before being replaced.
 /// </para>
 /// </summary>
-public sealed class FilePreferenceStore : IPreferenceStore, IDisposable
+public sealed partial class FilePreferenceStore : IPreferenceStore, IConditionalPreferenceStore, IDisposable
 {
     public const string DirectoryFileName = "preferences.json";
     public const string SimulationFileName = "preferences-simulation.json";

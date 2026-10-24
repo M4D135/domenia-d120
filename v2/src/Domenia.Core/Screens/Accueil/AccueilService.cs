@@ -285,7 +285,7 @@ public sealed partial class AccueilService : IDisposable
             try
             {
                 var stored = value.Deserialize<StoredLayout>(Json);
-                if (stored is { Version: 1 } && stored.Items is { Length: > 0 })
+                if (stored is { Version: 1, Items: not null })
                 {
                     loaded = Clean([.. stored.Items.Select(i => i.ToItem())]);
                 }
@@ -300,6 +300,12 @@ public sealed partial class AccueilService : IDisposable
             layout ??= loaded;
             return layout.Value;
         }
+    }
+
+    /// <summary>After an explicit conditional import, the actual Fleet consumer rereads the stored choice, including an empty list.</summary>
+    public void ReloadStoredLayout()
+    {
+        lock (gate) { layout = null; }
     }
 
     /// <summary>

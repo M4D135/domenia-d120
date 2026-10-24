@@ -5,6 +5,10 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. Reprise active — Codex, 23/10/2026
 
+### 24/10/2026 — Renfort Codex : migration explicite des dispositions D1 du Parc
+
+Aperçu local des trois dispositions D1 et import effectif du Parc dans Accueil, provenance et texte original conservés. Relecture de la source et contrôle SHA avant import, écriture atomique disposition/preuve sous verrou, préservation des choix D2 existants même vides/incompatibles/concurrents, rechargement correct de `[]`. Préférences opérateur exclues en capture/E2E. Dix-neuf tests écrits et compilés, **aucun exécuté**. Capture065 : Debug/Release dans la VM, zéro avertissement/erreur,114s ; sources exactes et journal conservés. Les dispositions Poste/Logiciels restent explicitement non appliquées par ce premier lot ; les consommateurs réels sont le lot suivant. Recette visuelle et finale dans les deux VM encore requise, aucune déclaration de parité complète ni livraison.
+
 ### 24 octobre 2026 — sauvegardes physiques du parc partagé
 
 Le renfort Codex ajoute les copies locales privées vérifiées : SQLite via backup natif sous transaction de lecture incluant WAL, TSV octet pour octet, SHA/longueur/identité relus, DACL et quotas stricts, refus des liens/entrées inattendues, conservation après interruption. La revue indépendante a corrigé les fenêtres de reparse/relecture, la protection finale et les quotas concurrents. Les références réelles passent le codec d’intention ; aucune copie fictive pour une source absente.
