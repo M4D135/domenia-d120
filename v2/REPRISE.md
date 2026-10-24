@@ -5,6 +5,14 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. Reprise active — Codex, 23/10/2026
 
+### 24 octobre 2026 — format d’intention SharedPark intégré (MICRO012A/FIX1–FIX3)
+
+- Codec pur versionné d’intention, liaison plan/magasin/domaine/lot, empreinte SHA256 du JSON exact, propriétés requises et refus des clés inconnues/dupliquées ; métadonnées compactes bornées64Kio et chaînes bornées avant empreinte/sérialisation. Aucune I/O ni attestation de sauvegarde/publication.
+- Références de sauvegarde cohérentes avec les présences initiales, empreintes d’absence alignées sur les lecteurs006–011, chemins Windows canoniques et noms DOS réservés, dates UTC canoniques ; création expirée refusée et relecture après expiration autorisée comme preuve uniquement.
+- Revue corrigée : trois CS0246 ObjectNode, champs de sauvegarde absents, taille tardive, chemins aliasés, timezone implicite ; fixtures de batch et d’identité rectifiées, valeurs d’absence réelles, deux tests de clé manquante isolés par une lecture positive préalable. Les rapports Spark originaux sont conservés ; leurs affirmations intermédiaires ne remplacent pas la revue et les preuves VM.
+- Captures057–061 conservées ;057 Debug échouait sur3CS0246,058–061 Debug/Release sans avertissement/erreur. Derniers octets061 : compilation VM Windows réussie en35s. Quarante tests de codec écrits/compilés, aucun exécuté ; aucune suite lancée avant la phase finale. Bureau Windows préservé.
+- Reste :012B persistance privée immuable du journal, sauvegardes physiques vérifiées, verrou/double CAS/publication/vérification/reçu, cache/annuaire/simulation/UI, autres tâches du catalogue puis validation finale dans les deuxVM. Le wrapper SharedPark incomplet et les quatre WIP natifs restent conservés hors snapshot. Aucun pack ni release déclaré livré.
+
 ### 24/10/2026 — aperçu réel du parc partagé, MICRO011/FIX1/FIX2
 
 L’aperçu relie maintenant la lecture SQLite locale, le TSV explicitement demandé, la fusion et le spool privé borné. Le contrat Core ne conserve que des scalaires et empreintes ; le propriétaire interne ferme sa propre lease. La qualification des ancêtres précède toute conclusion d’absence locale ; un spool non local est refusé avant les lectures. Les identités physiques SQLite restent inchangées. Les 20 tests écrits couvrent le parcours réel, les absences, refus, contexte, expiration et compacité ; l’assertion de base corrompue exige SqliteStoreException et SQLITE_NOTADB au lieu d’accepter toute exception.
