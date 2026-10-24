@@ -5,6 +5,12 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. Reprise active — Codex, 23/10/2026
 
+### 24 octobre 2026 — sauvegardes physiques du parc partagé
+
+Le renfort Codex ajoute les copies locales privées vérifiées : SQLite via backup natif sous transaction de lecture incluant WAL, TSV octet pour octet, SHA/longueur/identité relus, DACL et quotas stricts, refus des liens/entrées inattendues, conservation après interruption. La revue indépendante a corrigé les fenêtres de reparse/relecture, la protection finale et les quotas concurrents. Les références réelles passent le codec d’intention ; aucune copie fictive pour une source absente.
+
+**Snapshot064 : Debug/Release VM zéro avertissement et zéro erreur,62s.** Vingt-quatre tests écrits et compilés, **aucun exécuté** ; preuves et revue dans `docs/reprise/rapports/`. Captures cohérentes et relectures ne valent pas doubleCAS final : publicationTSV, transactionSQLite/reçu et raccordements restent à implémenter. Le journal012B reste intégré au commit précédent. DispositionsD1 et ordonnanceur progressent dans leurs fichiers séparés ; les WIP antérieurs restent conservés. Aucune recette ni livraison annoncée.
+
 ### 24 octobre 2026 — journal d’intention 012B, renfort Codex autorisé
 
 David a demandé un renfort d’agents Codex après le relais fullSpark. Le worker natif012B avait terminé normalement avec deux fichiers et20tests ; la compilation062 a révélé deux CS1501, et la revue des défauts de quota, DACL, verrou, qualification et fixtures. Le renfort a corrigé ces défauts, sans toucher au codec012A : journal local privé immuable, absence qualifiée, DACL relues et jamais réparées silencieusement, création exclusive et preuve conservée, quota128 sous verrou propre, annulation/expiration contrôlées, lecture après expiration. Les faux positifs de dates et de plan absent sont corrigés ;29tests comportementaux écrits et compilés, **aucun exécuté**.
