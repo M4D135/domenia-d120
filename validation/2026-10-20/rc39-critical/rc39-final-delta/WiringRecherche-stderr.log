@@ -1,0 +1,15 @@
+Add-Type : c:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\modules\Domenia-DirectoryTree.Types.cs(70) : The type 
+'System.Windows.Markup.IQueryAmbient' is defined in an assembly that is not referenced. You must add a reference to 
+assembly 'System.Xaml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.
+c:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\modules\Domenia-DirectoryTree.Types.cs(69) :     }
+c:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\modules\Domenia-DirectoryTree.Types.cs(70) : >>>     public class 
+DomeniaVirtualizingStackPanel : VirtualizingStackPanel {
+c:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\modules\Domenia-DirectoryTree.Types.cs(71) :         public void 
+Reveal(int index) { BringIndexIntoView(index); }
+At C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\modules\Domenia-DirectoryTree.UI.ps1:9 char:5
++     Add-Type -Path (Join-Path $PSScriptRoot 'Domenia-DirectoryTree.Ty ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (Microsoft.Power...peCompilerError:AddTypeCompilerError) [Add-Type], Except 
+   ion
+    + FullyQualifiedErrorId : SOURCE_CODE_ERROR,Microsoft.PowerShell.Commands.AddTypeCommand
+ 

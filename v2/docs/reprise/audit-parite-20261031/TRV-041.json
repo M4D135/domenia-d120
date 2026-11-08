@@ -1,0 +1,17 @@
+{
+  "id": "TRV-041",
+  "verdict": "a-faire",
+  "preuves": [
+    "rg -i « xaml » dans repo/v2/src et repo/v2/tests : aucune occurrence — Domenia 2 ne contient aucun XAML, donc aucun Assert-DomeniaXamlPreflight, Test-DomeniaXamlRuntimeCompatibility, Save-DomeniaXamlDiagnostic, ConvertFrom-DomeniaXaml ni Get-MainXaml n'existe sous une forme transplantée",
+    "repo/v2/ARCHITECTURE.md:3,21 — « réécriture C# et interface WebView2 », « Domenia.App/ exe WinForms minimal : fenêtre, WebView2, pont, cycle de vie » : la fenêtre est du WinForms écrit en code (repo/v2/src/Domenia.App/MainForm.cs), l'interface est du HTML/JS servi depuis web/ (ARCHITECTURE.md:44, nom virtuel https://domenia.local/)",
+    "repo/v2/src/Domenia.App/StartupWindow.cs:37-57 — la seule fenêtre native de l'amorçage est créée par appels Win32 (CreateWindowExW « STATIC »/« BUTTON »), pas par parseur de markup : les classes de défauts visées (Content en double sur Button, ToolTip de colonne, ComboBox.IsReadOnly, RowHeight=Auto, x:Name dupliqués) n'ont pas d'objet technique",
+    "repo/v2/src/Domenia.App/Program.cs:205-217 et 268-299 — les seuls contrôles d'avant-fenêtre portent sur E2E (port, variable) et la capture (mode simulation, dossier, routes « checked by a strict expression », ligne 290) ; rien ne vérifie le contenu des pages web avant leur affichage par le moteur WebView2"
+  ],
+  "manque": "Rien de la fonction n'existe, et sa transcription littérale est impossible puisque le XAML a disparu du produit. Le besoin de fond — refuser d'afficher une interface invalide et en garder un diagnostic — n'est pas couvert davantage pour la pile réelle : aucun préflight des pages (aucun contrôle de schéma ou d'inventaire des écrans de web/js avant NavigationCompleted ; les vérifications existantes sont des tests hors exécution : tests/Domenia.E2E et la capture Program.cs:268-299, qui supposent l'affichage réussi). Le garde-fou « un texte refusé n'est jamais mémorisé comme accepté » n'a pas non plus d'équivalent identifié pour les pages. Décision attendue : soit fermer TRV-041 comme sans objet dans le catalogue (comme TRV-035 l'a été pour la bibliothèque commune), soit l'ouvrir sous une forme « préflight des pages WebView2 » avec contenu précis ; en l'état la fiche reste « a-faire » sans cible.",
+  "effort": "S",
+  "depend": [
+    "sujet « architecture d'interface Domenia 2 (WinForms + WebView2) », repo/v2/ARCHITECTURE.md:3,21,44 — à trancher par David : sans objet ou reformulation",
+    "docs/E2E.md et la capture (repo/v2/src/Domenia.App/Program.cs:205-217,268-299) — seuls garde-fous actuels de l'interface, postérieurs à l'affichage"
+  ],
+  "risque": "lecture"
+}

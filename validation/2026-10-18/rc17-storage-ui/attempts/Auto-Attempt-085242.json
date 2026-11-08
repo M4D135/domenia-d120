@@ -1,0 +1,16 @@
+{
+    "Build":  "RC1.17.17",
+    "Stage":  "Auto",
+    "Passed":  false,
+    "StartedUtc":  "2026-10-18T08:50:20.3794160Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+
+              ],
+    "AppId":  6016,
+    "ArchiveSha256":  "0393c1b7fd23e732209d3f96c4c91196afcb57ba26f02e86d79bbbc7eb4e908a",
+    "Error":  "Unavailable TabApplicationTools",
+    "Stack":  "at Require, C:\\DomeniaLab\\d120-rc11717-live\\_Resume-AutoSession-d120-rc11717-live-32541-19640.ps1: line 15\r\nat Click, C:\\DomeniaLab\\d120-rc11717-live\\_Resume-AutoSession-d120-rc11717-live-32541-19640.ps1: line 26\r\nat Storage-Page, C:\\DomeniaLab\\d120-rc11717-live\\_Resume-AutoSession-d120-rc11717-live-32541-19640.ps1: line 46\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11717-live\\_Resume-AutoSession-d120-rc11717-live-32541-19640.ps1: line 61",
+    "FinishedUtc":  "2026-10-18T08:50:24.6939250Z"
+}

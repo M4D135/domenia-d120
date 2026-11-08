@@ -1,0 +1,20 @@
+{
+  "id": "ACC-039",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/pages/accueil/charts.js:11 — targetsAttr : toute figure ou part portant une clé de cibles devient un bouton data-targets (utilisé pour les parts de graphiques, lignes 78, 102, 117, 135, 208)",
+    "web/js/pages/accueil/charts.js:69 — la part repliée « Autres » est construite avec targetsKey null : un regroupement sans tous ses détails n'ouvre aucune liste",
+    "web/js/pages/accueil/board.js:888 — le clic sur data-targets appelle o.onTargets(key, label), qui ouvre « Postes concernés »",
+    "web/js/pages/accueil/tools.js:97 — accueil.targets(revision, key) renvoie la liste exacte du calcul affiché ; l'en-tête le dit sans nouvelle lecture (ligne 105), avec CSV (ligne 94), fiche au double-clic (ligne 93) et « Ouvrir l'OU dans Rechercher » (ligne 51)",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.cs:187 — une révision différente du dernier calcul lève board.replaced ; un ensemble inconnu lève TargetsUnknown (ligne 205)",
+    "web/js/pages/accueil/tools.js:110 — sur board.replaced : message gardé dans le panneau, lignes vidées, puis o.onReplaced() qui redessine le tableau (ligne 118) — point 73 de Domenia 1",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:1211 — les tendances quotidiennes (fleet.trend*) ne produisent que des points datés, sans clé de cibles : aucune identité conservée",
+    "web/js/pages/accueil/board.js:636 — seul un widget dont la source est « query » ouvre l'atelier de requêtes, sur sa recette enregistrée, onglet « creer » (menu « Modifier la requête… », ligne 704)",
+    "web/js/pages/requetes.js:566 — l'atelier sait ouvrir une recette puis lancer l'aperçu (apercu = 1) : la capacité demandée existe donc côté atelier",
+    "src/Domenia.Core/Screens/Accueil/FleetCatalog.cs:28 — FleetWidgetDefinition ne comporte aucun champ recette : aucune correspondance « chiffre → recette équivalente » n'est enregistrée pour les widgets embarqués"
+  ],
+  "manque": "Ouvrir un chiffre dans l'atelier avec sa recette équivalente et lancer l'aperçu : aucune navigation « requetes » avec recette/apercu depuis les chiffres de l'accueil. Les seuls liens vers l'atelier sont web/js/pages/accueil/board.js:636 (widgets source « query », qui ouvrent leur propre recette en onglet « creer », sans apercu = 1), web/js/pages/accueil/tools.js:242 (catalogue → atelier, sans contexte) et web/js/pages/accueil/health.js:227 (simple invite texte). Aucun catalogue de recettes équivalentes pour les widgets embarqués (inactifs, LAPS, BitLocker, cycle, disque, RAM, OS, OU, modèles) : aucune occurrence de « recipe » dans src/Domenia.Core/Screens/Accueil/FleetCatalog.cs, src/Domenia.Core/Dashboard/WidgetCatalog.cs ou FleetBoardModels.cs, et aucune occurrence de « apercu » dans web/js/pages/accueil/. Le clic sur un chiffre embarqué n'ouvre donc que la liste de GUID.",
+  "effort": "L",
+  "depend": ["ACC-048", "ACC-049", "REQ (catalogue de recettes équivalentes des widgets embarqués)"],
+  "risque": "lecture"
+}

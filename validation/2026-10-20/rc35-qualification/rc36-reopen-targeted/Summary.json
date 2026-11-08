@@ -1,0 +1,33 @@
+﻿{
+    "Build":  "RC1.17.36",
+    "PS":  "5.1.26100.6584",
+    "Passed":  true,
+    "Files":  [
+                  {
+                      "Path":  "C:\\DomeniaLab\\RC35-qualification\\RC36-reopen\\prod\\wad\\Domenia-Core.ps1",
+                      "Sha256":  "F0B8C45EF332CC2ABD67A60E2492EC5DCBE40661B00311CC11B8A17C14BF3D4D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "Path":  "C:\\DomeniaLab\\RC35-qualification\\RC36-reopen\\dev\\wad\\tests\\Test-DomeniaStoragePreferences.ps1",
+                      "Sha256":  "5E3276638149F53D24F1F6BE51772ED8D14D33AE4EB83ABBE8067F9AAFCAC1AE",
+                      "Errors":  [
+
+                                 ]
+                  }
+              ],
+    "CheckOnlyExit":  0,
+    "Packs":  [
+                  {
+                      "Path":  "C:\\DomeniaLab\\RC35-qualification\\Domenia_1.0_RC1.17.36_DEV.zip",
+                      "Hash":  "252705EBDA3274A967BC359AEAD20E8479F3182878F86194968EC93FD74C90F0"
+                  },
+                  {
+                      "Path":  "C:\\DomeniaLab\\RC35-qualification\\Domenia_1.0_RC1.17.36_PROD.zip",
+                      "Hash":  "9CD534219157085A9A5E7258686DF486AB7ACA4390CF52BA515977B948383D74"
+                  }
+              ],
+    "Utc":  "2026-10-20T13:32:08.6356727Z"
+}

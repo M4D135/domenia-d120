@@ -1,0 +1,211 @@
+using System.Collections.Immutable;
+
+namespace Domenia.Core;
+
+/// <summary>Which LAPS attribute carries the expiration date. Only dates exist in Domenia, never a password.</summary>
+public enum LapsKind
+{
+    None,
+    Legacy,
+    Windows,
+}
+
+public sealed record DomainController(string DnsName, string? Site);
+
+/// <summary>
+/// Default domain policy. <see cref="ComplexityRequired"/> is bit 0x1 of pwdProperties (DOMAIN_PASSWORD_COMPLEX): when it is
+/// off, the controller accepts a password without three character classes and Domenia does not ask for them either.
+/// </summary>
+public sealed record DomainPasswordPolicy(
+    TimeSpan MaxPasswordAge,
+    int MinPasswordLength,
+    int PasswordHistoryLength,
+    int LockoutThreshold,
+    TimeSpan LockoutDuration,
+    TimeSpan LockoutObservationWindow,
+    bool ComplexityRequired = true);
+
+/// <summary>Domain identity; <see cref="Containers"/> are the default containers (CN=Users…), which are not OUs.</summary>
+public sealed record DomainInfo(
+    string DnsName,
+    string NetbiosName,
+    string RootDn,
+    string DomainSid,
+    ImmutableArray<DomainController> Controllers,
+    DomainPasswordPolicy PasswordPolicy,
+    ImmutableArray<string> Containers);
+
+public sealed record DirectoryOu(
+    Guid ObjectGuid,
+    string DistinguishedName,
+    string Name,
+    string? Description,
+    string? ManagedByDn,
+    DateTimeOffset WhenCreated,
+    DateTimeOffset WhenChanged,
+    long UsnChanged)
+{
+    /// <summary>LDAP attributes covered by this reading; null preserves the historical complete model contract.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableArray<string>? ObservedAttributes { get; init; }
+}
+
+/// <summary>User object with the attributes Domenia 1 reads; large integers stay FILETIME values (see <see cref="AdValues"/>).</summary>
+public sealed record DirectoryUser(
+    Guid ObjectGuid,
+    string Sid,
+    string DistinguishedName,
+    string Cn,
+    string SamAccountName,
+    string? UserPrincipalName,
+    string? DisplayName,
+    string? GivenName,
+    string? Surname,
+    string? Mail,
+    string? Title,
+    string? Department,
+    string? Office,
+    string? TelephoneNumber,
+    string? ManagerDn,
+    string? Description,
+    string? EmployeeId,
+    int UserAccountControl,
+    int? ComputedAccountControl,
+    long? LockoutTime,
+    int? BadPasswordCount,
+    long? PasswordLastSet,
+    long? PasswordExpiryComputed,
+    long? LastLogonTimestamp,
+    long? AccountExpires,
+    DateTimeOffset WhenCreated,
+    DateTimeOffset WhenChanged,
+    long UsnChanged,
+    int? AdminCount,
+    int PrimaryGroupId,
+    ImmutableArray<string> MemberOf)
+{
+    /// <summary>Partial display projected from a restored D1 index; only ObservedAttributes are asserted, never complete account flags.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool LegacyIndexOnly { get; init; }
+
+    /// <summary>LDAP attributes covered by this reading; null preserves the historical complete model contract.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableArray<string>? ObservedAttributes { get; init; }
+}
+
+public sealed record DirectoryComputer(
+    Guid ObjectGuid,
+    string Sid,
+    string DistinguishedName,
+    string Name,
+    string? DnsHostName,
+    string SamAccountName,
+    string? Description,
+    string? Location,
+    string? ManagedByDn,
+    string? OperatingSystem,
+    string? OperatingSystemVersion,
+    int UserAccountControl,
+    long? LastLogonTimestamp,
+    long? PasswordLastSet,
+    DateTimeOffset WhenCreated,
+    DateTimeOffset WhenChanged,
+    long UsnChanged,
+    LapsKind Laps,
+    long? LapsExpiration,
+    int PrimaryGroupId,
+    ImmutableArray<string> MemberOf)
+{
+    /// <summary>Partial display projected from a restored D1 index; only ObservedAttributes are asserted, never complete account flags.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool LegacyIndexOnly { get; init; }
+
+    /// <summary>LDAP attributes covered by this reading; null preserves the historical complete model contract.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableArray<string>? ObservedAttributes { get; init; }
+}
+
+public sealed record DirectoryGroup(
+    Guid ObjectGuid,
+    string Sid,
+    string DistinguishedName,
+    string Name,
+    string SamAccountName,
+    int GroupType,
+    string? Description,
+    string? Mail,
+    string? ManagedByDn,
+    int? AdminCount,
+    ImmutableArray<string> Members,
+    ImmutableArray<string> MemberOf,
+    DateTimeOffset WhenCreated,
+    DateTimeOffset WhenChanged,
+    long UsnChanged)
+{
+    /// <summary>LDAP attributes covered by this reading; null preserves the historical complete model contract.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableArray<string>? ObservedAttributes { get; init; }
+}
+
+/// <summary>A directory contact has an object identity but no Windows account or SID.</summary>
+public sealed record DirectoryContact(
+    Guid ObjectGuid,
+    string DistinguishedName,
+    string Name,
+    string? DisplayName,
+    string? GivenName,
+    string? Surname,
+    string? Mail,
+    string? Description,
+    string? Title,
+    string? Department,
+    string? Office,
+    string? TelephoneNumber,
+    string? ManagerDn,
+    ImmutableArray<string> MemberOf,
+    DateTimeOffset WhenCreated,
+    DateTimeOffset WhenChanged,
+    long UsnChanged)
+{
+    /// <summary>LDAP attributes covered by this reading; null preserves the historical complete model contract.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableArray<string>? ObservedAttributes { get; init; }
+}
+
+/// <summary>Immutable picture of a directory at one read.</summary>
+public sealed record DirectorySnapshot(
+    DomainInfo Domain,
+    DateTimeOffset ReadAt,
+    bool Complete,
+    ImmutableArray<DirectoryOu> OrganizationalUnits,
+    ImmutableArray<DirectoryUser> Users,
+    ImmutableArray<DirectoryComputer> Computers,
+    ImmutableArray<DirectoryGroup> Groups)
+{
+    /// <summary>Account that performed this read, never inferred from the later cache consumer.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReaderLogin { get; init; }
+
+    /// <summary>The branch actually read; null retains the historical full-domain snapshot format.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ScopeSelection? Coverage { get; init; }
+
+    /// <summary>Per-object observation times of a retained local union; absent on a single fresh read.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableDictionary<Guid, DateTimeOffset>? ObjectReadAt { get; init; }
+
+    /// <summary>Contacts read with the directory; null preserves older snapshot and simulation formats.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableArray<DirectoryContact>? Contacts { get; init; }
+
+    /// <summary>Whether the recorded branch includes the requested branch and its depth, independently of truncation.</summary>
+    public bool IncludesScope(ScopeSelection requested) => Coverage is null
+        || ScopeRules.SameScope(Coverage, requested)
+        || (Coverage.Subtree && (ScopeRules.SameScope(Coverage, requested with { Subtree = true }) || ScopeRules.Contains(Coverage, requested.Dn)));
+
+    /// <summary>A complete read of an OU is never a complete census of its parent or of the domain.</summary>
+    public bool CoversScope(ScopeSelection requested) => Complete && IncludesScope(requested);
+
+    /// <summary>Directory objects counted by the local base, including contacts when read.</summary>
+    public int ObjectCount => OrganizationalUnits.Length + Users.Length + Computers.Length + Groups.Length + (Contacts?.Length ?? 0);
+}

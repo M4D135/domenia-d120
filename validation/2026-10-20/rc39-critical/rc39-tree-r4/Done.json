@@ -1,0 +1,24 @@
+[
+    {
+        "Test":  "TreeVirtualization",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ElapsedMs":  22053,
+        "SourceSha256":  "D1CDEDB15329181D52BED0EAD2D4B7DF68B6E2A3352AE4DAEF48B07CF26C7AA6",
+        "Arguments":  [
+                          "-ReportPath",
+                          "C:\\DomeniaLab\\RC35-qualification\\rc39-tree-r4\\TreeVirtualization.json"
+                      ]
+    },
+    {
+        "Test":  "WiringRecherche",
+        "ExitCode":  1,
+        "TimedOut":  false,
+        "ElapsedMs":  88187,
+        "SourceSha256":  "4E0E343338A07E84AEBBBA1B67FA2C8248CA6C991732CD62794F67623849B552",
+        "Arguments":  [
+                          "-ReportPath",
+                          "C:\\DomeniaLab\\RC35-qualification\\rc39-tree-r4\\WiringRecherche.json"
+                      ]
+    }
+]

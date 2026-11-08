@@ -1,0 +1,8 @@
+{
+  "TestSHA256": "f4f5e21863d9f654b9ef74d4bfb4a0ea7f773d96b0f7cd6ec75db97eb075f9b1",
+  "BaselineGitHead": "fc4b9560e5cee10dd3e1f3613dc8fedadccbee56",
+  "BaselineExit": 1,
+  "IntermediateCorrectedExit": 0,
+  "Scope": "Same Windows PS5.1 -File wrapper then & child application scope, real loader, WPF CollectionView and Dispatcher Timer:Live; no AD.",
+  "IntermediateStatus": "11 cases / 62 assertions PASS; final packaged runtime has additional data-only predicate fast paths and will be qualified separately."
+}

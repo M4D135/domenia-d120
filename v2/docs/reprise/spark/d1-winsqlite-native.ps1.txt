@@ -1,0 +1,121 @@
+    $loaded = [Type]::GetType("Domenia.WinSqliteNative, Domenia.WinSqlite.Dynamic", $false)
+    if ($null -ne $loaded) { $script:WinSqliteNative = $loaded; return $loaded }
+
+    $assemblyName = New-Object System.Reflection.AssemblyName("Domenia.WinSqlite.Dynamic")
+    $assembly = [AppDomain]::CurrentDomain.DefineDynamicAssembly($assemblyName,[System.Reflection.Emit.AssemblyBuilderAccess]::Run)
+    $module = $assembly.DefineDynamicModule("Domenia.WinSqlite.Dynamic.Module")
+    $typeBuilder = $module.DefineType("Domenia.WinSqliteNative",[System.Reflection.TypeAttributes]::Public -bor [System.Reflection.TypeAttributes]::Sealed -bor [System.Reflection.TypeAttributes]::Abstract)
+    $attrs = [System.Reflection.MethodAttributes]::Public -bor [System.Reflection.MethodAttributes]::Static -bor [System.Reflection.MethodAttributes]::PinvokeImpl
+    $preserve = [System.Reflection.MethodImplAttributes]::PreserveSig
+    $cdecl = [System.Runtime.InteropServices.CallingConvention]::Cdecl
+    $ansi = [System.Runtime.InteropServices.CharSet]::Ansi
+
+    $defs = @(
+        @{N="sqlite3_open_v2"; R=[int]; P=[Type[]]@([IntPtr],[IntPtr].MakeByRefType(),[int],[IntPtr])},
+        @{N="sqlite3_close"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_backup_init"; R=[IntPtr]; P=[Type[]]@([IntPtr],[IntPtr],[IntPtr],[IntPtr])},
+        @{N="sqlite3_backup_step"; R=[int]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_backup_finish"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_exec"; R=[int]; P=[Type[]]@([IntPtr],[IntPtr],[IntPtr],[IntPtr],[IntPtr].MakeByRefType())},
+        @{N="sqlite3_free"; R=[void]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_errmsg"; R=[IntPtr]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_busy_timeout"; R=[int]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_prepare_v2"; R=[int]; P=[Type[]]@([IntPtr],[IntPtr],[int],[IntPtr].MakeByRefType(),[IntPtr])},
+        @{N="sqlite3_step"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_finalize"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_column_count"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_column_name"; R=[IntPtr]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_column_type"; R=[int]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_column_text"; R=[IntPtr]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_column_bytes"; R=[int]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_column_int64"; R=[long]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_column_double"; R=[double]; P=[Type[]]@([IntPtr],[int])},
+        # Point 39 (bound reads of LocalIndexRead) and PF-07 (prepared bulk writes of LocalStore): one set of prepared
+        # statement bindings for every worker. Text is bound as UTF-16 (CharSet Unicode, explicit byte length,
+        # SQLITE_TRANSIENT so that SQLite copies it during the call); nothing typed is concatenated into SQL.
+        @{N="sqlite3_bind_parameter_count"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_bind_null"; R=[int]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_bind_int64"; R=[int]; P=[Type[]]@([IntPtr],[int],[long])},
+        @{N="sqlite3_bind_double"; R=[int]; P=[Type[]]@([IntPtr],[int],[double])},
+        @{N="sqlite3_bind_text16"; R=[int]; P=[Type[]]@([IntPtr],[int],[string],[int],[IntPtr]); C=[System.Runtime.InteropServices.CharSet]::Unicode},
+        @{N="sqlite3_reset"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_clear_bindings"; R=[int]; P=[Type[]]@([IntPtr])}
+    )
+    foreach ($d in $defs) {
+        $charset = $ansi
+        if ($d.ContainsKey('C')) { $charset = $d.C }
+        $m = $typeBuilder.DefinePInvokeMethod([string]$d.N,"winsqlite3.dll",$attrs,[System.Reflection.CallingConventions]::Standard,[Type]$d.R,[Type[]]$d.P,$cdecl,$charset)
+        $m.SetImplementationFlags($m.GetMethodImplementationFlags() -bor $preserve)
+    }
+    $script:WinSqliteNative = $typeBuilder.CreateType()
+    return $script:WinSqliteNative
+}
+
+function New-DomeniaUtf8Ptr {
+    param([AllowEmptyString()][string]$Text)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes(([string]$Text) + [char]0)
+    $ptr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
+    [System.Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length)
+    return $ptr
+}
+
+function ConvertFrom-DomeniaUtf8Ptr {
+    param([IntPtr]$Pointer,[int]$Length = -1)
+    if ($Pointer -eq [IntPtr]::Zero) { return "" }
+    if ($Length -lt 0) {
+        $Length = 0
+        while ([System.Runtime.InteropServices.Marshal]::ReadByte($Pointer,$Length) -ne 0) { $Length++ }
+    }
+    if ($Length -le 0) { return "" }
+    $bytes = New-Object byte[] $Length
+    [System.Runtime.InteropServices.Marshal]::Copy($Pointer,$bytes,0,$Length)
+    return [System.Text.Encoding]::UTF8.GetString($bytes)
+}
+
+function Open-DomeniaDatabase {
+    param([string]$Path = '',[switch]$ReadOnly)
+    $native = Initialize-DomeniaWinSqliteNative
+    $db = [IntPtr]::Zero
+    $pathPtr = [IntPtr]::Zero
+    $lease=$null
+    try {
+        if ([string]::IsNullOrWhiteSpace($Path)) { $Path = Get-DomeniaDatabasePath }
+        if(-not $ReadOnly){$lease=Enter-StoreWDatabaseLease -Path $Path -TimeoutMs 1000}
+        $pathPtr = New-DomeniaUtf8Ptr $Path
+        $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
+        $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
+        if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
+        # FI-12: same documented default as the workers (2 500 ms) when the setting is absent.
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,[Math]::Max(100,[Math]::Min(5000,[int](Get-CfgValue 'LocalStore' 'DatabaseBusyTimeoutMs' 2500))))
+        if(-not $ReadOnly){
+            Assert-StoreWDatabaseWritable -Db $db
+            if($null -eq $script:DomeniaDatabaseLeases){$script:DomeniaDatabaseLeases=@{}}
+            $script:DomeniaDatabaseLeases[$db.ToInt64()]=$lease;$lease=$null
+        }
+        return $db
+    }
+    catch {
+        # sqlite3_open_v2 can return a non-null handle even on failure.
+        if ($db -ne [IntPtr]::Zero) { [void][Domenia.WinSqliteNative]::sqlite3_close($db) }
+        throw
+    }
+    finally { if($null -ne $lease){Exit-StoreWDatabaseLease $lease}; if ($pathPtr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) } }
+}
+
+function Close-DomeniaDatabase {
+    param([IntPtr]$DatabaseHandle)
+    if($DatabaseHandle -eq [IntPtr]::Zero){return}
+    Initialize-DomeniaWinSqliteNative | Out-Null
+    $rc=[Domenia.WinSqliteNative]::sqlite3_close($DatabaseHandle)
+    if($rc -ne 0){throw ('Fermeture SQLite non confirmee (code '+$rc+'). Verrou local conserve.')}
+    if($null -ne $script:DomeniaDatabaseLeases -and $script:DomeniaDatabaseLeases.ContainsKey($DatabaseHandle.ToInt64())){
+        $lease=$script:DomeniaDatabaseLeases[$DatabaseHandle.ToInt64()];$script:DomeniaDatabaseLeases.Remove($DatabaseHandle.ToInt64())
+        Exit-StoreWDatabaseLease $lease
+    }
+}
+
+function Invoke-DomeniaDbExec {
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Sql,[IntPtr]$DatabaseHandle = [IntPtr]::Zero)
+    $own = ($DatabaseHandle -eq [IntPtr]::Zero)
+    $sqlPtr = [IntPtr]::Zero
+    $errPtr = [IntPtr]::Zero

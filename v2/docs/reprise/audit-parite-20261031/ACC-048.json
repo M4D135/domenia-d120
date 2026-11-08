@@ -1,0 +1,22 @@
+{
+  "id": "ACC-048",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:1218 — ProbeEntry : widget du catalogue de sondes (ou sonde personnelle) calculé depuis les relevés locaux de l'instantané",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:1233 — mesure non relevée : valeur « À relever », sous-titre « À calculer » (ligne 1237) et action « Relever ce périmètre » avec confirmation, jamais une collecte automatique",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:1255 — sous-titre de couverture (coverage calculé ligne 1240) et ensemble exact de GUID par part de graphique (lignes 1245-1248)",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:15 — widgets issus de « Mes requêtes » : évaluation purement locale, chaque part conservant les GUID de l'instantané utilisé (commentaire ligne 12)",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:33 — lien ou requête inconnu : « Retirez ce widget ou reliez explicitement une requête depuis le catalogue. », widget conservé et non mesuré",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:87 — sous-titre « N/M couverts » avec révision et empreinte, ton d'avertissement quand il existe des inconnus (ligne 91)",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.cs:113 — tous les comptes et tous les forages partagent l'instantané lu par le lecteur de requêtes ; FleetQueryWidgets.cs:61 refuse une identité de calcul remplacée ; AccueilService.cs:126 branche l'évaluation des widgets de requête sur le calcul",
+    "web/js/pages/accueil/tools.js:201 — onglet « Requêtes » du catalogue de widgets, ajout par accueil.query.bind à la révision et à l'empreinte affichées (lignes 205 et 251)",
+    "src/Domenia.Core/Screens/Requetes/QueryCatalog.cs:418 — une information marquée SkipOnDc est annoncée « Elle est ignorée sur les contrôleurs de domaine. » ; le lecteur ne contacte pas le contrôleur (src/Domenia.Inventory/WmiFleetProbeReader.cs:51)",
+    "src/Domenia.Core/Screens/Requetes/QueryLibraryStore.cs:23 — la bibliothèque de requêtes est un fichier du dossier de données local : aucune requête « gardée sur un contrôleur de domaine » ne peut exister dans ce moteur",
+    "tests/Domenia.Tests/FleetQueryWidgetTests.cs:35 — calcul réel sur le périmètre, détail ouvrant exactement le chiffre, révision liée visible ; ligne 105 : requête absente jamais présentée comme un zéro",
+    "tests/Domenia.Tests/FleetProbeScaleTests.cs:19 — widget de sonde calculé sur le parc avec sa part exacte"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["ACC-049", "atelier de requêtes (bibliothèque locale)"],
+  "risque": "ecriture-locale"
+}

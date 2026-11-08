@@ -1,0 +1,51 @@
+{
+    "Kind":  "EngineLoad",
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell51":  true,
+    "Demo":  true,
+    "LiveAD":  false,
+    "Points":  [
+                   "TE-05",
+                   "PF-04",
+                   "PF-05",
+                   "PF-06",
+                   "FI-03",
+                   "FI-05"
+               ],
+    "Passed":  3,
+    "Failed":  0,
+    "Complete":  true,
+    "Measures":  {
+                     "Lectures":  40,
+                     "LatenceDemoMs":  200,
+                     "DureeTotaleMs":  9449,
+                     "SoumissionMs":  2351,
+                     "EnFileAuDepart":  34,
+                     "AttenteMaxEnFileMs":  5090.9,
+                     "AttenteP95EnFileMs":  5065.67,
+                     "DispatcherRetardP95Ms":  75,
+                     "DispatcherRetardMaxMs":  300,
+                     "RunspaceOpenP95Ms":  4.8,
+                     "RunspaceOpenMesures":  40,
+                     "ReveilsPulsationPendantBanc":  28,
+                     "MinuteriesPeriodiques":  6,
+                     "ReveilsParSecondeAuRepos":  1
+                 },
+    "Tests":  [
+                  {
+                      "Name":  "Controle statique : aucune DispatcherTimer creee hors New-DomeniaTimer",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Banc de charge en demonstration : 40 lectures, latence 200 ms, une ecriture refusee",
+                      "Status":  "Passed",
+                      "Detail":  "Lectures=40 ; LatenceDemoMs=200 ; DureeTotaleMs=9449 ; SoumissionMs=2351 ; EnFileAuDepart=34 ; AttenteMaxEnFileMs=5090.9 ; AttenteP95EnFileMs=5065.67 ; DispatcherRetardP95Ms=75 ; DispatcherRetardMaxMs=300 ; RunspaceOpenP95Ms=4.8 ; RunspaceOpenMesures=40 ; ReveilsPulsationPendantBanc=28"
+                  },
+                  {
+                      "Name":  "Repos : moins de 3 reveils par seconde avec les minuteries periodiques declarees dans le code",
+                      "Status":  "Passed",
+                      "Detail":  "6 minuteries periodiques (Timer:Access, Timer:Continuity, Timer:Operations, Timer:Guard, Timer:Live, Timer:Reconcile) ; 6 reveils en 6 s, soit 1 par seconde ; 33 ticks d abonnes."
+                  }
+              ]
+}

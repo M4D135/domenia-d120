@@ -1,0 +1,24 @@
+{
+    "UTC":  "2026-10-18T10:28:41.2148262Z",
+    "Host":  "W11-01",
+    "RemovedTasks":  [
+                         "Domenia-RC20-Targeted",
+                         "Domenia-RC20-GuideCaptures",
+                         "Domenia-RC20-DisposableProfile",
+                         "Domenia-RC20-TimingFixed",
+                         "Domenia-RC20-UxFixed"
+                     ],
+    "RuntimeFiles":  172,
+    "RuntimeMismatches":  [
+
+                          ],
+    "DevArchiveSHA256":  "D78CDB6408A9DA6229AD51B3E0D5C55E7600BDF3C42E8756FAC5E7316442D885",
+    "ProdArchiveSHA256":  "71E4DB913EE613E68F167A9F384F99C2623922401678458DFA9B957F7E3CB609",
+    "DisposableUserCount":  0,
+    "DisposableProfileCount":  0,
+    "OtherQualificationProcesses":  [
+
+                                    ],
+    "VMRetained":  true,
+    "Passed":  true
+}

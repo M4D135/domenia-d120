@@ -1,0 +1,20 @@
+﻿[
+    {
+        "Name":  "HealthRules",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "Seconds":  15.603172299999999
+    },
+    {
+        "Name":  "HealthAdvanced",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "Seconds":  43.0552364
+    },
+    {
+        "Name":  "StorageMaintenance",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "Seconds":  24.3247744
+    }
+]

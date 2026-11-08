@@ -1,0 +1,18 @@
+{
+  "id": "TRV-182",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Assistance/OfflineDossier.cs:226 — IsSecretName : tout champ dont le nom évoque un secret est exclu, pwdLastSet conservé (commentaire explicite) ; échec regex = traité comme secret (fail closed, ligne 238)",
+    "repo/v2/src/Domenia.Core/Screens/Assistance/OfflineDossier.cs:244 — Protect : copie récursive sans les champs secrets, liste des chemins exclus ; profondeur > 32 exclue avec mention « (profondeur) » (lignes 247-249)",
+    "repo/v2/src/Domenia.Core/Screens/Assistance/OfflineDossier.cs:431 — regex SecretName couvrant password/token/laps/bitlocker.*(key|recovery)/ms-mcs-admpwd etc., avec negative lookahead sur pwd_last_set",
+    "repo/v2/src/Domenia.Core/Screens/Assistance/OfflineDossier.cs:66 — MaxPayloadChars = 262_144 (256 Kio)",
+    "repo/v2/src/Domenia.Store/Sqlite/DomeniaDatabase.Automation.cs:239 — payload > 256 Kio : note « Données trop volumineuses : non reprises. », valeur non reprise",
+    "repo/v2/src/Domenia.Core/Screens/Assistance/OfflineDossier.cs:297 — ExcludedFields listé dans l'enveloppe ; :384 manifeste liste toutes les exclusions",
+    "repo/v2/tests/Domenia.Tests/AssistanceRulesTests.cs:322 — test IsSecretName (ms-Mcs-AdmPwd, BitLockerRecoveryKey vrais ; pwdLastSet non secret)",
+    "repo/v2/tests/Domenia.Tests/AssistanceRulesTests.cs:331-333 — test : champ secret retiré du dossier, chemin exclus annoncé dans ExcludedFields"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "ecriture-locale"
+}

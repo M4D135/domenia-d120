@@ -1,0 +1,16 @@
+{
+  "id": "ACC-006",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:243 — étape « Reçu d’enregistrement local » : « La collecte des postes attend le reçu de la base (OU, base, session, complétude) »",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:501 — proof.Receipt.Matches(storeId, domainDn, scope, …) sinon refus « accueil.refresh.receipt : aucune collecte des postes n’est lancée »",
+    "src/Domenia.Core/Directory/IDirectoryCache.cs:24 — Matches exige Complete, snapshot.Complete, Revision > 0 et Items == ObjectCount : une lecture partielle échoue le reçu",
+    "src/Domenia.Ad/AdDirectorySource.cs:503 — DirectoryCommit alimenté depuis la commit SQLite réelle (DirectoryCommitReceipt, src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.cs:11)",
+    "tests/Domenia.Tests/AccueilDirectoryReceiptTests.cs:13 — test : reçu incohérent arrête le pipeline avant tout appel poste",
+    "tests/Domenia.Tests/AccueilDirectoryReceiptTests.cs:64 — test : lecture AD échouée ou partielle arrête la chaîne et conserve les postes connus"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["ACC-003"],
+  "risque": "ecriture-locale"
+}

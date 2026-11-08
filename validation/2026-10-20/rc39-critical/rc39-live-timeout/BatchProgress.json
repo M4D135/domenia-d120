@@ -1,0 +1,34 @@
+{
+    "ElapsedMs":  9622,
+    "Loading":  false,
+    "Approved":  true,
+    "Completed":  true,
+    "Stopping":  false,
+    "Done":  2,
+    "Failed":  1,
+    "Next":  2,
+    "Status":  "Relevé terminé : 2/2 postes lus · 1 lecture non confirmée. 0 identités en cache, 0 association(s) créée(s) ou changée(s), 0 mesures encore fraîches réutilisées. Bilan : 0 pinglés, 0 muets, 2 lus, 0 réutilisés, 0 sautés.",
+    "StopReason":  "",
+    "FailureMessage":  "",
+    "Pending":  0,
+    "StorePending":  0,
+    "Events":  [
+                   {
+                       "Event":  "WorkerStarted",
+                       "AtMs":  2046,
+                       "Id":  "WMI du perimetre : 10.77.0.254:2:54f3f38d",
+                       "Name":  "WMI du perimetre : 10.77.0.254",
+                       "Operation":  "LiveConsole",
+                       "TimeoutSeconds":  2
+                   },
+                   {
+                       "Event":  "WorkerStarted",
+                       "AtMs":  6069,
+                       "Id":  "WMI du perimetre : dc01.cnamts.local:3:b81f2588",
+                       "Name":  "WMI du perimetre : dc01.cnamts.local",
+                       "Operation":  "LiveConsole",
+                       "TimeoutSeconds":  25
+                   }
+               ],
+    "PersistenceFault":  ""
+}

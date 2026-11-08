@@ -1,0 +1,55 @@
+{
+  "Kind": "Wiring",
+  "Lot": "W08-navigation",
+  "Filter": "Programme 8",
+  "Points": [
+    "52",
+    "53",
+    "54",
+    "55",
+    "56",
+    "57",
+    "58",
+    "59",
+    "60"
+  ],
+  "Host": "5.1.26100.6584",
+  "NativeWindowsPowerShell51": true,
+  "Wpf": true,
+  "LiveAD": false,
+  "LiveCIM": false,
+  "LivePing": false,
+  "SQLite": false,
+  "Passed": 5,
+  "Failed": 0,
+  "Complete": false,
+  "Subset": true,
+  "Limitation": "Raccordement prouve par les vraies fonctions et de vrais controles WPF ; annuaire, postes, base SQLite, presse-papiers et fenetres sont des doubles. Ne prouve ni un acces a un domaine reel ni le rendu final a lʼecran.",
+  "Tests": [
+    {
+      "Name": "Programme 8 / P52 Deux OU de même nom restent distinctes dans la portée et les favoris",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Programme 8 / P53 Filtre de lʼarbre : parents conservés, groupe système seulement pour un conteneur trouvé, aucune lecture",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Programme 8 / P55 Précédent rend le tri, la taille de la liste, toutes les lignes sélectionnées et les branches ouvertes, sans lecture",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Programme 8 / P55 Une branche mémorisée mais non lue nʼest jamais relue par lʼhistorique",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Programme 8 / P55 Grand annuaire : toutes les branches ouvertes et lʼOU de lʼétape sont retrouvées, sans lecture",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "Kind": "Local source and packaging checks",
+  "UTC": "2026-10-12T22:17:33.178989+00:00",
+  "SourceBaseCommit": "3ae15df6dc15d42b8cae93404a8c71ac642a91f7",
+  "WindowsQualification": false,
+  "Checks": {
+    "PowerShellStaticFiles": 167,
+    "PreloadPassed": 174,
+    "PreloadFailed": 0,
+    "ReleaseGuardTestsPassed": 50,
+    "RuntimeFilesIdenticalDEVPROD": 93,
+    "RuntimeSourceMatchesFinalArchive": true
+  },
+  "BuildReportSHA256": "0a386eb50a7c6216d7cd218f93b8277d4143b4bb1803033f8e2dfcb615717054",
+  "WorkerOperationsReviewed": [
+    "LiveConsole",
+    "LiveSelectedPing",
+    "EmbeddedDirectoryLookup",
+    "LocalIndexRead"
+  ],
+  "WorkerReason": "LiveConsole/LiveSelectedPing: identity TTL, grouped validated CIM properties, honest failed inventory and First DNS; EmbeddedDirectoryLookup: OU children; LocalIndexRead: scoped successful sync coverage. Registry fingerprint refreshed after review.",
+  "Limits": "Static and packaging checks on macOS; native Windows, WPF and synthetic data proofs are separate.",
+  "BuildReportScope": "R8 final archive; R7 and R8 production runtime byte-identical, only DEV Boards test fixture and package manifest changed."
+}

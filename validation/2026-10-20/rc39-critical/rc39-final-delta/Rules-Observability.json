@@ -1,0 +1,127 @@
+{
+  "Kind": "PureRules",
+  "Host": {
+    "Platform": "Windows",
+    "PSVersion": "5.1.26100.6584",
+    "PSEdition": "Desktop"
+  },
+  "NativeWindowsPowerShell51": true,
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "Passed": 17,
+  "Failed": 0,
+  "CoveredIds": [
+    "P118",
+    "P121",
+    "P123",
+    "P124",
+    "P145"
+  ],
+  "Complete": true,
+  "Limitation": "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+  "Tests": [
+    {
+      "Id": "P123",
+      "Name": "Identifiant de trace : explicite, puis demande en cours, puis contexte, puis correlation",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P123",
+      "Name": "Une demande relie collecte, validation, lecture locale et publication sous un seul identifiant",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P123",
+      "Name": "Lot sans mesure : volume et duree annonces au moins, jamais comptes a zero",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P123",
+      "Name": "Trace bornee : la fin est toujours conservee, le reste est compte",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P123",
+      "Name": "Plusieurs taches : la pire fin l emporte, la trace reste ouverte tant qu une tache tourne",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P123",
+      "Name": "Etape du flux : garde la trace ouverte sans compter comme tache ; un evenement tardif repousse la fin",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P123",
+      "Name": "Anneau plein : les traces terminees les plus anciennes partent d abord",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P123",
+      "Name": "Travail automatique : liste seulement s il finit mal, et quitte l anneau le premier",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P121",
+      "Name": "Durees lisibles en francais ; une mesure absente est dite non mesuree",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P121",
+      "Name": "Volume rendu a l interface lu sans enumeration",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P121",
+      "Name": "Lenteur expliquee par operation, phase, volume et traitement",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P121",
+      "Name": "Retard de l interface attribue au travail qui le recouvre, sinon dit non attribue",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P124",
+      "Name": "Diagnostic expurge : liste blanche, aucun secret, aucun nom, aucun message",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P124",
+      "Name": "Diagnostic refuse les noms et secrets valides comme identifiants techniques",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P145",
+      "Name": "Diagnostic expurge : compatibilite du poste en versions et statuts, ni nom ni chemin",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P124",
+      "Name": "Diagnostic borne : 200 mesures, 64 traces, 16 lenteurs au plus",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P118",
+      "Name": "Apres une fin : que faire, sans relance automatique ni rejeu d ecriture",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "TRV-162",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accueil/AccueilService.cs:1103-1120 — ClearCache : vide les caches d’affichage en mémoire (calcul du tableau, tableaux croisés, historique relu, layout/règles) ; journal et message : « aucune mesure perdue, aucun objet Active Directory modifié »",
+    "repo/v2/src/Domenia.Bridge/Operations/AccueilOperations.cs:369-373 — opération accueil.cache.clear, OperationClass.Local ; repo/v2/tests/Domenia.Tests/PlatformTests.cs:137 — test : classée Local (aucun réseau)",
+    "repo/v2/web/js/pages/accueil/session-tools.js:150-162 — bouton « Vider le cache » avec confirmation disant explicitement qu’aucun objet AD n’est modifié ; repo/v2/web/js/pages/accueil.js:611,1317 — bouton branché, recharge la vue après vidange",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/CollectionCachePolicy.cs:6-15 — politique de reuse par famille avec durée par famille et plafond en minutes (Budgets CacheMinutes, défaut 15) : le cache suit la durée de vie de la valeur, pas un TTL unique",
+    "repo/v2/src/Domenia.Store/Sqlite/SqliteDirectoryCache.cs:8 — cache local persistant (IAccueilCache, IFicheCache…) : l’architecture V2 remplace le cache de visite mémoire par des données datées en SQLite"
+  ],
+  "manque": "Le cache de visite borné de D1 n’existe pas sous cette forme : aucun cache mémoire à TTL 90 s (vues) / 45 s (objets), aucune borne de 400 entrées, pas d’éviction prioritaire des entrées expirées, aucun compteur de hits ni d’évictions (aucun « Hits »/« Evictions » dans repo/v2/src hors performances de collecte, RefreshPerformance.cs:5) ; la règle « un objet sans GUID n’est pas mis en cache » n’est pas écrite telle quelle (CollectionCachePolicy.Probe exige une identité qualifiée, lignes 22-35, mais rien n’interdit de mettre en cache un objet sans GUID).",
+  "effort": "M",
+  "depend": ["architecture locale V2 : cache persistant daté (SqliteDirectoryCache) et politique de fraîcheur par famille (CollectionCachePolicy) — trancher si le cache de visite D1 est repris à l’identique ou considéré remplacé"],
+  "risque": "lecture"
+}

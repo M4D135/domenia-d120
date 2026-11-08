@@ -1,0 +1,27 @@
+{
+  "id": "OPE-011",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Operations/LifecyclePlans.cs:6-11 — les trois parcours sont les seuls admis : Arrival, ServiceChange, Suspension",
+    "src/Domenia.Core/Screens/Operations/LifecyclePlans.cs:56-98 — règles des séquences : Arrivée = vérifier la fiche, groupes du modèle, activer ; Changement de service = attributs (service, fonction, responsable), groupes, déplacement ; Suspension = désactiver, consigner le motif, déplacer ; chaque étape sensible porte Sensitive = true (lignes 67, 69, 72, 75, 79, 83-87)",
+    "src/Domenia.Core/Screens/Operations/LifecyclePlans.cs:27-37,97 — Deletes et Migrates sont renvoyés false pour les trois séquences : « une séquence ne supprime rien, ne migre rien »",
+    "src/Domenia.Core/Screens/Operations/LifecyclePlans.cs:104-133 — Record : une issue Uncertain bloque (Blocked = true, « Elle ne sera pas rejouée »), une issue Failed bloque aussi jusqu'à décision de l'opérateur ; seule une relecture ou revue de l'étape incertaine (resolved) débloque",
+    "src/Domenia.Core/Screens/Operations/LifecyclePlans.cs:137-141 — Next renvoie null dès que le plan est bloqué : la suite est arrêtée, aucune étape n'est enchaînée automatiquement",
+    "src/Domenia.Core/Screens/Operations/LifecyclePlans.cs:144-162 — Views(available) rend les trois séquences avec, pour chaque étape, sa disponibilité dans ce mode (Served, lignes 153-155) et la note « N étapes attendent leur écriture dans ce mode »",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:491 — Rules() expose LifecyclePlans.Views(kinds) à l'écran Opérations (règle non raccordée, disponibilité par étape)",
+    "src/Domenia.Core/Screens/Operations/LifecycleWorkflow.cs:40-63 — construction des étapes réelles après relecture AD (groupe vérifié FicheKind.Group, destination OU ou conteneur), sinon refus",
+    "src/Domenia.Core/Screens/Operations/LifecycleWorkflow.cs:80-87 — PrepareAsync refuse quand le plan est bloqué ou terminé, refuse un plan expiré (« aucune étape n'est rejouée ») et exige que le geste corresponde à l'étape courante",
+    "src/Domenia.Core/Screens/Operations/LifecycleWorkflow.cs:112-119 — le plan de l'étape est recontrôlé (GUID cible, identité du membre) puis passé au circuit d'écriture : WriteCircuit.PlanAsync, donc confirmation, reçu et relecture propres à l'étape",
+    "src/Domenia.Core/Screens/Operations/LifecycleWorkflow.cs:159-166 — RecordAsync : reçu en attente, inconnu ou en décalage = étape Uncertain (donc bloquante) ; Verified seulement si Applied/NoChange et Verification Verified",
+    "web/js/pages/fiche/workflows.js:101-107 — la fiche affiche la liste des étapes avec leur état (À préparer, Vérifiée, À vérifier, En échec, Sans changement), le motif de blocage et un seul bouton « Préparer cette étape… » pour l'étape suivante",
+    "web/js/pages/fiche/workflows.js:117-127 — exécution étape par étape : confirmation explicite de l'étape de vérification, fiche.lifecycle.prepare puis runWrite sur fiche.lifecycle.plan, puis fiche.lifecycle.record avec le reçu de cette seule étape",
+    "tests/Domenia.Tests/FicheWorkflowTests.cs:54-65 — « Lifecycle never sends a write on prepare and requires its own receipt before next step » : un changement concurrent laisse l'étape Pending (« aucun succès déduit ») ; lignes 71-88 une étape incertaine est bloquante puis débloquée par preuve, séquence terminée seulement tout vérifié ; lignes 95-97 refus d'un champ secret, de groupes contradictoires et de motif de suspension manquant"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [
+    "écritures servies groupes / attributs / déplacement / activation (Domenia.Ad/Writes)",
+    "circuit d'écriture et reçus (src/Domenia.Core/Writes/WriteCircuit.cs)"
+  ],
+  "risque": "ecriture-AD"
+}

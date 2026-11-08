@@ -1,0 +1,67 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : lecture de la présence BitLocker de l’OU",
+  "description": "Depuis la tuile BitLocker du tableau du parc, « Actualiser ce widget » ouvre toujours une confirmation (geste explicite, aucune lecture lancée au clic) avec « Lancer la collecte » ; le scénario refuse la collecte, la confirmation se referme sans rien lancer.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "accueil",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-entry=\"fleet.bitlocker\"] [data-fw-collect]",
+      "title": "La tuile BitLocker propose « Actualiser ce widget »"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-entry=\"fleet.bitlocker\"] .btn.primary",
+      "absent": true,
+      "title": "Aucune action principale dans une carte"
+    },
+    {
+      "do": "click",
+      "selector": "[data-fw-collect]",
+      "within": "[data-entry=\"fleet.bitlocker\"]",
+      "title": "Actualiser la tuile BitLocker"
+    },
+    {
+      "do": "expect",
+      "selector": ".k-dlg[role=dialog]",
+      "title": "La lecture demande toujours une confirmation"
+    },
+    {
+      "do": "expect",
+      "contains": "Sans clé BitLocker",
+      "within": ".k-dlg-head",
+      "title": "La confirmation nomme le widget BitLocker"
+    },
+    {
+      "do": "expect",
+      "contains": "Lancer la collecte",
+      "within": ".k-dlg-foot",
+      "title": "Rien ne part sans « Lancer la collecte »"
+    },
+    {
+      "do": "shot",
+      "name": "bitlocker-confirmation",
+      "selector": ".k-dlg"
+    },
+    {
+      "do": "click",
+      "text": "Annuler",
+      "within": ".k-dlg-foot",
+      "title": "Refuser la lecture"
+    },
+    {
+      "do": "expect",
+      "selector": ".k-dlg-layer",
+      "absent": true,
+      "title": "Confirmation refermée"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

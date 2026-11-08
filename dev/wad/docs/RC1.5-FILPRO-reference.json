@@ -1,0 +1,38 @@
+{
+  "FILPROArchive": "FILPRO_2.5.0_RC1_DEV.zip",
+  "ReferenceFiles": {
+    "Login.xaml": "4833e2ba7e0a2246d20b982ebc59c3500baa44b43f347887f5e71b022747446b",
+    "Controls.xaml": "004c360f6c78551d0aba8517d97991f7acb8217a05bfc907a0214ce640cada95"
+  },
+  "ImportedStyles": [
+    "ToolTip",
+    "FocusRing",
+    "TextBlock",
+    "Label",
+    "Muted",
+    "Card",
+    "Button",
+    "Run",
+    "TextBox",
+    "PasswordBox",
+    "CheckBox",
+    "ProgressBar"
+  ],
+  "ControlNameMapping": {
+    "TxtUser": "TxtLogin",
+    "TxtPwd": "PwdLogin",
+    "BtnOk": "BtnLogin",
+    "BtnSso": "BtnWindowsLogin",
+    "LblErr": "LblLoginError",
+    "LblCapsLock": "LblSuiteCapsLock",
+    "BtnLoginTheme": "BtnSuiteLoginTheme"
+  },
+  "DomeniaAdaptations": [
+    "Product title and D monogram",
+    "Existing Domenia credentials/permissions workflow unchanged",
+    "Existing indeterminate feedback, hidden compatibility controls and folded diagnostics retained",
+    "Styles use Domenia theme brushes, no preferences imported from FILPRO"
+  ],
+  "RegistryFingerprint": "925DC83121296F7C47AE08EA0F2BD23C578CCCFA066BB18613A4ED3B0236A209",
+  "OperationCount": 55
+}

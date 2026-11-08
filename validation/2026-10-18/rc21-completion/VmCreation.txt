@@ -1,0 +1,11 @@
+Machine has been successfully cloned as "DOMENIA-RC21-FINAL"
+Waiting for VM "DOMENIA-RC21-FINAL" to power on...
+VM "DOMENIA-RC21-FINAL" has been successfully started.
+{
+    "Name":  "DOMENIA-RC21-FINAL",
+    "Source":  "816752c4-a95f-4d1a-9979-8a8a94f584ee",
+    "SourceConfigUnchanged":  true,
+    "Network":  "none",
+    "Base":  "C:\\ADCC-Lab\\VirtualBox\\DOMENIA-Qualification",
+    "DateUtc":  "2026-10-18T11:36:07.6406596Z"
+}

@@ -1,0 +1,136 @@
+{
+  "Suite": "DomeniaLiveSearchView",
+  "Passed": false,
+  "Failed": 3,
+  "Cases": 4,
+  "Assertions": 6,
+  "PowerShell": "5.1.26100.6584",
+  "SessionId": 0,
+  "Sta": "STA",
+  "SyntheticOnly": true,
+  "RealDispatcher": true,
+  "LoaderScope": "-File launcher then & application script (same as Domenia-Start)",
+  "LoadedFunctions": [
+    {
+      "Name": "Initialize-DomeniaLive",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+    },
+    {
+      "Name": "Begin-DomeniaLiveSearch",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+    },
+    {
+      "Name": "Update-DomeniaLiveFilter",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+    },
+    {
+      "Name": "Add-DomeniaLiveRow",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+    },
+    {
+      "Name": "Invoke-DomeniaLiveTick",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+    },
+    {
+      "Name": "New-DomeniaTimer",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Engine.UI.ps1"
+    },
+    {
+      "Name": "Invoke-DomeniaTimerTick",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Engine.UI.ps1"
+    },
+    {
+      "Name": "Test-DomeniaSearchQueryRow",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Query.UI.ps1"
+    },
+    {
+      "Name": "Get-DomeniaBoardSelectHandler",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Widgets.UI.ps1"
+    },
+    {
+      "Name": "Show-DomeniaFleetWidgetDetails",
+      "File": "C:\\DomeniaLab\\codex-search-20261012\\before\\dev\\wad\\modules\\Domenia-Query.UI.ps1"
+    }
+  ],
+  "Hashes": [
+    {
+      "Path": "Domenia-Modules.ps1",
+      "Sha256": "BC06F17A1D6A7DDBDA0DD3C91F26A8C7F392302F3B5693B89214B49FDC66E67F"
+    },
+    {
+      "Path": "Domenia-Core.ps1",
+      "Sha256": "F03EAEF3C6438DE677C4B6972879DDD926BA51D2F6EFEC5A65E9C990B45E6F54"
+    },
+    {
+      "Path": "modules/Domenia-Live.UI.ps1",
+      "Sha256": "168709C490CFDAAC867DC8381BA491CF69F0CA4112D29D99F989DE908BAB0E40"
+    },
+    {
+      "Path": "modules/Domenia-Query.UI.ps1",
+      "Sha256": "622802A75AB11323299B42175A90BBE529B4449015509B66A5F4F2867021B572"
+    },
+    {
+      "Path": "modules/Domenia-Widgets.UI.ps1",
+      "Sha256": "D1EBBA2777936C983351E37B2366BEE00E2731E35969B795A3813517382D28DA"
+    }
+  ],
+  "Results": [
+    {
+      "Name": "Real loader keeps application functions private to the script",
+      "Passed": true,
+      "Milliseconds": 13,
+      "Error": ""
+    },
+    {
+      "Name": "Progressive arrivals without query survive three timer ticks",
+      "Passed": false,
+      "Milliseconds": 996,
+      "Error": "System.Management.Automation.RuntimeException: Timer:Live errors: Exception calling \"Add\" with \"1\" argument(s): \"The term 'Test-DomeniaSearchQueryRow' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.\""
+    },
+    {
+      "Name": "Filter apply/refresh/clear scenarios",
+      "Passed": false,
+      "Error": "Blocked by reproduced Timer:Live failure; no success inferred."
+    },
+    {
+      "Name": "Delayed Fleet WPF click invokes the real script-local query callback",
+      "Passed": false,
+      "Milliseconds": 119,
+      "Error": "System.Management.Automation.MethodInvocationException: Exception calling \"RaiseEvent\" with \"1\" argument(s): \"The term 'Show-DomeniaFleetWidgetDetails' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.\" ---> System.Management.Automation.CommandNotFoundException: The term 'Show-DomeniaFleetWidgetDetails' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.\r\n   at System.Management.Automation.ExceptionHandlingOps.CheckActionPreference(FunctionContext funcContext, Exception exception)\r\n   at System.Management.Automation.Interpreter.ActionCallInstruction`2.Run(InterpretedFrame frame)\r\n   at System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)\r\n   at System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)\r\n   at System.Management.Automation.Interpreter.Interpreter.Run(InterpretedFrame frame)\r\n   at System.Management.Automation.Interpreter.LightLambda.RunVoid1[T0](T0 arg0)\r\n   at System.Management.Automation.ScriptBlock.InvokeWithPipeImpl(ScriptBlockClauseToInvoke clauseToInvoke, Boolean createLocalScope, Dictionary`2 functionsToDefine, List`1 variablesToDefine, ErrorHandlingBehavior errorHandlingBehavior, Object dollarUnder, Object input, Object scriptThis, Pipe outputPipe, InvocationInfo invocationInfo, Object[] args)\r\n   at System.Management.Automation.ScriptBlock.<>c__DisplayClass57_0.<InvokeWithPipe>b__0()\r\n   at System.Management.Automation.Runspaces.RunspaceBase.RunActionIfNoRunningPipelinesWithThreadCheck(Action action)\r\n   at System.Management.Automation.ScriptBlock.InvokeWithPipe(Boolean useLocalScope, ErrorHandlingBehavior errorHandlingBehavior, Object dollarUnder, Object input, Object scriptThis, Pipe outputPipe, InvocationInfo invocationInfo, Boolean propagateAllExceptionsToTop, List`1 variablesToDefine, Dictionary`2 functionsToDefine, Object[] args)\r\n   at System.Management.Automation.ScriptBlock.InvokeAsDelegateHelper(Object dollarUnder, Object dollarThis, Object[] args)\r\n   at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)\r\n   at System.Windows.UIElement.RaiseEventImpl(DependencyObject sender, RoutedEventArgs args)\r\n   at CallSite.Target(Closure , CallSite , Object , Object )\r\n   --- End of inner exception stack trace ---\r\n   at System.Management.Automation.ExceptionHandlingOps.CheckActionPreference(FunctionContext funcContext, Exception exception)\r\n   at System.Management.Automation.Interpreter.ActionCallInstruction`2.Run(InterpretedFrame frame)\r\n   at System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)\r\n   at System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)"
+    }
+  ],
+  "Snapshots": [
+    {
+      "Stage": "no-query-three-arrivals",
+      "Rows": 3,
+      "Visible": 0,
+      "Queued": 0,
+      "TimerRuns": 3,
+      "TimerErrors": 3,
+      "TimerFailures": 3,
+      "TimerEnabled": false,
+      "FaultStopped": true,
+      "LastError": "Exception calling \"Add\" with \"1\" argument(s): \"The term 'Test-DomeniaSearchQueryRow' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.\"",
+      "HeartbeatWakeups": 3,
+      "Counter": "0 / 0 lignes visibles · filtre local"
+    }
+  ],
+  "Logs": [
+    {
+      "Level": "WARN",
+      "Text": "Minuteur Timer:Live : Exception calling \"Add\" with \"1\" argument(s): \"The term 'Test-DomeniaSearchQueryRow' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.\""
+    },
+    {
+      "Level": "WARN",
+      "Text": "Minuteur Timer:Live : Exception calling \"Add\" with \"1\" argument(s): \"The term 'Test-DomeniaSearchQueryRow' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.\""
+    },
+    {
+      "Level": "WARN",
+      "Text": "Minuteur Timer:Live : Exception calling \"Add\" with \"1\" argument(s): \"The term 'Test-DomeniaSearchQueryRow' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.\""
+    },
+    {
+      "Level": "ERROR",
+      "Text": "Minuteur Timer:Live arrêté après 3 erreurs consécutives ; aucun nouvel essai automatique."
+    }
+  ]
+}

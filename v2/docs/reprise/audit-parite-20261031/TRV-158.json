@@ -1,0 +1,17 @@
+{
+  "id": "TRV-158",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Inventory/CimSession.cs:51,159,208 — un refus d'authentification pose authenticationRefused pour toute la session de lecture : « authentification déjà refusée : aucun nouvel essai » sur chaque lecture suivante ; même garde dans CimSession.Metadata.cs:38, CimSession.Registry.cs:116, CimSession.UserIdentity.cs:18-20, WsmanReadChannel.cs:37",
+    "repo/v2/src/Domenia.Core/Screens/Machine/MachineAccountService.cs:17-18,396-399,674 — un refus met en pause la place de la cascade : « la prochaine opération avec lui est refusée tant qu'un essai réussi ne l'a pas validé » (machine.accountPaused) ; ligne 124 : l'essai d'accès (forTrial) est le seul passage ; lignes 327,380 — compte temporaire accepté après refus avec bail borné (une utilisation, la session, ou 30 min)",
+    "repo/v2/tests/Domenia.Tests/MachineAccountTests.cs:307 — test machine.accountPaused ; repo/v2/src/Domenia.Ad/Screens/AdPosteReader.LastUser.cs:86-87 — refus d'identifiants : « Compte machine suspendu ; aucune autre source ni aucun autre compte essayé. »",
+    "repo/v2/src/Domenia.Core/Execution/WorkstationCapabilityMemory.cs:111-113,141-147 — TTL par nature d'échec CIM : classe absente 7 j, protocole inaccessible 15 min, droit refusé 1 h ; une réussite oublie le fait (Success → Forget) ; ligne 102-105 : expiration et invalidation par build/compte",
+    "repo/v2/src/Domenia.Inventory/CimSession.Capabilities.cs:17-34 — lecture ignorée et marquée « Non relu : … Mémoire de cette session jusqu'au … ; un inventaire complet force la relecture » ; ForceCapabilities = lecture forcée qui ignore la mémoire (ligne 19)",
+    "repo/v2/src/Domenia.Core/Screens/Poste/PosteProbeCache.cs:60-68 — à la fusion, une mesure sans valeur plus récente ne remplace jamais l'ancienne : la dernière donnée valide reste conservée ; repo/v2/src/Domenia.Core/Screens/Accueil/CollectionCachePolicy.cs:22-25 — une mesure en échec ou AuthenticationRejected n'est jamais réutilisée, sans effacer la précédente",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheSession.cs:157-175 — le ping explicite de la session est conservé par GUID et prime sur l'observation plus ancienne (FIC-046) ; une nouvelle ouverture de fiche relit, rien n'est rejoué automatiquement"
+  ],
+  "manque": "Le cache négatif horodaté de D1 (New-DomeniaNegativeCache / Get-DomeniaNegativeTtlSeconds) n'existe pas : aucune table ni mémoire « cible échouée récemment » avec les TTL 120 s (injoignable/délai), 600 s (accès refusé/prérequis) et 60 s (autres), aucun test de Test-DomeniaNegativeCache avant un rafraîchissement visuel — la seule mémoire d'échec est CIM (15 min/1 h, par classe, WorkstationCapabilityMemory) et le refus d'identifiants (pause de compte sans durée, levée par un essai réussi, pas 24 h). Les rafraîchissements de liste en arrière-plan (search.revalidate, repo/v2/src/Domenia.Core/Screens/Search/SearchService.cs:488 ; web/js/pages/rechercher.js:153-154 toutes les 3 min au plus) relisent l'annuaire sans jamais consulter un état d'échec de sonde. Le message « changez de compte avant un nouvel essai » après refus d'identifiants n'existe nulle part (remplacé par la pause de compte machine.accountPaused et le compte temporaire à bail).",
+  "effort": "M",
+  "depend": ["TRV-156 (WorkstationCapabilityMemory : même mécanique de fait horodaté, à étendre aux échecs de sonde non CIM)", "TRV-157 (cache des observations : conserver la dernière donnée valide)"],
+  "risque": "reseau"
+}

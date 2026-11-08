@@ -1,0 +1,139 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="DomeniaSupportView" Background="{DynamicResource BgCard}" Foreground="{DynamicResource TextColor}">
+  <UserControl.Resources>
+    <Style x:Key="SupportCaption" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="0,4,0,8"/>
+    </Style>
+    <Style x:Key="SupportGrid" TargetType="DataGrid">
+      <Setter Property="AutoGenerateColumns" Value="False"/><Setter Property="IsReadOnly" Value="True"/>
+      <Setter Property="CanUserAddRows" Value="False"/><Setter Property="CanUserDeleteRows" Value="False"/>
+      <Setter Property="SelectionMode" Value="Single"/><Setter Property="SelectionUnit" Value="FullRow"/>
+      <Setter Property="HeadersVisibility" Value="Column"/><Setter Property="GridLinesVisibility" Value="Horizontal"/>
+      <Setter Property="Background" Value="{DynamicResource DataGridBg}"/><Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
+      <Setter Property="RowBackground" Value="{DynamicResource DataGridBg}"/><Setter Property="AlternatingRowBackground" Value="{DynamicResource DataGridAlt}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
+      <Setter Property="EnableRowVirtualization" Value="True"/><Setter Property="EnableColumnVirtualization" Value="True"/>
+      <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/><Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+      <Setter Property="ScrollViewer.CanContentScroll" Value="True"/><Setter Property="MinRowHeight" Value="32"/>
+    </Style>
+  </UserControl.Resources>
+  <Grid Margin="14">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel>
+        <TextBlock Text="Atelier support" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold"/>
+        <TextBlock x:Name="LblSupportContext" Text="Ouvre une fiche pour analyser ses données déjà chargées." Style="{StaticResource SupportCaption}"/>
+      </StackPanel>
+      <Button x:Name="BtnSupportClearSession" Grid.Column="1" Content="Vider l'atelier" VerticalAlignment="Top" ToolTip="Efface uniquement les captures, repères et incidents en mémoire de lʼatelier. Aucun effet sur Domenia.db ou AD."/>
+    </Grid>
+    <Border Grid.Row="1" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,0,0,12">
+      <TextBlock Text="Lecture locale, sans scan automatique. Les constats citent leurs indices ; une donnée manquante reste indéterminée. Rien nʼest réparé ni modifié automatiquement."
+                 Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
+    </Border>
+    <TabControl x:Name="SupportTabs" Grid.Row="2" Background="{DynamicResource BgCard}" Foreground="{DynamicResource TextColor}">
+      <TabItem x:Name="SupportAnalysisTab" Header="Comprendre">
+        <Grid Margin="10">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="150"/></Grid.RowDefinitions>
+          <WrapPanel Margin="0,0,0,6">
+            <Button x:Name="BtnSupportAnalyse" Content="Recalculer la synthèse" ToolTip="Relit seulement les données déjà présentes en mémoire. Ne contacte pas AD."/>
+            <Button x:Name="BtnSupportPin" Content="Epingler la fiche" ToolTip="Conserve un raccourci de session dans Reperes. Pas d'enregistrement sur disque."/>
+            <Button x:Name="BtnSupportAccounts" Content="Voir les comptes"/>
+            <Button x:Name="BtnSupportEngine" Content="État moteur"/>
+          </WrapPanel>
+          <TextBlock x:Name="LblSupportCoverage" Grid.Row="1" Style="{StaticResource SupportCaption}" Text="Aucune fiche chargee. Aucun diagnostic invente."/>
+          <DataGrid x:Name="DgSupportFindings" Grid.Row="2" Style="{StaticResource SupportGrid}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Niveau" Binding="{Binding Level}" Width="120"/>
+              <DataGridTextColumn Header="Constat" Binding="{Binding Title}" Width="2*"/>
+              <DataGridTextColumn Header="Élément observé" Binding="{Binding Evidence}" Width="3*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBox x:Name="TxtSupportFindingDetail" Grid.Row="3" Margin="0,10,0,0" IsReadOnly="True" TextWrapping="Wrap"
+                   VerticalScrollBarVisibility="Auto" Background="{DynamicResource BgReadonly}" Foreground="{DynamicResource TextColor}"
+                   Text="Sélectionnez un constat pour lire ses limites et la vérification proposée."/>
+        </Grid>
+      </TabItem>
+      <TabItem x:Name="SupportCompareTab" Header="Comparer A / B">
+        <Grid Margin="10">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="90"/></Grid.RowDefinitions>
+          <WrapPanel Margin="0,0,0,8">
+            <ComboBox x:Name="CmbSupportFileSlot" Width="55" SelectedIndex="0" Margin="0,0,8,0" ToolTip="Emplacement A ou B a enregistrer ou charger."><ComboBoxItem Content="A"/><ComboBoxItem Content="B"/></ComboBox><Button x:Name="BtnSupportSaveCapture" Content="Enregistrer la capture" ToolTip="Enregistre volontairement une capture historique avec une liste fermée dʼattributs, sans champs secrets."/><Button x:Name="BtnSupportLoadCapture" Content="Charger une capture" ToolTip="Charge une capture historique du meme domaine. Elle ne devient pas une lecture AD actuelle."/><Button x:Name="BtnSupportCaptureA" Content="Fiche actuelle → A" ToolTip="Fige les valeurs déjà chargées en mémoire, sans lecture AD supplémentaire."/>
+            <Button x:Name="BtnSupportCaptureB" Content="Fiche actuelle → B"/>
+            <Button x:Name="BtnSupportSwap" Content="Inverser A / B"/>
+            <Button x:Name="BtnSupportClearCompare" Content="Effacer A / B"/>
+            <CheckBox x:Name="ChkSupportDiffOnly" Content="Differences et inconnues" IsChecked="True" VerticalAlignment="Center" Margin="8,0,0,0"/>
+          </WrapPanel>
+          <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Border Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,6,0"><TextBlock x:Name="LblSupportA" Text="A : aucune capture" TextWrapping="Wrap"/></Border>
+            <Border Grid.Column="1" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="6,0,0,0"><TextBlock x:Name="LblSupportB" Text="B : aucune capture" TextWrapping="Wrap"/></Border>
+          </Grid>
+          <TextBlock x:Name="LblSupportComparison" Grid.Row="2" Style="{StaticResource SupportCaption}" Text="Capturez A, actualisez ou ouvrez une autre fiche du même type, puis capturez B."/>
+          <DataGrid x:Name="DgSupportDiff" Grid.Row="3" Style="{StaticResource SupportGrid}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Attribut" Binding="{Binding Attribute}" Width="190"/>
+              <DataGridTextColumn Header="Etat" Binding="{Binding Status}" Width="115"/>
+              <DataGridTextColumn Header="A" Binding="{Binding Before}" Width="*"/>
+              <DataGridTextColumn Header="B" Binding="{Binding After}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBox x:Name="TxtSupportDiffDetail" Grid.Row="4" Margin="0,8,0,0" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                   Background="{DynamicResource BgReadonly}" Foreground="{DynamicResource TextColor}" Text="memberOf compare les groupes directs fournis, pas les droits effectifs ni les groupes imbriques."/>
+        </Grid>
+      </TabItem>
+      <TabItem x:Name="SupportIncidentsTab" Header="Incidents expliques">
+        <Grid Margin="10">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="190"/></Grid.RowDefinitions>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="TxtSupportIncidentFilter" Height="32" VerticalContentAlignment="Center" ToolTip="Filtre littéral sur titre, code et zone. Aucun motif regex ni requête réseau."/>
+            <Button x:Name="BtnSupportClearIncidents" Grid.Column="1" Content="Effacer les incidents" Margin="10,0,0,0"/>
+          </Grid>
+          <TextBlock x:Name="LblSupportIncidents" Grid.Row="1" Style="{StaticResource SupportCaption}" Text="Avertissements et erreurs de cette session, toutes cibles confondues. Aucun rattachement automatique a la fiche."/>
+          <DataGrid x:Name="DgSupportIncidents" Grid.Row="2" Style="{StaticResource SupportGrid}">
+            <DataGrid.Columns><DataGridTextColumn Header="Heure" Binding="{Binding At}" Width="80"/><DataGridTextColumn Header="Niveau" Binding="{Binding Level}" Width="80"/><DataGridTextColumn Header="Zone" Binding="{Binding Area}" Width="130"/><DataGridTextColumn Header="Piste de vérification" Binding="{Binding Title}" Width="*"/></DataGrid.Columns>
+          </DataGrid>
+          <TextBox x:Name="TxtSupportIncidentDetail" Grid.Row="3" Margin="0,10,0,0" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                   Background="{DynamicResource BgReadonly}" Foreground="{DynamicResource TextColor}" Text="Sélectionnez un incident. Les pistes sont des règles locales, pas une cause racine prouvée."/>
+        </Grid>
+      </TabItem>
+      <TabItem x:Name="SupportPinsTab" Header="Reperes de session">
+        <Grid Margin="10">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <WrapPanel><Button x:Name="BtnSupportPinCurrent" Content="Epingler la fiche actuelle"/><Button x:Name="BtnSupportOpenPin" Content="Ouvrir la fiche epinglee" ToolTip="Ouvre par le chemin AD memorise avec le moteur habituel. Peut declencher les lectures habituelles de la fiche."/><Button x:Name="BtnSupportRemovePin" Content="Retirer le repere"/></WrapPanel>
+          <TextBlock Grid.Row="1" Style="{StaticResource SupportCaption}" Text="24 repères maximum, en mémoire uniquement. Vidés à la fermeture ou au relogin. Un chemin déplacé depuis lʼépinglage peut nécessiter une nouvelle recherche."/>
+          <DataGrid x:Name="DgSupportPins" Grid.Row="2" Style="{StaticResource SupportGrid}">
+            <DataGrid.Columns><DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110"/><DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="220"/><DataGridTextColumn Header="Chemin AD memorise" Binding="{Binding Dn}" Width="*"/></DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </TabItem>
+      <TabItem x:Name="SupportReportTab" Header="Dossier / ticket">
+        <Grid Margin="10">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <WrapPanel><TextBox x:Name="TxtSupportTicket" Width="180" MaxLength="80" Margin="0,0,8,0" ToolTip="Reference ticket facultative (80 caracteres). Ne saisissez aucun secret."/><Button x:Name="BtnSupportPreview" Content="Générer lʼaperçu"/><Button x:Name="BtnSupportCopyReport" Content="Copier le dossier"/><Button x:Name="BtnSupportExportHtml" Content="Exporter HTML"/><CheckBox x:Name="ChkSupportIncludeIncident" Content="Inclure lʼincident sélectionné" IsChecked="False" VerticalAlignment="Center" Margin="8,0,0,0"/></WrapPanel>
+          <TextBlock Grid.Row="1" Style="{StaticResource SupportCaption}" Text="Fiche actuelle + comparaison A/B si présente. Partage manuel uniquement. Les identifiants et métadonnées du parc restent des données internes ; le message brut de lʼincident nʼest jamais inclus."/>
+          <TextBox x:Name="TxtSupportReport" Grid.Row="2" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                   Background="{DynamicResource BgReadonly}" Foreground="{DynamicResource TextColor}" FontFamily="Consolas" FontSize="{DynamicResource FontSizeSmall}" Text="Aucun dossier généré. Cliquez sur Générer lʼaperçu."/>
+        </Grid>
+      </TabItem>
+      <TabItem x:Name="SupportOfflineTab" Header="Dossier hors ligne" ToolTip="Dossier daté pour une intervention sans accès à Domenia : état local, postes, observations, associations et requêtes du périmètre choisi, secrets exclus.">
+        <Grid Margin="10">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+          <TextBlock Style="{StaticResource SupportCaption}" Text="Le dossier est écrit dans le dossier Exports de la base locale : un nouveau dossier daté, avec manifeste et empreintes SHA-256. Lecture seule de la base, sans accès réseau ni à lʼannuaire. Mots de passe, clés BitLocker, données LAPS et champs nommés comme des secrets sont exclus."/>
+          <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+            <ComboBox x:Name="CmbSupportOfflineScope" Width="260" SelectedIndex="0" Margin="0,0,8,0" VerticalContentAlignment="Center" ToolTip="Périmètre du dossier : le poste sélectionné, les postes des résultats affichés (500 au plus) ou lʼOU sélectionnée dans lʼarborescence." AutomationProperties.Name="Périmètre du dossier" AutomationProperties.HelpText="Périmètre du dossier : le poste sélectionné, les postes des résultats affichés (500 au plus) ou lʼOU sélectionnée dans lʼarborescence."><ComboBoxItem Content="Poste sélectionné" Tag="Selected"/><ComboBoxItem Content="Postes des résultats affichés" Tag="Displayed"/><ComboBoxItem Content="OU sélectionnée" Tag="Branch"/></ComboBox>
+            <CheckBox x:Name="ChkSupportOfflineObservations" Content="Observations" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip="Dernières observations enregistrées des postes (présence, console, inventaire, sondes), avec leurs dates." AutomationProperties.Name="Inclure les observations"/>
+            <CheckBox x:Name="ChkSupportOfflineLinks" Content="Associations" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip="Associations utilisateur et poste mémorisées pour les postes du périmètre." AutomationProperties.Name="Inclure les associations"/>
+            <CheckBox x:Name="ChkSupportOfflineQueries" Content="Requêtes enregistrées" IsChecked="True" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip="Définitions des requêtes enregistrées non archivées, avec leur empreinte." AutomationProperties.Name="Inclure les requêtes enregistrées"/>
+            <Button x:Name="BtnSupportOfflineDossier" Content="Préparer le dossier" ToolTip="Écrit un nouveau dossier daté dans Exports pour le périmètre choisi. Aucune écriture dans la base, aucun accès réseau." AutomationProperties.Name="Préparer le dossier hors ligne"/>
+          </WrapPanel>
+          <TextBlock x:Name="LblSupportOfflineStatus" Grid.Row="2" Style="{StaticResource SupportCaption}" Text="Aucun dossier préparé dans cette session."/>
+          <TextBlock Grid.Row="3" Style="{StaticResource SupportCaption}" Text="Le même dossier sʼobtient sans lʼinterface : wad\Domenia-Automate.ps1 dossier -DatabasePath … -OrganizationalUnit … -OutputPath …. Les données sont celles de la base locale, datées ; elles ne sont pas revérifiées dans Active Directory ni sur les postes."/>
+        </Grid>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</UserControl>

@@ -1,0 +1,22 @@
+{
+  "id": "TRV-187",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Ad/AdWorkstationAccess.cs:64-73 — juste avant le départ (AcquireAsync), le compte choisi pour l'hôte est revérifié par CredentialRules.CheckContext(Remote, compte, hôte) ; refus sinon, aucun envoi",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:126-147 — CheckContext (Test-DomeniaCredentialContext, D051) : compte local admis seulement si autorité = poste cible ; « Un compte local ne peut pas lire l'annuaire, LAPS ou BitLocker. » ; compte d'un autre poste/domaine inconnu refusé avant tout appel",
+    "repo/v2/src/Domenia.Ad/AdReadAccess.cs:36-50 — AcquireAsync réservé aux ressources Directory/Laps/BitLocker (ligne 36) et CheckContext sur le compte sélectionné avant la connexion LDAP ; compte local jamais essayé",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1259-1262 — pour les portées Laps/BitLocker, le compte secondaire Secrets est appliqué (fallback compte de session)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:16-22 — clés de ressource Domenia 1 (D051) : ReadLaps, ReadBitLocker, préfixe RemoteLocal| ; ligne 375 ResourcesOf associe Secrets→[Laps, BitLocker]",
+    "repo/v2/src/Domenia.Bridge/Operations/AccountsCredentialEntry.cs:47 — un compte local lié à un poste n'est gardé que sous la clé RemoteLocal:MachineKey(target)",
+    "repo/v2/src/Domenia.Core/Screens/Machine/MachineAccountRules.cs:335-366 — CheckLease (D054) : bail lié à la session et expiré → usage refusé ; MachineAccountService.cs:570-588 applique le contrôle à chaque usage (temporary, secrets)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1130-1139 — balayage des bails expirés : « Compte temporaire expiré et oublié » (Invoke-DomeniaAccessLeaseSweep)",
+    "repo/v2/src/Domenia.Ad/AdWorkstationAccess.cs:90-93 — BeforeContactAsync : « Accès distant détenu pour une autre source ou cible ; aucun envoi. » — le compte d'un poste n'agit que pour ce poste",
+    "repo/v2/tests/Domenia.Tests/AccountsAccessTests.cs:99-103 — test : compte local validé pour son poste, gardé sous RemoteLocal|POSTE, jamais prérempli dans le compte Postes ; ligne 181 : un compte local n'ouvre jamais de session d'annuaire",
+    "repo/v2/tests/Domenia.Tests/AdAccountsAccessTests.cs:207 — test : aucune tentative LDAP pour un compte local",
+    "repo/v2/tests/Domenia.Tests/CredentialVaultTests.cs:45-47 — test : clés du coffre bornées à RemoteLocal:pc-01 pour PC-01\\\\Admin (jamais un autre poste)"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

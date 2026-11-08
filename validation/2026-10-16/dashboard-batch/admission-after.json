@@ -1,0 +1,118 @@
+{
+    "Kind":  "ParkDetection",
+    "Expected":  21,
+    "Filter":  "RC11711|Campagne :|MO-08 : arret|annul",
+    "Complete":  true,
+    "NativeWindowsPowerShell51":  true,
+    "LiveAD":  false,
+    "MockedNetwork":  true,
+    "Passed":  21,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Parc : ancienne annulation ne peut pas arreter un nouveau releve",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc : annulation centrale ou disparition du worker arrete la suite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "MO-08 : arret du ping garde les echos deja recus, les autres restent non verifies",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-12 : Annuler la verification retire aussi la demande affichee, aucun Pinger N postes orphelin",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : un sous-réseau ralenti est différé, les autres postes continuent",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : délai sans progrès et durée totale transmis, canal de progression joint",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : incident transitoire relu une seule fois plus tard et compté une fois",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : compte rejeté ou droit refusé jamais relus automatiquement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : WMI refusé mémorisé, le relevé suivant du poste se limite au ping",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : requêtes WMI évitées comptées pour le relevé et la session",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : plan durable, postes validés marqués, reprise des seuls postes restants",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : la fermeture laisse le plan avec ses postes restants",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : un poste WMI seul non lu pour un refus mémorisé reste dans le plan, avec son motif",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : hors fenêtre de collecte, la confirmation le dit et le lancement explicite reste possible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : WMI seul, un poste éteint (serveur RPC indisponible) nʼest ni relu ni compté contre son sous-réseau",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : une lecture arrêtée par le moteur nʼest relue que si son ping a répondu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : un poste relu après un incident garde ses mesures réutilisables jusquʼau dernier essai",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : plus rien à envoyer, les dernières lectures en vol ne comptent pas comme attente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Campagne : un changement de compte arrête le relevé avec ce motif, jamais « arrêté par lʼopérateur »",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RC11711 : nettoyage après timeout et moteur saturé attendent sans arrêter ni perdre le poste suivant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RC11711 : le timeout WMI est enregistré et le poste suivant est traité",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : chercher dans un conteneur de la racine (Computers)",
+  "description": "Choisit « Computers » dans l’arbre : la puce de la barre devient « Dans « Computers » » et une recherche y part sans erreur « OU inconnue ».",
+  "modes": [
+    "simulation"
+  ],
+  "start": "rechercher",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": ".rch-tree .k-ti",
+      "title": "L’arbre est affiché"
+    },
+    {
+      "do": "click",
+      "text": "Computers",
+      "within": ".rch-tree",
+      "title": "Choisir le conteneur Computers"
+    },
+    {
+      "do": "wait",
+      "contains": "Dans « Computers »",
+      "within": ".rch-scope",
+      "title": "La puce de la barre suit l’arbre"
+    },
+    {
+      "do": "type",
+      "selector": ".rch-input",
+      "text": "pc",
+      "clear": true,
+      "title": "Saisir un terme"
+    },
+    {
+      "do": "press",
+      "key": "Enter",
+      "title": "Chercher dans Computers"
+    },
+    {
+      "do": "expect",
+      "contains": "OU introuvable",
+      "absent": true,
+      "title": "Jamais « OU inconnue » pour un conteneur de la racine"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "RCH-101",
+  "verdict": "fait",
+  "preuves": [
+    "web/js/pages/rechercher/query-selection.js:15 — filterQuerySelection ne laisse visibles que les lignes kind === 'computer' dont le GUID figure dans la sélection ; ligne 1-5 : guid() n'accepte qu'un GUID (avec ou sans accolades), un nom ou un DN n'est jamais une correspondance",
+    "web/js/pages/rechercher/query-selection.js:8 — prepareQuerySelection refuse une sélection qui n'est pas des postes, d'un autre domaine, sans empreinte SHA-256, ou de plus de 20 000 GUID ; un GUID invalide dans la sélection fait échouer tout le filtre",
+    "web/js/pages/rechercher/results.js:370 — visibleRows applique le filtre aux lignes chargées, en cumuls avec les facettes ; results.js:373 — toute peinture de la grille passe par visibleRows",
+    "web/js/pages/rechercher/results.js:882 — setQuerySelection repeint la grille, les critères, l'état vide et le pied sans aucune relecture ; results.js:928 — les lignes de la base locale affichées pendant une lecture d'annuaire sont filtrées de la même façon",
+    "web/js/pages/rechercher/results.js:495 — puce « Sélection figée » avec le nom de la recette, le nombre de GUID, la date de figement et l'empreinte ; retirable sans relire (removeTip)",
+    "web/js/pages/rechercher.js:307-311 — syncQuerySelection lit requetes.search.selection et installe le filtre (appelé au démarrage rechercher.js:1049 et à chaque retour de session rechercher.js:1144) ; rechercher.js:916 — retirer la puce appelle requetes.search.clear puis enlève le filtre",
+    "src/Domenia.Bridge/Operations/RequetesOperations.cs:1002 — requetes.search.apply ne gèle que les GUID des objets « Match » d'un aperçu de 10 minutes au plus ; lignes 1011-1012 : aperçu de postes du domaine, de l'époque et du compte de la session exigés ; ligne 1015 : plafond 20 000 GUID ; ligne 1021 : entrée de journal",
+    "src/Domenia.Bridge/Operations/RequetesOperations.cs:1025 — requetes.search.selection ne renvoie la sélection que si elle porte la cible postes et qualifie la session courante (sinon null)",
+    "src/Domenia.Bridge/Operations/SearchRecipeOperations.cs:54-63 — search.query.rows requalifie session, domaine et cible avant de lire les lignes, puis SelectionAsync(computersOnly: true)",
+    "src/Domenia.Core/Screens/Search/SearchService.cs:229-246 — SelectionAsync relit les GUID dans les données locales uniquement (jamais le réseau), dans l'ordre de la sélection, les GUID inconnus étant exclus et comptés dans la note",
+    "tests/web/search-recipes.test.mjs:17-20 — un utilisateur portant le même GUID est exclu, [] filtre tout, l'absence de sélection conserve tout, un domaine divergent et un nom à la place du GUID sont refusés",
+    "tests/web/search-recipes.test.mjs:30-42 — sur la vraie grille : filtre appliqué, cache provisoire filtré, filtre conservé sur une nouvelle lecture et sur « Charger la suite », [] reste un filtre actif affiché, l'effacement restaure les lignes déjà chargées",
+    "tests/Domenia.Tests/SearchRecipeTests.cs:52-60 — sélection vide distincte de null et affichable, autre domaine masqué, cible autre que postes refusée à la lecture des lignes",
+    "tests/Domenia.Tests/RequetesOperationsTests.cs:223-227 — seuls les correspondants sont figés, la sélection est bien lue par Rechercher, puis retirée"
+  ],
+  "manque": "Rien de fonctionnel : l'écran Atelier de requêtes existe (web/js/pages/requetes.js) et publie bien sa sélection, contrairement à la note « Reste à faire ». Deux précisions vérifiées : le filtre porte sur les lignes déjà chargées (le chip l'annonce, « Postes de la liste chargée », results.js:495) — une ligne hors limite n'est pas rattrapée ; et retirer la puce appelle requetes.search.clear (rechercher.js:916), donc efface aussi la sélection côté atelier, pas seulement l'affichage de Rechercher.",
+  "effort": "S",
+  "depend": [
+    "REQ-048 (figer la sélection de l'atelier pour Recherche)",
+    "atelier de requêtes (page requetes)"
+  ],
+  "risque": "lecture"
+}

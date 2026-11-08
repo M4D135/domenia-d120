@@ -1,0 +1,15 @@
+{
+  "Status": "PASS",
+  "New": [],
+  "Fixed": [],
+  "Counts": {
+    "Quotes": 52,
+    "Retired": 0,
+    "HelpOrphans": 0,
+    "Guides": 0,
+    "Figures": 56
+  },
+  "GuideQuotes": 1402,
+  "HelpEntries": 813,
+  "CapturesNote": "Captures prises sur un autre manifeste que le pack courant : les refaire avec guides/captures/capture-guides.ps1 avant une livraison."
+}

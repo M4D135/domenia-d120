@@ -1,0 +1,21 @@
+{
+  "id": "TRV-275",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.cs:109 — Initialize : si la base n'est pas au schéma courant, « lastBackup = Backup(read, token) » est exécuté avant « Upgrade(db) » (ligne 115) : la copie précède toujours la migration",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.cs:255 — la copie est ouverte en lecture seule et refusée sans quick_check : « Sauvegarde non validée : aucune migration. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.cs:257 — File.Move(partial, target, overwrite: false) : la copie n'écrase jamais une sauvegarde existante ; ligne 260 son empreinte SHA-256 est calculée",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Legacy.cs:70 — avant la reprise d'anciennes données (LegacyMigration) : « var backup = lastBackup = Backup(db, token) », puis relecture de la copie (lignes 74-79) et preuve durable avec son SHA-256 (ligne 109)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Legacy.cs:129 — VerifyStorageLegacy relit le fichier de la sauvegarde et son empreinte : « Reprise enregistrée mais sauvegarde absente ou altérée. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Backups.cs:263 — RetireStorageBackup : la rotation ne supprime rien, elle déplace la copie vers Backups/Retired (lignes 270-274) après l'avoir revalidée (ValidateBackupArtifact, ligne 267)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Backups.cs:254 — ReadRegisteredBackups ne liste que les reçus *.json non retirés : une copie de migration, qui n'a pas de reçu, ne peut donc pas être choisie par la rotation",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:697 — « InRotation(kind) => kind is \"manual\" or \"scheduled\" » : les autres séries (dont « migration », étiquetée « Avant migration » ligne 691) sont tenues à l'écart de la rotation",
+    "tests/Domenia.Tests/SqliteDatabaseTests.cs:71 — « Legacy_schema_upgrade_preserves_records_and_keeps_a_verified_backup » : après migration, Backup est relu, empreinte vérifiée et schéma d'avant migration conservé dans la copie",
+    "tests/Domenia.Tests/FleetRowsScaleTests.cs:97 — migration interrompue (trigger ABORT) : original intact, DDL annulé, et la copie pré-migration relue contient le cache d'avant migration",
+    "tests/Domenia.Tests/SqliteSweepWriteTests.cs:17 — « …and_a_verified_pre_migration_backup » : copie vérifiée aussi avant la migration des balayages de relations"
+  ],
+  "manque": "La copie de migration n'est pas autonome au sens des autres sauvegardes : Backup() (DomeniaDatabase.cs:232) produit un simple DatabaseBackup (chemin, SHA-256, taille, date) sans StorageBackupProof, sans annexe « .preferences.json » et sans « kind » — elle n'est donc ni listée sur la page Stockage (DomeniaDatabase.Settings.cs:144 ne reprend que ReadRegisteredBackups) ni proposée pour « Restaurer une sauvegarde… ». Le kind « migration » n'existe que dans la simulation (SimulatedLocalStore.cs:148) et son étiquette (LocalStoreRules.cs:691) ; aucun chemin réel ne l'écrit. Le garde-fou « copie interrompue après son budget de temps » n'est pas implémenté : le réglage LocalStore.BackupTimeoutSeconds (« Budget d'une copie de la base », ConfigurationReport.cs:175) est déclaré ConfigUse.Planned (défaut de N(), ligne 58) et n'est lu nulle part dans src — seule l'annulation du token interrompt la copie (DomeniaDatabase.cs:256). Enfin, le maintien hors rotation n'est qu'implicite (absence de reçu) : aucun test ne vérifie qu'une sauvegarde planifiée avec rotation laisse la copie de migration en place, et rien n'empêche un futur enregistrement de cette copie d'entrer dans la série « manual ».",
+  "effort": "M",
+  "depend": ["TRV-272"],
+  "risque": "ecriture-locale"
+}

@@ -1,0 +1,27 @@
+﻿{
+    "PS":  "5.1.26100.6584",
+    "Passed":  true,
+    "Runs":  [
+                 {
+                     "Variant":  "Before",
+                     "Milliseconds":  8441,
+                     "Machines":  "5000"
+                 },
+                 {
+                     "Variant":  "After",
+                     "Milliseconds":  2553,
+                     "Machines":  "5000"
+                 },
+                 {
+                     "Variant":  "After",
+                     "Milliseconds":  2880,
+                     "Machines":  "5000"
+                 },
+                 {
+                     "Variant":  "Before",
+                     "Milliseconds":  2740,
+                     "Machines":  "5000"
+                 }
+             ],
+    "Utc":  "2026-10-20T16:44:17.0830759Z"
+}

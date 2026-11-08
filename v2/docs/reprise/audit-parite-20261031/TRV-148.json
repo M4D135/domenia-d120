@@ -1,0 +1,18 @@
+{
+  "id": "TRV-148",
+  "verdict": "fait-sans-test",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecords.cs:91 — QueryRecordOptions(int MaxAgeDays = 30) : durée de vie des lectures par défaut 30 jours (commentaire « Domenia 1: 30 days »)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecords.cs:212-222 — valeurs dérivées : osLabel (216), version (214), osFamily (220), lifeStatus via WindowsLifecycle.Status (221), win10 (222)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecords.cs:635-669 — WindowsLifecycle : table de fin de support et statut du cycle de vie",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecords.cs:24-28 — observations rattachées par Guid : dictionnaires ImmutableDictionary<Guid, …> (Probes, Console, BitLocker, Details)",
+    "repo/v2/src/Domenia.Core/Fleet/FleetModels.cs:183 — FleetObservations.Find(Guid computer) : le seul rattachement des observations se fait par GUID, aucune recherche par DN",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecords.cs:283-302 — qualification des observations : « Erreur de lecture », « Lecture incomplète », « Expiré » (au-delà de MaxAgeDays ou MeasureState.Expired)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecords.cs:294 — tolérance horloge : checkedAt > now.AddMinutes(5) rendu inutilisable (même garde aux lignes 329, 371, 421, 481)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecords.cs:98-99 — chaque canal garde sa date : « a fresh ping never makes an older inventory or probe fresh ; an expired, failed or undated reading gives no value, never zero » ; console avec son propre horodatage (ligne 10)"
+  ],
+  "manque": "Rien de fonctionnel détecté dans le code. Aucun test unitaire direct du constructeur d'enregistrements : les tests (RequetesEngineTests.cs:41-43, RequetesRound2Tests.cs:265) construisent des QueryRecord à la main sans passer par QueryRecords.Build/Computer ; aucune assertion sur « Expiré », « Erreur de lecture », « Lecture incomplète », la tolérance +5 min ou MaxAgeDays=30 dans repo/v2/tests.",
+  "effort": "S",
+  "depend": ["TRV-147"],
+  "risque": "lecture"
+}

@@ -1,0 +1,36 @@
+{
+  "Suite": "Tableaux de bord en widgets",
+  "Host": "5.1.26100.6584",
+  "Passed": 4,
+  "Failed": 0,
+  "Filter": "Programme 38",
+  "Complete": false,
+  "SelectionComplete": true,
+  "ExpectedCases": 73,
+  "LiveADExecuted": false,
+  "NetworkAccessed": false,
+  "RenderTimings": [],
+  "RenderTimingScope": "Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded",
+  "Results": [
+    {
+      "Name": "Programme 38 Cartes simples reutilisees seulement si valeur source taille et contexte identiques",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Programme 38 Fournisseur logiciel reutilise avant agregation et invalide par lignes date et contexte",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Programme 38 Plans reutilises avant resolution et invalides par leur seule dependance",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Programme 38 Constructions WPF limitees au graphique affecte et invalidees au changement de contexte",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

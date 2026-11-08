@@ -1,0 +1,19 @@
+{
+  "id": "TRV-196",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:13-21 — clés de ressource D051 : Directory, Remote, ReadLaps, ReadBitLocker, préfixes RemoteLocal| et AD:, limite 32 comptes secrets ciblés",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:65 — dictionnaire temporary indexé par clé ressource+cible (un compte par ressource)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:288-290 — l'activation d'un compte ne remplace que les comptes temporaires de SA ressource (prefixe resource ou resource|) : changer une ressource ne touche pas les autres",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:234-237 — CheckLease refuse un bail dont l'époque diffère de la session : « Compte fourni dans une session précédente » (garde-fail autre session ignoré)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:814-855 — AcquireForRead : copie lecture seule du compte temporaire/secondaire de la ressource demandée, injectée dans la lecture (worker) avec usage du bail",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:378-391 — RecoverAsync installe le compte validé sous la clé exacte (scopedKey LAPS/BitLocker ciblé, RemoteLocal|<poste>, ou scope de la demande)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/OperationRequirements.cs:43-90 — table des opérations (Get-DomeniaOperationTable) avec ressource déclarée par opération",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:212-213 — libellés « Présence des postes » et « Fichiers locaux » (ressources Presence/LocalFile déclarées)",
+    "repo/v2/tests/Domenia.Tests/AccountsAccessTests.cs:170-189 — test : changer de compte ouvre une nouvelle époque et oublie les comptes/accès de la session précédente"
+  ],
+  "manque": "Le rang « Annuaire par opération » n'est pas câblé : aucune production de portée AD:<opération> (AdReadAccess.cs:36 et AccountAccess.Reads.cs:29/44 n'acceptent que Directory/Laps/BitLocker ; aucun appel de RegisterRefusal/RecoverAsync ne passe de scope AD:*), si bien que toutes les lectures LDAP partagent la seule ressource Directory — les fils existants (CredentialRules.cs:19/208-214, AccountAccess.cs:1301-1305, CredentialVault.cs:29) sont inertes. Présence et Fichier local n'existent que comme libellés, sans point d'injection dans le contexte du worker.",
+  "effort": "M",
+  "depend": ["CPT-002", "CPT-004", "CPT-019"],
+  "risque": "ecriture-locale"
+}

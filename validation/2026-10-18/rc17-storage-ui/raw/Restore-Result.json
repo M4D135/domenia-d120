@@ -1,0 +1,38 @@
+{
+    "Build":  "RC1.17.17",
+    "Stage":  "Restore",
+    "Passed":  false,
+    "StartedUtc":  "2026-10-18T08:58:08.9065552Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-18T08:58:12.3571611Z",
+                      "Text":  "Only isolated closed DB corrupted; healthy original and automatic backup retained"
+                  },
+                  {
+                      "Utc":  "2026-10-18T08:58:26.4122487Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-18T08:59:55.4753999Z",
+                      "Text":  "Attached to same running recovery session after login-window transition"
+                  },
+                  {
+                      "Utc":  "2026-10-18T09:00:01.5064459Z",
+                      "Text":  "Recovery UI remains available on corrupt DB"
+                  },
+                  {
+                      "Utc":  "2026-10-18T09:00:05.6888748Z",
+                      "Text":  "Native restore file picker open"
+                  }
+              ],
+    "AppId":  5412,
+    "ArchiveSha256":  "0393c1b7fd23e732209d3f96c4c91196afcb57ba26f02e86d79bbbc7eb4e908a",
+    "CorruptPath":  "C:\\DomeniaLab\\d120-rc11717-live\\storage-ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Domenia.db",
+    "CorruptSha256":  "C126051B50FA9E440106B9F8FB4453C5433D32E6A836EEC9686027A927AD3A1F",
+    "Backup":  "C:\\DomeniaLab\\d120-rc11717-live\\storage-ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261018-105342-076-506a972d.db",
+    "Target":  "C:\\DomeniaLab\\d120-rc11717-live\\storage-ui-prod\\wad\\data\\restored-through-ui.db",
+    "AwaitingFileSelection":  true,
+    "FinishedUtc":  "2026-10-18T09:00:05.6908684Z"
+}

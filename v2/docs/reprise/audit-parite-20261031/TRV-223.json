@@ -1,0 +1,21 @@
+{
+  "id": "TRV-223",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:785-806 — RegisterRefusal : une clé de compte (accountKey ou KeyInUseLocked) porte le défaut (faults[key]) et le refus est ajouté à la liste bornée ; le disjoncteur est donc indexé par compte, pas par cible",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:28-29 — RefusalCapacity = 64 : « the 64 last of the session » pour le diagnostic de verrouillage ; refusals.Trim à 64 (l.800-803)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:834-835 — AcquireForRead : si PausedLocked, DomeniaOperationException(AccountPaused) « aucune lecture envoyée » ; les collectes sont suspendues tant que le compte est en pause",
+    "repo/v2/src/Domenia.Ad/Ldap/AdAuthenticationGate.cs:38-63 — RequireAvailable/ObserveFailure/BindAsync : un refus d'identifiants (LdapException 49) empoisonne la clé de compte et bloque les binds en file et futurs jusqu'à sélection d'un nouveau compte ; panne transport/droit refusé n'empoisonne pas (l.47-49)",
+    "repo/v2/src/Domenia.Ad/AdReadAccess.cs:129,153,178 + AdWorkstationAccess.cs:110 + AdDirectorySource.Administration.cs:74 + AdPosteReader.Laps.cs:42 + AdPosteReader.Secrets.cs:167 — RegisterRefusal appelé depuis LDAP, journal Sécurité du contrôleur, WMI/CIM distant, LAPS, BitLocker : le même garde couvre tous les fournisseurs",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1350-1353 — InUseRows : « En pause après un refus : corrigez-le dans cette page ou « Changer de compte » » (CredentialRules.FixFor) affiché dans l'onglet Comptes",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheDiagnostics.cs:45-46 — FicheDomeniaRefusal(At, Key, Kind) : seuls date/clé/type conservés, jamais l'exception ni l'identifiant (diagnostic en liste blanche)",
+    "repo/v2/src/Domenia.Bridge/Operations/FicheOperations.cs:291 + AccountsOperations.cs:129 — les refus du garde (AccountAccess.Refusals()) alimentent le diagnostic de verrouillage (Get-DomeniaLockoutTimeline)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:906-931 — NewEpochLocked : « Changer de compte » (reconnexion explicite) efface faults/refusals/pending = réarmement ; la pause ne se lève que par revalidation (faults.Remove l.292,301,322,388,396) et jamais par une lecture réussie",
+    "repo/v2/tests/Domenia.Tests/AccountsAccessTests.cs:36-54 — test « A_refused_authentication_pauses_the_account_on_every_resource_that_uses_it » : un refus BitLocker met en pause BitLocker, l'annuaire et LAPS (même clé de compte) ; refus gardé pour le diagnostic",
+    "repo/v2/tests/Domenia.Tests/AdPosteDirectoryGuardTests.cs:15-22 — test « pause partagée respectée » : compte annuaire en pause bloque l'identité de poste avant tout contact LDAP/machine"
+  ],
+  "manque": "Le cœur (disjoncteur par compte couvrant tous les fournisseurs, lectures suspendues, usage en pause dans Comptes, 64 refus pour le diagnostic, réarmement à la reconnexion) est là et testé. Manques précis : (1) le marqueur stable « [DOMENIA:CredentialPaused] » n'existe nulle part (rg sur src/ : aucun) ; (2) la borne d'« attente locale ≤ 120 s sans envoi d'identifiant » n'est pas implémentée (seuls ValidationTimeoutSeconds=12 et TrialTimeoutSeconds=30, AccountAccess.cs:23-26) ; (3) la prise des verrous « en ordre ordinal (pas d'interblocage) » n'est pas matérialisée (un seul Lock gate + SemaphoreSlim validationGate, AccountAccess.cs:62-63 ; SemaphoreSlim binds=1 dans AdAuthenticationGate.cs:12) ; (4) le message exact « Compte protégé… la base locale reste consultable » diffère (AdAuthenticationGate.cs:42 « Compte suspendu après un refus d'identifiants… », AccountAccess.cs:1353 « En pause après un refus… »).",
+  "effort": "M",
+  "depend": ["TRV-222", "TRV-221"],
+  "risque": "lecture"
+}

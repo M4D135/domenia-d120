@@ -1,0 +1,19 @@
+{
+    "Name":  "Test-DomeniaDirectoryStatus",
+    "PID":  5076,
+    "RunnerPID":  1092,
+    "StartedUTC":  "2026-10-13T16:00:47.9079910Z",
+    "Executable":  "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaDirectoryStatus.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaDirectoryStatus.json"
+                  ],
+    "ScriptSha256":  "9b37a4caa6c75fd485ea69dd02e382b18d5eab1da2c3495acccfccc6aa600810",
+    "TimeoutSeconds":  120
+}

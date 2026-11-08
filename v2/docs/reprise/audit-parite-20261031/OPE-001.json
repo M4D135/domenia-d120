@@ -1,0 +1,26 @@
+{
+  "id": "OPE-001",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Operations/OperationActivity.cs:225-241 — ClassLines() rend les lignes de collecte par classe : « Actions explicites de l'opérateur », « Lectures automatiques (affichage, actualisations) », écritures sur canal unique avec leur attente, sélection, lectures et promotions",
+    "src/Domenia.Core/Screens/Operations/OperationActivity.cs:245-253 — ClassLine calcule médiane et 95e centile des durées après admission via ActivityRules.Latency",
+    "src/Domenia.Core/Screens/Operations/ActivityRules.cs:350-361 — Latency : médiane, 95e centile (annoncé seulement à partir de 20 mesures, MinimumForP95 = 20 ligne 26) et maximum",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:501-506 — EngineHealth.HealthAsync compose les lignes de collecte : « Inventaires CIM réutilisés : N relevés complets évités », « Lectures CIM identiques partagées : N résultats reçus ; M projections CIM évitées », plus le profil de collecte du lecteur",
+    "src/Domenia.Core/Screens/Operations/OperationActivity.Measurements.cs:7-14 — compteurs partagés : SharedCimQueriesAvoided (Interlocked.Add des projections non envoyées) et SharedInventories",
+    "src/Domenia.Bridge/BridgeSharedReads.cs:5,61,147-157 — jointure réelle des lectures identiques : SharedRead avec Members, plafonds 32 groupes / 128 abonnés / 64 par groupe",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:496,515 — état des fournisseurs : ProviderStatesAsync du lecteur puis ActivityRules.ProviderLines(providers, now, zone) rendu dans EngineHealth",
+    "src/Domenia.Ad/Screens/AdOperationsReader.cs:29-38 — CollectionProfile : « Profil de collecte : <profil>. Fenêtre : <fenêtre ou à tout moment>. Reprise uniquement après confirmation. »",
+    "src/Domenia.Core/Screens/Operations/OperationsDiagnostics.cs:13-14,108-110 — InterfaceFigures (P50/P95 de la page, OPE-030) exportés dans le diagnostic",
+    "src/Domenia.Core/Execution/ReadPerformance.cs:8-10 — échantillon ReadPerformanceSample avec QueueMs séparé de ExecutionMs, issue et cache : la file est mesurée par lecteur, pas agrégée en percentiles par classe",
+    "tests/Domenia.Tests/SharedInventoryReadTests.cs:44 — « nombre exact des projections du worker évité » : SharedCimQueriesAvoided égal aux requêtes CIM réellement non envoyées",
+    "tests/Domenia.Tests/BridgeDomainSharedReadTests.cs:170 — l'EngineHealth rendu par l'opération est inspecté dans un test"
+  ],
+  "manque": "L'attente en file n'est pas mesurée en percentiles par classe : src/Domenia.Core/Screens/Operations/OperationActivity.cs:240 affiche explicitement « Attente et promotions des lectures : percentiles et nombre de promotions non mesurés ici ; la liste d'attente montre les demandes encore en file ». Aucun compteur de promotions n'existe (aucun promoteur instrumenté côté src/Domenia.Bridge/BridgeAdmission.cs:128-130 et BridgeScheduling.cs, qui ne gardent que l'âge courant e.At, src/Domenia.Bridge/BridgeAdmission.cs:47). La classe « sélection » n'est pas mesurée : la ligne est une phrase fixe (OperationActivity.cs:239), sans échantillon. Les percentiles publiés (médiane, P95) ne portent donc que sur la durée de traitement après admission des deux classes explicite et fond, plus l'attente du canal d'écriture.",
+  "effort": "M",
+  "depend": [
+    "OPE-030 (mesures d'interface P50/P95)",
+    "ordonnanceur du Bridge (src/Domenia.Bridge/BridgeAdmission.cs, BridgeScheduling.cs : horodatage d'admission et compteur de promotions)",
+    "ReadPerformance (src/Domenia.Core/Execution/ReadPerformance.cs : QueueMs déjà séparé, à agréger)"
+  ],
+  "risque": "lecture"
+}

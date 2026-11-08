@@ -1,0 +1,35 @@
+{
+    "Name":  "PROD-CheckOnly",
+    "Edition":  "prod",
+    "RelativeScript":  "wad\\Domenia-Start.ps1",
+    "ScriptSha256":  "d8aaae59b5baa81b079c6145e06dbef822ce7a43c99f08e8af20b16358d43e97",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\prod-source\\prod\\wad\\Domenia-Start.ps1",
+                      "-CheckOnly"
+                  ],
+    "StartedUTC":  "2026-10-13T16:03:31.0038935Z",
+    "EndedUTC":  "2026-10-13T16:03:50.6109083Z",
+    "Milliseconds":  13069,
+    "TimeoutSeconds":  240,
+    "RunnerPID":  1092,
+    "ChildPID":  1232,
+    "ExitCode":  0,
+    "TimedOut":  false,
+    "KillAttempted":  false,
+    "ChildTerminated":  true,
+    "Error":  "",
+    "Stdout":  "PROD-CheckOnly.stdout.txt",
+    "Stderr":  "PROD-CheckOnly.stderr.txt",
+    "JsonReport":  null,
+    "ReportVerdict":  {
+                          "Valid":  true,
+                          "Reason":  "PROD -CheckOnly exit code",
+                          "Cases":  0
+                      },
+    "Passed":  true
+}

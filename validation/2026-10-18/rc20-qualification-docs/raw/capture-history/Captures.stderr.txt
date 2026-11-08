@@ -1,0 +1,7 @@
+Captures produites ; un contr“le de disposition reste en ‚chec. Voir capture-checks.json.
+At C:\DomeniaLab\d120-rc11720-qualification\capture-guides.ps1:871 char:63
++ ... ed}).Count){throw 'Captures produites ; un contr“le de disposition re ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Captures produi...re-checks.json.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Captures produites ; un contr“le de disposition reste en ‚chec. Voir capture-checks.json
+   .

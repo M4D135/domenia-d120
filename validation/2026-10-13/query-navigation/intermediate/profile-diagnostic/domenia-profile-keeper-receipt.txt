@@ -1,0 +1,11 @@
+{
+    "Kind":  "GuestControlProfileKeeper",
+    "StartUtc":  "2026-10-13T01:15:16.7131517Z",
+    "StartedUtc":  "2026-10-13T01:15:16.9427965Z",
+    "GuestProcess":  "PowerShell Start-Sleep 8s",
+    "Profile":  true,
+    "ExitCode":  0
+}
+
+
+SSH exit 0

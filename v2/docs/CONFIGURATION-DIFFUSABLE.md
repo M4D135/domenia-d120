@@ -1,0 +1,21 @@
+# Préparer et appliquer une configuration par défaut
+
+Dans **Paramètres → Configuration à diffuser**, choisissez les réglages à joindre. Les widgets désactivés, budgets et durées de collecte, conservation/sauvegardes et zoom sont proposés avec leurs valeurs effectives. Chaque OU de travail est décochée au départ : cochez celles que vous voulez partager. L’interface est une sélection séparée. L’aperçu affiche les clés incluses et exclues ainsi que le texte exact et son empreinte.
+
+**Définir comme configuration par défaut** prépare, après confirmation, une nouvelle copie du pack installé (PROD-LIGHT) avec ces réglages, sans le pack WebView2 du Socle éventuellement extrait à côté. L’application demande le dossier de destination ; le pack installé reste intact. Le moteur de préparation du pack produit la copie qualifiée, son archive et leurs empreintes. Une annulation ne produit aucun message de réussite. En démonstration, cette commande est une préparation fictive sans sélecteur ni copie d’un pack réel.
+
+**Exporter un fichier** écrit le même document validé dans le dossier privé des exports, sans écraser un fichier existant. Son nom proposé est `Domenia.settings.seed.json` ; si un nom suffixé est créé pour conserver un export précédent, le packaging le copie sous le nom fixe. Le pack ne doit pas être modifié à la main après préparation du manifeste. Le publisher accepte le fichier explicitement choisi avec `--seed` et le vérifie avant de préparer le pack.
+
+**Importer un fichier** montre les changements avant application. Seules les clés présentes remplacent leurs valeurs : les choix absents du fichier restent conservés. La configuration existante est sauvegardée à côté de `preferences.json` sous un nom unique `preferences.before-configuration-<identité>.json`. Les octets et leur SHA sont vérifiés avant le remplacement. Une autre instance ayant changé les préférences depuis l’aperçu provoque un refus et demande un nouvel aperçu.
+
+Au démarrage, un pack contenant `wad/Domenia.settings.seed.json` (à la racine dans les anciens packs plats) applique automatiquement la configuration uniquement si le document des préférences et le profil WebView du mode annuaire sont absents. Cette étape précède la création des modules d’écran et l’ouverture de WebView. Un profil existant reçoit une proposition avec aperçu, sauvegarde et choix **Conserver mes réglages** ou **Sauvegarder et remplacer ces réglages**. Une décision est mémorisée par identité de build et SHA exact du fichier. Un nouveau build ou un fichier différent reçoit une nouvelle proposition. L’import manuel reste accessible après un refus.
+
+Les réglages métier importés manuellement ou sur un profil existant prennent effet au prochain démarrage. L’interface choisie peut s’appliquer immédiatement après succès. Aucune connexion AD, lecture de partage, collecte ou purge n’est déclenchée par l’import. Les identités de connexion, coffre et secrets, fenêtre de ce poste, données de parc, plans, historique d’adresses et recettes sont exclus. `wad/Domenia.config.json`, qui porte les règles administrateur du pack, reste distinct de ces préférences portables.
+
+La démonstration ne lit jamais le seed joint au pack réel. Ses imports utilisent uniquement son magasin isolé, et ses fichiers exportés portent la mention `DEMONSTRATION` et un mode fictif.
+
+## Contrat du fichier
+
+Le format réutilise `domenia.preferencesExport`, version `1`, avec les champs `format`, `version`, `exportedAt`, `mode`, `values` et `interface` facultatif. Borne de 1 Mio UTF-8, 512 clés, 64 Kio par valeur ; profondeur bornée. Toute clé inconnue/localisée, valeur invalide, champ futur ou dupliqué refuse le document entier. Les noms d’OU sont conservés lorsqu’ils sont explicitement choisis : un DN utile n’est pas un secret de connexion.
+
+Le contrôle préalable `Domenia.exe --check-settings-seed CHEMIN_LOCAL_ABSOLU` quitte avec `0` si le fichier est valide, `2` sinon, avant toute initialisation de données/configuration/interface/réseau. Les erreurs n’exposent aucune valeur. La source est lue sans la modifier ; son SHA brut inclut un éventuel BOM, distinct du SHA du texte UTF-8 montré dans l’aperçu. Le fichier joint est immuable et inclus dans le manifeste du pack.

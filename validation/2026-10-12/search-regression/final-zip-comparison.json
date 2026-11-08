@@ -1,0 +1,21 @@
+{
+  "FromZipSHA256": "80893fb34665bede74d7ff3c5451b13c22b02a6b1a8f3c231032e1ab752ca19f",
+  "ToZipSHA256": "4773c36e0dbdfe31f2a0ddfeaa50845b21704102e81378305c9a52cdf644f3cb",
+  "ProdSHA256": "e5866bed490f81abff83a1a3b4022d67148e37f4b395083e87c6019bb07e7daa",
+  "ArchiveFileCount": 378,
+  "ChangedFiles": [
+    "dev/wad/package-manifest.json",
+    "dev/wad/tests/Test-DomeniaIndexSorting.ps1"
+  ],
+  "ProductionImmutableRuntimeCount": 87,
+  "RuntimeDifferences": [],
+  "DevManifestMetadataIdentical": true,
+  "DevManifestChangedEntries": [
+    "wad/tests/Test-DomeniaIndexSorting.ps1"
+  ],
+  "OtherTestsAndRunnerByteIdentical": true,
+  "LiveSearchViewTestSHA256": "f4f5e21863d9f654b9ef74d4bfb4a0ea7f773d96b0f7cd6ec75db97eb075f9b1",
+  "ProductionManifestFileCount": 91,
+  "AllProductionFilesDifferences": [],
+  "AllOtherArchiveFilesByteIdentical": true
+}

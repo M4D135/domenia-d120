@@ -1,0 +1,27 @@
+{
+  "id": "TRV-108",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Execution/CollectionReadRetry.cs:4-8 — énumération fermée des classes d'échec : Transient, Offline, Unreachable, ProtocolUnavailable (WMI/protocole inaccessible), AccessDenied (refus), CredentialRejected (identifiants), ClassAbsent, Cancelled, Unknown, Success ; ligne 3 commentée « Never infer these from a translated error message »",
+    "src/Domenia.Core/Execution/CollectionReadRetry.cs:40 — « Une écriture n'est jamais rejouée. » dès isWrite ; ligne 113 la décision passe aussi par PhysicalWorkBudget.InWriteContext",
+    "src/Domenia.Core/Execution/CollectionReadRetry.cs:42-51 — seule une classe Transient est reprise ; CredentialRejected/AccessDenied/ClassAbsent/Offline/Unreachable/ProtocolUnavailable/Cancelled renvoient explicitement No (compte rejeté, droit refusé, classe absente, poste hors ligne/joignable, jamais repris)",
+    "src/Domenia.Core/Execution/CollectionReadRetry.cs:52-53 — « PhysicallyCompleted » et « Reachable » exigés : « Aucune preuve récente que le poste est joignable ; aucune reprise immédiate. » (poste prouvé joignable)",
+    "src/Domenia.Core/Execution/CollectionReadRetry.cs:54 — temporisation = Min(300, firstDelay * 4^(n-1)) donc 30 s puis ×4 ; ligne 31 MaximumDuration = 5 min ; ligne 38 retries clampé 0..4 (défaut 2 → 3 essais, ligne 41)",
+    "src/Domenia.Core/Execution/CollectionReadRetry.cs:24-26 — commentaire explicite « TRV-108: by default three read attempts, spaced by 30 then 120 seconds » ; ligne 64 Combine ne laisse jamais un succès masquer un refus",
+    "src/Domenia.Inventory/CimSession.Retry.cs:10-23 — RetryFailure classe l'exception native vers les mêmes clés (identifiants rejetés HResult 0x8007052E, refus, classe absente 0x80041010, protocole injoignable, Timeout/COM 0x80338029 → Transient)",
+    "src/Domenia.Ad/AdDirectorySource.cs:709,824 — RunAsync du moteur réellement branché sur les lectures AD avec CollectionRetryPolicy.Read ; src/Domenia.Ad/Screens/AdSearchReader.Network.cs:104-113 et src/Domenia.Ad/Screens/AdRelationsReader.Console.cs:145 — autres appels RunAsync avec evidence + Combine",
+    "src/Domenia.Inventory/WmiWorkstationReader.cs:408-409 et WmiWorkstationProbe.cs:148-149 — Combine appliqué sur les lectures WMI (refus/identifiants ne sont pas masqués par un succès partiel)",
+    "tests/Domenia.Tests/CollectionReadRetryTests.cs:13-24 — écriture jamais rejouée, absence de preuve de présence, appel natif détenu, aucune reprise hors Transient, valeur inconnue refusée",
+    "tests/Domenia.Tests/CollectionReadRetryTests.cs:40-55 — trois essais au total, première attente 30 s, seconde 120 s (×4), aucune attente après le 3e",
+    "tests/Domenia.Tests/CollectionReadRetryTests.cs:58-72 — le plafond de 5 min interdit un 5e essai malgré 4 reprises autorisées, temporisation exponentielle effective, et « plus de reprises ne contourne jamais un refus d'identifiants »",
+    "tests/Domenia.Tests/CollectionReadRetryTests.cs:110-122 — le budget réserve la prochaine tentative complète ; une désérialisation (cache) ne restaure ni la preuve de fin physique ni l'autorité de reprise"
+  ],
+  "manque": "Rien de bloquant pour les garde-fous listés (tous présents et testés). Un seul écart de littéralité à valider côté produit : la description dit « 3 essais au plus » alors que le code laisse un réglage opérateur (CollectionRetryPolicy, préférence WmiRetries, clampé 0..4) monter jusqu'à 5 essais et premier délai jusqu'à 120 s ; ces dépassements restent bornés par la durée de vie de 5 min (test lignes 58-72) et ne contournent aucun garde-fou. Le comportement par défaut correspond exactement à « 30 s puis ×4, ≤5 min, 3 essais ».",
+  "effort": "S",
+  "depend": [
+    "TRV-112 (préexistence/joignabilité : preuve Reachable partagée)",
+    "TRV-109 (progression/attentes pendant les reprises)",
+    "moteur lectures AD/WMI (AdDirectorySource, WmiWorkstationReader/Probe)"
+  ],
+  "risque": "reseau"
+}

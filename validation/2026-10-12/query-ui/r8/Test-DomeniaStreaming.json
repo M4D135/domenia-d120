@@ -1,0 +1,371 @@
+{
+    "Build":  "2026.09.30-R1.12-PROGRESSIVE",
+    "Environment":  "Windows PowerShell 5.1 / WPF / SQLite temporaire",
+    "Executed":  "2026-10-13T00:31:51.5717223+02:00",
+    "Passed":  72,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "D024 : une observation rechargee depuis JSON reste utilisable par Add-DomeniaLiveRow",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D023 : 2000 lignes restent bornees a 500 et les lignes AD remplacent le cache",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D023 : vingt-cinq recherches conservent seulement vingt caches de requete",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parseur natif de tous les scripts du paquet",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parseur natif des deux opérations nouvelles",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Registre fermé conforme au contrat DEV",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Empreinte du worker console réelle",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Empreinte du worker cache réelle",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Worker console altéré refusé",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Projection exclut les propriétés secrets inattendues",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Projection borne les champs volumineux",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Clé machine utilise le DN complet",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Périmètres de comptes distincts ne partagent pas la clé",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Observation réussie conserve le compte et sa date",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Echec Denied conserve la dernière observation sans rafraîchir sa date",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Echec AuthRejected conserve la dernière observation sans rafraîchir sa date",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Echec Timeout conserve la dernière observation sans rafraîchir sa date",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Echec Unavailable conserve la dernière observation sans rafraîchir sa date",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Pas de console ne signifie pas absence de RDP",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Observation en cache explicitement marquée cache",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Objet recréé ne reçoit pas le dernier compte du précédent GUID",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Observation vide ne devient pas un succès",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Jeton d identité périmé rejeté",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Epoch périmée rejetée",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Collection observable et choix de notification cohérent avec le runtime",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Le producteur ne modifie pas directement la grille",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ajout par budget, jamais 100 lignes dans un seul tick",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Vidage progressif conserve la même collection",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "La finalisation attend le drainage puis prépare un cache",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Deux publications du même objet n ajoutent pas deux lignes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Les nouveaux résultats AD remplacent un cache plein",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Résultat vide valide retire les lignes du cache",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Une liste partielle n est pas enregistrée comme complète",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Erreur conserve une ligne connue et son origine cache",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Changer de génération invalide le flux précédent",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre local recherche le compte observé sans changer OU",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre littéral ne traite pas les crochets en regex",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Vérification dédupliquée dans la file",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Sans intention de sélection, aucune vérification n est mise en file",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Désactiver la détection n empêche pas le chargement AD",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Appel annulé compte toujours dans les ressources occupées",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecriture en cours suspend le rendu des lignes reçues",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Etat inconnu d ecriture suspend également le rendu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Réponse d un ancien compte ne réenregistre aucune observation",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Succès de session notifie la ligne et prépare la persistance",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rejet distant coupe les nouvelles sondes, conserve le compte connu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Lecture du cache manquant ne crée pas le fichier",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cache SQLite écrit les projections et observations",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cache SQLite roundtrip apostrophe et périmètre exact",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Compte différent ne récupère pas le cache",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Chargement cache ne remplace pas une observation déjà présente",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Transaction SQLite annulée si observation invalide",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cache expire sans supprimer une table métier",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Sonde réelle sur doubles : un compte poste, un transport et nettoyage",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L utilisateur AD vérifié devient une association, pas un compte local deviné",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc incremental : meme console une lecture legere et aucune requete LDAP",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc incremental : identite modifiee ou machine recreee oblige une resolution",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc incremental : identite absente, invalide, expiree ou future relue dans AD",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc incremental : Forcer contourne meme une identite recente",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc incremental : un cache ne transforme pas un compte local en compte AD",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Nom de compte local jamais interprété comme un compte du domaine",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Nom nu jamais réinterprété comme identité AD",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Console vide ne déclenche pas de recherche de profils historique",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Refus de droits classé séparément du rejet de credential",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rejet de credential conserve son état sans autre essai",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rejet LDAP ne transforme pas un compte console observé en absence",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Sonde hors catalogue refusee par le worker des widgets",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Sonde sans catalogue transmis refusee par le worker des widgets",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Sonde du catalogue traverse la garde et atteint le poste",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Chemin de cache déjà résolu sans réinitialisation du stockage",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Identité de consultation changée invalide les informations de session visibles",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Journal de test ne contient aucun secret de projection",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ],
+    "FixtureDirectory":  "C:\\Users\\Administrateur\\AppData\\Local\\Temp\\Domenia-R1.12-tests-dbeaf5e410fc4f23b06a1c352542c5e4",
+    "NoADAccess":  true
+}

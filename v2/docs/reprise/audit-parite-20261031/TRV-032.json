@@ -1,0 +1,16 @@
+{
+  "id": "TRV-032",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Bridge/OperationModules.cs:18-46 — LoadDomeniaAssemblies : liste close construite depuis TRUSTED_PLATFORM_ASSEMBLIES (deps.json de l'hôte), uniquement les assemblages « Domenia »/« Domenia.* » ; commentaire lignes 15-17 : « a stray DLL dropped next to the executable is never considered » (aucun voisin non déclaré n'est chargé)",
+    "repo/v2/src/Domenia.Bridge/OperationModules.cs:52-64 — Discover : classes publiques non abstraites implémentant IOperationModule, triées par FullName (composition stable), et NON d'après des dépendances",
+    "repo/v2/src/Domenia.Bridge/IOperationModule.cs:11-20 — un module ne déclare que Screen et CreateOperations : aucune phase, aucune dépendance, aucune liste de fonctions",
+    "repo/v2/src/Domenia.Bridge/OperationModules.cs:70-96 — CreateRegistry : nom d'écran invalide (ligne 80), opération hors de son écran (ligne 86) et nom d'opération invalide/dupliqué (via OperationRegistry) font échouer le démarrage — échec explicite plutôt que fonctionnement partiel",
+    "repo/v2/tests/Domenia.Tests/PlatformTests.cs:646-652 — LoadDomeniaAssemblies ne retient que des assemblages Domenia (« seulement des assemblages Domenia »)",
+    "repo/v2/tests/Domenia.Tests/PlatformTests.cs:622-628 — opération hors écran, nom d'écran invalide et opération en double refusés ; IsValidScreen (majuscule/point/vide refusés)"
+  ],
+  "manque": "Le plan « phasé et ordonné » n'existe pas. Il n'y a aucune notion de phase (Bootstrap, Resources, Modules, Authentication, Interface) : IOperationModule (IOperationModule.cs:11-20) n'expose que Screen et CreateOperations. Aucun module ne déclare ses dépendances ni ses fonctions. Il n'existe aucun équivalent de Test-DomeniaStartupPlan : rien ne refuse une phase inconnue, une dépendance absente ou chargée plus tard, ni un cycle, et rien ne détecte « une fonction fournie deux fois » au niveau module (seule la duplication de nom d'opération est refusée, OperationModules.cs:70-96). L'ordre d'import n'est pas calculé à partir de dépendances mais fixé par FullName (ligne 61). Aucun jeton « DOMENIA_MODULE_PLAN » posé avant le premier module métier. La liste close (aucun script voisin) et l'échec explicite au démarrage sont, eux, bien implémentés et testés.",
+  "effort": "L",
+  "depend": [],
+  "risque": "lecture"
+}

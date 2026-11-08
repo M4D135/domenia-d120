@@ -1,0 +1,53 @@
+{
+  "Clock": "Host Stopwatch, guest milestones observed through VirtualBox guest properties",
+  "Runs": [
+    {
+      "Label": "BeforeIdle1",
+      "LoginSeconds": 32.356,
+      "MainSeconds": 131.825,
+      "IdleCpuMean": 12.73,
+      "IdleCpuMax": 15.62,
+      "FreeMB": 2361,
+      "CoreSHA256": "6E30C54F77AA2A936924CD9FC5FAC23B9E84A7003E96F7F24FC59CFC37299458",
+      "MaxPollingGapMs": 313
+    },
+    {
+      "Label": "BeforeIdle2",
+      "LoginSeconds": 30.292,
+      "MainSeconds": 128.308,
+      "IdleCpuMean": 14.54,
+      "IdleCpuMax": 17.05,
+      "FreeMB": 2303,
+      "CoreSHA256": "6E30C54F77AA2A936924CD9FC5FAC23B9E84A7003E96F7F24FC59CFC37299458",
+      "MaxPollingGapMs": 317
+    },
+    {
+      "Label": "AfterIdle2",
+      "LoginSeconds": 23.716,
+      "MainSeconds": 111.873,
+      "IdleCpuMean": 13.25,
+      "IdleCpuMax": 17.19,
+      "FreeMB": 2295,
+      "CoreSHA256": "717D6C89DC7B592FBAC9777E2961D3F6DCD91F4013714D730C94E6C034D70261",
+      "MaxPollingGapMs": 313
+    },
+    {
+      "Label": "AfterIdle3",
+      "LoginSeconds": 21.329,
+      "MainSeconds": 108.8,
+      "IdleCpuMean": 13.54,
+      "IdleCpuMax": 17.19,
+      "FreeMB": 2416,
+      "CoreSHA256": "717D6C89DC7B592FBAC9777E2961D3F6DCD91F4013714D730C94E6C034D70261",
+      "MaxPollingGapMs": 315
+    }
+  ],
+  "BeforeLoginSeconds": 31.324,
+  "AfterLoginSeconds": 22.5225,
+  "BeforeMainSeconds": 130.0665,
+  "AfterMainSeconds": 110.3365,
+  "Excluded": [
+    "AfterIdle1: lecture diagnostique des processus dans le guest pendant le lancement ; conservé comme contrôle fonctionnel et visuel, exclu de la comparaison."
+  ],
+  "Conclusion": "Aucune accélération globale reproductible établie dans ce petit échantillon ; valeurs de labo uniquement."
+}

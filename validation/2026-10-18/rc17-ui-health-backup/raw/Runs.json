@@ -1,0 +1,26 @@
+[
+    {
+        "Name":  "HealthRules",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  6450,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaHealthRules.ps1\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11717-live\\critical-out\\HealthRules.json\u0027"
+    },
+    {
+        "Name":  "HealthAdvanced",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  9943,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaHealthAdvanced.ps1\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11717-live\\critical-out\\HealthAdvanced.json\u0027"
+    },
+    {
+        "Name":  "StorageMaintenance",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  16263,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaStorageMaintenance.ps1\u0027 -CaseFilter \u0027Policy defaults|Backup scheduling|Backup is standalone|Restore uses|Point 34:|Point 36: integrity check|RC13: asynchronous switch\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11717-live\\critical-out\\StorageMaintenance.json\u0027"
+    }
+]

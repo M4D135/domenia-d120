@@ -1,0 +1,51 @@
+{
+  "UTC": "2026-10-13T00:23:51.430061+00:00",
+  "Platform": "macOS arm64",
+  "Qualification": "Non qualifying for Windows; final VM reports are separate",
+  "Checks": [
+    {
+      "Name": "Python release guard tests",
+      "Passed": 50,
+      "Failed": 0,
+      "Command": "python3 -m unittest -v test_release_guard.py",
+      "WorkingDirectory": "dev/engineering/d120",
+      "Log": "Local /tmp/domenia-r4-python-guard.log; 50 tests, OK"
+    },
+    {
+      "Name": "Static PowerShell lexical and timer checks",
+      "Passed": true,
+      "Files": 173,
+      "Command": "python3 dev/tools/validate_powershell_static.py"
+    },
+    {
+      "Name": "Closed loader, XML and preload contracts",
+      "Passed": 174,
+      "Failed": 0,
+      "Report": "preload-audit.json"
+    },
+    {
+      "Name": "Worker contracts reviewed and repinned",
+      "Operations": [
+        "LocalQuery"
+      ],
+      "OperationCount": 71
+    },
+    {
+      "Name": "Patch whitespace",
+      "Passed": true,
+      "Command": "git diff --check"
+    },
+    {
+      "Name": "Changed PowerShell source encoding",
+      "Passed": true,
+      "Files": 31,
+      "Required": "UTF8 BOM + LF"
+    }
+  ],
+  "DeliverySourceBinding": {
+    "DevZipSHA256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+    "ProdZipSHA256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+    "CurrentSourceMatchesArchive": true,
+    "Evidence": "archive-source-review.json"
+  }
+}

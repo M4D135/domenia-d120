@@ -1,0 +1,45 @@
+{
+    "Passed":  true,
+    "Utc":  "2026-10-18T09:12:16.8857055Z",
+    "Runtime":  [
+                    {
+                        "Folder":  "prod",
+                        "Files":  172,
+                        "Valid":  true
+                    },
+                    {
+                        "Folder":  "dev",
+                        "Files":  642,
+                        "Valid":  true
+                    },
+                    {
+                        "Folder":  "storage-ui-prod",
+                        "Files":  172,
+                        "Valid":  true
+                    }
+                ],
+    "Archives":  [
+                     {
+                         "Edition":  "PROD",
+                         "Sha256":  "0393C1B7FD23E732209D3F96C4C91196AFCB57BA26F02E86D79BBBC7EB4E908A"
+                     },
+                     {
+                         "Edition":  "DEV",
+                         "Sha256":  "001AE72DB21059BDA3AD5AC72E810D8C69E20B948E2FC18C224F5B070A2EB04B"
+                     }
+                 ],
+    "RC17PolicyPresentAfterRestart":  false,
+    "RC17PolicyPersistenceDefectReproducedAndFixedInRC18":  true,
+    "IsolatedApplicationClosed":  true,
+    "RemovedTasks":  [
+                         "Domenia-RC17-Storage-Auto",
+                         "Domenia-RC17-Storage-Restore",
+                         "Domenia-RC17-Storage-RestoreFinish",
+                         "Domenia-RC17-Storage-Probe",
+                         "Domenia-RC17-Storage-NativeProbe"
+                     ],
+    "OperatorProfileUntouched":  true,
+    "VmsNotDeleted":  true,
+    "BackupSha256":  "CBF68B069969C428194C69523FCC51DE3E976355B4F417691415B7346D0B6427",
+    "RestoredSha256":  "D9968AF4BD23F5CFDE68070EFA250956D8BC9280DE9C022F0E6274B77D4A7D26"
+}

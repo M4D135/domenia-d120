@@ -1,0 +1,17 @@
+{
+  "id": "TRV-024",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/Program.cs:24 — Main marqué [STAThread] : le lanceur C# remplace l'hôte PowerShell STA de D1",
+    "repo/v2/src/Domenia.App/Program.cs:160 — refus « Domenia exige Windows 64 bits. » si !OperatingSystem.IsWindows() || !Environment.Is64BitProcess, avant tout chargement",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:188-195 — CheckPath remonte toute la chaîne du dossier jusqu'à la racine et refuse tout ReparsePoint (« Le dossier du logiciel contient un lien ou une redirection. »)",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:68 — CheckPath(root) appelé en tête de Verify, avant toute lecture",
+    "repo/v2/src/Domenia.App/Program.cs:192-195 — message « Domenia | Démarrage refusé » sur stderr puis StartupWindow.ShowFailure",
+    "repo/v2/src/Domenia.App/StartupWindow.cs:35 — ShowFailure : MessageBoxW avec titre « Domenia | Démarrage » et icône erreur (0x10)",
+    "repo/v2/tests/Domenia.Tests/PackageLifecycleTests.cs:331-332 — lien symbolique sur la cible : PreviewUpdate lève InvalidDataException (« racine redirigée refusée »)"
+  ],
+  "manque": "Le contrôle d'hôte PowerShell 5.1 x64 est caduc (D2 est un .exe natif, [STAThread] couvre le STA). Reste à faire selon FEATURES.md:10100 : regrouper au même point la vérification du runtime .NET/WebView2 et la signature Authenticode de l'exécutable — aucune vérification de signature au lancement (PackageIntegrity.cs:179 assume « sans preuve de signature de l'éditeur »). Le code de sortie sur refus est 2 (Program.cs:55) alors que le garde-fou D1 impose 1.",
+  "effort": "M",
+  "depend": ["signature Authenticode du paquet (voir TRV-025)", "vérification runtime WebView2 au démarrage"],
+  "risque": "lecture"
+}

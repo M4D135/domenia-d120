@@ -1,0 +1,15 @@
+{
+  "id": "TRV-026",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:15-17 — liste Required fermée : Domenia.exe, Domenia.dll, deps/runtimeconfig, les 7 dll Domenia.*, web/index.html, runtime/webview2/msedgewebview2.exe",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:146-148 — si un composant indispensable manque au manifeste : « Manifeste incomplet ou dispositions mélangées : un composant indispensable manque. » → lancement refusé",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:226-235 — Fields : champs inconnus/répétés/manquants → « Manifeste incomplet. »",
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:45-47 — OperationModules.Discover vérifie au démarrage que les modules existent et que le contrat d'écran est valide (« Modules absents ou contrat d'écran invalide. »)",
+    "repo/v2/tests/Domenia.Tests/PackageIntegrityTests.cs:56-63 — retirer Domenia.Core.dll du manifeste lève « incomplet » ; le manifeste ne peut pas être supprimé pour contourner les contrôles"
+  ],
+  "manque": "Le volet « tirée du plan des modules » n'a pas d'équivalent : rien ne lit un plan de modules/de types (Domenia-Modules.ps1 et Get-DomeniaRuntimeModulePlan/Get-DomeniaRuntimeTypePlan n'existent pas en D2) ; la liste des composants est un tableau codé en dur (PackageIntegrity.cs:15-17) sans message « Plan des modules illisible/vide ». Les fichiers de plans (Main.xaml, Start, Modules, CommonLibrary.json, .lifecycle.lock, release.json de D1) ne sont pas exigés au manifeste ; la cohérence liste↔plan réel (dérivation automatique, test de graphe au build, cf. TRV-032) reste à faire.",
+  "effort": "M",
+  "depend": ["TRV-032 (plan de modules fermé, remplacé par l'injection de dépendances en C#)"],
+  "risque": "lecture"
+}

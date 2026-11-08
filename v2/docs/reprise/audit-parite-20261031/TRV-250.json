@@ -1,0 +1,27 @@
+{
+  "id": "TRV-250",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Poste/PosteProbeDetails.cs:13 — PageSize = 100 : la page de détails de sonde fait 100 lignes",
+    "src/Domenia.Core/Screens/Poste/PosteProbeDetails.cs:25 — nombre de pages calculé sur les lignes mémorisées, page courante bornée (ligne 26)",
+    "src/Domenia.Core/Screens/Poste/PosteProbeDetails.cs:27 — Take(PageSize) : seule la page demandée est rendue",
+    "src/Domenia.Core/Screens/Poste/PosteProbeDetails.cs:37 — le résultat porte à la fois la page rendue, le total projeté (all.Count) et le statut avec ses lignes mémorisées",
+    "src/Domenia.Core/Screens/Poste/PosteProbeDetails.cs:48 — dates rendues en UTC au format « yyyy-MM-ddTHH:mm:ssZ »",
+    "src/Domenia.Core/Screens/Poste/PosteProbeCache.cs:12 — MaxRows = 500 lignes mémorisées",
+    "src/Domenia.Core/Screens/Poste/PosteProbeCache.cs:13 — MaxProbeBytes = 192 * 1024 : budget par sonde",
+    "src/Domenia.Core/Screens/Poste/PosteProbeCache.cs:42 — chaque ligne doit comporter exactement les propriétés déclarées de la sonde",
+    "src/Domenia.Core/Screens/Poste/PosteProbeCache.cs:43 — refus si le budget sérialisé est dépassé",
+    "src/Domenia.Core/Screens/Poste/PosteProbeCache.cs:52 — chaînes bornées à 2 048 caractères",
+    "src/Domenia.Core/Screens/Poste/PosteProbeCache.cs:53 — tableaux bornés à 256 éléments, un seul niveau",
+    "src/Domenia.Inventory/WmiWorkstationReader.Probes.cs:47 — chaque instance CIM est convertie par ProbeCell sur les propriétés déclarées, avec drapeau limited",
+    "src/Domenia.Inventory/WmiWorkstationReader.Probes.cs:49 — arrêt dès que le budget restant serait dépassé",
+    "src/Domenia.Inventory/WmiWorkstationReader.Probes.cs:62 — « Valeurs ou volume bornés ; relevé incomplet. » : la valeur non conservée est dite",
+    "src/Domenia.Inventory/WmiWorkstationReader.Probes.cs:82 — tableau multidimensionnel ou de plus de 256 éléments mis à null avec motif de limite",
+    "src/Domenia.Inventory/WmiWorkstationReader.Probes.cs:93 — texte de plus de 2 048 caractères mis à null avec motif de limite",
+    "src/Domenia.Inventory/WmiWorkstationReader.Queries.cs:24 — plafond de 2 000 instances, réservé aux SELECT d'atelier"
+  ],
+  "manque": "Les constantes ne suivent pas la fiche : budget de 192 Kio au lieu de 96 Kio par défaut (PosteProbeCache.cs:13), 500 lignes mémorisées au lieu de 2 000 (ligne 12), textes bornés à 2 048 caractères au lieu de 16 Kio (ligne 52). La page est fixe à 100 sans réglage jusqu'à 500 (PosteProbeDetails.cs:13). Le plafond de 2 000 instances n'existe que pour les SELECT d'atelier (WmiWorkstationReader.Queries.cs:24), pas pour la projection de sonde.",
+  "effort": "S",
+  "depend": ["TRV-252", "LiveConsole"],
+  "risque": "lecture"
+}

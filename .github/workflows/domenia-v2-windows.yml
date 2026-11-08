@@ -1,0 +1,75 @@
+name: Domenia v2 — compilation Windows hors ligne
+
+on:
+  push:
+    branches: [master, v2, 'codex/**']
+    paths: ['v2/**', '.github/workflows/domenia-v2-windows.yml']
+  pull_request:
+    branches: [master, v2]
+    paths: ['v2/**', '.github/workflows/domenia-v2-windows.yml']
+  workflow_dispatch:
+    inputs:
+      critical_tests:
+        description: 'Développement terminé et poussé : tests C# critiques locaux et garde de publication'
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: domenia-v2-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows x64 · Debug et Release sans téléchargement de dépendances
+    runs-on: windows-2025
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Récupérer le commit exact
+        # Same immutable action revision as the existing GLPI-Pilot Windows workflow.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Compiler avec le SDK et les paquets déjà présents
+        env:
+          # The validation branch is created explicitly from the finished, pushed development commit.
+          # Ordinary development pushes keep compiling only, including while this workflow is being edited.
+          DOMENIA_CRITICAL_REQUESTED: ${{ (github.event_name == 'workflow_dispatch' && inputs.critical_tests || github.event_name == 'push' && github.ref == 'refs/heads/codex/v2-validation-critique-20261025') && 'true' || 'false' }}
+        run: |
+          $options = @{}
+          if ($env:DOMENIA_CRITICAL_REQUESTED -eq 'true') {
+            $options['Critical'] = $true
+            $options['FinalValidation'] = $true
+          }
+          & ./v2/tools/ci-windows.ps1 @options
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Conserver le contexte et les journaux, y compris les échecs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: domenia-v2-windows-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/domenia-v2-ci/logs/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Rappeler la portée de cette exécution
+        if: always()
+        run: |
+          @'
+          ## Domenia v2 — preuves Windows CI
+          Les résultats exacts, le commit, le SDK et les empreintes des entrées figurent dans les journaux joints.
+          - Compilation Debug/Release avec le SDK préinstallé et les seuls NuGet déjà versionnés.
+          - Aucun SDK, runtime, paquet NuGet, service ou réglage réseau installé ou modifié.
+          - Le mode de compilation CI dépend du runtime Windows préinstallé ; il ne produit aucun pack autonome.
+          - Les tests C# critiques et ceux de la garde de publication s'exécutent uniquement sur demande manuelle ou sur la branche de validation créée après développement et push.
+          - Ce runner ne valide ni les deux VM du laboratoire, ni AD/SMB, ni les parcours UI/native.
+          - Aucune release et aucun pack PROD/DEV ne sont publiés par ce workflow.
+          '@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8

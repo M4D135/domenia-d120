@@ -1,0 +1,20 @@
+{
+  "id": "TRV-220",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialVault.cs:43 — clé « Domenia:v1: » + SHA-256 d'un texte à composants préfixés par leur longueur (longueur:partie), sans serveur ni chemin de base",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialVault.cs:30 — usage RemoteLocal:<poste> reconnu ; :36 — exige le compte du poste exact (autorité = nom du poste ou .)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialVault.cs:39 — un compte .\\x hors RemoteLocal est refusé",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialVault.cs:26 — identifiant ≤ 256, domaine ≤ 2048, caractères de contrôle refusés ; :41-42 — préfixage par la longueur : collision de délimiteur impossible",
+    "repo/v2/src/Domenia.Inventory/WindowsCredentialVault.cs:22 — CredReadW ; :61 — CredWriteW ; :73 — CredDeleteW (advapi32, System32 seul, :115-125)",
+    "repo/v2/src/Domenia.Inventory/WindowsCredentialVault.cs:18 — secret ≤ 2560 octets vérifié à l'écriture (:56) et à la relecture (:90 avec BlobSize pair et non nul)",
+    "repo/v2/src/Domenia.Inventory/WindowsCredentialVault.cs:43 — blob natif effacé (octets à zéro) après lecture avant CredFree ; :65 — blob copié aussi effacé après écriture",
+    "repo/v2/src/Domenia.Inventory/WindowsCredentialVault.cs:11 — Available exige ActiveDirectory et Windows ; :84 — refus pendant une usurpation d'identité ; chaque appel passe par RequireAvailable (:15, :52, :72)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialVault.cs:55 — mutations dans une capacité séparée, jamais découverte comme lecteur ; repo/v2/src/Domenia.Bridge/Operations/AccountsVaultOperations.cs:11 — écritures classées LocalWrite avec preuve en mémoire à usage unique",
+    "repo/v2/tests/Domenia.Tests/CredentialVaultTests.cs:31 — clés identiques à Domenia 1 sans alias d'autorité ni d'usage ; :43 — RemoteLocal exige le poste exact, séparateur de contrôle refusé ; :53 — preuve à usage unique liée à la session ; :81 — coffre natif coupé avant tout appel Windows en simulation ; :121 — layout natif et identité retournée vérifiés avant d'utiliser le blob"
+  ],
+  "manque": "Rien de vérifiable sur le fond : l'interrupteur D1 « -Enabled » par appel natif est remplacé par un dispositif équivalent et vérifié (capacité de mutation séparée, routes LocalWrite explicites, preuve à usage unique, RequireAvailable avant chaque appel natif dans WindowsCredentialVault.cs:79-85).",
+  "effort": "S",
+  "depend": [],
+  "risque": "ecriture-locale"
+}

@@ -1,0 +1,12 @@
+{
+    "Build":  "RC1.17.17",
+    "Passed":  false,
+    "SessionId":  1,
+    "WindowsLoginInvoked":  true,
+    "Steps":  [
+                  "Login",
+                  "LoginFailure"
+              ],
+    "AppId":  5976,
+    "Error":  "Main window not reached after Windows login"
+}

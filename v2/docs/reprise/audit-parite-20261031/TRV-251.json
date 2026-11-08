@@ -1,0 +1,26 @@
+{
+  "id": "TRV-251",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs:39 — transaction ouverte (db.Begin) : les relevés distants sont validés puis écrits d’un bloc",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs:53 — un poste inconnu ou d'un autre domaine est refusé : aucune écriture",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs:55 — identité dupliquée dans le relevé refusée : un résultat d'une autre cible ne passe pas",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs:62 — date de relevé manquante ou future refusée : seuls des champs datés par la source entrent",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs:87 — db.Commit() ; la relecture des lignes concernées et de l'en-tête est faite dans la transaction commise",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs:90 — RememberFleetRows après le COMMIT : la publication mémoire/écran ne vient qu'après relecture",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs:111 — le StoreId du relevé doit être celui du magasin, sinon le relevé est rejeté",
+    "src/Domenia.Ad/AdDirectorySource.cs:183 — génération (epoch) de session vérifiée avant l'écriture : publication annulée si la session a changé",
+    "src/Domenia.Ad/AdDirectorySource.cs:189 — génération revérifiée après l'écriture, avant de publier le paquet en mémoire",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Automation.cs:92 — familles fermées admises : Presence, Console, Inventory et Probe:<id> (longueur bornée)",
+    "src/Domenia.Ad/Screens/AdAccueilReader.cs:95 — les lectures sont regroupées et remises par lots (32 postes ou 5 s écoulées)",
+    "src/Domenia.Ad/Screens/AdAccueilReader.cs:109 — un lot refusé est capturé et le travail est arrêté, la file n’est pas vidée",
+    "src/Domenia.Ad/Screens/AdAccueilReader.cs:94 — l’échec précédent est relancé à la prochaine remise : rien n’est silencieusement perdu"
+  ],
+  "manque": "Le lotissage « 8 lots par appel » n'existe nulle part : le seul regroupement trouvé est temporel/taille (AdAccueilReader.cs:95). Le contexte vérifié au magasin couvre session-génération, domaine, identités, dates et StoreId, mais pas de RequestId : RequestId n'existe que comme identifiant de requête du pont (src/Domenia.Bridge/BridgeContext.cs:6), sans contrôle de contexte au stockage.",
+  "effort": "M",
+  "depend": [
+    "TRV-252",
+    "LocalStore"
+  ],
+  "risque": "ecriture-locale"
+}

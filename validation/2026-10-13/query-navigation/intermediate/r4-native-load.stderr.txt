@@ -1,0 +1,8 @@
+Add-Type : Could not load file or assembly
+'file:///C:\DomeniaLab\query-navigation-20261013-r4\source\dev\wad\modules\Domenia.Native.dll' or one of its
+dependencies. Catastrophic failure (Exception from HRESULT: 0x8000FFFF (E_UNEXPECTED))
+At C:\DomeniaLab\query-navigation-20261013-r4\source\dev\wad\tests\Test-DomeniaEngineResilience.ps1:8 char:52
++ ... as [type])){Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')} ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Add-Type], FileLoadException
+    + FullyQualifiedErrorId : System.IO.FileLoadException,Microsoft.PowerShell.Commands.AddTypeCommand

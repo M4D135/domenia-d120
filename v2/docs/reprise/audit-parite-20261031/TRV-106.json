@@ -1,0 +1,16 @@
+{
+  "id": "TRV-106",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Ad/Screens/SharedInventoryReads.cs:8-10 — clé de regroupement (InventoryReadKey) limitée à la source AD + objet + transport ; la comparaison des arguments de requête se fait par égalité JSON ordinal canonique (BridgeScheduling.cs:98-117, énumération triée StringComparer.Ordinal puis SHA-256) — les filtres sont donc comparés octet à octet, sans normalisation ni repli sur une clef approximative ; l.32-41 — deux demandes identiques pendant la même lecture en cours partagent un seul worker (« une seule lecture native pour deux demandeurs identiques »)",
+    "src/Domenia.Ad/Screens/SharedInventoryReads.cs:9 — « Only identical native reads within one AD source and one selected credential generation may share work » : pas de partage entre sessions ni entre générations de compte",
+    "src/Domenia.Core/Screens/Operations/OperationActivity.Measurements.cs:7-15 — le nombre de requêtes évitées est mesuré : RecordSharedInventory(queriesIssued) ajoute les projections réellement émises par le worker économisé (SharedCimQueriesAvoided) ; src/Domenia.Inventory/CimSession.cs:52 et 172 — QueriesIssued est compté par le transport, pas estimé",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:503-505 — le nombre est affiché à l'opérateur : « Lectures CIM identiques partagées : N résultats reçus ; M projections CIM évitées. Même session, génération du compte, objet, transport et périmètre uniquement ; aucun repli SYSTEM partagé. »",
+    "src/Domenia.Ad/Screens/AdRelationsReader.Inventory.cs:60 et AdSearchReader.Network.cs:80 — appel réel des compteurs depuis les lecteurs : RecordSharedInventory(captured.CimQueriesIssued) quand la lecture est partagée, RecordInventoryReused() quand un inventaire récent admissible est conservé",
+    "tests/Domenia.Tests/SharedInventoryReadTests.cs:25-47 — « Identical reads share only live work and count actual CIM projections » : un seul appel natif pour deux demandeurs, compte exact des projections, un résultat terminé n'est pas un cache ; tests/Domenia.Tests/OperationsMeasurementsTests.cs:49 — compteur des inventaires réutilisés"
+  ],
+  "manque": "Le regroupement demandé est fait au niveau du poste entier, pas de la requête : console, inventaire et sondes d'une même classe et d'un même filtre ne partagent PAS une seule requête CIM — chaque lecteur (console, inventaire, sondes) construit ses propres SELECT (ex. lectures d'identité sur Win32_ComputerSystem répétées dans WmiWorkstationReader.Probes.cs:34, WmiWorkstationReader.Events.cs:27, WmiFleetProbeReader.cs:44, CimSession.LocalAdmins.cs:21) et aucune fonction de clé de regroupement par classe+filtre ni de plan de requêtes jointes n'existe (aucun équivalent de Get-DomeniaCimGroupKey / Measure-DomeniaCimQueryPlan : rg groupkey/queryplan sans résultat). La comparaison de filtres octet par octet porte sur la clé de la lecture complète, pas sur des filtres WQL ; le repli « requête jointe refusée → lecture de base » n'a pas d'équivalent faute de jointures émises. Le compteur SharedCimQueriesAvoided ne compte que les projections du worker doublement demandé, pas les requêtes fusionnées.",
+  "effort": "L",
+  "depend": ["TRV-105 (les consommateurs à regrouper : console, inventaire, sondes)"],
+  "risque": "reseau"
+}

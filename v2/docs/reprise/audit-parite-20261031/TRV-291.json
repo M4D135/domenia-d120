@@ -1,0 +1,32 @@
+{
+  "id": "TRV-291",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:31-33 — private readonly List<WidgetWork> widgetQueue, private WidgetWork? widgetActive, private int boardComputations : une file et un seul relevé actif à la fois",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:183 — if (widgetQueue.Count + (widgetActive is null ? 0 : 1) >= 20) refuse par « widget.queueFull » : « La file contient déjà 20 widgets ; retirez une demande ou attendez. »",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:184-185 — if (widgetActive?.Item.Id == work.Item.Id || widgetQueue.Any(...)) refuse par « widget.duplicate » : jamais deux fois le même widget",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:195-202 — boucle d'attente : le travail ne sort de la file que si widgetActive est null, qu'il est premier de file, run is null, pendingRefreshDraw is null, !bitLockerReading, dashboard.Measuring == 0 et boardComputations == 0",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:33,740 — pendingRefreshDraw posé quand l'actualisation de l'OU a écrit et attend le dessin du nouvel instantané ; AccueilRefresh.cs:787 le libère à l'acquittement",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.cs:92-94 — boardComputations++ / -- autour du calcul du tableau : un recalcul en cours bloque le départ d'une collecte",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:222 — SetWidgetProgress(work, \"drawing\", \"Mesures enregistrées ; recalcul et dessin du tableau en attente.\") et retainedForDraw = true",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:375-376 — AcknowledgeWidgetDraw ne libère l'actif que si sa phase est « drawing » et l'identifiant correspond",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:251-257 — ConfirmWidgetAsync : expiration (refresh.planExpired) puis SameScope et identité du widget (Source, Key, QueryBinding, Paused) → « refresh.scopeChanged », « OU ou widget modifié depuis la demande ; collecte abandonnée. »",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:226-238 — finally : retrait de la file, puis annulation de toute la file quand le travail actif abandonne",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:378-401 — CancelWidgetCollection : si la phase était « drawing », toute la file est annulée (commentaire : aucune demande suivante ne doit démarrer sur des chiffres non acquittés)",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.cs:75-78 — AccueilService.From = context.Shared(c => new AccueilService(c)) : la file est par contexte de session, pas globale",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.cs:1273 — Dispose appelle StopWidgetsForDispose : aucune demande ne survit à la fin de la session",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:28 — PlanLifetime = TimeSpan.FromMinutes(5) : une demande qui attend trop longtemps est périmée (src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:253)",
+    "web/js/pages/accueil/widget-collections.js:124-132 — côté page, un changement de portée affichée incrémente generation et annule (accueil.widget.cancel) toute demande déjà admise",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:420-440 — Queue_waits_for_actual_draw_and_reuses_the_previous_widget_measurements : le résultat moteur seul ne libère pas la file, un accusé d'une autre collecte est ignoré, file vide après dessin confirmé",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:478-492 — Working_scope_change_stops_the_active_widget_even_without_any_UI_callback",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:496-511 — Returning_to_the_same_OU_does_not_reactivate_old_widget_or_refresh_confirmations",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:530-541 — Failed_draw_cancels_the_queue_instead_of_starting_another_collection"
+  ],
+  "manque": "Deux trous vérifiables. (1) Le plafond de 20 de la file (src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:183) et le refus « widget.duplicate » (src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:184-185) ne sont testés nulle part : rg « widget.duplicate|queueFull » dans tests/ ne renvoie que « operation.queueFull » du bridge (tests/Domenia.Tests/BridgeSharedReadTests.cs:151), sans rapport. Aucun test ne remplit la file ni ne redemande le même widget. (2) La portée « poste ouvert » n'existe pas : ScopeSelection n'a que (Dn, Label, Subtree) (src/Domenia.Core/Directory/DirectorySource.cs:24), PlanWidgetCollectionAsync ne planifie que sur le périmètre de travail de l'annuaire (src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:60-61) et le tableau du poste ouvert (web/js/pages/poste/board-layout.js:10, utilisé par web/js/pages/poste/overview.js:71 et web/js/pages/poste/inventory.js:279) n'appelle aucune opération accueil.widget.* : un widget ajouté pendant qu'un poste est ouvert n'entre dans aucune file.",
+  "effort": "M",
+  "depend": [
+    "TRV-290",
+    "TRV-292"
+  ],
+  "risque": "reseau"
+}

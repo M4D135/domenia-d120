@@ -1,0 +1,43 @@
+vm.sh : lot main, build — VM réservée.
+sync ok -> C:\DomeniaDev\src\main\v2
+Arborescence : C:\DomeniaDev\src\main\v2 (lot main)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Domenia.E2E -> C:\DomeniaDev\src\main\v2\tests\Domenia.E2E\bin\x64\Debug\net10.0-windows\win-x64\Domenia.E2E.dll
+  Domenia.Core -> C:\DomeniaDev\src\main\v2\src\Domenia.Core\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Core.dll
+  Domenia.Bridge -> C:\DomeniaDev\src\main\v2\src\Domenia.Bridge\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Bridge.dll
+  Domenia.Store -> C:\DomeniaDev\src\main\v2\src\Domenia.Store\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Store.dll
+  Domenia.Engine -> C:\DomeniaDev\src\main\v2\src\Domenia.Engine\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Engine.dll
+  Domenia.Simulation -> C:\DomeniaDev\src\main\v2\src\Domenia.Simulation\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Simulation.dll
+  Domenia.Inventory -> C:\DomeniaDev\src\main\v2\src\Domenia.Inventory\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Inventory.dll
+  Domenia.Ad -> C:\DomeniaDev\src\main\v2\src\Domenia.Ad\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Ad.dll
+  Domenia.App -> C:\DomeniaDev\src\main\v2\src\Domenia.App\bin\x64\Debug\net10.0-windows\win-x64\Domenia.dll
+  Domenia.Tests -> C:\DomeniaDev\src\main\v2\tests\Domenia.Tests\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:07.86
+Compilation Debug réussie.
+Arborescence : C:\DomeniaDev\src\main\v2 (lot main)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Domenia.E2E -> C:\DomeniaDev\src\main\v2\tests\Domenia.E2E\bin\x64\Release\net10.0-windows\win-x64\Domenia.E2E.dll
+  Domenia.Core -> C:\DomeniaDev\src\main\v2\src\Domenia.Core\bin\x64\Release\net10.0-windows\win-x64\Domenia.Core.dll
+  Domenia.Bridge -> C:\DomeniaDev\src\main\v2\src\Domenia.Bridge\bin\x64\Release\net10.0-windows\win-x64\Domenia.Bridge.dll
+  Domenia.Store -> C:\DomeniaDev\src\main\v2\src\Domenia.Store\bin\x64\Release\net10.0-windows\win-x64\Domenia.Store.dll
+  Domenia.Engine -> C:\DomeniaDev\src\main\v2\src\Domenia.Engine\bin\x64\Release\net10.0-windows\win-x64\Domenia.Engine.dll
+  Domenia.Simulation -> C:\DomeniaDev\src\main\v2\src\Domenia.Simulation\bin\x64\Release\net10.0-windows\win-x64\Domenia.Simulation.dll
+  Domenia.Inventory -> C:\DomeniaDev\src\main\v2\src\Domenia.Inventory\bin\x64\Release\net10.0-windows\win-x64\Domenia.Inventory.dll
+  Domenia.Ad -> C:\DomeniaDev\src\main\v2\src\Domenia.Ad\bin\x64\Release\net10.0-windows\win-x64\Domenia.Ad.dll
+  Domenia.App -> C:\DomeniaDev\src\main\v2\src\Domenia.App\bin\x64\Release\net10.0-windows\win-x64\Domenia.dll
+  Domenia.Tests -> C:\DomeniaDev\src\main\v2\tests\Domenia.Tests\bin\x64\Release\net10.0-windows\win-x64\Domenia.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:08.57
+Compilation Release réussie.
+vm.sh : lot main, build terminé en 24 s.

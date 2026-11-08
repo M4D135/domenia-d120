@@ -1,0 +1,38 @@
+﻿{
+    "DateUtc":  "2026-10-18T12:10:45.2820170Z",
+    "Computer":  "FILPRO-W11B",
+    "OS":  "Microsoft Windows NT 10.0.26200.0",
+    "PowerShell":  "5.1.26100.6584",
+    "ArchiveSHA256":  "DD0386B01E0FD2FFB49D12AA699678682B9525C200B878346FF6BEC760F3D27B",
+    "SupplementalHarnesses":  [
+                                  {
+                                      "Name":  "Test-DomeniaCredentialGuard.ps1",
+                                      "SHA256":  "425C2D717E6B5EC709E119CFB71EA77A80ACD78FC4925BB0B4C538C165E1B690"
+                                  },
+                                  {
+                                      "Name":  "Test-DomeniaLapsQualification.ps1",
+                                      "SHA256":  "3F4A2068F6A41726A28F9DAE0D0A68B9FD47C1B15F1101A44894EDCEF82C2BC1"
+                                  }
+                              ],
+    "Results":  [
+                    {
+                        "Name":  "CredentialGuard",
+                        "ExitCode":  0,
+                        "ReportExists":  true,
+                        "Seconds":  28.255720699999998
+                    },
+                    {
+                        "Name":  "LapsQualification",
+                        "ExitCode":  0,
+                        "ReportExists":  true,
+                        "Seconds":  10.5951562
+                    },
+                    {
+                        "Name":  "LoadStability",
+                        "ExitCode":  -1,
+                        "ReportExists":  false,
+                        "Seconds":  853.113078
+                    }
+                ],
+    "Scope":  "Personal laboratory; isolated generated fixtures; read-only LDAP; no AD writes"
+}

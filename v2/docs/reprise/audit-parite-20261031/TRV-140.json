@@ -1,0 +1,20 @@
+{
+  "id": "TRV-140",
+  "verdict": "a-faire",
+  "preuves": [
+    "src/Domenia.Ad/Domenia.Ad.csproj:6-7 — le module Active Directory de Domenia 2 référence uniquement System.DirectoryServices et System.DirectoryServices.Protocols (version 10.0.12) : aucune référence au module Microsoft.ActiveDirectory.Management ni à ActiveDirectoryPowerShellResources",
+    "src/Domenia.Ad/Ldap/AdConnection.cs:1-8 — « LDAP connection to Active Directory using System.DirectoryServices.Protocols » : la voie réellement utilisée est LDAP/ADSI managée, pas le module PowerShell épinglé",
+    "src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:8 — AdFicheWriteExecutor : IWriteExecutor, IDirectoryMutationExecutor construit sur AdDirectorySource : il n'existe aucune sélection de « backend » d'écriture (équivalent de Get-WWriteBackend) ni d'import de module (Import-WAdModule)",
+    "vendor/nuget/SHA256SUMS (lu intégralement) — ne liste que 5 paquets : microsoft.web.webview2, system.codedom, system.directoryservices, system.directoryservices.protocols, system.management ; les « deux DLL Microsoft livrées à côté de Domenia » (Microsoft.ActiveDirectory.Management.dll, ActiveDirectoryPowerShellResources.dll) ne sont pas livrées",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:723-724 — le 64 bits est seulement un diagnostic (CheckStatus.Warn, « processus 32 bits (64 bits attendu) »), pas une exigence bloquante de la source AD",
+    "src/Domenia.Bridge/Operations/Requetes/QueryCmdletHelp.cs:14-15 — le seul code qui parle des cmdlets ActiveDirectory/LAPS les lit depuis leurs fichiers d'aide MAML installés « never PowerShell itself, never the network » (requetes.cmdlets, RequetesOperations.cs:1041-1068) : simple référence documentaire, jamais un choix de module ni un garde-fou d'écriture"
+  ],
+  "manque": "Rien de la fonction n'est implémenté. Aucun code ne choisit entre le RSAT système et des DLL livrées (aucun Get-DomeniaAdModuleSources / Assert-DomeniaAdBinarySource) ; les deux DLL Microsoft et leur vérification par SHA-256 + nom + version 10.0.0.0 + jeton de clé publique n'existent pas (grep « ActiveDirectory.Management|PublicKeyToken|10.0.0.0 » sur src/ ne renvoie que des faux positifs sans rapport, et vendor/ ne les contient pas) ; il n'y a pas de liste des 22 cmdlets requises ni de test de disponibilité (Get-DomeniaRequiredAdCommands / Test-DomeniaAdCommandsAvailable), donc aucun basculement « sinon voie ADSI » commandé par ce seuil ; pas d'Import-WAdModule ni de Get-WWriteBackend. Le processus 64 bits n'est pas exigé (seulement signalé, OperationsOperations.cs:723-724) et aucune empreinte n'est « figée dans le code » pour une source AD. En pratique Domenia 2 emprunte en permanence la voie LDAP/ADSI managée (System.DirectoryServices.Protocols pour lectures et écritures via AdConnection, System.DirectoryServices dans AdAuditReader) — ce qui correspond au seul « repli » de la description — et ne tire jamais parti du module ActiveDirectory même s'il est présent.",
+  "effort": "L",
+  "depend": [
+    "Domenia.Ad : AdConnection.cs / AdDirectorySource (voie LDAP/ADSI actuellement unique pour lire et écrire)",
+    "empaquetage : livrer et épingler (SHA-256, nom, version 10.0.0.0, jeton de clé publique) les deux DLL Microsoft si la parité D1 est voulue, ou acter l'abandon de cette sélection au profit du seul LDAP/ADSI",
+    "un éventuel choix de backend d'écriture (équivalent Get-WWriteBackend) à raccorder au pipeline d'écriture (IWriteExecutor / IDirectoryMutationExecutor)"
+  ],
+  "risque": "ecriture-AD"
+}

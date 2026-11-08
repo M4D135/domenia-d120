@@ -1,0 +1,18 @@
+{
+  "id": "TRV-195",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheMemberships.cs:144-155 — IsPrivileged (Test-DomeniaPrivilegedGroup) : adminCount == 1, SID intégrés ou RID, ou nom connu",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheMemberships.cs:137-138 — SID intégrés S-1-5-32-(544|548|549|550|551)",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheMemberships.cs:140-141 — RID (512|516|517|518|519|520|526|527)",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheMemberships.cs:134-135 — noms français et anglais : Admins du domaine/Domain Admins, Administrateurs de l'entreprise/Enterprise Admins, Schéma/Schema Admins, Administrateurs/Administrators, Opérateurs de compte/Account Operators, de serveur/Server Operators, de sauvegarde/Backup Operators, Propriétaires créateurs de la stratégie/GPO Creator Owners, DnsAdmins",
+    "repo/v2/src/Domenia.Core/Screens/Relations/UserGroupComparison.cs:299-310 et 466-472 — même reconnaissance pour la comparaison d'utilisateurs (mêmes motifs)",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheCallSheet.cs:735 — consommation : groupes marqués « Privilégié » sur la fiche",
+    "repo/v2/src/Domenia.Ad/Writes/AdObjectDeleteExecutor.cs:73 et AdFicheStructureExecutors.cs:116 — le verdict protège aussi les écritures (groupe privilégié refusé en suppression/restructuration)",
+    "repo/v2/tests/Domenia.Tests/RelationsTests.cs:333-336 — tests : RID 512, builtin 551, adminCount=1, groupe ordinaire faux"
+  ],
+  "manque": "Rien de fonctionnel ; deux copies identiques des motifs (FicheMemberships et UserGroupComparer) exposent une dérive future, et le test de RelationsTests ne valide pas les noms seuls (le SID matche avant eux ligne 334).",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

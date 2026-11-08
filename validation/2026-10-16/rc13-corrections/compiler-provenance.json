@@ -1,0 +1,14 @@
+[
+  {
+    "Package": "microsoft.net.compilers.toolset",
+    "Version": "4.8.0",
+    "Source": "https://api.nuget.org/v3-flatcontainer/microsoft.net.compilers.toolset/4.8.0/microsoft.net.compilers.toolset.4.8.0.nupkg",
+    "Sha256": "37333f4f1e2ce55e621355d6da651dc23d4cb5f94a8f76b9478816e87f110ad9"
+  },
+  {
+    "Package": "microsoft.netframework.referenceassemblies.net472",
+    "Version": "1.0.3",
+    "Source": "https://api.nuget.org/v3-flatcontainer/microsoft.netframework.referenceassemblies.net472/1.0.3/microsoft.netframework.referenceassemblies.net472.1.0.3.nupkg",
+    "Sha256": "ffa0a5570a39f911399164d0581ffddef99b5e3dfbaa5f220e5ce22969bcf57c"
+  }
+]

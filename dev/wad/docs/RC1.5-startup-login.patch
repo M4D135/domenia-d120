@@ -1,0 +1,351 @@
+--- RC1.4/wad/Domenia-Core.ps1
++++ RC1.5/wad/Domenia-Core.ps1
+@@ -19729,7 +19729,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.4-SEARCH"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.5-BOOTLOGIN"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -20912,6 +20912,32 @@
+     }
+ }
+ 
++function Assert-DomeniaWorkerRegistry {
++    [CmdletBinding()]
++    param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
++    # Pin the entire reviewed map, not a separately maintained operation counter.
++    # This digest is updated only by the DEV release tool after contract review.
++    $expectedFingerprint = "925DC83121296F7C47AE08EA0F2BD23C578CCCFA066BB18613A4ED3B0236A209"
++    if ($null -eq $Registry -or $Registry.Count -eq 0) {
++        throw 'Registre worker absent ou vide.'
++    }
++    [string[]]$names = @($Registry.Keys)
++    [Array]::Sort($names,[StringComparer]::Ordinal)
++    $records = [Collections.Generic.List[string]]::new()
++    foreach ($name in $names) {
++        if ($name -cnotmatch '^[A-Za-z][A-Za-z0-9]{2,63}$') { throw 'Identifiant du registre worker invalide.' }
++        $hash = [string]$Registry[$name]
++        if ($hash -cnotmatch '^[A-F0-9]{64}$') { throw "Empreinte worker invalide pour $name." }
++        $records.Add($name + '=' + $hash)
++    }
++    $canonical = [string]::Join("`n",$records.ToArray())
++    $actual = Get-DomeniaWorkerCodeHash -Code $canonical
++    if (-not [string]::Equals($actual,$expectedFingerprint,[StringComparison]::Ordinal)) {
++        throw ("Registre worker non conforme ({0} operation(s), empreinte={1}). Composant manquant, ajoute ou modifie ; reinstallez un paquet coherent." -f $Registry.Count,$actual)
++    }
++    return [int]$Registry.Count
++}
++
+ function Assert-DomeniaWorkerOperationCode {
+     param(
+         [Parameter(Mandatory=$true)][ValidatePattern('^[A-Za-z][A-Za-z0-9]{2,63}$')][string]$OperationId,
+@@ -21037,10 +21063,7 @@
+     Write-StartupTrace -Stage "Moteur multithread" -Status "START"
+     try {
+         $registry = Get-DomeniaWorkerOperationHashes
+-        if ($registry.Count -ne 54) { throw "Registre worker incomplet : $($registry.Count)/54 operation(s)." }
+-        foreach ($operationId in $registry.Keys) {
+-            if ([string]$registry[$operationId] -notmatch '^[A-F0-9]{64}$') { throw "Hash worker invalide pour $operationId." }
+-        }
++        $registeredOperations = Assert-DomeniaWorkerRegistry -Registry $registry
+         [void](Assert-DomeniaWorkerOperationCode -OperationId "EngineSelfTest" -Code (Get-DomeniaWorkerEngineSelfTestCode))
+         $script:AsyncEngineReady = $true
+         $script:AsyncEngineClosing = $false
+@@ -21057,7 +21080,7 @@
+         $script:AsyncTimer = $timer
+         $script:AsyncTimer.Start()
+         $sw.Stop()
+-        Write-StartupTrace -Stage "Moteur multithread" -Status "OK" -DurationMs $sw.ElapsedMilliseconds -Detail "Moteur ferme pret ; 54 operations hash-pinnees, un runspace MTA dedie par tache."
++        Write-StartupTrace -Stage "Moteur multithread" -Status "OK" -DurationMs $sw.ElapsedMilliseconds -Detail ("Moteur ferme pret ; {0} operations hash-pinnees, registre verifie. Pools de lecture et runspaces dedies selon operation." -f $registeredOperations)
+     }
+     catch {
+         $sw.Stop()
+@@ -22278,7 +22301,7 @@
+     Initialize-DomeniaGuard
+     Initialize-DomeniaLive
+     Initialize-DomeniaReconcile
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.4 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.5 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -23408,7 +23431,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1.4"
++$script:DomeniaBuild = "Domenia 1.0 RC1.5"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -24003,94 +24026,137 @@
+ }
+ 
+ function Get-DomeniaStandardLoginXaml {
++    # Layout and scoped styles from FILPRO 2.5.0 RC1 Login.xaml / Controls.xaml.
++    # Only presentation is shared. Domenia keeps its own authentication and diagnostics.
+     return (Convert-DomeniaXamlToBootTheme -Xaml @"
+-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="DOMENIA · Connexion" Width="460" MinWidth="460" SizeToContent="Height" MaxHeight="780" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Background="{DynamicResource DomeniaBootWindow}" Foreground="{DynamicResource DomeniaBootText}" FontFamily="Segoe UI" FontSize="13" ShowInTaskbar="True" UseLayoutRounding="True" SnapsToDevicePixels="True">
++<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Domenia · Connexion" Width="480" SizeToContent="Height" MinWidth="340" MinHeight="0" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Background="{DynamicResource DomeniaBootWindow}" Foreground="{DynamicResource DomeniaBootText}" FontFamily="Segoe UI" FontSize="13" UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display" xml:lang="fr-FR" ShowInTaskbar="True" MaxHeight="800">
+   <Window.Resources>
+-    <Style x:Key="LoginTextBox" TargetType="TextBox" BasedOn="{StaticResource DomeniaBootTextBoxBase}">
+-      <Setter Property="MinHeight" Value="40"/><Setter Property="Padding" Value="11,8"/>
+-      <Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="BorderThickness" Value="1"/>
+-      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+-        <Border x:Name="LoginFieldBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10">
+-          <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+-        </Border>
+-        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="LoginFieldBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccent}"/></Trigger>
+-          <Trigger Property="IsEnabled" Value="False"><Setter TargetName="LoginFieldBorder" Property="Opacity" Value="0.65"/></Trigger></ControlTemplate.Triggers>
+-      </ControlTemplate></Setter.Value></Setter>
+-    </Style>
+-    <Style x:Key="LoginPasswordBox" TargetType="PasswordBox" BasedOn="{StaticResource DomeniaBootPasswordBoxBase}">
+-      <Setter Property="MinHeight" Value="40"/><Setter Property="Padding" Value="11,8"/>
+-      <Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="BorderThickness" Value="1"/>
+-      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="PasswordBox">
+-        <Border x:Name="LoginFieldBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10">
+-          <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+-        </Border>
+-        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="LoginFieldBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccent}"/></Trigger>
+-          <Trigger Property="IsEnabled" Value="False"><Setter TargetName="LoginFieldBorder" Property="Opacity" Value="0.65"/></Trigger></ControlTemplate.Triggers>
+-      </ControlTemplate></Setter.Value></Setter>
+-    </Style>
+-    <Style x:Key="LoginButton" TargetType="Button" BasedOn="{StaticResource DomeniaBootButtonBase}">
+-      <Setter Property="MinHeight" Value="40"/><Setter Property="Padding" Value="12,7"/>
+-      <Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="13"/>
+-      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+-        <Border x:Name="LoginButtonBorder" CornerRadius="10" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+-          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" TextElement.Foreground="{TemplateBinding Foreground}" RecognizesAccessKey="True"/>
+-        </Border>
+-        <ControlTemplate.Triggers>
+-          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="LoginButtonBorder" Property="Opacity" Value="0.90"/></Trigger>
+-          <Trigger Property="IsPressed" Value="True"><Setter TargetName="LoginButtonBorder" Property="Opacity" Value="0.78"/></Trigger>
+-          <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="LoginButtonBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/><Setter TargetName="LoginButtonBorder" Property="BorderThickness" Value="2"/></Trigger>
+-          <Trigger Property="IsEnabled" Value="False"><Setter TargetName="LoginButtonBorder" Property="Opacity" Value="0.65"/></Trigger>
+-        </ControlTemplate.Triggers>
+-      </ControlTemplate></Setter.Value></Setter>
+-    </Style>
+-    <Style TargetType="Button" BasedOn="{StaticResource LoginButton}"/>
+-    <Style TargetType="TextBox" BasedOn="{StaticResource DomeniaBootTextBoxBase}"/>
+-    <Style TargetType="PasswordBox" BasedOn="{StaticResource DomeniaBootPasswordBoxBase}"/>
+-  </Window.Resources>
+-  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0" Focusable="False">
+-    <Border Margin="14,16" Padding="20,22" CornerRadius="17" BorderBrush="{DynamicResource DomeniaBootBorder}" BorderThickness="1" Background="{DynamicResource DomeniaBootSurface}">
+-      <StackPanel>
+-        <Grid Margin="0,0,0,22"><Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
+-          <Border Width="42" Height="42" CornerRadius="12" Background="{DynamicResource DomeniaBootAccent}" VerticalAlignment="Center">
+-            <TextBlock Text="D" FontWeight="SemiBold" FontSize="19" Foreground="{DynamicResource DomeniaBootOnAccent}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
++    <!-- Theme resources injected by Domenia before XAML loading. --></Window.Resources>
++  <Grid x:Name="LoginRoot">
++    <Grid.Resources><Style TargetType="ToolTip">
++    <Setter Property="Background" Value="{DynamicResource DomeniaBootSurface}"/><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/>
++    <Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/>
++    <Setter Property="Padding" Value="14,11"/><Setter Property="FontSize" Value="12"/><Setter Property="MaxWidth" Value="430"/>
++    <Setter Property="HasDropShadow" Value="True"/>
++    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip">
++      <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" Padding="{TemplateBinding Padding}" CornerRadius="10">
++        <ContentPresenter/>
++      </Border>
++    </ControlTemplate></Setter.Value></Setter>
++    <Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="395" LineHeight="18" Foreground="{DynamicResource DomeniaBootText}"/></DataTemplate></Setter.Value></Setter>
++  </Style>
++  <Style x:Key="FocusRing" TargetType="Control"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control"><Border BorderBrush="{DynamicResource DomeniaBootAccentText}" BorderThickness="2" CornerRadius="10" Margin="-3"/></ControlTemplate></Setter.Value></Setter></Style>
++  <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
++  <Style TargetType="Label"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/></Style>
++  <Style x:Key="Muted" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootMuted}"/><Setter Property="FontSize" Value="12"/><Setter Property="LineHeight" Value="19"/></Style>
++  <Style x:Key="Card" TargetType="Border"><Setter Property="CornerRadius" Value="16"/><Setter Property="Background" Value="{DynamicResource DomeniaBootSurface}"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="22"/><Setter Property="Margin" Value="0,0,0,16"/></Style>
++  <Style TargetType="Button">
++    <Setter Property="Foreground" Value="{DynamicResource DomeniaBootButtonText}"/><Setter Property="Background" Value="{DynamicResource DomeniaBootButton}"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/>
++    <Setter Property="Padding" Value="14,9"/><Setter Property="Margin" Value="0,0,8,6"/><Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="Medium"/><Setter Property="MinHeight" Value="38"/>
++    <Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
++    <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/><Setter Property="ToolTipService.InitialShowDelay" Value="400"/><Setter Property="ToolTipService.ShowDuration" Value="30000"/>
++    <Setter Property="HorizontalContentAlignment" Value="Center"/>
++    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
++      <Border x:Name="Chrome" CornerRadius="10" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
++        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/>
++      </Border>
++      <ControlTemplate.Triggers>
++        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.82"/></Trigger>
++        <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.65"/></Trigger>
++        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger>
++        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Opacity" Value="0.45"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
++      </ControlTemplate.Triggers>
++    </ControlTemplate></Setter.Value></Setter>
++  </Style>
++  <Style x:Key="Run" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Background" Value="{DynamicResource DomeniaBootAccent}"/><Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootAccent}"/></Style>
++  <Style TargetType="TextBox">
++    <Setter Property="Background" Value="{DynamicResource DomeniaBootInput}"/><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/><Setter Property="CaretBrush" Value="{DynamicResource DomeniaBootText}"/><Setter Property="SelectionBrush" Value="{DynamicResource DomeniaBootAccent}"/>
++    <Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="11,8"/><Setter Property="MinHeight" Value="36"/>
++    <Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
++    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Border x:Name="InputBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="9"><ScrollViewer x:Name="PART_ContentHost"/></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="InputBorder" Property="Opacity" Value="0.55"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
++  </Style>
++  <Style TargetType="PasswordBox"><Setter Property="Background" Value="{DynamicResource DomeniaBootInput}"/><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/><Setter Property="CaretBrush" Value="{DynamicResource DomeniaBootText}"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="Padding" Value="11,9"/><Setter Property="MinHeight" Value="40"/>
++    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="PasswordBox"><Border x:Name="PasswordBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="9"><ScrollViewer x:Name="PART_ContentHost"/></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="PasswordBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
++  </Style>
++  <Style TargetType="CheckBox"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootText}"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,3"/><Setter Property="MinHeight" Value="32"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/><Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
++    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border x:Name="CheckBorder" Width="18" Height="18" CornerRadius="5" Background="{DynamicResource DomeniaBootInput}" BorderBrush="{DynamicResource DomeniaBootBorder}" BorderThickness="1" VerticalAlignment="Center"><Path x:Name="Tick" Data="M 3,8 L 6,11 L 12,4" Stroke="White" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"/></Border><ContentPresenter Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/></Grid><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckBorder" Property="Background" Value="{DynamicResource DomeniaBootAccent}"/><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccent}"/><Setter TargetName="Tick" Property="Visibility" Value="Visible"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource DomeniaBootAccentText}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
++  </Style>
++  <Style TargetType="ProgressBar"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootAccentText}"/><Setter Property="Background" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="0"/></Style>
++  </Grid.Resources><!-- Only the input area can scroll on a very small desktop. Actions remain outside it. -->
++    <Border x:Name="PanelLogin" Style="{StaticResource Card}" Margin="16" Padding="20">
++      <Grid>
++        <Grid.RowDefinitions>
++          <RowDefinition Height="Auto"/>
++          <RowDefinition Height="*"/>
++          <RowDefinition Height="Auto"/>
++        </Grid.RowDefinitions>
++
++        <Grid x:Name="LoginHeader" Grid.Row="0" Margin="0,0,0,18">
++          <Grid.ColumnDefinitions>
++            <ColumnDefinition Width="Auto"/>
++            <ColumnDefinition Width="*"/>
++            <ColumnDefinition Width="Auto"/>
++          </Grid.ColumnDefinitions>
++          <Border Width="42" Height="42" CornerRadius="12" Background="{DynamicResource DomeniaBootAccent}" VerticalAlignment="Center" Margin="0,0,13,0">
++            <TextBlock Text="D" FontSize="27" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
+           </Border>
+-          <StackPanel Grid.Column="2"><TextBlock Text="Connexion à DOMENIA" FontSize="23" FontWeight="SemiBold"/><TextBlock Text="Votre compte Active Directory" FontSize="12" Foreground="{DynamicResource DomeniaBootMuted}" Margin="0,4,0,0"/></StackPanel>
+-        <Button x:Name="BtnSuiteLoginTheme" ToolTipService.ShowOnDisabled="True" Grid.Column="3" Content="☾" Width="36" Height="36" MinHeight="36" Padding="0" FontSize="19" Margin="4,0,0,0" ToolTip="Bascule entre clair et sombre et mémorise le choix pour Domenia. Ne lance pas la connexion et ne lit pas le mot de passe." AutomationProperties.Name="Thème de la connexion" AutomationProperties.HelpText="Bascule entre clair et sombre et mémorise le choix pour Domenia. Ne lance pas la connexion et ne lit pas le mot de passe."/></Grid>
+-        <TextBlock Text="" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource DomeniaBootWarning}" Margin="0,4,0,8" Visibility="Collapsed" x:Name="LblSuiteThemeSave"/><TextBlock Text="Compte Windows" Margin="0,0,0,6"/>
+-        <TextBox x:Name="TxtLogin" Style="{StaticResource LoginTextBox}" TabIndex="0" ToolTip="Saisissez votre compte AD habituel : DOMAINE\identifiant, identifiant@domaine ou le format déjà utilisé. Seul l’identifiant peut être mémorisé." AutomationProperties.Name="Compte Windows" AutomationProperties.HelpText="Saisissez votre compte AD habituel : DOMAINE\identifiant, identifiant@domaine ou le format déjà utilisé. Seul l’identifiant peut être mémorisé." ToolTipService.ShowOnDisabled="True"/>
+-        <TextBlock Text="Mot de passe" Margin="0,16,0,6"/>
+-        <PasswordBox x:Name="PwdLogin" Style="{StaticResource LoginPasswordBox}" TabIndex="1" ToolTip="Mot de passe du compte saisi. Il n’est pas enregistré sur le disque." AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Mot de passe du compte saisi. Il n’est pas enregistré sur le disque." ToolTipService.ShowOnDisabled="True"/>
+-        <TextBlock x:Name="LblSuiteCapsLock" Text="Verr. Maj est activé" Foreground="{DynamicResource DomeniaBootWarning}" FontSize="11" Margin="0,6,0,0" Visibility="Collapsed" AutomationProperties.Name="Verr. Maj est activé"/><CheckBox x:Name="ChkRemember" Content="Mémoriser uniquement l’identifiant" Margin="0,14,0,18" FontSize="12" Foreground="{DynamicResource DomeniaBootText}" TabIndex="2" ToolTip="Conserve uniquement le nom de connexion pour la prochaine ouverture, jamais le mot de passe." AutomationProperties.Name="Mémoriser uniquement l’identifiant" AutomationProperties.HelpText="Conserve uniquement le nom de connexion pour la prochaine ouverture, jamais le mot de passe." ToolTipService.ShowOnDisabled="True"/>
+-        <StackPanel x:Name="UxLoginFeedback" Margin="0,0,0,14">
++          <StackPanel Grid.Column="1" VerticalAlignment="Center">
++            <TextBlock Text="Connexion à Domenia" FontSize="22" FontWeight="SemiBold" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
++            <TextBlock Text="Votre compte Active Directory" Style="{StaticResource Muted}" LineHeight="16" Margin="0,3,0,0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
++          </StackPanel>
++          <Button x:Name="BtnSuiteLoginTheme" Grid.Column="2" Width="36" Height="36" MinHeight="36" Padding="7" Margin="8,0,0,0" VerticalAlignment="Center" KeyboardNavigation.TabIndex="6" ToolTip="Bascule entre clair et sombre et mémorise le choix pour Domenia. Ne lance pas la connexion et ne lit pas le mot de passe." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.Name="Thème de la connexion" AutomationProperties.HelpText="Bascule entre clair et sombre et mémorise le choix pour Domenia. Ne lance pas la connexion et ne lit pas le mot de passe."/>
++        </Grid>
++
++        <ScrollViewer x:Name="LoginFormScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" Focusable="False" Padding="0">
++          <StackPanel x:Name="LoginFields">
++            <TextBlock Text="" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource DomeniaBootWarning}" Margin="0,0,0,8" Visibility="Collapsed" x:Name="LblSuiteThemeSave"/><Label Content="Compte Windows" Target="{Binding ElementName=TxtLogin}" Padding="0" Margin="0,0,0,5" ToolTip="{Binding Content, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
++            <TextBox x:Name="TxtLogin" MaxLength="256" MinHeight="40" Padding="11,7" VerticalContentAlignment="Center" Margin="0,0,0,14" KeyboardNavigation.TabIndex="0" ToolTip="Saisissez votre compte AD habituel : DOMAINE\identifiant, identifiant@domaine ou le format déjà utilisé. Seul l’identifiant peut être mémorisé." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Saisissez votre compte AD habituel : DOMAINE\identifiant, identifiant@domaine ou le format déjà utilisé. Seul l’identifiant peut être mémorisé." AutomationProperties.Name="Compte Windows"/>
++            <Label Content="Mot de passe" Target="{Binding ElementName=PwdLogin}" Padding="0" Margin="0,0,0,5" ToolTip="{Binding Content, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
++            <PasswordBox x:Name="PwdLogin" MinHeight="40" Padding="11,7" VerticalContentAlignment="Center" Margin="0,0,0,8" KeyboardNavigation.TabIndex="1" ToolTip="Mot de passe du compte saisi. Il n’est pas enregistré sur le disque." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Mot de passe du compte saisi. Il n’est pas enregistré sur le disque." AutomationProperties.Name="Mot de passe"/>
++            <TextBlock x:Name="LblSuiteCapsLock" Text="Verr. Maj activé : le mot de passe distingue les majuscules." Visibility="Collapsed" Foreground="{DynamicResource DomeniaBootWarning}" FontSize="12" Margin="0,0,0,8" ToolTip="Désactivez Verr. Maj si les majuscules ne sont pas souhaitées." ToolTipService.ShowOnDisabled="True" AutomationProperties.LiveSetting="Polite"/>
++            <CheckBox x:Name="ChkRemember" FontSize="12" MinHeight="28" Margin="0" KeyboardNavigation.TabIndex="2" ToolTip="Conserve uniquement l’identifiant pour la prochaine connexion. Le mot de passe n’est jamais mémorisé." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Conserve uniquement l’identifiant pour la prochaine connexion. Le mot de passe n’est jamais mémorisé." AutomationProperties.Name="Mémoriser uniquement l’identifiant">
++              <TextBlock Text="Mémoriser uniquement l’identifiant" TextWrapping="Wrap" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
++            </CheckBox>
++          <Expander x:Name="UxLoginDiagnostics" Header="Aide à la connexion" IsExpanded="False" Foreground="{DynamicResource DomeniaBootMuted}" FontSize="11" Margin="0,8,0,0" ToolTip="Ouvre les détails et les commandes pour consulter ou copier le diagnostic de connexion. Aucun nouvel essai n’est lancé." AutomationProperties.Name="Aide à la connexion" AutomationProperties.HelpText="Ouvre les détails et les commandes pour consulter ou copier le diagnostic de connexion. Aucun nouvel essai n’est lancé." ToolTipService.ShowOnDisabled="True" KeyboardNavigation.TabIndex="7">
++          <Expander.Style><Style TargetType="Expander"><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding Text, ElementName=LblLoginError}" Value=""/><Condition Binding="{Binding Visibility, ElementName=PbLogin}" Value="Collapsed"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></Expander.Style><StackPanel Margin="0,10,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
++            <Button x:Name="BtnLoginLog" Content="Ouvrir le journal" MinHeight="32" FontSize="11.5" ToolTip="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." AutomationProperties.Name="Journal de connexion" AutomationProperties.HelpText="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." ToolTipService.ShowOnDisabled="True" Margin="0"/>
++            <Button x:Name="BtnCopyLoginDiag" Grid.Column="2" Content="Copier le diagnostic" MinHeight="32" FontSize="11.5" ToolTip="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." AutomationProperties.Name="Copier le diagnostic" AutomationProperties.HelpText="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." ToolTipService.ShowOnDisabled="True" Margin="0"/>
++          </Grid>
++          <TextBox x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxHeight="128" MinHeight="60" Margin="0,10,0,0" FontFamily="Consolas" FontSize="10.5" Padding="8" ToolTip="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." AutomationProperties.Name="Diagnostic de connexion" AutomationProperties.HelpText="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." ToolTipService.ShowOnDisabled="True"/>
++          </StackPanel>
++        </Expander>
++        <Grid Visibility="Collapsed"><TextBox x:Name="TxtLoginPasswordVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." ToolTipService.ShowOnDisabled="True"/><Button x:Name="BtnRevealLogin" Content="Afficher" ToolTip="Afficher ou masquer temporairement le mot de passe." AutomationProperties.Name="Afficher ou masquer temporairement le mot de passe" AutomationProperties.HelpText="Afficher ou masquer temporairement le mot de passe." ToolTipService.ShowOnDisabled="True"/></Grid>
++      </StackPanel>
++        </ScrollViewer>
++
++        <StackPanel x:Name="LoginActions" Grid.Row="2" Margin="0,16,0,0">
++          <!-- A long Windows error never pushes the buttons out of the window. -->
++          <StackPanel x:Name="UxLoginFeedback" Margin="0,0,0,10">
+           <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions>
+             <Condition Binding="{Binding Text, ElementName=LblLoginError}" Value=""/>
+             <Condition Binding="{Binding Visibility, ElementName=PbLogin}" Value="Collapsed"/>
+           </MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></StackPanel.Style>
+-          <ScrollViewer MaxHeight="116" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
++          <ScrollViewer MaxHeight="60" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+             <StackPanel><TextBlock x:Name="LblLoginError" Text="" Foreground="{DynamicResource DomeniaBootMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"/>
+               <TextBlock x:Name="LblLoginStage" Text="" Foreground="{DynamicResource DomeniaBootAccentText}" FontSize="11.5" TextWrapping="Wrap"/></StackPanel>
+           </ScrollViewer>
+           <ProgressBar x:Name="PbLogin" IsIndeterminate="True" Height="4" Visibility="Collapsed" Margin="0,8,0,0" ToolTip="Indique une activité de connexion. Une animation sans pourcentage ne signifie pas qu’une proportion précise du travail est terminée." AutomationProperties.Name="Connexion en cours" AutomationProperties.HelpText="Indique une activité de connexion. Une animation sans pourcentage ne signifie pas qu’une proportion précise du travail est terminée." ToolTipService.ShowOnDisabled="True"/>
+         </StackPanel>
+-        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="96"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+-          <Button x:Name="BtnCancel" Content="Annuler" IsCancel="True" TabIndex="4" ToolTip="Ferme la connexion, ou demande l’arrêt de la validation en cours." AutomationProperties.Name="Annuler" AutomationProperties.HelpText="Ferme la connexion, ou demande l’arrêt de la validation en cours." ToolTipService.ShowOnDisabled="True"/>
+-          <Button x:Name="BtnLogin" Grid.Column="2" Content="Se connecter" Background="{DynamicResource DomeniaBootAccent}" BorderBrush="{DynamicResource DomeniaBootAccent}" Foreground="{DynamicResource DomeniaBootOnAccent}" FontWeight="SemiBold" IsDefault="True" TabIndex="3" ToolTip="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." AutomationProperties.Name="Se connecter" AutomationProperties.HelpText="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." ToolTipService.ShowOnDisabled="True"/>
+-        </Grid>
+-        <Button x:Name="BtnWindowsLogin" Content="Utiliser mon compte Windows" Margin="0,8,0,0" MinHeight="36" TabIndex="5" ToolTip="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." AutomationProperties.Name="Utiliser mon compte Windows" AutomationProperties.HelpText="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." ToolTipService.ShowOnDisabled="True"/>
+-        <TextBlock Text="Le mot de passe n’est jamais enregistré." HorizontalAlignment="Center" FontSize="11" Foreground="{DynamicResource DomeniaBootMuted}" Margin="0,12,0,0"/>
+-        <Expander x:Name="UxLoginDiagnostics" Header="Aide à la connexion" IsExpanded="False" Foreground="{DynamicResource DomeniaBootMuted}" FontSize="11" Margin="0,12,0,0" TabIndex="6" ToolTip="Ouvre les détails et les commandes pour consulter ou copier le diagnostic de connexion. Aucun nouvel essai n’est lancé." AutomationProperties.Name="Aide à la connexion" AutomationProperties.HelpText="Ouvre les détails et les commandes pour consulter ou copier le diagnostic de connexion. Aucun nouvel essai n’est lancé." ToolTipService.ShowOnDisabled="True">
+-          <StackPanel Margin="0,10,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+-            <Button x:Name="BtnLoginLog" Content="Ouvrir le journal" MinHeight="32" FontSize="11.5" ToolTip="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." AutomationProperties.Name="Journal de connexion" AutomationProperties.HelpText="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." ToolTipService.ShowOnDisabled="True"/>
+-            <Button x:Name="BtnCopyLoginDiag" Grid.Column="2" Content="Copier le diagnostic" MinHeight="32" FontSize="11.5" ToolTip="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." AutomationProperties.Name="Copier le diagnostic" AutomationProperties.HelpText="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." ToolTipService.ShowOnDisabled="True"/>
++        <Grid>
++            <Grid.ColumnDefinitions>
++              <ColumnDefinition Width="Auto"/>
++              <ColumnDefinition Width="*"/>
++            </Grid.ColumnDefinitions>
++            <Button x:Name="BtnCancel" Grid.Column="0" Content="Annuler" IsCancel="True" MinWidth="96" MinHeight="40" Padding="14,8" Margin="0,0,8,0" KeyboardNavigation.TabIndex="5" ToolTip="Ferme la connexion, ou demande l’arrêt de la validation en cours." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Ferme la connexion, ou demande l’arrêt de la validation en cours." AutomationProperties.Name="Annuler"/>
++            <Button x:Name="BtnLogin" Grid.Column="1" Content="Se connecter" Style="{StaticResource Run}" MinHeight="40" Padding="14,8" Margin="0" KeyboardNavigation.TabIndex="3" ToolTip="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." AutomationProperties.Name="Se connecter" IsDefault="True"/>
+           </Grid>
+-          <TextBox x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxHeight="128" MinHeight="60" Margin="0,10,0,0" FontFamily="Consolas" FontSize="10.5" Padding="8" ToolTip="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." AutomationProperties.Name="Diagnostic de connexion" AutomationProperties.HelpText="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." ToolTipService.ShowOnDisabled="True"/>
+-          </StackPanel>
+-        </Expander>
+-        <!-- Compatibility controls are deliberately not shown in the standard login. -->
+-        <Grid Visibility="Collapsed"><TextBox x:Name="TxtLoginPasswordVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." ToolTipService.ShowOnDisabled="True"/><Button x:Name="BtnRevealLogin" Content="Afficher" ToolTip="Afficher ou masquer temporairement le mot de passe." AutomationProperties.Name="Afficher ou masquer temporairement le mot de passe" AutomationProperties.HelpText="Afficher ou masquer temporairement le mot de passe." ToolTipService.ShowOnDisabled="True"/></Grid>
+-      </StackPanel>
++          <Button x:Name="BtnWindowsLogin" Content="Utiliser mon compte Windows" MinHeight="36" Padding="10,7" Margin="0,8,0,0" KeyboardNavigation.TabIndex="4" ToolTip="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." AutomationProperties.Name="Utiliser mon compte Windows"/>
++          <TextBlock x:Name="LoginPrivacy" Text="Le mot de passe n’est jamais enregistré." Style="{StaticResource Muted}" FontSize="12" LineHeight="16" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,10,0,0" ToolTip="Seul l’identifiant peut être mémorisé. Le mot de passe n’est pas enregistré dans les préférences de Domenia." ToolTipService.ShowOnDisabled="True"/>
++        </StackPanel>
++      </Grid>
+     </Border>
+-  </ScrollViewer>
++
++    </Grid>
+ </Window>
+ "@)
+ }
+@@ -24366,7 +24432,7 @@
+     try {
+         Initialize-AsyncEngine
+         $engineReady = [bool]$script:AsyncEngineReady
+-        Add-SelfTestResult -Name 'Moteur worker ferme' -Success $engineReady -Detail $(if($engineReady){'Registre de 54 operations hash-pinnees pret.'}else{'Moteur absent.'})
++        Add-SelfTestResult -Name 'Moteur worker ferme' -Success $engineReady -Detail $(if($engineReady){('Registre de {0} operations hash-pinnees pret.' -f (Get-DomeniaWorkerOperationHashes).Count)}else{'Moteur absent.'})
+ 
+         if ($engineReady) {
+             $tamperRejected = $false
+--- RC1.4/wad/modules/Domenia-UX.UI.ps1
++++ RC1.5/wad/modules/Domenia-UX.UI.ps1
+@@ -462,5 +462,7 @@
+     # A short login by default; long errors/details remain scrollable on small screens.
+     $work=[Windows.SystemParameters]::WorkArea
+     $Window.MaxHeight=[Math]::Max(280.0,[Math]::Min(800.0,$work.Height-24.0))
++    $Window.MaxWidth=[Math]::Max(340.0,$work.Width-24.0)
++    if($Window.Width -gt $Window.MaxWidth){$Window.Width=$Window.MaxWidth}
+     Initialize-DomeniaExperienceLogin -Window $Window
+ }
+--- RC1.4/INSTALLER-MISE-A-JOUR.ps1
++++ RC1.5/INSTALLER-MISE-A-JOUR.ps1
+@@ -148,15 +148,15 @@
+ # DEV-only gate. PROD startup never depends on these suites.
+ $desktopPowerShell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+ if(Test-Path (Join-Path $env:SystemRoot 'Sysnative\WindowsPowerShell\v1.0\powershell.exe')){$desktopPowerShell=Join-Path $env:SystemRoot 'Sysnative\WindowsPowerShell\v1.0\powershell.exe'}
+-foreach($suite in @('Test-DomeniaModules.ps1','Test-DomeniaCandidate.ps1','Test-DomeniaAcl.ps1','Test-DomeniaSelection.ps1','Test-DomeniaSearchPresence.ps1')){
++foreach($suite in @('Test-DomeniaStartupLogin.ps1','Test-DomeniaModules.ps1','Test-DomeniaCandidate.ps1','Test-DomeniaAcl.ps1','Test-DomeniaSelection.ps1','Test-DomeniaSearchPresence.ps1')){
+     $test=Join-Path $source ('wad\tests\'+$suite)
+-    $report=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-RC1.4-install-'+[guid]::NewGuid().ToString('N')+'.json')
++    $report=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-RC1.5-install-'+[guid]::NewGuid().ToString('N')+'.json')
+     Write-Host ('Tests isoles avant copie : '+$suite+' ; rapport : '+$report)
+     & $desktopPowerShell -NoLogo -NoProfile -STA -NonInteractive -File $test -ReportPath $report -Quiet
+     if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($report)){throw ('Verification native echouee avant copie : '+$report)}
+     $result=[IO.File]::ReadAllText($report)|ConvertFrom-Json
+     if([int]$result.Failed -ne 0 -or [int]$result.Passed -lt 20){throw ('Rapport de tests incomplet ou en echec : '+$report)}
+-    if($suite -in @('Test-DomeniaModules.ps1','Test-DomeniaSelection.ps1','Test-DomeniaSearchPresence.ps1') -and (-not $result.Complete -or [int]$result.Skipped -ne 0)){throw ('Validation des modules/WPF incomplete : '+$report)}
++    if($suite -in @('Test-DomeniaStartupLogin.ps1','Test-DomeniaModules.ps1','Test-DomeniaSelection.ps1','Test-DomeniaSearchPresence.ps1') -and (-not $result.Complete -or [int]$result.Skipped -ne 0)){throw ('Validation des modules/WPF incomplete : '+$report)}
+ }
+ Assert-AppClosed $targetRoot
+ 
+--- RC1.4/tools/update_worker_contracts.py
++++ RC1.5/tools/update_worker_contracts.py
+@@ -24,8 +24,12 @@
+         if h!=registered[item['Operation']]:changes.append(item['Operation'])
+         getter=re.sub(r'(\b'+re.escape(item['Operation'])+r'\s*=\s*")[A-F0-9]{64}(\")',lambda m:m[1]+h+m[2],getter)
+         item['Sha256']=h
++    fingerprint=hashlib.sha256('\n'.join(i['Operation']+'='+i['Sha256'] for i in sorted(items,key=lambda x:x['Operation'])).encode()).hexdigest().upper()
++    validation=function(core,'Assert-DomeniaWorkerRegistry')
++    updated_validation=re.sub(r'(\$expectedFingerprint\s*=\s*")[A-F0-9]{64}(")',lambda m:m[1]+fingerprint+m[2],validation)
++    if validation!=updated_validation:changes.append('RegistryFingerprint')
+     if a.apply:
+-        core_path.write_text(core.replace(old,getter,1),encoding='utf-8-sig')
++        core_path.write_text(core.replace(old,getter,1).replace(validation,updated_validation,1),encoding='utf-8-sig')
+         meta_path.write_text(json.dumps(items,indent=2)+'\n')
+     print(json.dumps({'ReviewedChangesRequired':changes,'Applied':a.apply,'Count':len(items)},indent=2))
+     return 0 if a.apply or not changes else 1

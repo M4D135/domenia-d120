@@ -1,0 +1,26 @@
+47 reussi(s), 6 en echec. Rapport : C:\DomeniaLab\RC35-qualification\rc39-tree-r4\WiringRecherche.json
+  ECHEC D012 A label change never changes the target of the fiche read : Phase : Failed The term 'Submit-DomeniaDirectoryObjectRead' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again. @ at Expect, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 23
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 757
+at Case, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 26
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 743
+  ECHEC Rest policy (C1) and demonstration (C2) gate the live background work : Le travail autorise n'a pas ete lance. @ at Expect, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 23
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 789
+at Case, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 26
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 778
+  ECHEC D028 LblLiveState porte le libelle de la regle : Ecriture non lancee ou non comptee. @ at Expect, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 23
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 814
+at Case, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 26
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 794
+  ECHEC PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris immediate : L'Accueil ne suit pas l'OU choisie. @ at Expect, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 23
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 955
+at Case, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 26
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 944
+  ECHEC SE-13 RevalidateListedObjects faux par defaut : aucune lecture AD sans geste : The term 'Request-DomeniaAccessRecovery' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again. @ at Fail-DomeniaObjectChanges, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\modules\Domenia-Continuity.UI.ps1: line 288
+at Complete-DomeniaObjectChanges, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\modules\Domenia-Continuity.UI.ps1: line 275
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 1073
+at Case, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 26
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 1049
+  ECHEC UX-25 Liste de l'historique : bandeau, Actualiser, type, presence et filtre local memorises : Liste quittee par le type : type=Machines local= @ at Expect, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 23
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 1122
+at Case, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 26
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 1094

@@ -1,0 +1,17 @@
+{
+  "id": "TRV-165",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Directory/DistinguishedName.cs:49-123 — Parse : découpe en RDN avec virgules échappées (branche '\\' l.84-99, délimiteur ',' l.102) ; RDN multi-valués refusés (l.110-113)",
+    "repo/v2/src/Domenia.Core/Directory/DistinguishedName.cs:90-94 — décodage des paires hexadécimales \\XX accumulées en octets ; FlushBytes l.197-205 les décode en UTF-8 (ConvertFrom-DomeniaDnValue)",
+    "repo/v2/src/Domenia.Core/Directory/DistinguishedName.cs:133-148 — Parent : DN du parent en sautant les séquences échappées (Get-DomeniaDnParent)",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheEntry.cs:185-209 — ReadablePath : chemin « example.local › Utilisateurs › Lyon », DC fusionnés en nom DNS, objet exclu sauf includeSelf (Get-DomeniaOuDisplayPath)",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheEntry.cs:163-179 — DisplayName : valeur du premier RDN, échappements décodés, DN brut si illisible (Get-DomeniaDnDisplayName / Get-DomeniaCnFromDn)",
+    "repo/v2/tests/Domenia.Tests/SimulationGeneratorTests.cs:90 — test aller-retour Format(Parse(dn)) ; :93 — virgule échappée dans « Le Gall, Anne » lue correctement",
+    "repo/v2/tests/Domenia.Tests/SimulationGeneratorTests.cs:193 et PersonalProbeTests.cs:124 — Parent utilisé et testé"
+  ],
+  "manque": "La forme guillemets de RFC 4514 n'est pas reconnue par Parse : une valeur entre guillemets contenant une virgelle (CN=\"Le Gall, Anne\") provoque une FormatException (la virgule interne est prise pour un séparateur, puis « Anne\" » sans « = » → « Distinguished name ends without a value », DistinguishedName.cs:110-120) ; seule la forme Backslash-escaping est gérée. Les appelants (FicheEntry.cs:175-177, 205-207) retombent alors sur le DN brut, jamais décodé.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : trouver un réglage par la recherche",
+  "description": "Tape « zoom » dans la recherche des réglages, l’ouvre au clavier (Entrée) et vérifie que la section Apparence s’ouvre avec le réglage du zoom mis en évidence ; l’adresse garde la section.",
+  "modes": ["simulation", "annuaire"],
+  "start": "parametres",
+  "steps": [
+    { "do": "wait", "ready": "parametres", "title": "L’écran Paramètres est prêt" },
+    { "do": "type", "selector": "#pr-search", "text": "zoom", "title": "Chercher « zoom »" },
+    { "do": "expect", "contains": "Zoom de l’interface", "within": ".pr-search-list", "title": "Le réglage est proposé" },
+    { "do": "press", "key": "Enter", "title": "Ouvrir le réglage" },
+    { "do": "expect", "selector": "[data-section=\"apparence\"][aria-current=\"page\"]", "title": "La section Apparence est active" },
+    { "do": "expect", "selector": "[data-setting=\"zoom\"]", "title": "Le réglage du zoom est affiché" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

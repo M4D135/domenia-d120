@@ -1,0 +1,33 @@
+{
+    "Suite":  "StorageMaintenance",
+    "Platform":  "Microsoft Windows NT 10.0.26200.0",
+    "PowerShell":  "5.1.26100.6584",
+    "Cases":  [
+                  {
+                      "Name":  "Restore uses a separate verified target and never overwrites the active file",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Backup is standalone and readable after export without WAL sidecars",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Retention deletes only old migrated families and preserves unknown recent and legacy rows",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Retention refusal rolls back and never silently accepts stale confirmation",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Total":  4,
+    "Passed":  4,
+    "Failed":  0,
+    "Assertions":  22,
+    "NoNetwork":  true,
+    "Scope":  "Temporary SQLite databases; no Active Directory or real-user data."
+}

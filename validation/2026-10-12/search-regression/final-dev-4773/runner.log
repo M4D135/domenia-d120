@@ -1,0 +1,4 @@
+ProdFactory: exit=0, ms=37925, timeout=False
+StartupCheckOnly: exit=0, ms=4463, timeout=False
+Test-DomeniaIndexSorting: exit=0, ms=7204, timeout=False
+Completed: 3 steps, 0 failed, 0 runtime files changed.

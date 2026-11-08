@@ -1,0 +1,43 @@
+{
+    "Build":  "RC1.17.17",
+    "Stage":  "Auto",
+    "Passed":  true,
+    "StartedUtc":  "2026-10-18T08:52:40.2442502Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-18T08:52:45.6135198Z",
+                      "Text":  "Continuing same isolated app; selected workspace peer used for UI controls"
+                  },
+                  {
+                      "Utc":  "2026-10-18T08:52:47.5222339Z",
+                      "Text":  "Automatic policy enabled and saved through UI; waiting for unchanged 60000 ms timer"
+                  },
+                  {
+                      "Utc":  "2026-10-18T08:53:46.8744007Z",
+                      "Text":  "Scheduled backup verified; disabled through UI, observing next timer interval"
+                  },
+                  {
+                      "Utc":  "2026-10-18T08:55:12.2731799Z",
+                      "Text":  "Automatic cycle complete and app closed normally"
+                  }
+              ],
+    "AppId":  6016,
+    "ArchiveSha256":  "0393c1b7fd23e732209d3f96c4c91196afcb57ba26f02e86d79bbbc7eb4e908a",
+    "Database":  "C:\\DomeniaLab\\d120-rc11717-live\\storage-ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Domenia.db",
+    "Backup":  "C:\\DomeniaLab\\d120-rc11717-live\\storage-ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261018-105342-076-506a972d.db",
+    "BackupSha256":  "cbf68b069969c428194c69523fcc51de3e976355b4f417691415b7346d0b6427",
+    "Marker":  "RC17-AUTO-UI-4c34d5b08c9b404a91cacd835db74489",
+    "Settings":  "C:\\DomeniaLab\\d120-rc11717-live\\storage-ui-prod\\wad\\data\\Preferences\\Domenia.settings.json",
+    "ElapsedAfterEnableMs":  58242,
+    "Receipt":  {
+                    "Bytes":  360448,
+                    "Sha256":  "cbf68b069969c428194c69523fcc51de3e976355b4f417691415b7346d0b6427",
+                    "File":  "Domenia-20261018-105342-076-506a972d.db",
+                    "Automatic":  true,
+                    "Origin":  "Scheduled"
+                },
+    "DisabledNextIntervalNoBackup":  true,
+    "FinishedUtc":  "2026-10-18T08:55:12.2777363Z"
+}

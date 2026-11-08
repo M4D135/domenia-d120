@@ -1,0 +1,90 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  10,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "HR-001",
+                       "HR-002",
+                       "HR-003",
+                       "HR-004",
+                       "HR-005",
+                       "HR-006",
+                       "HR-007",
+                       "HR-008",
+                       "HR-009",
+                       "HR-DICT"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "HR-001",
+                      "Name":  "Point 75 : contributions, population evaluable et consequences des regles desactivees ou suspendues",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-002",
+                      "Name":  "Point 75 : un poste signale par deux regles n est le seul fait d aucune, les colonnes ne s additionnent pas",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-003",
+                      "Name":  "Point 75 : explication du poste, controle mesure ou non mesure, regle desactivee chiffree sans penalite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-004",
+                      "Name":  "Point 76 : origine de chaque reglage, exceptions locales visibles et portees de l editeur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-005",
+                      "Name":  "Point 77 : suspension avec motif et echeance, reactivation, purge apres 30 jours, distincte d une suppression",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-006",
+                      "Name":  "Point 78 : changement reel, perimetre, couverture et regles distingues, ordre chronologique",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-007",
+                      "Name":  "Point 79 : matrice avec totaux coherents, ordre naturel des colonnes, filtre et colonnes regroupees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-008",
+                      "Name":  "Point 79 : tableaux croises du parc, chaque matrice retrouve tous les comptes actives",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-009",
+                      "Name":  "Point 77 : la purge des suspensions terminees ne cree pas d exception locale quand une OU est enregistree",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "HR-DICT",
+                      "Name":  "Les observations SQLite en dictionnaire generique gardent leurs valeurs et tableaux",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

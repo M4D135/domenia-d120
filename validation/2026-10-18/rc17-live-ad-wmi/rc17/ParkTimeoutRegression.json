@@ -1,0 +1,28 @@
+{
+    "Kind":  "ParkDetection",
+    "Expected":  3,
+    "Filter":  "RC11711|RC11717",
+    "Complete":  true,
+    "NativeWindowsPowerShell51":  true,
+    "LiveAD":  false,
+    "MockedNetwork":  true,
+    "Passed":  3,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "RC11711 : nettoyage après timeout et moteur saturé attendent sans arrêter ni perdre le poste suivant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RC11711 : le timeout WMI est enregistré et le poste suivant est traité",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RC11717 : la fin native après timeout ne masque pas le reçu SQLite en attente et le lot finit",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

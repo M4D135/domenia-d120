@@ -1,0 +1,4305 @@
+{
+  "format": "Domenia.OperationContracts/1",
+  "scope": "compiled-implementation-closure",
+  "operations": [
+    {
+      "name": "DnsReverseLookup",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "LegacyMigration",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "LocalIndexRead",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "LocalStore",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "ParkSharedSync",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "StorageBackup",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "StorageIntegrity",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "StorageMaintenance",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "StoragePurge",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "StorageRetention",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    },
+    {
+      "name": "StorageUsage",
+      "implementationSha256": "4bf77aa017aed4cc576a2bb986094ea7c00d2d3662cc8078007a93e53d0f2dc9"
+    }
+  ],
+  "files": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "bdced68a205917fb1d5d3dea501af28ee0818354cb1238a2519f36ddd33be61b"
+    },
+    {
+      "path": "NuGet.config",
+      "sha256": "5684ca8bee23135cb14c3aed9239b13e7c3fdcbfca9b517d1c01b053aad27357"
+    },
+    {
+      "path": "global.json",
+      "sha256": "fb1f3883533d06b1a983c5a277035a38720ccdde66aa6e1a53bec332290d64f8"
+    },
+    {
+      "path": "src/Domenia.Ad/AdAccountLockouts.cs",
+      "sha256": "1681dcc5052ab327c33ee494de03f34f8a66920e406c5cf512cc8987d90b25c3"
+    },
+    {
+      "path": "src/Domenia.Ad/AdAdministrationIdentity.cs",
+      "sha256": "25840ad6b7c7f1ef9987ede53bd18973be2902d85a6daad8ec287a6bc2f0f128"
+    },
+    {
+      "path": "src/Domenia.Ad/AdComputerIndex.cs",
+      "sha256": "96aa8ae3413b1e0f86c4b4b5b8c523896e1e1d88291065067a5043a192e78827"
+    },
+    {
+      "path": "src/Domenia.Ad/AdCredentialValidation.cs",
+      "sha256": "6a7ac7c3a9100c254852f95e36960b68c9d23f51991098030b30bd9a38036d6f"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectoryMapper.cs",
+      "sha256": "b4a226f729b72c8a93a12469808abc66e1d0d9d0b17a91c0b25b632e21eb4b03"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectoryReader.DomainAccounts.cs",
+      "sha256": "ea972a526ec78b16293af0f074c4899d6755b1b05c109994f7a98caa869805f3"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectoryReader.cs",
+      "sha256": "b9edf7ce952727f9c5e17af330280253142ae387420a73d0f89abbc6ad0a0f19"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.Administration.cs",
+      "sha256": "5ef934d536f384a75e2fb79729de9ab8315cb46da101c1df72eaa772a8323abe"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.CollectionStorage.cs",
+      "sha256": "10863203a713965776100a9f482f8f6bdf817a559156a2eb0529e63da9577b5a"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.ConnectionRetirement.cs",
+      "sha256": "f201eddc7f7f78ba2a874a1a0daad5327f7262d2ac720ac6a0c7ff4d24777750"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.DirectoryRead.cs",
+      "sha256": "f01bcaf6bcd9c844b082c6967376974329eb50da707263008d744ae87e4a2c92"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.DomainAccounts.cs",
+      "sha256": "a3944c5a50f43bf2f77367632ab91a8af297bd028b0fe7af80ef8032f391fdc5"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.FicheIdentity.cs",
+      "sha256": "f9649ebaf5d3f838891c5b9aae7571ab659982a1f6b09e72e1d2ab0427161185"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.LoginPolicy.cs",
+      "sha256": "51def53a3ca73251df2cf22707f98250ff74e48543c5fc2e7c7eee1073b3dde8"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.Maintenance.cs",
+      "sha256": "71f0a28c4f3bd82774891cbea3fbfcb18161514c5a8135a1325d75a4fb92c6be"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.ReadFactory.cs",
+      "sha256": "81ce5b04173bfdb958272c4b3cae7c4dcd9a40f83eef8fbcb5c3f3f97dc62801"
+    },
+    {
+      "path": "src/Domenia.Ad/AdDirectorySource.cs",
+      "sha256": "3ecb6da8e753e671aa2d9e72f31db8efb95e05ba7a891dce9975aa7f65f1ac53"
+    },
+    {
+      "path": "src/Domenia.Ad/AdFactStateAliases.cs",
+      "sha256": "f4b5ee7626efde5c6598f1637a98fcfd38fdaa3304cbad8eb07fe0c44b27154a"
+    },
+    {
+      "path": "src/Domenia.Ad/AdFicheObjects.cs",
+      "sha256": "760e087f1d6c0c6b1946051eddf82d76c0fe23d6378c755491dd8c410246f30c"
+    },
+    {
+      "path": "src/Domenia.Ad/AdFicheProjection.cs",
+      "sha256": "d0ef2d593ca0d52424d7da4ed4182bf72b3a5ccf4f38d4432be5791f1c25903f"
+    },
+    {
+      "path": "src/Domenia.Ad/AdObjectAccess.cs",
+      "sha256": "10a9c6bef41321d8ca477d29d0fbd8c4209d8de309405fbbca7774032e628266"
+    },
+    {
+      "path": "src/Domenia.Ad/AdProjection.cs",
+      "sha256": "4979e50e7b46c601a8fd0a9fc586d13b4f56a5cf0705dbde064f3da201483d7c"
+    },
+    {
+      "path": "src/Domenia.Ad/AdReadAccess.cs",
+      "sha256": "4aeefb7223ca30d552ff1152e50b59c43472d530507d33cefd88dc7a88cfa785"
+    },
+    {
+      "path": "src/Domenia.Ad/AdSessionIdentity.cs",
+      "sha256": "fc8bb30286fa537cab58122e8b434b861992b23a19129a38f32dd9419fa1c481"
+    },
+    {
+      "path": "src/Domenia.Ad/AdWorkstationAccess.cs",
+      "sha256": "cecfed6c5e34b3fbae64c1e7963047893c243aa85f41066017630ea40ffbf623"
+    },
+    {
+      "path": "src/Domenia.Ad/AdWorkstationReadAccess.cs",
+      "sha256": "acd26312554d57b76d21fd0ae9c3aedb314e387794e5516df061735bc1f551a3"
+    },
+    {
+      "path": "src/Domenia.Ad/AssemblyInfo.cs",
+      "sha256": "a2f53dd007ef3733f6e32605cb3a3fa680cd0c833595094b515c6a3d0ecb96a0"
+    },
+    {
+      "path": "src/Domenia.Ad/AssemblyMarker.cs",
+      "sha256": "61ddefdf51014fc17596ad37a9900c34f4a747eaf930938a51501e0754b8fde0"
+    },
+    {
+      "path": "src/Domenia.Ad/CampaignInventoryMerge.cs",
+      "sha256": "022b47154f3d539a64e49efbad280b57125a399f2b2b43f785336e24c87d8d28"
+    },
+    {
+      "path": "src/Domenia.Ad/Checks/AdDirectoryChecks.cs",
+      "sha256": "ca976807daface9b23d4ae50c5da3360144d4cac60a6cc5e4035dda4f1531622"
+    },
+    {
+      "path": "src/Domenia.Ad/Domenia.Ad.csproj",
+      "sha256": "7d7393dd717dc2cbc5696d736a470f40b05698becb6e7f56ba429fbcb4a6a254"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdAttributeRange.cs",
+      "sha256": "2df57a9f0e4587ebc37d9569a597c75a649283e231a2d29842807a1dac0a22d6"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdAuthenticationErrors.cs",
+      "sha256": "62b501d405b4dc181d8c5335abfd5d4c4fc02de0020be056d14f48e483fbb034"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdAuthenticationGate.cs",
+      "sha256": "208d703682c55fcdf56a292d97b47c1dc5a8736598a9ee048f110e3f4b53ae87"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdConnection.Availability.cs",
+      "sha256": "94bf7c00ea61c12d7cfdab4e8bfe05a518e918fec38ae9b1bb13190a09e3a70e"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdConnection.Password.cs",
+      "sha256": "c8b23126e95d45eaaf03fdc2467bf0c087a664832e81cd7079ec222c1a31ce9c"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdConnection.Schema.cs",
+      "sha256": "f6bc7e45e12e930ed1226182ab32b952026b58c4deaf1597441be2c5527d294c"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdConnection.cs",
+      "sha256": "0038227ea396eb2d18532ef443bb750bae5f3fa5c71e375f1aa06699337ce1b5"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdConnectionFactory.cs",
+      "sha256": "c048ae3e5a85a4876660c8d3a83c999445d8dbc7aca1aea1de96ef58341097dd"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdContracts.cs",
+      "sha256": "4dd93cf785fcc56b94cd00f2a96be8dd14df5caba70f08fad5f9e668662cbe3f"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdCredentialCopy.cs",
+      "sha256": "633333383cd8bde3e04d5900a409027c05766830eb5d2d45c3aaec3141c8b852"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdPageBuffer.cs",
+      "sha256": "14cb27ce3b9e8a09b9f8612933cc5086bfb5d26896f4d23fe0018f013e1d82c7"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdReadDiagnostics.cs",
+      "sha256": "6381b0c87f70d5a60b724a30d0ae2eb924cdffc4ee85efdff1a615e7e58254f2"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdTransportPrerequisites.cs",
+      "sha256": "039672b3065fb099234b13a0cfeaf2b3a17fcedfbbc33136b6f8e2527d921957"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/AdWriteOutcomeUnknownException.cs",
+      "sha256": "64c6078a00c558ae651c1444b98345c154120259f998e60020e00291de1d1341"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/LapsDecryptor.cs",
+      "sha256": "e70faf3d9478a338df37e4acec9bf95c1cff591f595dd20a98dbfabe901fcb7a"
+    },
+    {
+      "path": "src/Domenia.Ad/Ldap/LapsPassword.cs",
+      "sha256": "98cf3c4721b886e17304f2decfaf5d7ca19ba972c99110dbeaa222c3dbd669cd"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAccountsAccessReader.cs",
+      "sha256": "d7249d072e15e7ababd0b83ba240e5784ea02afb9d9d75706749ec23f6af0f06"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAccountsReader.cs",
+      "sha256": "95ff6d12b235842f6f835cdc5a810a2fd5027414314b6c66a36a806fb06fdc9f"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAccueilReader.cs",
+      "sha256": "f013829704817dcfba0cff229736d93fd12c253f5e144b2c8da8715e5f343aef"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAssistanceReader.Dossier.cs",
+      "sha256": "1101e30d57975aa8b893396ee03d72aaf3e045e8807c4a9a24ba87807ff2fb16"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAssistanceReader.Steps.cs",
+      "sha256": "acc702414520159660c5f32d68c50df8a27ac4e42ddede56bf2fc9831e7125d4"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAssistanceReader.SubjectContext.cs",
+      "sha256": "66eb202acf47aa3af31267010a71d2c79e21923ef7d6e98f65122c6e181cd8f7"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAssistanceReader.Suggestions.cs",
+      "sha256": "31a9d6676f8119aba49bb993cf163c244779ab127be2071a221483f316031809"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAssistanceReader.cs",
+      "sha256": "939eace4019699bd95627183ea97a608bd03a032a41b0c67e2a0d3e811bb1375"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAuditDns.cs",
+      "sha256": "adb6c9bcc8713bd85852c4084ed8ecaa02c44dbd8468248ee04cb65498556d8e"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAuditReader.Acl.cs",
+      "sha256": "3b239fd7b3da215fe475fc525ea80ac95d1669090038e936df3e2690fef2a632"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAuditReader.Controllers.cs",
+      "sha256": "23f3bfc24783d3ca7062a1b351faa65e5d650deee79ef650cf61e2ffb9e23c88"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAuditReader.Directory.cs",
+      "sha256": "fbf046404f2d3cf9e870799eee7687346f473066156a501576b274164e7e48b0"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAuditReader.Overview.cs",
+      "sha256": "6b61bc594225fbc839528b8039a652379f64c1eadb0314d30ed26241b39f0229"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAuditReader.Relations.cs",
+      "sha256": "2a198a7d91d646cb2eaa50389e4f9f86b82d1e1f19b12075abe817a95098d64c"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAuditReader.Workstations.cs",
+      "sha256": "6a90449458e4cf4ba8673dfe56a49baaf20c0dd542c5db99d3ce7aa089c94588"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdAuditReader.cs",
+      "sha256": "30c7276698d67e39d3aee512d63a51613f147970940c8bdb7b27c5f46fcc8573"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdConsoleIdentityCache.cs",
+      "sha256": "f8e348ea90413df4d3aae897a3b13f7b800e5e32b6917f68ed1688ba432f2e2f"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdDirectoryBranchReader.cs",
+      "sha256": "d54c61634d47e26563a4eaea0a9f50c60dd711b7c043768cf32fc0a309abca23"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdDirectoryTreeReader.cs",
+      "sha256": "c64b25070737767fec7587a43d01ef5ced02e5202a2b995e5957e87a891063a9"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdFicheReader.Diagnostics.cs",
+      "sha256": "f5e82e9dee3ddc31af1ff77faf97c7b5620d4b6a44de37097a9a9b9287e4cf61"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdFicheReader.Directory.cs",
+      "sha256": "2a2c52ab61e454a306685d120b02531ada342cd7c088f3a9318e581eae15057c"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdFicheReader.Security.cs",
+      "sha256": "04085e07526bfe7108484ef4cf886c378257f5c4e94608e1477f991d9b8af52a"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdFicheReader.Workstation.cs",
+      "sha256": "fb04361198f3c728f6eca79dcaca353b6887a5984b6e7f1cc993d99ba1024ed0"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdFicheReader.cs",
+      "sha256": "bc7d901eb37c110ce1b421cf2146f5949e3dfe23aca0e330e6aee9d97e2dc208"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdMachineAccountReader.cs",
+      "sha256": "e4cea409e55cc6acb59f54757a9ae992fb845151f5369dc3e1adcb627b39c01b"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdOperationsReader.Collection.cs",
+      "sha256": "542cba50668af4bcbadfd2a5497d66baea2a35770ffaa7be0ec7a8e6c29d9be6"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdOperationsReader.HomeCampaign.cs",
+      "sha256": "4d1f62923ccad5587b0940c7bab9df1f02acbc205ae61e7e7716320be7ff6005"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdOperationsReader.Statistics.cs",
+      "sha256": "be458290888275a0f63002ab5f37790b5ecc3bd7bdb873dbcf63ea039fd19db5"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdOperationsReader.cs",
+      "sha256": "868b3277bc5a22eae88fa3c239f4a9e2bf9fa521669c1da573b029727dfa6391"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.CampaignFallback.cs",
+      "sha256": "afbd91b5170424bdfcd2926f1a77aecdffe11c3e30d011466801eaa7b548a918"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Details.cs",
+      "sha256": "f41de9998fef3091f67a80b64d0dc49213d8bf2fdd3770b74e2d5aa63d0ce83e"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Diagnostics.cs",
+      "sha256": "ec60dbb4fa2b1a02a5093f3f9825f09d0bf0bad8177d7f73da4e0163faa918d5"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Directory.cs",
+      "sha256": "a0198617ae10428148f3bb7745746537556443e79689bc9edde19bd29e4cc391"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.FullDiagnostic.cs",
+      "sha256": "14c2f47e793d616259999396e04fbc5f0debbe316a244798abf2c4d6dac16d5f"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Laps.cs",
+      "sha256": "98628d284950a70bf82bedd05596fee60ebd8f96b8b4fc8d52559505c16a59ad"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.LastUser.cs",
+      "sha256": "43090d226b2df3ae9b01d17949950566e49f44a8cd55d1d2f831400c91a8e033"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Network.cs",
+      "sha256": "0b360ed733165ba9a8717791b8a1bce524e6ade7d553cc9121f01d826ecfad6b"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.PersonalProbes.cs",
+      "sha256": "adfe704133e58894ecf7b8d37855cf89b81fdd5b0b7d6ac52f24d541ce4855ed"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Probes.cs",
+      "sha256": "d2db29b88659528ce4d9e90c026d7399ce896906d488e585cb209d41caf77184"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Relations.cs",
+      "sha256": "e1061cf785566167a0c507049bfc832cc832d32a274c19c1adb50cb6b0d74565"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.SecretAccount.cs",
+      "sha256": "bf565b9e8ecb06064c61da752f1e85bf4a42c22ef51b337ae49db8f5e296ffee"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.SecretIndex.cs",
+      "sha256": "9da165d307187b375c12d20b16c21bff9767e03c07bec516a0ddc10042e9bc2f"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Secrets.cs",
+      "sha256": "aa75a0b1caa3967c6abf4aeb22d64024045e4f21075c676b3f0dde34cb0ed608"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Sessions.cs",
+      "sha256": "f05c0d29f20387650adc9f4f8a7db8f30e7b5f70d1babe606e350e0d3e520e94"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.TaskCleanup.cs",
+      "sha256": "61821e14ffc8b3e95f45abd81365e7b41616ac22136d7292fc766b340c17d72c"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.TaskFallback.cs",
+      "sha256": "78279611d1a580e989f71c4821e86553e4df5f15f42555c6f06300eac472bced"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.Wmi.cs",
+      "sha256": "40573160e2e2e00e096c6b7c323b301ab3bfa28c68d1efb76a46b7aa98598cc2"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdPosteReader.cs",
+      "sha256": "0f1b09da056e1bbc2893cc1627656cf9210327a13c9326b302992d044425ae5a"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdQueryAccess.cs",
+      "sha256": "0925248fec70f76dbb79341ece719c4fbd2c6b381ba982f4c871d672d14dd8c8"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdQueryMemory.cs",
+      "sha256": "1c5d3aafd4cf9e22694d6c256bd4990fcc81bd146e22f73eeb925131db63cef3"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdQuerySource.cs",
+      "sha256": "d58e2fcdc5df929c0a001f9b53e9a4ccaa3e0c8ff43d49b955ff84bcd1283510"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdQueryWmiReader.Relations.cs",
+      "sha256": "c90a8e42d6698d839f7b133eb5cfc834a4a12b0166d055cc011f17c77a32eda6"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdQueryWmiReader.cs",
+      "sha256": "b58b029bfbe4740e7b63d7e0e133fbac0a9ee31355c0234a8c67465f6a5f75a5"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdQueryWorkshopReader.cs",
+      "sha256": "6cf0812e0802b8f669ac7ff45ce756beab019cb48e3ee45d32310f4f6d37ce7a"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationAbsence.cs",
+      "sha256": "43f3c17f1d1c5d7531f9331c329cdfea3fb4eecbdd7059b5f9c83ef1a54e36fd"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationDirectory.cs",
+      "sha256": "1b943a3676b22d36688889d3a6dd1b406bdb6607a967efce732cf8436260ce3c"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationLookup.cs",
+      "sha256": "7e1bc3a333cc2974058119384941a97528a71279ed26a13a6f4feddb483fd562"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationPassMemory.cs",
+      "sha256": "5622cb0bb3d48a18487c3bdf4210a23623cbc17fc83ed9b779faddcd2fb3fbc7"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationResults.cs",
+      "sha256": "e018bc17544d3b75d1ff5816da8b3586949e96bd8ee170a2f5381c28f6336fd8"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationSession.cs",
+      "sha256": "dffb75610e695d40b9d2b8391ca6eb2721c8886ae859696d7a7d47221392e8f5"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Collect.cs",
+      "sha256": "873fd02630aa0a76c36691bc8c5ded8e00b40d4574bdb0569108ec96a2f23300"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Compare.cs",
+      "sha256": "8a859602df51fbbb34d14184b36cb09f0016cdb90418abf5ea145e59152f3b67"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Console.cs",
+      "sha256": "7ff987eb56dda7ef3d95b47aaa940e5e83961be0b2404b4c66e34f44fc2bda4b"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Harvest.cs",
+      "sha256": "d808a06eb4e351fcb13fedf58f8d43724ac530f20c0cc418d82c02c74bde328c"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Import.cs",
+      "sha256": "9d19795a6672ca530770f52e2b643103195f40286c3427d6c9ed2e69f71957ae"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Inventory.cs",
+      "sha256": "64c75f478bfe2d06b24c7901a95374d5e2659e79cef268903d46b2649b6f83d3"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Orphans.cs",
+      "sha256": "0a8099f417a24fb7af2ad78073abb79233f453b753783073cda9f8a9145f1721"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Probe.cs",
+      "sha256": "a3e942d6b92516a7c7c1f95ede93617aaedf5dd6b6a7c96f2faebfca76cf458c"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Sweep.cs",
+      "sha256": "311862a4dece10b95e27bf260332e4a19a2cad8ae329048e20bf84624c11b4b7"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.Targets.cs",
+      "sha256": "401e5c97ec930e1b380b84a0b21318b85cf5ad718d338aff7017f2b7cbd9c438"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdRelationsReader.cs",
+      "sha256": "b1f97fda00b7a9b151b5f7652235ca50e3e0457f4595cb00e4ca08b1d50bc9f1"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSchemaReader.cs",
+      "sha256": "c189520cce0291b4b6ad1b67b382ec11a8571c2814d1c736f1e055fde4fe17c2"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSearchReader.Checkpoint.cs",
+      "sha256": "10c478d4e39cfc2118c41fd3a07cd190db02ebc26fcd90d43b6c522a8c47d999"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSearchReader.Local.cs",
+      "sha256": "c3fc1ceea8f93eb4ac1a770a40fb87266d1a1cb23641bb5f94917ff1cbd92a29"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSearchReader.Network.cs",
+      "sha256": "b37ca1c579250738d9bd9db6b7dfb4542e8e19a3795e635085562511261b38da"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSearchReader.cs",
+      "sha256": "74072e6dfcff6a8967c6d4324c26229c9e95f63aed3fa19711347a32bc739e86"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSettingsReader.cs",
+      "sha256": "85185b938854de30a4b7a312084668f459066ef6404d139d3f6a30d6c093f41d"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdShellReader.cs",
+      "sha256": "e54b4c88130c89da00cd218e3158fcb9a5d3209c07b925bc90c4d954b337e06e"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSupportObjects.cs",
+      "sha256": "fba6e58d135b89bcc57030bd7de92213dd6b948a587efb44db14ad625e216046"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSyncReader.Checkpoint.cs",
+      "sha256": "767dd8398d97b5d460e9f252286600b800497b4a2cd1b76fc217edb6ccee2a57"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSyncReader.Checks.cs",
+      "sha256": "1d1e2c7749bd0212d267886c976a4499b38103b384d267281f2a32dc0a4ed58c"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSyncReader.Run.cs",
+      "sha256": "3cbf228118fedd69c5f8b38d83265aa84b420d25b240bacb5f91fa93745b19dc"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSyncReader.cs",
+      "sha256": "70bf261092dbfbd8a2baa0d9f3f906b7e31ecab4a7003ff2bce093b4ca67750f"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdSyncState.cs",
+      "sha256": "64c12b720a5389bc0ef5daf4b680ac7b804fa44aaf72c60d1eabb1e387d431c9"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/AdUserGroupReader.cs",
+      "sha256": "e61779c1bbe7a6f889e9c844d4fe007188c983c1581e066f8c15e36559d1a362"
+    },
+    {
+      "path": "src/Domenia.Ad/Screens/SharedInventoryReads.cs",
+      "sha256": "ba5a9e8e2d23fe1086fec249a65d0e322e3275cfdd86bca664b4e1565d0cb5ae"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdAccountPasswordResetExecutor.cs",
+      "sha256": "5b4cf34283a634c7dddd45d824c9483333ae7d6f2caa949eb7fc801487aa698e"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdAccountWriteExecutors.cs",
+      "sha256": "e910c71589f0ffbbcd58243a6cd9f2f11a2ec6c5c7a54a112a016373d7acda9f"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdFichePasswordResetExecutor.cs",
+      "sha256": "abf9c0b4059e8e9d08f5a183d8d3100691c6ef0bfb089bd992f870356d221274"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdFicheStructureExecutors.cs",
+      "sha256": "75e80650bf5c636e6535e5c486e883581d960630345842f4e101bb68852f687f"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs",
+      "sha256": "c45114026479b57163e8573b63813430adb606f96edc303cf563a5232a260933"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdObjectDeleteExecutor.cs",
+      "sha256": "b578928d66bf0c5eaee5ea8160376f54fc314cb03a64811b0e196ba5fabf3217"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdOuCreateExecutor.cs",
+      "sha256": "098f9ee6352e918bffac1bdbb6626bc575b02e5fafb92bac4393133a1f79d721"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdPosteDirectoryExecutors.cs",
+      "sha256": "834975f3fd000996431d3b793af57484938991e38b7451f7c876929981f4c298"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdPosteGroupExecutor.cs",
+      "sha256": "4dba0b7f1d49ac146ce4448e43e4fda38772972c65819679e5de8eb5212cc86a"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdPosteLocationExecutors.cs",
+      "sha256": "1883bfba76c6a8d58f00a427a790316be1084da337129e6f0732c742ee0d4365"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdPosteRemoteExecutors.cs",
+      "sha256": "4736d7874edcf3e22d5849e6453b17b878e6fa53334e896920680427ef1c1a3e"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdPosteTaskCleanupExecutor.cs",
+      "sha256": "fa3b3d675e8a48eca99c962a0d7cab034b8d906fc1d30d1f6074d90399fda335"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdRawAttributeExecutor.cs",
+      "sha256": "4984adde9358994968b505f65fd64e93e1666fb8b21f6e93ec59622bdffc3603"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdRelationChangeExecutor.Association.cs",
+      "sha256": "24cc0d7836c3a2316ec6159d6c284c68b81a18db807f1601cb0f15a35563894c"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdRelationChangeExecutor.Import.cs",
+      "sha256": "5909e7127425959528b480b6b9b97b355fa0f0a0343241ca39ee11f14c105d95"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdRelationChangeExecutor.LocalPlans.cs",
+      "sha256": "0ae582cb7ecfa39e8e264c4d73d981cda965bbee217d426caa5c77934d0a9d20"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdRelationChangeExecutor.Observations.cs",
+      "sha256": "be437ee4487aca205a6d0aee3d7e1934eb118421b15b2dcfcd96792a8403eb2c"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdRelationChangeExecutor.Orphans.cs",
+      "sha256": "c11e69011e1a56ab3d3a2dba47acbb59c2444f6bfd50eaea83b9c76d94d2e50c"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdRelationChangeExecutor.cs",
+      "sha256": "48842f9c19580bed76d49cd5864b63a79f77e8e2fc9c4c88d517b4b0b21fddd8"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdRelationSweepResetExecutor.cs",
+      "sha256": "276ba65695ad86150e8ab7e1c659d06903f186217ab700e35f2ebb7fe5317751"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdStorageBackupExecutors.cs",
+      "sha256": "16ef23243a4a2e39b782f02519524b6cb41ec9b7e364bad5b42e273d696c414b"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdStorageLegacyImportExecutor.cs",
+      "sha256": "057164bed73d1d6609c552e647206d0585c91192e1c7a989d5e316a272d05ce4"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdStoragePurgeExecutor.cs",
+      "sha256": "f15aa55156e2b57752a60fe0825393404370e77661c522a564f2d88f35e53fc4"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdStorageRetentionExecutor.cs",
+      "sha256": "e18f44921ab92982836e34c285adbdd04dec83f35517620788ac529e0c600a3c"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdStorageSwitchExecutors.cs",
+      "sha256": "3a5ba0ce70f53e0e7c3cac5bb009d85d8f02652580479ec1d4328383a14321c4"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdStorageWriterResumeExecutor.cs",
+      "sha256": "c67de5468e65326c6cc3bb720699ab329a8d619cc7a99556db48eb08cdefc16e"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdSyncStoreExecutor.SharedPark.cs",
+      "sha256": "abda289f3d1763dc8df7f0b937b90b5c7de510fd21e33c906e8c94fc362e5bf4"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdSyncStoreExecutor.cs",
+      "sha256": "ad553c4ce02a1a817c5c195e23f02795288b239ba30a47448d4cce84c569db69"
+    },
+    {
+      "path": "src/Domenia.Ad/Writes/AdWriteReadProof.cs",
+      "sha256": "ae0e050c782a5f106615eba0ff6c0d4aeaa360715f3a558f9a3e446e1e9080ba"
+    },
+    {
+      "path": "src/Domenia.App/AccueilHostFiles.cs",
+      "sha256": "a17a344a3f9eb470a866f4903892d0c7d73e6030886e73db832509b04256016c"
+    },
+    {
+      "path": "src/Domenia.App/AccueilJournalOperations.cs",
+      "sha256": "48c805b72e95866ab1404c109a6ebd3cbf7b281507e3a4eac55ae8be910dcb62"
+    },
+    {
+      "path": "src/Domenia.App/AppPaths.cs",
+      "sha256": "ad4e0f6749bc1ae5534375dca391bcff8fafabba2a1cac7ba9e1a572711ba1b1"
+    },
+    {
+      "path": "src/Domenia.App/AppTechnicalJournal.cs",
+      "sha256": "83955653052d6a4f8efc6c74d01b5a4e788c7de0a2cfb2ed0142eacfe6058237"
+    },
+    {
+      "path": "src/Domenia.App/AutomationHostCommand.cs",
+      "sha256": "1bb0588773875950eb288fe1e39a14f3f82a1675d2c4139f0149c256a6cec3a3"
+    },
+    {
+      "path": "src/Domenia.App/Branding/ProductBrand.cs",
+      "sha256": "240b202bc6bce08a0ef8039e6059f5076fce1d77948eed00d05568cd1c675e1d"
+    },
+    {
+      "path": "src/Domenia.App/Capture/CaptureArguments.cs",
+      "sha256": "0fa5281aa3cf823574c06f97af7e8acb101be1603200f8488d4c7d2a3088e6e3"
+    },
+    {
+      "path": "src/Domenia.App/Capture/CaptureRunner.cs",
+      "sha256": "454eebb5f335d9553eabba5a0396a8ab70380a69c25cc6abc33c9b8a77552d56"
+    },
+    {
+      "path": "src/Domenia.App/Capture/CaptureSequence.cs",
+      "sha256": "c63a15561b78c14cc3ef0ed298bf4054b60adba8d84a9398810a716e5a770554"
+    },
+    {
+      "path": "src/Domenia.App/Capture/CaptureSession.cs",
+      "sha256": "7e2e3fe999e271f4a7a43763c34a1359b185c1f235f36a3bc2a3966a30e67bfe"
+    },
+    {
+      "path": "src/Domenia.App/Composition.InitialLogin.cs",
+      "sha256": "2a4293c085d781d16bfbe517d9eaef62409c5507e33d618fbc9ae024e64233a8"
+    },
+    {
+      "path": "src/Domenia.App/Composition.LocalAccess.cs",
+      "sha256": "a500886fedfbdf018392ded74bf6df4db3f125a18816f452c1bdb93c03259e84"
+    },
+    {
+      "path": "src/Domenia.App/Composition.cs",
+      "sha256": "a42f91e24539378251cbe3c2e22c7efeac53d6dbb6e5e78c79a9c91bad45a5bf"
+    },
+    {
+      "path": "src/Domenia.App/DemoSessionHostOperations.cs",
+      "sha256": "e9f82a5f5215fcf4fe79cf4388a1d4849d330eead14c19dacc5a857d0eab572d"
+    },
+    {
+      "path": "src/Domenia.App/DemoSessionProcess.cs",
+      "sha256": "9c9d2636ce29dbbc954a3433941d1a568f79f4c848e621657672bb891189519a"
+    },
+    {
+      "path": "src/Domenia.App/DemonstrationDocumentStore.cs",
+      "sha256": "18d400487c6b57ad78ebee1e3c7d9d58c22fbf1e1a212992a1d7868a0aa3fcad"
+    },
+    {
+      "path": "src/Domenia.App/Domenia.App.csproj",
+      "sha256": "a948c41010d65260a02f3e8dcf9ee0a92d72b11e29d5e3c9fa598e3a94d5d70e"
+    },
+    {
+      "path": "src/Domenia.App/DossierCommandLine.cs",
+      "sha256": "9a03ddab30bf17beeefcd8225e54a590ea24d1cf600b798945835cbb8577bf5d"
+    },
+    {
+      "path": "src/Domenia.App/E2e/E2eArguments.cs",
+      "sha256": "166f77adf5d63d3c903c48c307ebf2d7c39786bc54d92d8961356ca9308d32f3"
+    },
+    {
+      "path": "src/Domenia.App/HostIncidentReport.cs",
+      "sha256": "f740b783f526686a910fa679c8e138814f66bbf4deb5a938a489e9bfd5d3f17d"
+    },
+    {
+      "path": "src/Domenia.App/HostOperations.cs",
+      "sha256": "a13bbed32f08ceaff410a28f7e20907789200c95af878f5925b3798b25c5bfaf"
+    },
+    {
+      "path": "src/Domenia.App/HostShutdown.cs",
+      "sha256": "2eb722f9b152e4ba7e09471baf3995d94d61394388c7b55caf7e3ccabe564e4b"
+    },
+    {
+      "path": "src/Domenia.App/Interop/DomainJoin.cs",
+      "sha256": "5755a6c9db6d31cbb10bda566fbd25942aec7f8d59cee42280ee63880e373356"
+    },
+    {
+      "path": "src/Domenia.App/MainForm.Access.cs",
+      "sha256": "f3ae4a181ff0a9df06f92f3e3e8a1d4286f6cce713e906c40966d1d0664d6d02"
+    },
+    {
+      "path": "src/Domenia.App/MainForm.Activity.cs",
+      "sha256": "95c1db30e31181c87dcee5eb2c920844b5aef937d2a6f86a10e3edb1b1dc2a47"
+    },
+    {
+      "path": "src/Domenia.App/MainForm.Closing.cs",
+      "sha256": "756ae8ac31c3b41751151ef9d3237062160f1816ed4ca231c288f7de6e27e117"
+    },
+    {
+      "path": "src/Domenia.App/MainForm.Demonstration.cs",
+      "sha256": "5b31aca4fa24272618d89d958207069dbd1376354a1ba682a5268a87a3eca6e2"
+    },
+    {
+      "path": "src/Domenia.App/MainForm.PackageUpdateHost.cs",
+      "sha256": "d0f7e46cf66e9809bca01a1512f44cd4e5b2946754e51246c7db5f1491846958"
+    },
+    {
+      "path": "src/Domenia.App/MainForm.Transitions.cs",
+      "sha256": "976bcde7699182a2fe2642f22ffa1c290dffa2204ccc9d385e591dc929989419"
+    },
+    {
+      "path": "src/Domenia.App/MainForm.Update.cs",
+      "sha256": "05b3f5448dd793158e507143827a57643ac47017de9957130aeaeab77edceadb"
+    },
+    {
+      "path": "src/Domenia.App/MainForm.cs",
+      "sha256": "82bf465b6dcfd77a129afb90ef4f42c104a243e571ee5bcb8235a8dfee15538a"
+    },
+    {
+      "path": "src/Domenia.App/NativeWindowActivation.cs",
+      "sha256": "f43cf25f2946f7e10a42cc96cd4e09cf70d5d898b76b8ca92158ef8700f56252"
+    },
+    {
+      "path": "src/Domenia.App/OfflineDossierContext.cs",
+      "sha256": "b7ad8595c291a86ad9f96e2af95324013371a846fa15ea16c6c6af0adb1f3248"
+    },
+    {
+      "path": "src/Domenia.App/PackageDefaults.cs",
+      "sha256": "1cc24c7a15e5de8a6e305d0305335dd277bcc2a8bdc9b38136f70e05a22425f6"
+    },
+    {
+      "path": "src/Domenia.App/PackageIntegrity.Browser.cs",
+      "sha256": "6d005cbc79f2f527c834f95f799f53aa0ce40febbe72ce54bc49f56be8b7f9b1"
+    },
+    {
+      "path": "src/Domenia.App/PackageIntegrity.Contract.cs",
+      "sha256": "2c68dd44099a2f105a87f2ed319392ca0174a5be5b64158ba284651a09c82dc0"
+    },
+    {
+      "path": "src/Domenia.App/PackageIntegrity.Publisher.cs",
+      "sha256": "2525203399702ca94aaf4d4336924fd56814a2c7955c163f30799e80a52dcc94"
+    },
+    {
+      "path": "src/Domenia.App/PackageIntegrity.cs",
+      "sha256": "d75ebd660cd11847f853f41c79129fb1065cfa87ba7e8636f4d0219eb9435240"
+    },
+    {
+      "path": "src/Domenia.App/PackageLifecycle.DataRemoval.cs",
+      "sha256": "6d64033d1db06656115c50742a89b4ec4de6d7a7af3248b1d5301e098d1e4dcc"
+    },
+    {
+      "path": "src/Domenia.App/PackageLifecycle.Files.cs",
+      "sha256": "fa20f0d5872285247b68860ff4d723078d8af1ae4f8fce18a55cca20f61ca6ac"
+    },
+    {
+      "path": "src/Domenia.App/PackageLifecycle.Health.cs",
+      "sha256": "6866ab706d4e6bc43eb820d43448c5a8ec4288da92daf6fefc63c4b06a30605d"
+    },
+    {
+      "path": "src/Domenia.App/PackageLifecycle.Layout.cs",
+      "sha256": "79bc49b3ac6fda10991f30f23107fc6125925adb89d6e2dcd87ed3fcdbe6e04f"
+    },
+    {
+      "path": "src/Domenia.App/PackageLifecycle.Recovery.cs",
+      "sha256": "361f99b756e18728acd60782528b7d39c0567e5048549dcd32408f41e2033356"
+    },
+    {
+      "path": "src/Domenia.App/PackageLifecycle.Uninstall.cs",
+      "sha256": "408379a63755fbc3aa51cd38b72bf1d4bd29f64d3c33e3609b7b46a67d3556d7"
+    },
+    {
+      "path": "src/Domenia.App/PackageLifecycle.cs",
+      "sha256": "355bca415a14611f296b9ba3d29d2d0fffb943116f1c9e9f44c5ec816f632f48"
+    },
+    {
+      "path": "src/Domenia.App/PackageLifecycleCommand.cs",
+      "sha256": "fc1080067645a0d5e06aeb852e5f2e1af7d834c595fade32d89cff2028e8b9cf"
+    },
+    {
+      "path": "src/Domenia.App/PackagePublisherPolicy.cs",
+      "sha256": "4f3d1cc2bdb4f9d2c2a9ee944d9e9528f77f3f5f58537637426e19f430473840"
+    },
+    {
+      "path": "src/Domenia.App/PackagePublisherTrust.cs",
+      "sha256": "8345b20788a17bb039af5630ac48b3cc685aa601354e5efcbe57f204136c02df"
+    },
+    {
+      "path": "src/Domenia.App/PackageUpdateArchive.cs",
+      "sha256": "d764a29568ddb92c415b6e6c6876b17685e9d5af8c4024b82517d63a42bf3c29"
+    },
+    {
+      "path": "src/Domenia.App/PackageUpdateAssistant.cs",
+      "sha256": "f0f4d84a25dfa8ce0f97a5e89c551f268b5ec563c3dde85212277444b031ab32"
+    },
+    {
+      "path": "src/Domenia.App/PackageUpdateCatalog.cs",
+      "sha256": "293aeaeb4e3d5e9eeb779ce4744885a7b4ed95bc8d77184e3463bba1982caa27"
+    },
+    {
+      "path": "src/Domenia.App/PackageUpdateChannel.cs",
+      "sha256": "5d179b5470749747f0ddc00ce6d2d6db457569641f6204ce74f138113b733cc9"
+    },
+    {
+      "path": "src/Domenia.App/PackageUpdateHealthJob.cs",
+      "sha256": "b7b35cf0d27b135ba42c787b24b861add1d94f39f1c8022d07aeac92fabeaee7"
+    },
+    {
+      "path": "src/Domenia.App/PackageUpdateHealthProbe.cs",
+      "sha256": "6510ef612a509b8c6968daad3e19b9a14c46cffe74e17f14f003973067983c55"
+    },
+    {
+      "path": "src/Domenia.App/PackageUpdateProgress.cs",
+      "sha256": "05070983a9cf7d5680969609afc53b56771dfa2457bdaf5ab09fd78b705023da"
+    },
+    {
+      "path": "src/Domenia.App/PackageUpdateSources.cs",
+      "sha256": "6755eb575bd23e8fd23c9d3bf50bc454a9d5e2847579de65047380a442340ce6"
+    },
+    {
+      "path": "src/Domenia.App/PendingRecoveryHint.cs",
+      "sha256": "77165f447d04b3d5a774957a8a31f957a82f84aeeac372ec44663cd42b2cbe1a"
+    },
+    {
+      "path": "src/Domenia.App/Poste/PosteHostServices.cs",
+      "sha256": "2fac84b6e6bedd765e7431837717a014e9779d4569531c6666e17f59c1496fdd"
+    },
+    {
+      "path": "src/Domenia.App/Poste/SecretWindowForm.cs",
+      "sha256": "edee7be920d8e9526c0f3bb3afe0a9029f4595722e606cc9fd1ad671edaab01b"
+    },
+    {
+      "path": "src/Domenia.App/Program.cs",
+      "sha256": "8d78fb1969ec2d780e3b6366e049b453bdc840d11b6dba7d6c60faf88747697b"
+    },
+    {
+      "path": "src/Domenia.App/ReceiptStorePolicy.cs",
+      "sha256": "c50a707f11efc79569020dcc7d184db7a43674e384e31834c130c885bb8398c8"
+    },
+    {
+      "path": "src/Domenia.App/RuntimeModuleDeclarations.cs",
+      "sha256": "da9432b434b5e90cfbc5adddfe03676e4bb70ccd0ac471aac6120b26726641b2"
+    },
+    {
+      "path": "src/Domenia.App/SearchHostOperations.cs",
+      "sha256": "30976341362239c7f332ef2ad2c974fcff10dd30b4c96843755e8f07564eadec"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/ClipboardGuard.cs",
+      "sha256": "6dadf79871359f91cb73cc9e5ac943aeb5a1fffba6dd817e08820f6a52b314a5"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/CredentialWindow.cs",
+      "sha256": "b67ee28bbb91bbfe497e1d558b12db0edfd8a0d568da5fc3020c19655f58428a"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/HostCredentialWindow.cs",
+      "sha256": "079006bb9d3deb2ebfde4decf46cc51451c32798c89f22fee5c022215f840633"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/HostPasswordWindow.cs",
+      "sha256": "5029ce961cdf536b0ba11c7daf308131297c2a086b293968d1996a113cbb6c90"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/LoginActionButton.cs",
+      "sha256": "46cf72ba5a353c736f3d9141ec2574df7d9cb9018b06ba5f1f5a0ac1c585593e"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/LoginLayout.cs",
+      "sha256": "f9408eb4650d3256ddd4ea4215271e833b80f247212a2a41ca05d4a8265d7dc3"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/LoginVisuals.cs",
+      "sha256": "4ed6adeab9dadccebee1d344dc325ca444f6f3f2ea31a856e72ab649dd127030"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/LoginWindowStyle.cs",
+      "sha256": "931e0c06627e9118576bda4d922a26b0358739f439b0f2969a03d8034a2d0a1c"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/NativeGuiPolicy.cs",
+      "sha256": "6b47f2511dc7c94d0b0ddafd7a514c9f82f36d455b1a3706a05469fa5420bfcc"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/NativeInitialLoginDialog.cs",
+      "sha256": "449a3828f93ea45dbaa154fa4666eb9d00a6210bbbb30df569b22bc4037aee28"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/NativeSecretDialog.cs",
+      "sha256": "88b0015b4f2713178fd580fce1e1fd46f6c5c04ee2c9d7305438746f0938f67f"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/NativeValidationDialog.cs",
+      "sha256": "2c711b6b4e94b4c7e81fa1187853af6fd961265aed5f88ded218020e758d555e"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/PasswordWindow.cs",
+      "sha256": "41193bb289e8d7d1cca6d59f6d3f9ef56f08f88d14834e38ec0c3600ba6591e2"
+    },
+    {
+      "path": "src/Domenia.App/Secrets/SecureEntry.cs",
+      "sha256": "fac9e83d2fe8a7843ca77fe6796ba73941b12ef8bf82191f3e7f9cd740798fa4"
+    },
+    {
+      "path": "src/Domenia.App/Settings/ConfigurationHostSnapshot.cs",
+      "sha256": "178aaf26f5e248ecbcf5598fd78c8735280a1e4b27371ae5ecdd46561a248e45"
+    },
+    {
+      "path": "src/Domenia.App/Settings/HostFacts.cs",
+      "sha256": "d589e6fc0f2c973b4a0b145fe39124362aad982412f8ee8a06a917af286ebda0"
+    },
+    {
+      "path": "src/Domenia.App/Settings/HostWindow.cs",
+      "sha256": "df1819bec09c118be4f7911811d5ef1d3051d8fa9b59fdd0b9e5d23e59268c6e"
+    },
+    {
+      "path": "src/Domenia.App/Settings/LocalFolders.cs",
+      "sha256": "f5ffa724db8b722f2ccf18c854df3fe260a5b45a1bab383ac7f438fa268e4d62"
+    },
+    {
+      "path": "src/Domenia.App/Settings/PackageUpdateHostOperations.cs",
+      "sha256": "9ea8a2202df684a01f8784c385ac116a1228f7892bb2af1d008a3800c91176ef"
+    },
+    {
+      "path": "src/Domenia.App/Settings/PortableConfigurationCommand.cs",
+      "sha256": "82d5536e9b99468c9405df432e3c18ef5e455b94ac81654564f1ab6dd642c5fe"
+    },
+    {
+      "path": "src/Domenia.App/Settings/PortableConfigurationHostOperations.cs",
+      "sha256": "0cd664d8ede9cf64a666fa9212632a8f7c24df6e1b39fce84cf5663923906cd0"
+    },
+    {
+      "path": "src/Domenia.App/Settings/SettingsHostOperations.cs",
+      "sha256": "0b7f557756dce7554144dd5bad4032a1b82caf02994e586b25c1eac5f272fc5c"
+    },
+    {
+      "path": "src/Domenia.App/Shell/BoardLayoutDefaultsReader.cs",
+      "sha256": "7a92f2ad23841408ba45babb0d0afaae5e6dc11544142159c9969420e081a310"
+    },
+    {
+      "path": "src/Domenia.App/Shell/LegacyBoardHostOperations.cs",
+      "sha256": "0fa7d91d834a23b122dc2e4d6c083cb88d44d8968ffb7160a760d6ae35d9e0de"
+    },
+    {
+      "path": "src/Domenia.App/Shell/LocalFacts.cs",
+      "sha256": "f088eebbbf8fb67deb4264e9d5a9886ffaaaf2281ad4088422407b1e220942da"
+    },
+    {
+      "path": "src/Domenia.App/Shell/ShellHostOperations.cs",
+      "sha256": "a6aa87459acce675a7199bf44d43b0f82d6b20e5a84986c90c70637b133491d2"
+    },
+    {
+      "path": "src/Domenia.App/Shell/WindowChrome.cs",
+      "sha256": "cfe9e759ab67f25458a534c5a89684c3f34fe351a570d6595e79e164baa587cf"
+    },
+    {
+      "path": "src/Domenia.App/SocleWebView.cs",
+      "sha256": "02b22b8475d97ff58864d6e33f3d8a650175044128d51320c4e6566217af0e9c"
+    },
+    {
+      "path": "src/Domenia.App/StartupActivation.cs",
+      "sha256": "4b942fc3fae6d012c855c473d11a3b259733387d9ffabded139757fbae665552"
+    },
+    {
+      "path": "src/Domenia.App/StartupBootstrap.cs",
+      "sha256": "0b8ca18d5caeb74437628c8fa10e79a20f09ed6e03ed2a0a07badf0f50a33037"
+    },
+    {
+      "path": "src/Domenia.App/StartupCheckCommand.cs",
+      "sha256": "724eed26f9ef99c1ca137c39dea6d243dadf4e64f129cd46d75594298e754dc0"
+    },
+    {
+      "path": "src/Domenia.App/StartupDisplayOptions.cs",
+      "sha256": "7f9632efc8b1a6000a4ccda5eff51f37601dbd573f7d538e05232c04cd3fb999"
+    },
+    {
+      "path": "src/Domenia.App/StartupHostCheck.cs",
+      "sha256": "eef4908681ba2d883f4e311621780e6b2f1c69e01c171420caec81bfbd9f12f6"
+    },
+    {
+      "path": "src/Domenia.App/StartupMonitor.cs",
+      "sha256": "07871300510aa1f1ae9b6d76394bd01e220548de6fa3976e42c789fdbc0a8d2c"
+    },
+    {
+      "path": "src/Domenia.App/StartupPreflight.cs",
+      "sha256": "a806cdcaab8a6f57dc77acd9b6e339c27e2f009ee0c5b3f165401d5445371acc"
+    },
+    {
+      "path": "src/Domenia.App/StartupTrace.cs",
+      "sha256": "ce151c5f900c76c971fc1c586855c68e3fba061453527b352ce9ff1a2ac23cd2"
+    },
+    {
+      "path": "src/Domenia.App/StartupWindow.cs",
+      "sha256": "cf43daddef58e248e31b0c4a203d64bac58fbc9961bdd3840fef768f2507aac6"
+    },
+    {
+      "path": "src/Domenia.App/TechnicalJournalOperations.cs",
+      "sha256": "707cc2507dbdc1726a7de2c0c3f64f2446ff7ac2b57027d2214a1099a5027ec0"
+    },
+    {
+      "path": "src/Domenia.App/TechnicalLog.cs",
+      "sha256": "b133cd5784a64dde2f26121c7885e2dcbbe374804b2ffdb29e6fbebd41b0be00"
+    },
+    {
+      "path": "src/Domenia.App/WindowActivityOperations.cs",
+      "sha256": "7135ef1d1273e0518f1c96cc115c2e90ce29f159af3ead02f7caf032ecd3d1c0"
+    },
+    {
+      "path": "src/Domenia.Bridge/AdmissionGuards.cs",
+      "sha256": "bc5b81e09aac040eee17aceb2930df6acb9ec0868593143927f9620190df8601"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeAdmission.cs",
+      "sha256": "9fb58d054722a496c222f15c98319f5468e949040e62cbf8571c740590579e76"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeArguments.cs",
+      "sha256": "f50dab86256eb043ff61a18d8c8a895f566e7055633f3501df578c66447ae420"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeContext.cs",
+      "sha256": "e72a843c3c0715b09d6c1059a6533acf103965fa5f5541043de70edec0083db7"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeDispatcher.cs",
+      "sha256": "e007c45107149ab1f2eef5a21e194ad00395f296d9e24f1e951f8610cf3c1988"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeJson.cs",
+      "sha256": "e47c6339eead78b376fc895e47aef59aa40fde1a5ab0e6e696dc2f197564241b"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeMessages.cs",
+      "sha256": "bd3742c7bc40274e9ae9d7cb7565db44739be8f6baef0083368ad3814dfffb6a"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeReadIdentity.cs",
+      "sha256": "01fd28c45dd33bb30c15df807ce85324e0df88331e9acd7fc0a5ab391f793ebb"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeScheduling.cs",
+      "sha256": "1935e86db7a3b02453fd10e7bd38d3481b6ca340b561c9abd5471f3deb6d6a97"
+    },
+    {
+      "path": "src/Domenia.Bridge/BridgeSharedReads.cs",
+      "sha256": "600a8672e3c0fb5e836cdd105e267f26dfeb19397b320658c561b98b6c8d4361"
+    },
+    {
+      "path": "src/Domenia.Bridge/Domenia.Bridge.csproj",
+      "sha256": "e72b53c06b3f05a2900e90f54d237e7980c4d24c5967459d814fd8833c5a6efe"
+    },
+    {
+      "path": "src/Domenia.Bridge/EngineSelfTest.cs",
+      "sha256": "9dc6a50f6010e91dd8f70a5b955de6493190ad500f9166b3e833abe308fae013"
+    },
+    {
+      "path": "src/Domenia.Bridge/IOperationModule.cs",
+      "sha256": "c4b043ed92b43408b78f6dee129fe708c5cfdaabeb55913e4609abd03bfd385a"
+    },
+    {
+      "path": "src/Domenia.Bridge/OperationModules.cs",
+      "sha256": "2e96d8e8ef7ed4289e161eb44dba0dbbdbe02807f450675cfdbc6611b67b8dc4"
+    },
+    {
+      "path": "src/Domenia.Bridge/OperationReadGuards.cs",
+      "sha256": "4dd562e187a26e671346f3fb061eec650603240b6813c8033838495209aaf72d"
+    },
+    {
+      "path": "src/Domenia.Bridge/OperationRefusals.cs",
+      "sha256": "9f54ed14525736c363f338df9cc1fe0eb26c60c2b4f233519059f0822f434abc"
+    },
+    {
+      "path": "src/Domenia.Bridge/OperationRegistry.cs",
+      "sha256": "3d25e1a7fb11ee26cc1fc9b78c7298e244539ee691e5b38dfa3b3496d997826c"
+    },
+    {
+      "path": "src/Domenia.Bridge/OperationTracking.cs",
+      "sha256": "ab35f2cff5e64a82150133f48c9e151ef48cdce8fd64b854f168f4ae1baa81e6"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/AccountUnlockOperations.cs",
+      "sha256": "6d1ecb1b4562c94acf8fe9b4a03e69929bfb079ca1f7b36bc7639bd66a79f905"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/AccountsAccessOperations.cs",
+      "sha256": "22d1634c38fa880d0503fba219c843e692b5eb670a1118477cb02fbcfcfb7a77"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/AccountsCredentialEntry.cs",
+      "sha256": "e6f6169a3e93440ea5756dc68c74d8b5613b56de4e0b55a1f3519bd32471a40c"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/AccountsOperations.cs",
+      "sha256": "fa8ce489f962dd82302b7c67d992038561edeeae13a12a60cde20f243490a1ee"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/AccountsVaultOperations.cs",
+      "sha256": "d72fdb22d37c009fd404295247be4feebedd5d84cdf9d4952525a5e7fbe22354"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/AccueilOperations.cs",
+      "sha256": "42f9b2dd6bf1b53bc3fd27d74581c435fca4e64b2fe9beee92d0cf901e43e934"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/AssistanceOperations.cs",
+      "sha256": "4d62acdaa456e3bd185774fa815489bb7dfd7f9053c6366fd8e80aca5821cb98"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/AuditOperations.cs",
+      "sha256": "c161d17155283f025402956a37b64e3a6c91f922e5384da98d7943ce0d33133d"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/BoardLayoutOperations.cs",
+      "sha256": "85a66a8fd9e2957603d8214ca7d7178df2eeb5a65547f7eaafc2fe69b42e7827"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/BridgeQueueOperations.cs",
+      "sha256": "3c5119f0ce15e25ac4670c488536eeaa8cfa8210bf4391998934e2ca66fc9298"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/ConfigurationOperations.cs",
+      "sha256": "f5c82366a6bca22523669867d9e2acd10b5d7f670be165e02a40523905b0ecd5"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/DashboardOperations.cs",
+      "sha256": "74a9fa6dcc0e47c7756cad9c3a599c27d153c5103db21bf95c6cc1529e9c21a9"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/DirectoryTreeOperations.cs",
+      "sha256": "9ba02739cd30e5cd1b223ef4c17a678018cf7f78c85cc9faeb78d80891952d93"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/FicheOperations.cs",
+      "sha256": "36a7a40e0a86fa51583bc326174159a84ae4a9cea477b15b3f142d0021dd0f9a"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/FicheWorkflowOperations.cs",
+      "sha256": "4925b9096204212e6d3d411bc1794a1cd71f5b1b7b7ab5088ecb3ec127f67925"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/MachineOperations.cs",
+      "sha256": "28df0432b5e50123c937522c7b14ffc900b3f1834cfb9da4479612fe01c3ce49"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/OperationsExports.cs",
+      "sha256": "f44b07534bf9eca0b8e00159c70f011b38d2f6b631ac99282db498a48ad4a548"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/OperationsOperations.cs",
+      "sha256": "46d15134a6dddff9ac8ffdaf0d70e4ed30d48581a19d3b57974e24289064db8c"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/PersonalProbeOperations.cs",
+      "sha256": "05838c55dcbd13cf78e62abb2a1d647a05f56cbc9ce1e160fe934ff00446cab1"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/PosteLayoutOperations.cs",
+      "sha256": "b96f98267e7b5960e1f6d571ee19590fde22a2cd0387fbc447b39ba7c4e69d15"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/PosteOperations.TaskReads.cs",
+      "sha256": "5eef8436b9297ac6a831affc399c7a8f96ca9f42198da4b03966c8639b9d48c9"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/PosteOperations.Writes.cs",
+      "sha256": "ec052a1efd30f229c6db9c898df93a5de5343a78a070b1170d0441a65126cc27"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/PosteOperations.cs",
+      "sha256": "322bc65a87ab745ef5eb4743b6a776f7588b08746b7434d21e18cd7944bc20ba"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/PostePersonalProbeOperations.cs",
+      "sha256": "e00d2ff79eae0092deacf90a53ca995d1b8e3569e885aa0218e6c5c6a46ffbd9"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/ReferenceDistributionOperations.cs",
+      "sha256": "dcb5899a26eeb3bf31ed8466ba55fb020b6e687b5b7c6390051fdb02b8a8b75d"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/RelationExports.cs",
+      "sha256": "faaf2356dd930b811c871f6651583f1af2f0e9d1fe192001f9cd5a2dc19b1507"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/RelationsOperations.cs",
+      "sha256": "b83a13da64ba8fdfb2565ec56264f8524f0330f7cc40b11dc5525e18d515e1e5"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/QueryCmdletHelp.cs",
+      "sha256": "24a5da3a44ff2ef891534331ab06f922470e16604683a16bf9ba1ce815b5ffe6"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/QueryExports.cs",
+      "sha256": "13e86a5e7bae675278f4d6730d6501f9f9eb344ffdb1a2f09ae41baa8122b9cf"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/QueryLibraryFiles.Reference.cs",
+      "sha256": "aa776222cbefea164ff8f649b7e440d21ecfbd28d66030ddfc62370616fd3e53"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/QueryLibraryFiles.cs",
+      "sha256": "88096dd78694fb2c2bf520c85acef99c3d41563c8194fb957512e1ed8104a80c"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/QueryReferenceContext.cs",
+      "sha256": "aa7d6119d808066165bfa677bf1a3e04d00e05f6662eb2e2c57623c15d04171f"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/QueryReferenceDistribution.cs",
+      "sha256": "4e57f07327efe08f4e0c59a9ec128b46b81c002b45586fdeabb5d3c91f364618"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/ReferenceFileAccess.cs",
+      "sha256": "acf1f591e377d5d4603bf4e65e3cdc5bb9c08d0f58c9744aa6805a850359a9c4"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/RequetesArgs.cs",
+      "sha256": "bec15e44ef23785d6b44e997bb9dbe3e3f05fc20466482a4ba1810016b6d638f"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/Requetes/RequetesViews.cs",
+      "sha256": "18efa39c340b9e9dcebc47e36d6b91553372de392ff4dbb46063f9960010fd67"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/RequetesOperations.cs",
+      "sha256": "e5a2b6f1b4fccfe5455ab2afe5e45dce7c8fce8feb01c313cb00af8ad6077032"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/RequetesWidgetPlacement.cs",
+      "sha256": "beed89c5aa9109765456889c7b89de6a764ca0ce6f1f101c0f67e17339ac8174"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/RequetesWmiOperations.cs",
+      "sha256": "606ae4ac3c84cb359e09a679f9c7abaca3b7d9d05ef7f245ca1a35dfbaeaae84"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/SchemaOperations.cs",
+      "sha256": "bb22f3cd79c81a22e6b58975770dd2102e12efe389a48d56444d6fb4958786cd"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/SearchOperations.cs",
+      "sha256": "45d943eea25d50f1444710cf42f8b2fbaeb07b05364573b099349802b5bd03bb"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/SearchRecipeOperations.cs",
+      "sha256": "16e96165b0430b3afc7c0a980b5234cc57b1685a39500371e6542c98f6bc7bd3"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/SessionOperations.cs",
+      "sha256": "7e693d29ab70a664b5cd825c24cccef5afad8d813ed6f00485134d486b0b2359"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/SettingsOperations.cs",
+      "sha256": "115573a0fea5c4c0eed099ceee8a0364a16ffe246c087cfe96bb5bd12bca5a84"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/ShellHostArguments.cs",
+      "sha256": "f8f2a8dc808a4c69b627a574d3a4b153a535acd2e6bf158ded85e19dbfc8283a"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/ShellOperations.cs",
+      "sha256": "661b352ebc950187fac54820aa5921971ea9fb154313eaab08d3faaca48896f1"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/StorageBackupScheduler.cs",
+      "sha256": "252636a1736fc6e373cd01f673080659b832219b580de0501fcb4175c1609a1b"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/SyncExports.cs",
+      "sha256": "ebf014974b291565d92337e49b6dcb740351a6b6d10b36ada13d8d82e768ae4b"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/SyncOperations.cs",
+      "sha256": "a16d450aedba0de1454826f3e0279eaf9860b2e7a2eda45560e2922e098e7e62"
+    },
+    {
+      "path": "src/Domenia.Bridge/Operations/WriteOperations.cs",
+      "sha256": "5d4cf27771c2e9c5aac6d8ca7076fafabde08920b449b191cb5ecc8acd50a28b"
+    },
+    {
+      "path": "src/Domenia.Bridge/RemoteOperationGuard.cs",
+      "sha256": "1ba0a2efa40abe44f32b4f538edbef7f3d22564f8cdf55386c495a069ebc3d35"
+    },
+    {
+      "path": "src/Domenia.Bridge/RuntimeLibraryPlan.cs",
+      "sha256": "9a853959eab6d9fbd62d37101405f5851ce76e89415222dc5e9adcbbfaba6598"
+    },
+    {
+      "path": "src/Domenia.Bridge/RuntimeModuleDeclarations.cs",
+      "sha256": "e1d48853ba65bf8f70e4485bcf91a7e440a362abe15dea5ddaa184d1e22b8482"
+    },
+    {
+      "path": "src/Domenia.Bridge/RuntimeModulePlan.cs",
+      "sha256": "eb1694caa6bba72faf24255d0e1058ee1513643779cbb37957b7b54f9a529b45"
+    },
+    {
+      "path": "src/Domenia.Bridge/SelectedObjectGuard.cs",
+      "sha256": "11dec85d56193981fd1e38946e3a68938a43b67b3071fbfcb749331de7ed6ab6"
+    },
+    {
+      "path": "src/Domenia.Core/AssemblyInfo.cs",
+      "sha256": "a2f53dd007ef3733f6e32605cb3a3fa680cd0c833595094b515c6a3d0ecb96a0"
+    },
+    {
+      "path": "src/Domenia.Core/BoundedCacheKey.cs",
+      "sha256": "6e196ade9fbf8edcc1e048edc4fc4c2674e8a9035f27645f8abaca1b94ef58fb"
+    },
+    {
+      "path": "src/Domenia.Core/Dashboard/DashboardCalculator.cs",
+      "sha256": "a59d13e7618879fe83e4466bd6e9631d2f3930d9dfcc3e29ce69f7141c21fdae"
+    },
+    {
+      "path": "src/Domenia.Core/Dashboard/DashboardModels.cs",
+      "sha256": "596ecfb77b0595dbbaad96ac19ac83ec029c75e84ef5d2afaae108c021b979b7"
+    },
+    {
+      "path": "src/Domenia.Core/Dashboard/DashboardService.cs",
+      "sha256": "2730b17a1c5c21065e569ca40da6852eeb470c25ec8c8db535826671b39862a5"
+    },
+    {
+      "path": "src/Domenia.Core/Dashboard/DomainAccountMeasure.cs",
+      "sha256": "6ad992e914fc148410ef390496df0eb6e7fef787926d51a3aa813c09d9e6ce02"
+    },
+    {
+      "path": "src/Domenia.Core/Dashboard/ObservationFreshness.cs",
+      "sha256": "6deb6e774287e9f214f94f6d069a3fa043b410721d174346798ae1b97f2d89e4"
+    },
+    {
+      "path": "src/Domenia.Core/Dashboard/OperationJournal.cs",
+      "sha256": "2dfea6d399c32a49885da34ed3155367d105fcdf5e88c5fc074d08ffe916a8c2"
+    },
+    {
+      "path": "src/Domenia.Core/Dashboard/WidgetCatalog.cs",
+      "sha256": "bb8b82f8a54cc40b57e868163a9dc6fc369fc6d3f8c720f0b0acf73c1a3ce4fb"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/AccountState.cs",
+      "sha256": "2ee8e78b38c3532f5328efa8fd72cafe4700656c78ae57227be9280a30375f5e"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/AdText.cs",
+      "sha256": "6afc6e6bdb41bf9bb0ad3042029a952eb499f93e872bfba772f961e87f68167d"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/AdValues.cs",
+      "sha256": "371cc39d5291de916098d45cb430ca3267ebc48d7107f11c19b11c9eb51165a5"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/AdministrationIdentity.cs",
+      "sha256": "9e94d643c6fa7d6907b9d08f921892794aa6cc8ee43ec3ace40153c9791c2563"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/CollectionStorage.cs",
+      "sha256": "c00a557eda315883de428964032818a1adb33fce57de3bc1dcebea7d08c9a91d"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/DirectoryAvailability.cs",
+      "sha256": "7da9839cf50ad33ce26127473681864343b5ced17f0ef367c84fb444bbe009fd"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/DirectoryModels.cs",
+      "sha256": "589ba1e6371355efa17c8b7cb1175496dc005d80cc064f58046940ab17738206"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/DirectoryReadback.cs",
+      "sha256": "b143fbf930c910c60b2684ae18a7606650954385d621fa12049db9bd89c208ce"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/DirectorySource.cs",
+      "sha256": "76ff3ae71c924574dcf78a72c1c2e0592e0a13111e381372b1e2cc0ccfe52410"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/DistinguishedName.cs",
+      "sha256": "8ee41eb55308e02e49bdda5917b2c9c4d316bf323a5c36da9b7e9a33b52f1531"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/IDirectoryCache.cs",
+      "sha256": "e47c1f4bbf9ab50291cabc860335d009a7827ae02dd5e41ce875531ea630f3f3"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/IDirectoryDeletionCache.cs",
+      "sha256": "b35dc7b73d4490999f49aef193b9e908721649fdffa44e964c0521c6d88945d9"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/SessionModels.cs",
+      "sha256": "226dd9db6d85187d08a472f6cfe2a001d5d072d7929862278f015750b1b76008"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/Tree/DirectoryBranches.cs",
+      "sha256": "f8b2dfef041667c060b1ecee74fb3a547a0428ba3c7eb9b3bfc8098bb8b09d5a"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/Tree/IDirectoryTreeReader.cs",
+      "sha256": "3f550b5efc836d10562c5a1fc72331d06f246bece84e778fd8f6c3b720f3c9fc"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/Tree/IOrganizationalUnitIndex.cs",
+      "sha256": "29db38524158095882af8f7041f1e7488be4fce087019a150e17a63d73dbb811"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/Tree/OrganizationalUnitTree.cs",
+      "sha256": "97c239d8b136f7bd1472587ab16f3b7071fff84263819a30113f1fd239eb559d"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/Tree/OrganizationalUnitTreeModels.cs",
+      "sha256": "56e2d404d309fd14603289016121860a19ccd2d94b0d25fff4082a168dfc1053"
+    },
+    {
+      "path": "src/Domenia.Core/Directory/UnavailableDirectorySource.cs",
+      "sha256": "f5fde4bd90bd1734c6ea0c36c45b74badcd2c5d10b0d5c3766463d09979fc296"
+    },
+    {
+      "path": "src/Domenia.Core/Domenia.Core.csproj",
+      "sha256": "02d5d085d4f9f988cd6de7027668c86fd320c753a4c3af40ae991e4091b77cfb"
+    },
+    {
+      "path": "src/Domenia.Core/DomeniaOperationException.cs",
+      "sha256": "f71ec4991b14302bb15f40ca31c221d965fa32aa7b097bec1e2608be73b6fc01"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/AdaptiveReadBudget.cs",
+      "sha256": "4f1e96b46fded1a8d675db2a0758a844a2dd87543485b6635d278c4905c1a820"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/CollectionNetworkPolicy.cs",
+      "sha256": "1642b532d5cecedb21db584fca0d1d1058f7fd1686258a312e214e3655e9f631"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/CollectionReadRetry.cs",
+      "sha256": "f53aabdd0707bcc701d795c7b2b2b837b6115fbf52108982121c7d8e23fdd917"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/OperationFailure.cs",
+      "sha256": "e06a887107cfde74a709a062f58b36da780cd49b97d3cf0f95a291d4399db43d"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/PhysicalWorkBudget.cs",
+      "sha256": "ea719fd03f1b68bf4fa40a15559924bedb8fe209093a8386d3559b76d9984c76"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/ReadPerformance.cs",
+      "sha256": "58cedbf29698c6927e9b038cc0a083c62d6fe75127074cd5bdd24c0516744e4f"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/ReadProgressDeadline.cs",
+      "sha256": "ec588e0a921ad588049591991cfad7658235fdb96a485a8853de231fe5d9e1c5"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/RuntimeResources.cs",
+      "sha256": "4876da7a10c82608b34f91da8e13ea495815735547077590a54e890ea37fbe3c"
+    },
+    {
+      "path": "src/Domenia.Core/Execution/WorkstationCapabilityMemory.cs",
+      "sha256": "69f219519ee3678d1f18c8faae20073b6f9bd5c911d0947ef6a6018352aaac14"
+    },
+    {
+      "path": "src/Domenia.Core/Facts/DomeniaFact.cs",
+      "sha256": "c1e3786d8e714f1088b4e37c45f4b18f8f5b14526240afbad11b764ddca7b69f"
+    },
+    {
+      "path": "src/Domenia.Core/Facts/FactStateAliases.cs",
+      "sha256": "e474730d400cef4a19c48557953ca03eb19b01932e30b1953335dfab4815c0f3"
+    },
+    {
+      "path": "src/Domenia.Core/Fleet/CollectionWriteContext.cs",
+      "sha256": "4c962c341847a8dcbaa00dc17e4c19fdfaa0b2d151d96f782eb38df7d636330d"
+    },
+    {
+      "path": "src/Domenia.Core/Fleet/FleetModels.cs",
+      "sha256": "bb7ba2bf875b5696daac37eb5c192c6b9b67c4830dd7c2e06c28155e9b872101"
+    },
+    {
+      "path": "src/Domenia.Core/Fleet/IWorkstationFactsProbe.cs",
+      "sha256": "73630c96bb8a357f44dd0f27fd41bc7b1271731907206fa8f02856c49e0d99d4"
+    },
+    {
+      "path": "src/Domenia.Core/Fleet/IWorkstationProbe.cs",
+      "sha256": "3d14f9ffedbedeb2687e707a800f4618add4ce50a7997d8ef2f995e22e208737"
+    },
+    {
+      "path": "src/Domenia.Core/Fleet/NativeWorkstationIdentity.cs",
+      "sha256": "e3827fd4052f5976068e7feeeecbf14db5ef039d4d96d25cc47bdb20fee94de3"
+    },
+    {
+      "path": "src/Domenia.Core/Fleet/PresenceKeys.cs",
+      "sha256": "58a7dc348fdfcc3b06393ecccad085186b7dee3f47c0ce285c4cf4e79c359302"
+    },
+    {
+      "path": "src/Domenia.Core/Fleet/WindowsRelease.cs",
+      "sha256": "a6a9f0dd54125f2dd8322b60a5110279ece3cce0a2e8607ff85c14e707f98a76"
+    },
+    {
+      "path": "src/Domenia.Core/Fleet/WorkstationIdentity.cs",
+      "sha256": "b453fe91873daecec75c054d8294abdfd7080a6f02fd78d83a6127d2c6f30b39"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/AllowedFieldProjection.cs",
+      "sha256": "adf94a81ae42a89a4f22dc09073446f63c39212d99e80e998654aa659e9ed0d5"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/CimReadSafety.cs",
+      "sha256": "cbe5c4be0ed86ac6aab44f4ba15be7ae8bf72acfbf3db67ca5cc201bd43144ca"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/CompiledOperationContracts.cs",
+      "sha256": "b9debad85b31de4764216b0a97eaf2af43513c69da9c8d360484c95cbed9dc18"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/ContractCatalog.cs",
+      "sha256": "fb0b46606ed94ab599ddc57c087e93b9d1d785f034a98acbdb54674af3f812d1"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/EngineContext.cs",
+      "sha256": "62733ba585c9044120e0948bb977cfeb4e3730a8dbaf753d51d8e820b024405d"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/ExportResult.cs",
+      "sha256": "ba46c7d1f7cf3a0d40cffe3d1ff2fdb8bca6e0d3062d05baacf5d1610fabc93a"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/IAccountContextSource.cs",
+      "sha256": "98ceb81fc5dc946379abc7b1c61ccd3346761f7576e27ddf4ce51045747ab058"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/IAtomicPreferenceStore.cs",
+      "sha256": "fc2366ae528b17e4d541ae7c3c28dc1c00dd7a3ad01d90df0ce78e521965c83e"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/IDocumentStore.cs",
+      "sha256": "da1deec2e56547222b58f148126bd70a41a9feacce2e058b6ba349331ab2bdd4"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/ILocalSessionSnapshotSource.cs",
+      "sha256": "a026bbf6345bb7f2a7b1903ec9d9a7e1b77a6eab3dc0fd6238285de516a578ab"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/IPreferenceStorageInspection.cs",
+      "sha256": "b3f6bbf7fa5754284ae1a270ba86623e38660de22ad609ba61a307827b3f34c0"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/IPreferenceStore.cs",
+      "sha256": "323cf73eb359a2f82abec17afb67320cdd91d543bcbd10443c2288cf0bbace24"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/IScreenReader.cs",
+      "sha256": "cba02ced762284dbad550e990fe2e9aba76a041255260c673ea46614c36fb233"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/ITechnicalJournal.cs",
+      "sha256": "f80a1f77d17fec8c1a40f14b10e058e039b909162531677f84e61ef0856b5966"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/PreferenceDocumentLimits.cs",
+      "sha256": "ec00bda8aa6344f5f3060ee25295106098a3f2eb1eccfacce58c302d7608563f"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/QueueTiming.cs",
+      "sha256": "aca53a5bbae145b017fcf6504e3c6b725799d0f111ded31bb5dd063d10349331"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/ScreenReaders.cs",
+      "sha256": "92088d090d9a0603cdb5e38d427a39f53db928c718b273b8eecaee8a752dfda8"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/SecretAttributes.cs",
+      "sha256": "d4c0f81a9c51aeb0fc439ea5509e56a804fab796cae22adc83e13d391145c265"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/SecretClipboardOwnership.cs",
+      "sha256": "a7cc0e21584e31308a2afb8addf82677bdc496ebcf8fc3674a6e63da282ca027"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/SecretClipboardPolicy.cs",
+      "sha256": "1fba77b76b3276a756f4d02d7b68d103f7c799c7e1d2b05916a71f5a28b0a4a3"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/SecretTextHints.cs",
+      "sha256": "efaea8448a2b55c6b3d4699bb6076f2d0523739cf5dc3a08dd38d3440cca315a"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/SessionIncidents.cs",
+      "sha256": "0466bc4ae84bb086e7e4cc96dc1e4169b3e844bac90dd8b4fac22ea8f21cb87e"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/SwallowedDiagnostics.cs",
+      "sha256": "383d3372295ff0f07697f79a3408fecaca5a229221558ab972c15717e1b62b81"
+    },
+    {
+      "path": "src/Domenia.Core/Platform/TechnicalJournalRecord.cs",
+      "sha256": "e798cab4a7d6d6e3000b109503225b9d664f14aa82e6fb1fb8940a5a2e6d3277"
+    },
+    {
+      "path": "src/Domenia.Core/ProbeDefinitionIdentity.cs",
+      "sha256": "eb1862ac4ac91104d66cf886d3bf015b9e46db43bb9a13c8f1fd7d74cd5298a7"
+    },
+    {
+      "path": "src/Domenia.Core/ProductInfo.cs",
+      "sha256": "5db92690d4c40df77530cba8d923da9167e7c6b883a773da7026757242b5fecb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccessModels.cs",
+      "sha256": "b02b336b4f736bbe0b45c2dfad3c9a2c11ef582a3fb6d96b471b745e0b32590f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccessOperationContext.cs",
+      "sha256": "b45b873d3becba056f36c3ab7c4ae15f6d184987021caa2adab214ec031397d2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccessResultInspection.cs",
+      "sha256": "2978b712d2cbaa26d55d30aa0970638c0699fbd0e8500775ea0e1732472f1cdb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.Aliases.cs",
+      "sha256": "e047fa89b8ca67d12d9aa87f2360a19d80b000060194f193a275ab1d8c6daf08"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.Lifetime.cs",
+      "sha256": "cfe7744ecc661d1dafef68c03e77e8f702db7c664667aab8e06a1af8992d2fd2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.Machine.cs",
+      "sha256": "447c5e2339a9d140c902586b2c1328252f85a35a844253669d8e46e822e598e6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.Operations.cs",
+      "sha256": "47257e1b9b3181928e7723c7265585b9f928140fa3eaf9f8531cd5778954e771"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.Reads.cs",
+      "sha256": "a7aecec18ee810a91a17d3b6d820feb1e2a2796f969666914d91cf3491895558"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs",
+      "sha256": "da16472c77b9c57e87faf4b58a3fdc5444a80ae96db4750e8f2160d259cac052"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AccountsConfiguration.cs",
+      "sha256": "4ec84659f6d5909a6cdbba91d1c2a06305e308432504ef0641fc6877f389685b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AuthenticationPolicy.cs",
+      "sha256": "9193b15e6f15e0347202cd2a8464a4de462ac8cb0389e3f7bec9ba6b4e9811a2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/AuthenticationTrace.cs",
+      "sha256": "8a75a180fec5dc8176e2345990f1eabaff57c29be958c3470459c4889b3888cd"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs",
+      "sha256": "eac25c9e2325f627f6b6d21ae1566d71fdf0b95ac88a55f5ce5c8bda89c6f619"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/CredentialVault.cs",
+      "sha256": "e8ca0765f0e33cb1d304411a80ee14b2726d17e796e2daefb64798f6a57298c7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/CredentialVaultPresentation.cs",
+      "sha256": "77273fa167eaa634df6d5064c4a01a749d3ac8c5b44c6829e3631611df4e0853"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/CredentialWindow.cs",
+      "sha256": "7f1eb8d05ae71b1c2b24b421878587b78ae9503357fc23bd7aa01b3d8ae65989"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/DirectoryLogin.cs",
+      "sha256": "ad44fef3267db116496ee5ba9f0df0db7f8c054073827bf57d410f9cf7a00e0d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/LoginPresentation.cs",
+      "sha256": "dfcd7e12fefaa8b8550063acb007480624b5c677176b520b6660ff343ceaf2d2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/OperationCredentialNeeds.cs",
+      "sha256": "0d9186125493d936790a4d7309bcd0ffda46b3e353b11cd6b37bae8262456f3d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/OperationRequirements.Bridge.cs",
+      "sha256": "a4b7029664cd6fdcd4eb5894186f042550553def908d976bbaa58f74ce9ea38a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/OperationRequirements.cs",
+      "sha256": "d338de4712985c44627aa29728f4887d57f4bc9c495560a25050a5f230e6a7e9"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/SecureCredentialCopies.cs",
+      "sha256": "a11aa943271bf188deea5bea637be448d15830d3cc3281d9dbe5943ca3101f48"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/TransportPolicy.cs",
+      "sha256": "bb2fa814e9ae5661b2c4ee3351f818aaf4a53423e911204b55020e1e141a95cc"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/Access/WindowsAuthenticationErrors.cs",
+      "sha256": "20cb1922e3f6d3fb6b51ae5feb11d6ca9ef99fe38998da06f4877bcbd0db145f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/AccountsBatch.cs",
+      "sha256": "3c8bb14fdb4a2c76d82b37b27fb9e38337ef84452475e711fb89b4e3c72574b5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/AccountsBatchSeals.cs",
+      "sha256": "a3cafea595ad81911ae3e19430c147ac725c4c192848c3bea3ec12400873757d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/AccountsLockouts.cs",
+      "sha256": "b19cc0a93ea041f0fe87f248eddb72361e4483ddd9b41bf9a8d246dae38c46f5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/AccountsModels.cs",
+      "sha256": "7f8569b959ceb90c763a02698b3b4ee0fd09eb8f8790279624de16f02262b057"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/AccountsRules.cs",
+      "sha256": "df4e4d82c94295ea92c8dbe2d39dc05b3b30e30125d9fa1f0b55c22863020a3f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/AccountsSectionScope.cs",
+      "sha256": "a9cc068386ae7c698d9ea82d7c7566ac8e6e6371f6ab7fb7a211feae917f6040"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accounts/IAccountsReader.cs",
+      "sha256": "d0bede20c0fa46a1e89c0039b917faa76091dc793df2aa69c8b04ab1f57aa560"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilModels.cs",
+      "sha256": "dc58ef1ad4203c88741b51f74c3efa8096dedbe1c2ca640a5aa4c5d0433b5f53"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilRefresh.Durable.cs",
+      "sha256": "65bd822f0d5c7fb3b90b1ff33ffd83cd7ffca8eb86e58df1ad578cc746b4c633"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilRefresh.Queries.cs",
+      "sha256": "6c51575fa33bef3ffd04103a06fad44952ebd5916abd957b287490133c4aec4c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs",
+      "sha256": "c5033ea520b6897ce05477423db27c966297639f9b6695516cccbe96a1c38ada"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.LayoutHistory.cs",
+      "sha256": "da9063a6e12cb7e7299ba1e3f0d589e1862afd0aac019673c5e9cb0bf74994cb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.Operations.cs",
+      "sha256": "74b0ebc5bdc20181825f59c1965fd0338c47a6c6c74a3876faa659cbc550ca41"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.PersonalProbes.cs",
+      "sha256": "9daae431814e3e574773c8354c9e37a644858fa0cab620ad6e79b4a6c284b886"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.Queries.cs",
+      "sha256": "64a82ac1458ef778a0ce74df5abb6485b4391b705ccc71b20878c9d1b2f2e3ed"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.QueryDraft.cs",
+      "sha256": "6b3c6f978d7f819097a031e0f12f4b8d620d5de52bf34dee58f89b7c4581b2d6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.QueryHealth.cs",
+      "sha256": "106fcd811ed94a5d863d022605ac35dc2d712c901f2cde6ae07504261704e9f2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.Search.cs",
+      "sha256": "e578d38e32d1d208bcfe1bdfb49312761f9a72782ff2df92e9708d61c11270cb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs",
+      "sha256": "187890eec4bb3a6ee9df3da984c56d7b256712c828a3333236c8f70d2ce97a66"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/AccueilService.cs",
+      "sha256": "703c5ec9cb23bef29bfa5d8cb95e1049a9c9f7f2f1daf5da29eb0fb4a4b012bd"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/CampaignBranches.cs",
+      "sha256": "59798cbf2ede73603cf7fa71470970eabddf1b957f6d7aa1ab4ed8e2b62e19eb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/CollectionCachePolicy.cs",
+      "sha256": "7228e11df37b279d300783f20968f1a11d94807a7523ddca2c5c69b3f4dc3243"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/CollectionClocks.cs",
+      "sha256": "af7a007617b2cb378636a4f6a27c5e62e0a2b6726412a03998e33fc89c794511"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/FleetAnalysis.cs",
+      "sha256": "ac80cfd7031f788cd593c9fe60e8d3df6ddcfbf4caafd81850d42c3d598706e2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs",
+      "sha256": "65ec3f9f693a9ad94ddc2ef4efaf63bcdf0a36bc4d9818284d38cc465569bc06"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/FleetBoardModels.cs",
+      "sha256": "b7f547492c395180da99d72cc824be704fd2f6a36324158b857aa06af23f836b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/FleetCatalog.cs",
+      "sha256": "756d53367e05efcde65d42c52cb532844b6ef80d170b61a7e777e1c3c2a199b1"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/FleetQueryPlanCache.cs",
+      "sha256": "a43af473e0379deadb5d0f5694aefb56df07ad7eafc7437ba0a5f4bd17e0010a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs",
+      "sha256": "85b91635cfef64f4c4b4686671ce6ad8e059aa4ea968096d344590ba2c990463"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/FleetWidgetSources.cs",
+      "sha256": "d5d91a6970fb5391d5656ecfb2de5b799419334e0f3e4a40cb20380eaa3b43d7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/FrozenDirectoryValidation.cs",
+      "sha256": "eef4a0d6f8d3c8ee0f15cdce93574ca89ca2e9c79baa55be5e0cacba4f978d2a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/HealthPolicy.cs",
+      "sha256": "c40dd63e7d6be0d86f94c7a6afa4da89b00614aa5eab8ec77e61d405d3f22847"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/HealthPolicyJson.cs",
+      "sha256": "b9c22d8c8cea5f2329d9e209d06dd1c88f78b24bd33444f78082a28f6d7d3853"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/HealthQueryRules.cs",
+      "sha256": "b58a448e61ae32c7f823f411e1d0f6aa58932c84d69aeb5a48a4245488708c6d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/HomeCampaign.Branches.cs",
+      "sha256": "b58aec786320c4f4a34530dc4f5fd86c15c03cb4e4a7194f58196fabf7e0eb74"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/HomeCampaign.cs",
+      "sha256": "c4e87f000c27a0cf08a977d97dfedf8e3a40f92c27c5572cfce50460053fe3b4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/HomeMemoryPolicy.cs",
+      "sha256": "7c1484bd00aec150a09a7db85d2b4570ab95dfdde7aba29bd8551abd7f9a75cc"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/IAccueilCache.cs",
+      "sha256": "08395c9a156eb0f9cc44eb23ff532502c79c68270ce8705ba320642c818ac2ac"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/IAccueilReader.cs",
+      "sha256": "38d9080c33084690673d5166a9a2b208f303f1a615635b855e1c1e5631dad957"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/PersonalProbeCatalog.cs",
+      "sha256": "ad2f8ae79aecc8eb37edbb27cd99fe59658f63dc6cfd9a5d5cadd2f1180991d4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/ProbeCatalog.Filters.cs",
+      "sha256": "e70ab34dbf01d651f32da69dca74afd1bfb880819e9b909d36853f6460e8c38c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/ProbeCatalog.Loading.cs",
+      "sha256": "13ae3a8697d596135a7e8739886ad981d85f6322e07136d40bb0d68de545a252"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/ProbeCatalog.Writing.cs",
+      "sha256": "7944ddd4f677ab22437ad2a71fa840d2cf6b1b5e9ef081c7770d02e3590c83e4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs",
+      "sha256": "ccf42223a177c0c85de77cafb0a99b0f6f7f25a1974495f7812ccabcd9d971ec"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/ProbeCatalogData.cs",
+      "sha256": "65c6d81954f02e77d231ef705007aba7f6cf4a218fcd6006ef697e15c9a24e23"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/ProbeFailureCache.cs",
+      "sha256": "140dc0c9157e425d7761633dd6e66cce6bfe15d02e18e5fdb8cd1acfab3c06ac"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/ProfileProbeCatalog.cs",
+      "sha256": "159176bb7f588a6b65320048b4a1ea5245fe507506d7866cf24b98cfe00968b0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/QueryRefreshDispatcher.cs",
+      "sha256": "d8e13571e750c3874f4aeab943d0df232c996f7c1f651cbb05f32f010997b69d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/QueryRefreshRules.cs",
+      "sha256": "03c728aa182ad1f833ca2d34c363ddb3eb17961a58240959b574ce535abc37b5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/RefreshPerformance.cs",
+      "sha256": "17b34f8b79e98099d806f0b94cbd005ac4a6f63659f646f2e4dbdc3db2ad06ff"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/RefreshRules.cs",
+      "sha256": "f4491ec2ab3e3b79ae8768f993a303c5e5ece9891d8daf091a822c23ef287961"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Accueil/WindowsLifecycle.cs",
+      "sha256": "f8ce4a5d4650820ddaa792df27009f460234063a93b91cd5642f0b7af7c40a8c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/AssistanceDocuments.cs",
+      "sha256": "bc384ad7e489e5449e2e3e4aa516201306925708ece86e0a442d62351de57e06"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/AssistanceModels.cs",
+      "sha256": "4918f93e37f0945da9b55d6e3bcb05e885ac8a5a3e22d8dc61aa9b91f7c60361"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/AssistanceRecipes.cs",
+      "sha256": "0bb43154fef9d93e8cd3ee3a839978a85430dccfd03e08af847b1709955c8a6d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/AssistanceScheduler.cs",
+      "sha256": "860b397804e6d421b357147532fa6d4a1d5e4b13f4a3a62fd2d2d346787cdad0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/AssistanceText.cs",
+      "sha256": "20c466888796a5e622e7a66719d2509352ad0f7b930c4d7685555fc042a2390f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/AttributeValues.cs",
+      "sha256": "8e96b295cb52e8bc2372518d9c4338f471db03feb395214b639d9a1881a2ea55"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/CaptureFiles.cs",
+      "sha256": "c6793e1d8e58effaaaefd84fe875326106e84f1f5528279857ae14bc2c5d0a8e"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/IAssistanceReader.cs",
+      "sha256": "c5907ac84a35b40a9f00a6d28bea159ec729fdb870c040211f46e1a74965fd8d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/OfflineDossier.cs",
+      "sha256": "f61daf8a34ffaca12fb6d93097f7d1a8039b5d3d9aacbeac7a5db84bf2d1d4d5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/OfflineDossierCommand.cs",
+      "sha256": "3b2d34d5ac5b9333d1b6fa50f535444461225d7773c0334fa63383a0ba61fc41"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/OfflineDossierRunner.cs",
+      "sha256": "a26d5cb7118cc0329709156bd522c42c4a6aa5ec413c1aa27d98b96560ffb9d4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/SupportFindings.cs",
+      "sha256": "8d7bcd4b4df0f38a03ddcf677a442f969da46dd7e224f4f1f7c8a8a364add51b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/SupportIncidents.cs",
+      "sha256": "aa7debdbeabec9eb973b104fec28fb0eeb990da95b7f09494e530f566ec17c85"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/SupportReport.cs",
+      "sha256": "1ed93c33fc7635850a53636e317b2bd11298a54d12c8fced75f56901200513a4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/SupportSnapshot.cs",
+      "sha256": "e9bb3c275b114ade0554a9e943e37bde27a489836fa0802bd241d565310a3ece"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/SupportWorkshop.Selection.cs",
+      "sha256": "5d16db6f59076f3515c33fdf969173935018307afbd1f9ae0f0eed41f1fc67e4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/SupportWorkshop.cs",
+      "sha256": "29bcfe2e5314d2fe4ad745fb6b5d91f6b7b8e238230e7d42323914de549c59a5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Assistance/TicketReport.cs",
+      "sha256": "582166e5b91ddf0ee8fa5f7393146ef5c346d2b0a6ba2a7cbdd06500acbce0ae"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditAclRules.cs",
+      "sha256": "d6165aa17becdce4a79f8b0a4ec8f52b31edc994388e10d53c5a3587660f4a11"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditControllerRules.cs",
+      "sha256": "51a6b28184ff59f7c72713142daca9b284b6f6a7df198f99e1d3a0179ff0e0bf"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditFindings.cs",
+      "sha256": "eb823b9c872143597f275a99784d5f4de95cabcbc1ec06d98a54ffd7f77a541b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditGpoRules.cs",
+      "sha256": "3c1cef2a56a33a186c2cfa49c8e04bba94125b8fed5456d9f22bfe1d8de2b9c6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditGroupRules.cs",
+      "sha256": "c2b093be6b320f54abe49b01062ab6cb9212624fb795e332c5e44248ffaa0c83"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditIdentityRules.cs",
+      "sha256": "b283fac6926bbd9b9d988b631fedc2b30f034664b063e716ab6839f011a90042"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditPolicyRules.cs",
+      "sha256": "68fb108f842aa0c1f88409985337ad329dad9376fddaea507342d07e143f7cb2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditReads.cs",
+      "sha256": "12030900cbb6253d82c0611500e8e9ebc3304c8872536ddec1b7fe86a0683656"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditService.cs",
+      "sha256": "15dbc65071280cff398391ed7147b2cd6510edc57c1bc38f357447d9b524b1cf"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditTargets.cs",
+      "sha256": "599914fd051f9fa6b5cedc8d11264fac9cf9ea976539f45b852d5844e108c5a3"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditText.cs",
+      "sha256": "6b5cf32bf301b5ca663f5e2ee1c8399d99250e0afb87f4b7b3e012345344ea42"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/AuditViews.cs",
+      "sha256": "1a99ef5c020f98064f14cf5a6ffbac4e1005644b8f4019d50a99fd91f329ec5a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Audit/IAuditReader.cs",
+      "sha256": "607212df9997d2c23024b7ccc026b6c3ac1cbdb2ff55e52fff7cf3432b066f39"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheAttributeRules.cs",
+      "sha256": "336865a0e4cbfbf29af8ef411cdb0e317c666371896955ac947963c28cee636d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheCachePolicy.cs",
+      "sha256": "13e04b360ab87f6bf6038f46ea82cb6c8d661e8413823544057c6b5e472585c1"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheCallSheet.cs",
+      "sha256": "5268578fb32532ac94d669fa1b61a21038f7160fee1dd6d316bc5afc5259c90c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheConfiguration.cs",
+      "sha256": "d7bd2f8e0c0987be28e99862fc80c7a96bb0acfc0a359e8c39045bd22af450fc"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheDiagnostics.cs",
+      "sha256": "39d7d8147e7fc8490d182fc23dc5381acf003643c5dee5f351e5f02ad2313ec6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheEntry.cs",
+      "sha256": "00028df44c7d2892859e1bb84b3025915a01cac9d9810cb8f8095887819a9a5c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheMemberships.cs",
+      "sha256": "bd7ce7c82e5bfbb814159e953ee7be8f1cf8bf7128567530262b1f0ff8f244e0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheRelations.cs",
+      "sha256": "fb5d7f6c9e6f198a77a4075e87006109cabba804275d6b379387faacd624cb68"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheSession.cs",
+      "sha256": "abb9aabf2a4d39ae3cfd9ff9189341ad2a1de16dfde875dc80be25d18044903c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheSheet.cs",
+      "sha256": "6b3b336a6f962f31498798bfbf0d044d303917dcce787c3a0ffb3625e28cd70d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/FicheVisitCache.cs",
+      "sha256": "81c5553846b34a9971cb57ba168122878d1dba913c570607fae2e421ba93ebdc"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Fiche/IFicheReader.cs",
+      "sha256": "9d3a1529315c644ebeb1da8d93ea814cfd3f422cc529a7c632469b3d7e9083c4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Machine/IMachineAccountReader.cs",
+      "sha256": "1ff13555cfb0c9d183306bdb62d062250efd4405b596095263b40afd30fd2519"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Machine/MachineAccountModels.cs",
+      "sha256": "2b9d406970d962fd4a22c8cb1867603a511d1a194cdcdbcff293bc25201f392c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Machine/MachineAccountRules.cs",
+      "sha256": "73eb98b3b4b087d19f34da78f1e1a519a8e04d264ba68c8fe883795d1605d375"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Machine/MachineAccountService.cs",
+      "sha256": "8cdd2202f92308708773d0012235fc3e6e45bb8eb9e14b10045ebfa31caead6d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Machine/MachineAdministrationPrincipal.cs",
+      "sha256": "13460f5fc0375a65fac8c73b793165385bdfc65cba53d90e7bfe8036992be3a0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/ActivityModels.cs",
+      "sha256": "d334c95d6f90264aa99166093f470cbf2dde51fd4969f46e64aba44e6edc4b11"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/ActivityRules.cs",
+      "sha256": "ff14f3bf873420f3555f49e1f584e889861b68ccc83c090fc6c2a564a0ff849b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/CompensationPlanner.cs",
+      "sha256": "6752d8831412f26964b726b562216a051fc1e877f7280a588b089cc60578fd01"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/IDirectoryChecks.cs",
+      "sha256": "8242e33663e8552a387d21594e88acf54976ce00d8e3e1188e7f3e7f85547b73"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/IOperationsReader.cs",
+      "sha256": "4217929134b18064473423f1ecb88a4f7ac3c9ba458466d718079e361915c93f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/IOperationsTargetPages.cs",
+      "sha256": "85803e9d6f25d037c35c9bc4b51711028b4e7da4f9730ce1f4e3a0c5073f0b1b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/LifecyclePlans.cs",
+      "sha256": "e1b9588911c6ce40e07fbaa0deb54c6217effc0cdd55eef3329c48ce95455711"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/LifecycleWorkflow.cs",
+      "sha256": "95084c6068f144103ea36cbe373949b017fff6b50e89b47be29defe8943f933e"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationActivity.Measurements.cs",
+      "sha256": "d432ae4d8a22ff34676ff9f2f182c6949f1d4f4b761e00a4a903583889d6bf83"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationActivity.Phases.cs",
+      "sha256": "1f177d2cf215159d9d2429f2761db25d0d289086cf551e85815aa0993c6ceec2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationActivity.ProviderMeasures.cs",
+      "sha256": "aede7d49786badfe3c34ac4b47dc9c3f912e7a55e686360a9491083f9bf64f67"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationActivity.Queue.cs",
+      "sha256": "61f9b28e657c7ff3e01b34bfe2cceeb6d5618c208c852e4f080a11bdbbdb22e7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationActivity.Requests.cs",
+      "sha256": "8c7e61631ca7a24dd702df3ebfcf3b6b5062bbd3068f1821a20f4bb68fe57cc8"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationActivity.cs",
+      "sha256": "e252412f0805d9a1135afcf6ddba3b82835c5664ecbc0d37dcfb737ad1dd0f7a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationsDiagnostics.cs",
+      "sha256": "def52c7dd69a01b1a6a5cfaad1d16ddedd60389071194cddba3ba7fd45517f57"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.Home.cs",
+      "sha256": "9f8556ec1f242a5e2bc1f72acf88d31533c7308e74ea760997f9af4d6df0a2e5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs",
+      "sha256": "b68632e5f95d1e81625e22dfc3ae9fba840ba035edf742eadc1141d859317e58"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationsMeasurements.cs",
+      "sha256": "e2fb05e61ce7c478bc9f69f2ceac2db5c7f5cd7c749218b1a72c02551033e95f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationsModels.cs",
+      "sha256": "8b00e89fc122f0c555196279d1f732fdd28f2e13259bd48a148e41d4b2b5fa95"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/OperationsPersistence.cs",
+      "sha256": "8ee60e7923338e2526c539ba386d55d401fad2d6722eb772bf41c0c856759555"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/ReceiptReviews.cs",
+      "sha256": "78785e886ecd282b24854f3fe45bb8932829901338330b4871297330290e5237"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Operations/WriteKindRules.cs",
+      "sha256": "f2cc8c18810657dfb5ae8249ecd5559609d4ab1be13e21a58639707a43191629"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/BitLockerStatus.cs",
+      "sha256": "b89bd4e236f436865978c43821e70c21564908365a9b67126210b184a24a04fd"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/IPosteReader.cs",
+      "sha256": "3188fb64c29509ce723de46b29e8caea956ccd2b36f81feaf492a0a0066d60c5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/InventoryRows.cs",
+      "sha256": "2a841093cc05ef96491767e51244858088b9cb6cc4e1880e5ce24bd30b272759"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/InventorySnapshot.cs",
+      "sha256": "b4b725d69243bb0c2740a872939228d3180658f96311589b5def0e68a54a0090"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteBoardBuilder.cs",
+      "sha256": "a99825fe579573cd6b01410e5290794a2be21c9b761ce1d0b9adc54a74fcb439"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteBoardLayouts.cs",
+      "sha256": "b8beddf7da71b59f8393eb6def79e99307a8ecead4d3d3ef13420f0a4f98dc62"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteBoardModels.cs",
+      "sha256": "a98a6b257d1a25d9c97df85b1c1630e50e1e10549f369048e3a1c95d98315983"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteConfiguration.cs",
+      "sha256": "989e88ceb2f050fc22ef2536a39b660c580464ee4c1da73887c5f9f1199d1e41"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteDetailCache.cs",
+      "sha256": "a9a35a41d3b28bf2e1c6b5ad6375e1fe2c670969ba0721793249492705fd988e"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteDiagnostics.cs",
+      "sha256": "6e05859b34837412510774b359b8bf3dc24b82065581a9c2c9aa39ba90551afe"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteDisplaySummary.cs",
+      "sha256": "32c14d0ccc9577b3a26751a825c356342c4383595cfab9ceaae45658e73e9f53"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteEvents.cs",
+      "sha256": "c01302b694920d54f5d9c14354770ce3da95a219fbf4f0b0a29ad1e62f4277ad"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteExtras.cs",
+      "sha256": "adf1cca99d042639896d78a86601cc3ca7becccffac6d46773652b4cc14c61a6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteFacts.cs",
+      "sha256": "573d00ff84d204167e7054a42ca22a979d65bf1426724a4ca8c5afda7a6b642c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteHeaderRules.cs",
+      "sha256": "54af90e80d320f576e4dac1b4eaf52636e139e979601bbab182cc602fd164683"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteHealthPolicies.cs",
+      "sha256": "0896446929d07e1db76f04ac5a1bced0159f4c921e4bb29aa5bb11481e93699a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteHost.cs",
+      "sha256": "625c64d97b67f2cce15724d55668df6811990f1f5b6027e832b9cfc8fe2a8710"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteJoinUpdates.cs",
+      "sha256": "741b3dee391b24f68981861f657a2954020b5d9d7cebda6a33c81e911791e4e2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteLabels.cs",
+      "sha256": "0a75083cc4f44d37020de75f0a26d013b8b789d0be51fadcaa101e91062206e9"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteModels.cs",
+      "sha256": "e76cc000971eaf02ef31ef9ca07757f3cb9d3b5e8ed0979de80d04f157ac5bb7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PostePersonalProbes.cs",
+      "sha256": "423193bf1f5b6f1ff7cbf26948ad5d717b6ff4497abd0ad8cf54a0988abff1a6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteProbeCache.cs",
+      "sha256": "ab104fb360553d5519b1cf338b056342f21bd33da23e2bb5b3137c8555101e09"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteProbeDetails.cs",
+      "sha256": "20c5404a0f342a9e3e17a54f82daebf5e7ee7f4a119b9c4042be3673fec98e7f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteProcesses.cs",
+      "sha256": "d98434b6526346108e4e28c009ba30b5051716ea585c2c296871967eaafe802e"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteQueryCards.cs",
+      "sha256": "34ccdb779ad7234f242dc2710f0fddb59ca1c70b85e612e81727847b4d46f4e9"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteQueryLayout.cs",
+      "sha256": "325f0d07134eb1661c51548a9b128e8e7f87b6606e7eaa1d0514c44ea919575b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteReadingModels.cs",
+      "sha256": "52a7de77cc2bfba9ae56c1f1e352f9e3ed496e1479e147d9ec32e8bbfd2ab333"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteReadings.cs",
+      "sha256": "2ba1d6c96d79a1639dff401b1ae6f43b712587ea02dd23eb88e412999e7fbe5f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteRemote.cs",
+      "sha256": "d2b6c707c927ec26d4a1471e5db7844e4e0a0b40a7c1b44c4ffe238f82c896ee"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteRoutes.cs",
+      "sha256": "72f4fdac55c7d775bc493794de3427c9ee8f9b55121be5cf4c8fcec784adc27c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteScalarProbeCards.cs",
+      "sha256": "fade77b3dbddf2b8c2e05b13c661ae957bad09294ba04a8fe9f559edd3757170"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteSecretCache.cs",
+      "sha256": "948caefb63f2b092e990511d6154ef574f6b9ab30ca0c5959bfa934dd836fafe"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteSecrets.cs",
+      "sha256": "3c2631aac5d0594c563471d71eb79b36902e6f08a2315267f1cb0b9529334d34"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteServices.cs",
+      "sha256": "9e279b34ecac8d373127ba1fc1c0cb5c142dd8634d3fb2788b0b4a21db1508f1"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteSession.cs",
+      "sha256": "5e9cbf9cf5eb1ecaad32453eead8c15b4632833b50a49a24971e68022caf9684"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteSessionCache.cs",
+      "sha256": "db6f39887f2e35e270713fac109236e2880ee33efa2e885ceb19047740f7ada9"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteSessions.cs",
+      "sha256": "77e34bcdf0b1c161fcae9cfebd70e3b9beaa69563c9b5f3e82c49f6ab15731e5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteSlow.cs",
+      "sha256": "d155d96648dd22cf4da80ff140f1cad1e05118b63151045cfd95aaa7f49a3057"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/PosteSoftware.cs",
+      "sha256": "b4b07317e21ddde9ad122b503cf41b749a79aa97d468b4a96dda8e0ccf910ab8"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/ProbeCatalog.cs",
+      "sha256": "90914053c8f8f0b237a6ba052b9881d9e6f4a2a00fe3a99438af8a1b71dd9781"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/RemoteCollectionSettings.cs",
+      "sha256": "fe05f8c983381427e422850cd0ab6e8b1894f7de481f77a2cb4e4662e1d0ede8"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/RemoteTaskRead.cs",
+      "sha256": "aab806b7c6f06e9675366ccc4c58c8fb006efe0c0daf3fbb3d08e815f8700417"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/SoftwareViewCache.cs",
+      "sha256": "d0c85108c1e2b6556958abda8c2079bd34eae42b188e639c3c7d2197386f52dd"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Poste/TransientReadAuthorization.cs",
+      "sha256": "ebcfe19af4eced62179b0b11a8c1ef5953448cd3fbc39a0951175b5eb40edf2d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/IRelationLocalCache.cs",
+      "sha256": "1157eb4e9d0519ecede8b7edecfb80fc8548afe9c279964a5e73be708bd8a8c4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/IRelationSweepCache.cs",
+      "sha256": "aa2165021e561d3928f408633888cf8415fae14a430c34a240a8c31254a13d8f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/IRelationsReader.cs",
+      "sha256": "83f74b022b3313b128779012b1abb0e35090a7b8551a5fd6e090826fdad1507a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/RelationImport.cs",
+      "sha256": "182ef4133b69b135141379eeda8ee6d36641ae97b70240b272a000b7ac3a6be0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/RelationModels.cs",
+      "sha256": "f293fbc91c9dc3f5421112c716180534c024b186279531c6167347f64cd3a5b6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/RelationProbeLoop.cs",
+      "sha256": "1341f596158e6556eb4374805c71a139fc0f42b34366bc9c73e95c14f0d964b9"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/RelationProjection.cs",
+      "sha256": "93a1c59cd0635afaf86f47717fe47a7d63d9fc555ea3e797000db20a7930062c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/RelationRules.cs",
+      "sha256": "92304c91cf665d9f553d22c63921097a722c280f7f9f30442f2ef3d5ad2f1f63"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/RelationSessionServices.cs",
+      "sha256": "9522042aecb0925fd810000057489616cde3258de90a938c21ee43667c3ff332"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Relations/UserGroupComparison.cs",
+      "sha256": "37d4b69f2844aa5d67ff86a67a4cfbae8542a345616608f7bede29ed96d7ba15"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/Ldap/LdapEvaluator.cs",
+      "sha256": "02f4de34a317aa8c0601e357238b97a61e757f647eacd762810fe102e1dd108d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/Ldap/LdapFilter.cs",
+      "sha256": "4a83e53e22f87a28d90ee274e9fa43b5fe8fd4cff16ace512a1dd7897fbb48c7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/Ldap/LdapSchema.cs",
+      "sha256": "8f2d154d06bda4a55648e3f25995cb8425ba20d082e321ae72b98cc8d5ba6d9b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryAnalysis.cs",
+      "sha256": "6283c64970b573fa4ddb953748bb00e2f46e9a76a9e74514ae713723c799a383"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryCatalog.cs",
+      "sha256": "b2f1794ab8602bcc946b45698e2ad41a74c0cb5a8e798b9f03fca542179bec02"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryEngine.cs",
+      "sha256": "0a5505c243bb0895a5f60c4e2f58cb315429dc2355bcf4815262452cf98cf8ae"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryFormat.cs",
+      "sha256": "18db5ffb31225461e1d674a9b5e51148382c06f6df89a51503ac1651560ab292"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryIdentityCache.cs",
+      "sha256": "5febd154f787b7ab73af57f4aa02a2651f0ad053ef2618107ef013ce50b64cd3"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryImplementationProvenance.cs",
+      "sha256": "2b795ee3943411f94033de6172cc2954fa337e57bed8ef3acf8e553e2bd1aad3"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryInstanceChoices.cs",
+      "sha256": "60734c10047227e5a3059a1049661e855476af9b1d81121162b786498d5de2ac"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryLdap.cs",
+      "sha256": "ce7bb0c7b93c26efa6a58f25889c947ef9d635307f763367f7a79c5903b29aa1"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryLibrary.Legacy.cs",
+      "sha256": "6912b15073c29ae966e20a40a1998d13f55b06103efe09a69079cd73d7458c57"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryLibrary.ReferencePatch.cs",
+      "sha256": "d87a4ca089a88f820d194978d1f0317e5dff84ee913c175518b19b87864141a0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs",
+      "sha256": "3bb8335147eb3ca4dd5aff847878cccf8ff4962e0cd96c858b8dbd809b83d908"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryLibraryStore.cs",
+      "sha256": "2f05c648189bf7f05fab747153d3908a2aa919185ab8830043eb38efb2906a56"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryLocalStore.cs",
+      "sha256": "b4a7856d71ea6276b5100343f358bdf9682cc5fac19ed41bf5ab06d125b8742e"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryModels.cs",
+      "sha256": "98f801eecd9c21a8ff3df05f342bf6ec68a04f6639f0abca4eabc8c72a8a61dc"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryPersonalProbes.cs",
+      "sha256": "86a9aa167eef2b8d2df39b99a213af7fa9820af1fbf9fb227227792dd829ab91"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryProbeCatalog.Data.cs",
+      "sha256": "89b3f3bae4f6111e417b395d06cc515915a91cb6d60772596d741619f1b925b6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryProbeCatalog.cs",
+      "sha256": "fe200318a659ff86380eff32492245832eec86c4e03b375b188007a1daead100"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryReaders.cs",
+      "sha256": "61a3c29f74dbcfaf152f506ee9aa1b696314ec3bc43f3cc96688fd0fdbccc9ed"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryReadingRules.cs",
+      "sha256": "694d62ec05c5644ddc0954f94b87fdb06547b69cb9b8a4b9fc020a9afbafdf9d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryRecipeJson.cs",
+      "sha256": "cb0729f00a9202cc7184a9453ba8ea8118acff06fefa7658aef9a7e3a745e0d3"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryRecords.cs",
+      "sha256": "ad863fc8c2ccfcc359e0566695220cf1abfd198b00d6180ea632b8d8c6c03035"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryReferenceDemo.cs",
+      "sha256": "e1d6e76b15d723f06730b76aa89c66ccd718b927e980421e82c7d6fdd5e17b84"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryReferencePatch.cs",
+      "sha256": "4ea196900d855d6bdfc1198e3c2206c05e166f0c50267002c2e349b6a84c88d0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryScript.cs",
+      "sha256": "b49009e326f71d746ded1574b8f600e47d5ab6992fec8e19f9e92703a5f8e7cd"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryTemplates.Data.cs",
+      "sha256": "e46b5f8804b0e50efd0b2cea3410defb59640949ca18b8fd60cca6481ee629c0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryTemplates.Operational.cs",
+      "sha256": "1b7af104b6fbe16bd8eebe0a16448edbe4c15f35d10db448a2db557af7e37838"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryTemplates.cs",
+      "sha256": "24988d5a2dc7e74afaebfb7e6ee9609509859c9b1c9388331dcb6ceb2ccdcf3f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryWorkshop.cs",
+      "sha256": "6dd3456b45356e9e3b955b6980e2b476bde100a5774dc0d70929b94a333a612b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/Wmi/WorkshopRelationPath.cs",
+      "sha256": "194efdeaccdd446cb8f8d0b7280b8989317806da86e09de464ce741750ac4f87"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/Wmi/Wql.cs",
+      "sha256": "c12718e19d534c372cea0b24a83472b6adb673d5f72d0ba8cd873ec791803046"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Schema/ISchemaReader.cs",
+      "sha256": "f87fea5d18b6498efa6f0c37bd2c78b4604ea500e5f722fc16bbb4425f9f16ff"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Schema/LdapFilterAnalyzer.cs",
+      "sha256": "d696e695b512274bab8356eb9710c41a8edd50f2293918d092bd80ff46567ad7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Schema/SchemaModels.cs",
+      "sha256": "efa833f36e597581daf6f41d020b6bcd1dd35aa394c75bf1f7c4efe8c5dc4db0"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Schema/SchemaRules.cs",
+      "sha256": "e984024b052b2a94729ed361c1b21a627b37603f7c1c3de524b92f2a50d7b53b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Schema/SchemaService.cs",
+      "sha256": "55312125ba1f559cf67c6cd1f25d859bd935e973ecd66b07c6aa996c5bf046cf"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/ISearchReader.cs",
+      "sha256": "9ae8d6f185054109cc2f45f2c7b853c3667cafef79f77ff975e28f1a26ed6cb5"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchDetails.cs",
+      "sha256": "029c65d9542261002b06eb8e84806dc34e380d4769eb798a605f5bb9b2a91836"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchInventoryAttempts.cs",
+      "sha256": "0fc66330350c19469e8995060140a69035086db278c1c9fdd4d83d6950302377"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchLists.cs",
+      "sha256": "2960956580f7bc86f960ed1a61c917c0b81573d8b70a608b398cfda477d40683"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchMatching.cs",
+      "sha256": "e1c2b307b3a4ca5ea858734a6ae99913cc8e98ee61d921fc2c155e231af85444"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchMemory.Workspaces.cs",
+      "sha256": "cda51396d2428d3704e942998eefe8748217d59ec03a5a77b91ecd34989eb813"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchMemory.cs",
+      "sha256": "8e2e8e726a33c867b3191965ffca8e2a44ac3cc4da176a8dee9ed7c9aaa8685f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchModels.cs",
+      "sha256": "fa870ea838a31eefb367fc90996596bd69c5b9d11e6a0874a953ff5f1e9b364f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchPolicy.cs",
+      "sha256": "fdd3bc0ed35cf20686bf2911f72c5f715f0aafcaa9904766eb680daaa59c44fb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchRows.cs",
+      "sha256": "0540d4a1847698f0b28f665fb02fa8ac6adc6f9c123c8313a94f4f3adcee92e1"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchService.Diagnostics.cs",
+      "sha256": "27a4c024ba83a4a02dd89cc7bba4214c08d376e416e2e581f0c5bd6ca46b0e8a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchService.Home.cs",
+      "sha256": "8bdfb1213d6c17ee0e26b186ee8bcddb2dfc104450475d729522fc75443ddb5e"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs",
+      "sha256": "c25e28fd1f12eb23633ac29e67bcc506c1ca1becc55380030cac84984d6db5f7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchService.cs",
+      "sha256": "e9f54d849e16ee9a7392131fc67d26df7af45525d3b610f43784296e283332fe"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchSurvey.cs",
+      "sha256": "1b55dcdfef3d1feca0e858ecac7807cf408e15605d06b1698336136409e2ba12"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchText.cs",
+      "sha256": "043d37293fbdc6ee943bc1771683626e38e5a132f980ecada8327e46b71dca1d"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchViews.cs",
+      "sha256": "8bffbcef29380f44b95e6cd33ba25abf4299cec901f2b3e742c746e6bb7a57a7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Search/SearchWorkspaceStore.cs",
+      "sha256": "1687f9f1b619ad1e4cbab0ca0d4c3356f42bb9103521df822141dec8e8a411cb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/SelectionIdentity.cs",
+      "sha256": "e514db52b368d298c4d45b553c9295882f8cf59b5907a1d9bddcfe9b09aa5d6f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/SelectionReadScope.cs",
+      "sha256": "d6d7f7ffe330046879cc8df7b0f8b27a0f8c8b0023556667f54e09555588af87"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/SessionIdentity.cs",
+      "sha256": "7095299e06c5102c03ac9682c8c4da8fe58926014337cb07c0d3a9702d5bd386"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/CollectionAdmission.cs",
+      "sha256": "c1f9bf19face7b8d27b889e486a9655e5d5c950a83194acdc954f1d5cd9405d4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/CollectionCampaignBudget.cs",
+      "sha256": "a495049a7f53dfe6bb25d83c9b8f014c3934d779ab4105d241a7ec745ab5ee2a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/CollectionSettings.cs",
+      "sha256": "3248d16344ccbadfd6e3da24ee318c547cb5f75bad493d411c9df16bb2358882"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/CollectionWindowRules.cs",
+      "sha256": "b816e0981f6b8e6ebc80957009b873b5d87bb05f12e07c1bc2f9562007ea3e56"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/Compatibility.cs",
+      "sha256": "2ed33d80a512cffaefd5fa49c1433376b401d4fc5434fedc3c3dcd98ae1b9e04"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ComponentInventory.cs",
+      "sha256": "fd14f44217ae023bda7a78b4b1150c867d4841d29c8ef140a06e16293cafe0dc"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ConfigurationDecisionRules.cs",
+      "sha256": "0f743c751aafb4e9b6fdbc5073aed2628ac3f4e70128122a2510bf27142f2d08"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ConfigurationReport.cs",
+      "sha256": "c9cb175bb6fe59ee3c00c17b3f6612b886b31d8cc4c697147d875c18672bc401"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ConfigurationSeedCoordinator.cs",
+      "sha256": "316d728d6cd2d32cef315b7f2271b5a1179cc8ce601101d2576ce1a837d5249f"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/DataPolicy.cs",
+      "sha256": "2527a81ea0d84141e19ee009b74ab555153e044414533a0f6ae95bec8dba1e8c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/IBackupPreferenceStore.cs",
+      "sha256": "b11b6fea5c276ed2aa128a31aef579a591f259287566487b6677c65030652fac"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/IConfigurationPreferenceStore.cs",
+      "sha256": "5ca1209738730c2be854a8ae4aaff7824fab3251dfec32efb96b71b7f7e7d787"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ILocalStorageBackup.cs",
+      "sha256": "afe29bb5bf48c33ff84fd3c81c4eeb82d5b99c3a9fd9104db7db00b14a9d8988"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ILocalStorageLegacy.cs",
+      "sha256": "b17ecca8e3064830e57764ea8515de63b5a60b7bb43c658cfb1bc1ab6b6cd881"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ILocalStoragePurge.cs",
+      "sha256": "9b883df073a17f99813e7b9a722eedf7008050c980a6fc2078cdf66ff595b031"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ILocalStorageRetention.cs",
+      "sha256": "cf64b469e5dfa2413ae2f575b9c2f41ddf987ed3b448af3fb54f6c5fbba17a82"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ILocalStorageSwitch.cs",
+      "sha256": "a989960f2829ebb4dc7a8a87db3e7fc119a640ff49c3cd087387053444974340"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ILocalStorageWriter.cs",
+      "sha256": "c764f3400b7c662fc0e643102bc706575116ddba8cd92d4b96fa9893d9c7a3da"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ILocalStoreInspection.cs",
+      "sha256": "efff26a287542775ca41e177d4df13a079483ecad4ca8c8dbcb449f87322de89"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/ISettingsReader.cs",
+      "sha256": "42dec3a7e6764d4cd95a45b090dafb6e3a5311b15cccc6ab2121a5952768e7d7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/LegacyRules.cs",
+      "sha256": "3c018df0ba0e896833e1db39691c0bb892df40f4463fcd5937303de918db6c57"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/LocalStorageLocation.cs",
+      "sha256": "403072e02f32cc23c9b45aa743282c1ac806f5330dfa38f144486e383797745b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/LocalStoreModels.cs",
+      "sha256": "87168dc8b0f30064a2a9300538880e2c58570f4eb681eaa5185a1326537d2aa1"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/LocalStorePolicy.cs",
+      "sha256": "eb6410814fe3baf91c6fc0aaca2ccf666280aae3ce695ce42d76cd66a3c8b495"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs",
+      "sha256": "7332e12c3225ab6c1a67fc9b399a915a568c674e9988e3158104c24b78e2ffa2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/MemoryPreferenceStore.Configuration.cs",
+      "sha256": "9e088dd0b93a905e1293013a78c14fec7ccfc35de2277973c306092950546ece"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/PortableConfiguration.cs",
+      "sha256": "466bae866bc7c36ede989519dc83ad6473f0a071caa1a4ab4514b63943f467e1"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/PreferenceApproval.cs",
+      "sha256": "e489ffd728613770ccf7b1e19f61269771ce5b57e59363e3b567aabad58d36d1"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/PreferenceTransfer.cs",
+      "sha256": "41e91314332d96f27f73a9df9ec113833b10112b569b5f628ba2a11b66bb2858"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/RuntimeConfiguration.cs",
+      "sha256": "b22777a4f00be8ccb043afc5c37fef27dbd1a5be798e3a64e610689cdf1de310"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/SectionScopeFollow.cs",
+      "sha256": "ee5f040d331f6e936d19a749ae29c9554e4a5a6f86dc712dceb9ddaf1a877c33"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/SettingsFormat.cs",
+      "sha256": "3d3c3b1f4bf3bc5479dad13df115365dcd93307af814b18b1694a7073a8d31dc"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/SettingsViews.cs",
+      "sha256": "301366b3ed79b15ebd03341c24bbc47bfbb88ab795581207fb5fc3c65282b8d2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/StorageFleetRetention.cs",
+      "sha256": "2ca903bffe830d31fa06f3e97bbe410c947fbaaa206fff59974beb03fd25d09a"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/StorageViewBuilder.cs",
+      "sha256": "c91139b3ff2ad73fc8039991d4de8969f41ef95cccb007718e4d593c0cba2fbb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/TechnicalLogTail.cs",
+      "sha256": "12939597b8ab8886c7d09493d4d95fce0d6fe436b29bee0451775f09e74f548c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Settings/WindowPlacement.cs",
+      "sha256": "c118d22ffbe67bdc69416348783ce65ac5316a92adc470a0803c9668319dc6ac"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/AutomationAnswer.cs",
+      "sha256": "af68b83df6d44329feb7e7c83eef35179b969bf689b01ff8d310b0713190b21b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/AutomationCommandLine.cs",
+      "sha256": "a50d48bed0f2a01061a9583aaf5dda8b573f67f8307c386e146468d9813a2c3b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/BoardLayoutHistory.cs",
+      "sha256": "67ba68ffdca3f3ba5483430e309d8becf5c4086ee8da73f3d050d0ff70d9c91b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/BoardLayoutPresets.cs",
+      "sha256": "187510eef8d1d7662727c0ee41d3ef3ff97dc2b6d5139fb8743c64ff542f7803"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/BoardLayoutTransfer.cs",
+      "sha256": "e492e446bdda7598a67d864996dab6fe6307d6bac3d80a15f0472c66ce8ccbb6"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/GuiElementPolicies.cs",
+      "sha256": "b4b9379396c2dff22986917680e29ef089e2caee1495f40cae061c24d97064af"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/IBoardLayoutDefaults.cs",
+      "sha256": "38ed9b34e045bad0a9ca9df31be123197407a08d39a110d46c88f02841d00ed7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/IShellReader.cs",
+      "sha256": "783907be43409b909ec43615fed9844043b0784eb41ddc66222a1297198b5fa8"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.Delivered.cs",
+      "sha256": "992b600ae98468ef10d0533fb249133747c92a2f8dc39afa783384697a31a832"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.Queries.cs",
+      "sha256": "ec2aa961b55b849e739ee02f3ca15693512fec731d9d9f8f57cfc96c6a23a078"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.Team.cs",
+      "sha256": "deae2cb857b0a04b5690b50bbd69db7f1fa3c2e168ad987ac0235c77d855322b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.cs",
+      "sha256": "96b748ea8773f02433768a6ea0c5790f18bc3ef12123b304d02300d8a4ae1ea2"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/ShellActivity.cs",
+      "sha256": "8ab0f8cffaf4e0b448bc9ae7b72c8da800fc680b51477ffb8cfc28807bcdf61e"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/ShellAutomation.cs",
+      "sha256": "575382806fa58bc6f80abae1fcc7060747964782096c298e633c05c7c3cb0236"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/ShellCsv.cs",
+      "sha256": "4d637b2e84fd8caf76026daf4d30e43c11e733db146ce655572375b95c55fbc4"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/ShellFiles.cs",
+      "sha256": "5f3d77f0d2fbf43e0e5f202c67d74cb91dc5df18d160d9641b40a1edd5c641db"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/ShellInterface.cs",
+      "sha256": "e79c2edd3f2262fbd8bf7067293d88c784962b8658227c4b59587c5d824e7fe8"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/ShellModels.cs",
+      "sha256": "824eefedd92f184dde1efb2554755d1279e2e4e2464f9a55a9bfa5332352be14"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/ShellSecrets.cs",
+      "sha256": "f703a2d019c61bbeda83be082cf49913cc9b30bcfef4e3da8897fa1033222d81"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Shell/ShellTexts.cs",
+      "sha256": "66c43194ea384ed9c4d83125d9285a8cddfcf2a9dec1114e449c0d328a5e82fb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/ISharedParkStore.cs",
+      "sha256": "e3b2fad6eae7fe5c4381735a81e359463a53bc89f289f3e10e55a7e820ccf0cf"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/ISyncBatchSpool.cs",
+      "sha256": "e14cebfb6091f52c0d03ed613cd1097e48bee767194499447d7af5e8c9037083"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/ISyncLocalStore.cs",
+      "sha256": "6f8243a6df2f78a49fa34041876cf4ce29d2e159ac993ac0ae80afaf3b2f3bfe"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/ISyncReader.cs",
+      "sha256": "e943c7d1e28c13cd7726bd68b04816e14da1ae8b1e31c21428ef4912d89a1c51"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncAbsences.cs",
+      "sha256": "03de793738f425105db8ef787313654fe87803bbae4e6e6fd5509809cd528a6c"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncCalibration.cs",
+      "sha256": "7cf1195f773ea3d999ef501e98013ade7db5c15224881463bcf3f760ec563117"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncCoverage.cs",
+      "sha256": "a1d58c93bfda15dd691c09d0868c691fc34b1b8c310519fabf623c07e89671fc"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncIndex.cs",
+      "sha256": "ec28da988727169562082d4e593aba50825be42c6b390217cb3380244979d9a9"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncLocations.cs",
+      "sha256": "c4290b106e53e379705672195aaa2ffc5272dfa47362862847319d06cc1ad471"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncModels.cs",
+      "sha256": "55c21cfab0f60fe3b115a93b9ae670dfc9957ee11edd3afa60c59a0ca5fd47fb"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncPark.cs",
+      "sha256": "13337ac04b4ccea56853dc48818f262d406da74b10d5192693a4984fb691c2d7"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncReconcile.cs",
+      "sha256": "aeebfe44bbc34ab3a95ecaec4123fd8f79cae2dd0fe130d4cbfb0fa3035fdc3b"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncSettings.cs",
+      "sha256": "4bf379ca5164c1b786a9047809a9e053b4fbaa80647bbe77c97515a0e380fe48"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Sync/SyncSnapshots.cs",
+      "sha256": "a714500a89139cc6344e910a16e7c2d85914b6e441999937a4badf9a100c87e9"
+    },
+    {
+      "path": "src/Domenia.Core/Session/WorkingScope.cs",
+      "sha256": "b9d3133d2c58e3bbfeccd05da712c6384acc7db4910fce24a3aee9fa51dcc4ae"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/AppInfo.cs",
+      "sha256": "ec5d7e87fadc866ecc5631c7cb9916c7110d24e552ad333590606c8dc56d8b13"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/AppMode.cs",
+      "sha256": "487ba0b48a67e66425ec2b9ccb3e871dae8d8c6ce0057533b4b9922724d296f6"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/DemoSessionArguments.cs",
+      "sha256": "fe508268bcf8ce1e402c1c4c44b10e466ae8e2abba9299bfc4e1d4e4120ca3df"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/InitialLogin.cs",
+      "sha256": "177131a170b098df85d33271013255f9451464fecf0246154853307f92f11993"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/LaunchArguments.cs",
+      "sha256": "0f9abd4e9581e66b164612a292132a586a57cf1ae06c4fb37309d27847258722"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/LegacyConfiguration.cs",
+      "sha256": "b2ecd29b05455e9c29ce3e4117c848779e65f0f41956321a067129caacb0f42f"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/LoginPreferences.cs",
+      "sha256": "ced6af276045d8510803ff84b5486cc4a1a094f27e904396934a95e3518e4476"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/ModeResolver.cs",
+      "sha256": "1901bbf09df08bc6c286794c04b6c89d2ee7c8467dd4c124e4b973691b6e4420"
+    },
+    {
+      "path": "src/Domenia.Core/Startup/StartupMeasurements.cs",
+      "sha256": "8745c3ce410397df5eba985139f8114bb78d43145eceae5fe71852448eba3c81"
+    },
+    {
+      "path": "src/Domenia.Core/Text/FrenchText.cs",
+      "sha256": "f179111e992f053fa7bc12857019b197fba4a1e7b775460b9823d5b92afc7e8f"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Accounts/AccountActivation.cs",
+      "sha256": "cbbe4d1b26a555671cb8ea7c694713c1e1b04907ea765a0b841ba089cc42f153"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Accounts/AccountExpiration.cs",
+      "sha256": "43b56d6a5d64de609b5ec72fac33629288887cabcba5111ae9cb1b9309c7c171"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Accounts/AccountMustChangePassword.cs",
+      "sha256": "764e95654c23b743799208011997bd312d3c26ba4a085d883da74c721389fc8d"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Accounts/AccountPasswordReset.cs",
+      "sha256": "e1ca7aff7b8c6256eb6543c66eb5570f91697e0dee24ea7a779ee9f5ae9e1a1f"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Accounts/AccountUnlock.cs",
+      "sha256": "a26a256b92098c3e7ebfca6448a6673fd6b86d4cb0fd2420a2f6578908c18aed"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Accounts/AccountWritePolicy.cs",
+      "sha256": "ef590952751c50cc9c0a06eadfef8f1db1926b057816c0d24b6e15ceb349441a"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Accounts/AccountWrites.cs",
+      "sha256": "2ea5b52866823c869b146e5cb009128a4b0887e8f1453667891a09c2a247c1ff"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/ConfirmationTokens.cs",
+      "sha256": "8c2329c3c30878b0e8c86ddbf43ad879795d66c517d30d4c6a8eaa14309e8d66"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/DirectoryWriteEvidence.cs",
+      "sha256": "4e44a7841c58e27b39ce877d7a60e5f264b630002683693dac49be4a8b4823cd"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/DirectoryWriteTarget.cs",
+      "sha256": "204ab06ee1ed36aa9a97a5f9c6ad2e12286d10507b9d4705108b4b8c7da8d125"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/IDirectoryWriteLeaseSource.cs",
+      "sha256": "516d0a67a87958439b3e5dbb7939f7018a1f41490673cce759294b40a4bacb16"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/IReceiptStore.cs",
+      "sha256": "992490164736c7d5c1d45e555c6b68e640e5d94004fc96296af9ddcae8d5c7ce"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Objects/ObjectWrites.cs",
+      "sha256": "21bc4c85165ae8721e0592ef2dea875049f164922e755ff3c076ca45e4decbb5"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Poste/PosteDirectoryWrites.cs",
+      "sha256": "eead2fa2fc7b0a6aebb2d4c11b5df34aae05e2c0c96ea5126f2b873d47201490"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Poste/PosteRemoteWrites.cs",
+      "sha256": "ab348e6a68c04f1a2c6b7a7241e6744eefb1d179414b985968919a3993ba2619"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Poste/RemoteWriteAccess.cs",
+      "sha256": "33adada8fa449d98f4f7760c9f1d5756b5adeda8b71a82c7864704edc08238b9"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Relations/RelationChange.cs",
+      "sha256": "b9695e80741ab7748d37262a8ace0333f23be44bf0d820f779920a1f5c236ee4"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Relations/RelationSweepReset.cs",
+      "sha256": "e5172f74013b94bd0503fec9713d606444c3aa53c86a61993da6222779127e59"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Storage/StorageWrites.cs",
+      "sha256": "e6e479d50cd39acebcd4f34e1ef6d2c31f67bc0c2703a9da40bd1c35339125e3"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/Sync/SyncStoreChange.cs",
+      "sha256": "db5725c079ca6a38c23d9e8d742d1d9152763fa13f41f63c1066cb2474566036"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteCircuit.CapabilityRefusals.cs",
+      "sha256": "a94a81750ac136b195fa59a4cf2aee2afd16abf5653270775f62439e82310126"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteCircuit.Closing.cs",
+      "sha256": "798af4bf7f87d3855dd9eb4302c23b696a7be99381682c5dd9e3255be9268b58"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteCircuit.ReadGuard.cs",
+      "sha256": "d1aa76bf0cff8758d6ae3194260b19712a1d7a89993cec19f2f287afcd04c653"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteCircuit.Recovery.cs",
+      "sha256": "48849b332d3d4740a96ebc71c8aea135e2b1c04e08a3723e2add9d046346dd97"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteCircuit.cs",
+      "sha256": "2bbb2feab520b249fd0ba8abdbc5aa43909d65779aeb23fc648556f9b6bdda08"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteErrors.cs",
+      "sha256": "ca5813d47fd140009a3d8e1a7230c18ccd67d11939ed371ef393b939b52ae261"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteExecutors.cs",
+      "sha256": "a0a1269c2abd24b3b94905a373522e27ec6ea8c4df4d64a43d66ff6731ef0f6b"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteModels.cs",
+      "sha256": "cb05fa67f7c469d75964746cb855215c55db1dd6063d39d3438388b54faf399e"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WritePlans.cs",
+      "sha256": "4b0f04f19fb41c84e29733552cdb35a250015e2eceab746d1be237c27f04b4c3"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteReceiptStates.cs",
+      "sha256": "565db750d3aa429b3dcc26d3bf5d156bc061e4d4ec87fb76db11ea568fe8cf1d"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteReceipts.cs",
+      "sha256": "9df8d83ae3a0bbb91508465e7e5fb4fa8529fb996d63a98df307813d517e4d50"
+    },
+    {
+      "path": "src/Domenia.Core/Writes/WriteWaitObserver.cs",
+      "sha256": "519ea5a818a660ddfca520f9e41e339157a71e802bb62160b73ece37e7c2252e"
+    },
+    {
+      "path": "src/Domenia.Engine/AssemblyMarker.cs",
+      "sha256": "c3624d2e013fb1cd5c496aa4a86b1178f3665c40a1fb517b425b8941c6436933"
+    },
+    {
+      "path": "src/Domenia.Engine/Domenia.Engine.csproj",
+      "sha256": "99d2497c9d0eb8f51b8adfced9f4acbb412d5b7bd264d2dd097a873ac397b390"
+    },
+    {
+      "path": "src/Domenia.Inventory/AssemblyInfo.cs",
+      "sha256": "a2f53dd007ef3733f6e32605cb3a3fa680cd0c833595094b515c6a3d0ecb96a0"
+    },
+    {
+      "path": "src/Domenia.Inventory/AssemblyMarker.cs",
+      "sha256": "4f1520681a49366500e12433362ee4d3049a20c007bee466c5cf38d056e04865"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimBudgets.cs",
+      "sha256": "ca7d0b8514c7e690aeb9eedf4dd968b6d1254fd704e79d68b93ad1c676ac3165"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimProjectionScope.cs",
+      "sha256": "00d6e3af90d50f82878e0da34bd34d46facfc0945ef7d5c324c9aa63b29dedb4"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimQuery.cs",
+      "sha256": "5173604f602a2f45a26d337100bf826b78627cb520b42fbf398ce3b8e9aa3b50"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.Appx.cs",
+      "sha256": "3117566fa7154591eebba9b742b77c10e5504e3e94e583e8442f0843a53dfcb1"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.Capabilities.cs",
+      "sha256": "593bc79e924b04eb0d3731189110433af64a48a0c92ece938413300fe0c94165"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.Diagnostic.cs",
+      "sha256": "64d814cbb8d12888a4574891175f58967e66bad3454e686222b1445c7907f5e4"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.Events.cs",
+      "sha256": "0f11ab7f2d0a6dd25552b987c1cc02d8f95ff166412e1dc117790e0a1bacb33a"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.InventoryShell.cs",
+      "sha256": "86180ec2bcb879cda492e876120a32f1f89eb645f51eb43418645785a8696d83"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.Isolation.cs",
+      "sha256": "124e3624689a5a05e893e2182492871b3f8b4335b74c76beb9cb09e4186a04b3"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.LocalAdmins.cs",
+      "sha256": "d72176a649893c3bc3d84aed2fb91c134b46e6a4774993975d5c26de1c3b1930"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.Metadata.cs",
+      "sha256": "f0cd813c59dd4939effcceea59733df668b5f73ea99b46f9fed3ee184f2ce20f"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.Registry.cs",
+      "sha256": "ea0527e1e2c04bafd05be9bdc37d4a46d5d051c3588eba1a622f35b73e02bd89"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.Retry.cs",
+      "sha256": "043f0eab19002c8bc47d2d6b6fd42c61c61926f70f67cf398fe06b509c801101"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.UserIdentity.cs",
+      "sha256": "c4a656226ecca1c4cc9118b1e2e5f302f17ba98afc1572e0b2c306b34007e1f1"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.UserRegistry.cs",
+      "sha256": "ff7809dc8d16a59c03586d5460f629784726e4a84952f4852ec23203b0e20934"
+    },
+    {
+      "path": "src/Domenia.Inventory/CimSession.cs",
+      "sha256": "e81c58cb5cdc09be083e2b7d9c26b7845a00e095b36c473ab5491dd1719432fe"
+    },
+    {
+      "path": "src/Domenia.Inventory/Domenia.Inventory.csproj",
+      "sha256": "f0db00340fdfc9f8f2b24722e339fc83dbc2830033d97dbad13bddb7cc2e5e26"
+    },
+    {
+      "path": "src/Domenia.Inventory/NativeIsolationPlan.cs",
+      "sha256": "8e49cef9ec8ca098905777c2ce1f49bbe741e94600b121ba8985b19c9b27f060"
+    },
+    {
+      "path": "src/Domenia.Inventory/NativeReadClient.cs",
+      "sha256": "68a3b1bb3517e54d6ab3941d7eb3b7998c019caec00b77ed73b6deefcf21b29d"
+    },
+    {
+      "path": "src/Domenia.Inventory/NativeReadCompletion.cs",
+      "sha256": "30c686f3e79a5418cf280aff2afb95b87a4dff6635259918c8e47dafc5716564"
+    },
+    {
+      "path": "src/Domenia.Inventory/NativeReadProcess.cs",
+      "sha256": "850808a6e2dee0b833e774313f797044360e5582daebf1e4a58cf49f872758ee"
+    },
+    {
+      "path": "src/Domenia.Inventory/NativeReadProgress.cs",
+      "sha256": "e43b2c57b1d3485bcc98113f50e577cf259296bce0c32aebee6d5d65a94834c2"
+    },
+    {
+      "path": "src/Domenia.Inventory/NativeReadProtocol.cs",
+      "sha256": "8f3d0a82de19500ca5646d8507738103e7c04d03f2c667a5111aaa7b07a2d1ad"
+    },
+    {
+      "path": "src/Domenia.Inventory/NativeReadWorkerHost.cs",
+      "sha256": "f53d4ae90d798e83b437c612d88964eff49a5f86e303011dd5de7472f1b08221"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteNetworkIdentity.cs",
+      "sha256": "1e154c487f66ef7fc11aabe9744a2314f25be843eef52a2ede3a45e940305b9f"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteProgramSafety.cs",
+      "sha256": "e11dd60a8fb5a6739cecee6ff0352bf148defd6c1e77afdc835b6ffa158ac696"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemotePsExecBinary.cs",
+      "sha256": "4b74a6a050dbadca1addcf2d3f28b8f49dc53a618b1aab48952aef8653be3bfb"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemotePsExecPlan.cs",
+      "sha256": "bebc195deefdf96a817017a6afa29a048006a411d040d3cc47ad71e274d4df4e"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemotePsExecReadBackend.cs",
+      "sha256": "b5facc9383d0b3e1b5e80cd10c54d85f5980c8f68e8dfcde8dba6d8c32050bd1"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemotePsExecService.cs",
+      "sha256": "ba2bfea092b12408aa6704058b212598061906fa63b8c2276bf035bb3875aef8"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteReadTools.cs",
+      "sha256": "b9861083758ccb18999571f56bfc1ed6c61ac8af02bbe1bf8b6ad60166f241d6"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteScriptPlan.cs",
+      "sha256": "352867b04b62309ce19fb46cec73d7a0aa15601aab44434b59913364a86ba547"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteScriptReadBackend.cs",
+      "sha256": "cb42bdf38f95f5f1ab88dfbfbfffdb057b3848107e9a810afbcbe49913bab79d"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadBackend.cs",
+      "sha256": "56e2e72dcb145b7aeb736823fdd70fe06cce95786afd3d2f508f4d92fed862cf"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadInventory.cs",
+      "sha256": "8ee9260efbbd2f31c0b2becdf80f4b19c3f6e5d7ecc26087bd5d714c715c0469"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadJson.cs",
+      "sha256": "8f6f98801a622ccbd462f6ae81c1317adb952eddf42f485e3db6795574144eec"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadProgram.cs",
+      "sha256": "fd02369ef450f13226b07bdc28541ed9fd13a6d732aeb1cfae4039d508c71e7c"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadRunner.Closing.cs",
+      "sha256": "1688789b097255d55006dab53465416a1955bceaec3ab400bef826e6499781c7"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadRunner.PsExec.cs",
+      "sha256": "9db8e524e23e6c3dfb2f2035d80ae2e179a1dc273988a51da47b1c6f8187dfe0"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadRunner.Recovery.cs",
+      "sha256": "108be2fb952707bab1611af58553a3a2a897cea55182d17d582830516b70e4be"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadRunner.cs",
+      "sha256": "0f899fbaa7a202e5e74274750c7aaacf3eb0ea2b6ccc92f2a95b82e48bfff4b2"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteTaskReadSoftware.cs",
+      "sha256": "22bb53e0c7789acd54baec60262f665784f7b2898e5d587e893a16e5fa761830"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteWinRmScriptLauncher.cs",
+      "sha256": "2094823d55b1d8af27aed0e99248178b51104357f32f19f19955200c1e792d83"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteWmiProcessLauncher.cs",
+      "sha256": "07512aff3a7791c41c9d21d00aa8acd543f61f98d030c7047881ba37de603808"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteWriteClient.cs",
+      "sha256": "20e61699dc74c559c6585ac26de2523bfe0698ae3c560cdf1df5fcd82b8c0ba5"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteWriteNativeBackend.Task.cs",
+      "sha256": "026c0f3fd521b43e15114b38c59766462c9c9684174b2763618b3fca4ebd7952"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteWriteNativeBackend.WinRm.cs",
+      "sha256": "bc7647285a7b61ff4f12ff205d3b2ca30f6d6c7eeee5af77caf8a85bb6fa8bdb"
+    },
+    {
+      "path": "src/Domenia.Inventory/RemoteWriteNativeBackend.cs",
+      "sha256": "a7ffa43fa47391612d355a5520c965fe358f67fbb400368541144593ebcea648"
+    },
+    {
+      "path": "src/Domenia.Inventory/TaskSchedulerConnection.cs",
+      "sha256": "5bbc7b966bd56e8ae778553cb43614678684a8bd5de8484e6f33cfc3d9cb2f40"
+    },
+    {
+      "path": "src/Domenia.Inventory/WindowsCredentialVault.cs",
+      "sha256": "b04b48e1db861a1814bb002441dfd943cee83d3b01b7c9e931fb68def7f33dd1"
+    },
+    {
+      "path": "src/Domenia.Inventory/WindowsLastUserEventsReader.cs",
+      "sha256": "fd7960baaa387f1e49f1a1c26c76666b376d6015d23a1e9066700aaf8448fea7"
+    },
+    {
+      "path": "src/Domenia.Inventory/WindowsLockoutReader.cs",
+      "sha256": "c47a21fb49b6bbfdd10fa15c72d5e0494c9cbd697a5725fbd191b6e7bc9745d7"
+    },
+    {
+      "path": "src/Domenia.Inventory/WindowsRelationEventsReader.cs",
+      "sha256": "21857e29809385ac1a23739c4324ed4fa26dc3842da64a1fa500e18543b6744f"
+    },
+    {
+      "path": "src/Domenia.Inventory/WindowsSessionsReader.cs",
+      "sha256": "6e73e309f191496af80e65488bfe59485460a04aa0168e10b94af218653fc26d"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiFleetProbeReader.cs",
+      "sha256": "c6d4d984c8e1ba335b8ba1038a7796cc4df014bb91ff1d433cbe2a7fdbc71d9d"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiInstance.cs",
+      "sha256": "3ee6de045a8ec660bb2f5d800e7435cd51e038f28f4644903d5fd482f8ef139b"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiLogonSessionsReader.cs",
+      "sha256": "0025a4e76bbb65323f3044ab8d9fb58a2fdd5a83cf26d8086d988491eb9311ba"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiMachineAccessProbe.LocalAdministration.cs",
+      "sha256": "09e9a3d92bcdf1295c02d14f590997e951a50e13327faa7331b7a3c3c56e6d6a"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiMachineAccessProbe.cs",
+      "sha256": "df1c9e65bfeba429f4ab470a0f18e1821ef3199baee2dfc5968014142bd0bcf8"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiReadWorkers.cs",
+      "sha256": "b8786d960e2c888b0555cc837c548ae292092f53214bb9245bdba83552bdbb3a"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationProbe.cs",
+      "sha256": "471bef707f491299031db59872ee09e6884b40a64a23ef8809afb3205fa0486e"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.Diagnostics.cs",
+      "sha256": "4d6db80668556ff7bbb11dded11462ecef25ac78107a5d0e3f8e428483c1f324"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.Events.cs",
+      "sha256": "9a44cabd5ac8a5640179c26d5b7997b78aad4019904677cb3425ea21fa06f756"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.Explorer.cs",
+      "sha256": "cd3656db3751c28a3051c5664d419d5d5ffab386f1a366bbe02d501a1ed91a71"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.Extras.cs",
+      "sha256": "2a176ef4d8ae89702f2df5d43ada39c8af1165f33296c9e112efc24e84293b94"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.LastUser.cs",
+      "sha256": "0c4479a8cca80414f2209ba294b193fa053387ecd947826fbe0616b431c46edb"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.ProbeProjection.cs",
+      "sha256": "d4c48e3c27df42ac59f84e20a3d8f8e331133232fc90ecec0175f31d0b854cc3"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.Probes.cs",
+      "sha256": "dc5042bfd4416b7de7b77dbb9a52753420704b28f3ed07d90949748b69102a3e"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.Queries.cs",
+      "sha256": "e21e69961d6612ff659d9e595a5b176952302ac4ee224cd98674a2c2f1e834a6"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.Registry.cs",
+      "sha256": "9f73ecdddc55566b16ecabeebbe0baa73a8b704903eacd6d35e7dcb270ec55a5"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.Software.cs",
+      "sha256": "80c85944a18551eac7997c50cfd9a60657a93436220db0b40fb11c292b513eb6"
+    },
+    {
+      "path": "src/Domenia.Inventory/WmiWorkstationReader.cs",
+      "sha256": "351b946bb20ce8cd0f03f5fd39d377df0c912ec136174a56f62e034e7d1bfea9"
+    },
+    {
+      "path": "src/Domenia.Inventory/WorkstationPresenceReader.cs",
+      "sha256": "8edb3212dcbf50d5d20b5a4b50a26fcb107e168f68a62956957f55cc826a80ac"
+    },
+    {
+      "path": "src/Domenia.Inventory/WsmanReadChannel.Events.cs",
+      "sha256": "7edebd55557e0ab21e0820c41b5ebfa06ba88019d90e2c529442b47e22daa3e7"
+    },
+    {
+      "path": "src/Domenia.Inventory/WsmanReadChannel.Inventory.cs",
+      "sha256": "e3b187bcc7acd276f05713de1302db640e76df11c067fb282be21b99c9afeb1a"
+    },
+    {
+      "path": "src/Domenia.Inventory/WsmanReadChannel.Metadata.cs",
+      "sha256": "eebed3e5d2ec7916c907fade9e30f2c17d330148ad7923974958e8829c1cd11a"
+    },
+    {
+      "path": "src/Domenia.Inventory/WsmanReadChannel.Shell.cs",
+      "sha256": "04ac171c88a4983a485a6b466ff909cf0a88e4441b82f9cae58cead7b0730822"
+    },
+    {
+      "path": "src/Domenia.Inventory/WsmanReadChannel.cs",
+      "sha256": "9e7c91cca1b89a3ce75594a40e7c3039dc5058d4440f2060f3400e0bfc818823"
+    },
+    {
+      "path": "src/Domenia.Simulation/DemonstrationClock.cs",
+      "sha256": "979a558279c83c50a6090c8885ae9572e6c0c60607c676cc34b9af0400fdf0ee"
+    },
+    {
+      "path": "src/Domenia.Simulation/Domenia.Simulation.csproj",
+      "sha256": "ff4a84eb6018caf6751a3e1723574cc306a64bfdd6fdd7350d6b5bed583ac4e3"
+    },
+    {
+      "path": "src/Domenia.Simulation/FrenchNames.cs",
+      "sha256": "4dc1779ecd52b8d6bad02fb1973ca2221136b6b54f7353d239201db808adb946"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Accueil/SimulatedAccueilReader.PersonalProbes.cs",
+      "sha256": "aba3e58d7bb662fbd586e6f8f2c88bd469089813291e56f1b15fd91b358fc0d0"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Accueil/SimulatedAccueilReader.cs",
+      "sha256": "dcaf50adc2ed183f2cde18ef1fbd473d2f1d2b4d4e28d963ab20bdacbd2bc657"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Accueil/SimulatedProbeValues.cs",
+      "sha256": "fdde9d9a87b781b1057bfe8ae7721aaa39cc411db79c9717ce3d3d30e7f4a2b3"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Audit/SimulatedAuditAcl.cs",
+      "sha256": "cbfdf80f808cf6472decce5d74d854f96fb2b432fa4a07d51a7383327e0eddad"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Audit/SimulatedAuditData.cs",
+      "sha256": "8f9b5c0f1380012b84b3b9bb6ef2e4a15e5ea2ad4e7b6407d95949bcd07c799d"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Audit/SimulatedAuditReader.cs",
+      "sha256": "4418802bcc83478255aa03cf848dd939b9bae9df82338fbd0110d96ca2de1471"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Fiche/SimulatedFicheReader.cs",
+      "sha256": "5c12e01c54311ce916526e7aca9edb19dc16ef142a6d029292eef5f831b192ef"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Fiche/SimulatedFicheWorld.cs",
+      "sha256": "0ea2cab01a0fd776f83af0d03d9d449aadf0f83567713e74865717a2c0da19e2"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Machine/SimulatedMachineAccountReader.cs",
+      "sha256": "6a71872853585288a50cb0f2b8d56a1ba02695e4ab49680fd132cecd1592c8a6"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Operations/SimulatedOperationsReader.cs",
+      "sha256": "1331ee5dcbcc8768a358d872da1654e5e371cac2b1d9c10c47cfcfab05ec0fa1"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Poste/PosteCatalogs.cs",
+      "sha256": "8c7d9da1198055638b44f3d257991647fd529a4c61a65b75a015eee15b2983b9"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Poste/PosteFactStateAliases.cs",
+      "sha256": "97a7a8b9785a45b91636f7735c6f32872cdc74a2deb7e991f3f20fc51ffb431c"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Poste/PosteMachine.cs",
+      "sha256": "8630992f4f91bfaa9afcfd4a2a16a326ebd0fe5d01b8238c85a8c74632ced373"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Poste/PosteMachines.cs",
+      "sha256": "38032c5f4c30eb2837a35a1f2dcca936f4ea973cd090e1e9550d08c08e5ac822"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Poste/PosteSimulation.cs",
+      "sha256": "b0755c2519a2bb13e990c5fa18dc21b17e8a712e928f7f82237e0bf5d3043b69"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Poste/SimulatedPostePersonalProbes.cs",
+      "sha256": "d230d9d59b2d94f06a7cfbfe963aaf2b53c9d704ba05c8f65a206cafcb5a4a7f"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Poste/SimulatedPosteReader.Diagnostics.cs",
+      "sha256": "579755e91b74c2860232bc9d8e38060c58a8ef5ddafe8585c3667c95c8018c9d"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Poste/SimulatedPosteReader.cs",
+      "sha256": "3a3047e4095356ac9d199015fdbf6f9ef68c9398626c201c419397de18fff564"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Relations/SimulatedRelationProbes.cs",
+      "sha256": "e61d27f5d753fc796aef6e443291d9d2e1e812f2a0af86012b98270800e9a74d"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Relations/SimulatedRelationSeed.cs",
+      "sha256": "cae062b9d387591a28a391107fa992cd3519b274b72a44668c31cc45cbee6a96"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Relations/SimulatedRelationState.cs",
+      "sha256": "3e91fa9015d9ec6acdc029d3dafe6eb61f5d70775d105f80cf31916d09e195e8"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Relations/SimulatedRelationsReader.cs",
+      "sha256": "47d7007bde9006e03c05fa0332c3bca1f461ca2817f7e24118cdeef177a61577"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Requetes/SimulatedQueryData.cs",
+      "sha256": "0b0508c06c77e9fbc381b11065fc941280b10ab27e8e18a2ff7a67eb758c7325"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Requetes/SimulatedQueryPersonalProbes.cs",
+      "sha256": "5d915633abb8ae31f508800a94daa5142dd6067f32711a740c9dce62cc2bd0c1"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Requetes/SimulatedQueryReaders.cs",
+      "sha256": "8277892f7d9429271c27a518bcec50d9faf52f15c63bac52912363c4a4629c45"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Schema/SimulatedSchemaDefinitions.cs",
+      "sha256": "2052f9c7fd180b1e711b7f782634c3fd86b966780171980e3a1ccf5a25797ea4"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Schema/SimulatedSchemaReader.cs",
+      "sha256": "4d496eebacc999ec472ff349cf3ffbda0a22b315ea6acb23a8c22522ad106327"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Settings/SimulatedLocalStore.cs",
+      "sha256": "19403ba58155b2ec45e3cf3c92637536e394b2873c07413624a5498fe4713780"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Settings/SimulatedSettingsReader.cs",
+      "sha256": "c3e1ed7ecdb51b76ade04183cd2a7a4e02b0bfd3333425762ffe6acb9e4139e8"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Settings/SimulatedStorageDestinations.cs",
+      "sha256": "57cc0c7e6b21f020632828781c298c664e9707adc29ae84fa9f24bfa20051a8e"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Shell/SimulatedShellReader.cs",
+      "sha256": "519801a440d797bc4a6b58d613c08791f3f391ee77169a9f08189b8c48588c26"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/SimulatedAccountsReader.cs",
+      "sha256": "61315b40f40c6fc1f96a3892929bbe41e4f28f55eea82e65238e3dafdee3da62"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/SimulatedAssistanceReader.cs",
+      "sha256": "1447c0f05cbe0d23a28aa1d241eb6842c3692571e22ede835d6b7b9500f4940e"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/SimulatedAssistanceSteps.cs",
+      "sha256": "d3a47e865bbe6fa14267859ee6abb31d5e2377bb750a67a1cdcd01e867c96745"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/SimulatedDirectoryBranchReader.cs",
+      "sha256": "f230eee1e0fbe532c1b096912f350870120875141647b28be00b49a3ec479a33"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/SimulatedDirectoryTreeReader.cs",
+      "sha256": "bd572cb65a1bf032fb4ddbdf386219d67ea5a4d6de7b468c498000fdfdb332be"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/SimulatedSearchReader.cs",
+      "sha256": "0728784a25e895838b3164365aeec438235581145719345da7ef2005c8320cf4"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Sync/SimulatedSyncReader.cs",
+      "sha256": "92ee1549b1aca707404ad158a7c45b85b039baf1479f5af731c2ae4fdfda7251"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Sync/SimulatedSyncSeed.cs",
+      "sha256": "87e655a57cba97c997373ee68f4cc666bb0de1f6697cbbc6d463b862cd90f977"
+    },
+    {
+      "path": "src/Domenia.Simulation/Screens/Sync/SimulatedSyncState.cs",
+      "sha256": "47e8b9b28cb0d753e7abab33343b65f7651a7716190c6c9788cb3ebab31a938b"
+    },
+    {
+      "path": "src/Domenia.Simulation/SeededRandom.cs",
+      "sha256": "085f7438bbf45c9fabd64bf97b71bf881833a1fa58f9c7cd68b068a849e59189"
+    },
+    {
+      "path": "src/Domenia.Simulation/SimulatedDirectoryOverlay.cs",
+      "sha256": "deb54aac498c62096ecd5bc2788286d7d1cde925e58dcc79449001d8933e72ea"
+    },
+    {
+      "path": "src/Domenia.Simulation/SimulatedDirectorySource.cs",
+      "sha256": "ae47e12232e8d39d307ef3dac1941dd07d964a1823f85e09000e4f1dd468b5c2"
+    },
+    {
+      "path": "src/Domenia.Simulation/SimulatedWorld.cs",
+      "sha256": "7ee3e13e6309fecdc2696c7e0614d72b38cd148c5f1f015ac0cc183e9af5d644"
+    },
+    {
+      "path": "src/Domenia.Simulation/SimulatedWorldGenerator.cs",
+      "sha256": "91ce3ee4320fe32de63bb414d52d85fab33721b1b47d297afedbadb2175ce035"
+    },
+    {
+      "path": "src/Domenia.Simulation/SimulationOptions.cs",
+      "sha256": "d501a776309e41591ca6422ec0ddf0608cf5db92239d61ae49b8c31137a2b579"
+    },
+    {
+      "path": "src/Domenia.Simulation/SimulationProfile.cs",
+      "sha256": "f1a19d178e5650dbca277c2f2fa3db2bcc526386b3b51c731b5d555e5c223289"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/Poste/SimulatedPosteDirectoryExecutors.cs",
+      "sha256": "4a7a5805b2c2726ec146a0109937c29dfe1493696feea45855ba76101d63e9d7"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/Poste/SimulatedPosteRemoteExecutors.cs",
+      "sha256": "a4c77474d80cfebc3adc4e4e97f5577305d22a176bf83a8bc07b4be65cc76bfe"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/SimulatedAccountUnlockExecutor.cs",
+      "sha256": "74e8ab85a01c28e8fc0e53c93728a29ce8c472233cf7bf6a67fa9ff82b91ac36"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/SimulatedAccountWriteExecutors.cs",
+      "sha256": "a7f852a57c667363f29bf77368c8afb112467257552654c073de45c50d7a0e0b"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/SimulatedFicheWriteExecutors.cs",
+      "sha256": "eb491f080e0f8428f33c47aef28d7792293bacac156b2e7330556c0f1fc6cba7"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/SimulatedRelationChangeExecutor.cs",
+      "sha256": "965c169625e286194d55a10ca35ac13ab567c7f608b38215e87c24ef14af89ee"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/SimulatedRelationSweepResetExecutor.cs",
+      "sha256": "f6b4eefb1e2343646cae4a081bc073e9e31cf3fd0900a5aef51cccfca40c5191"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/SimulatedStorageExecutors.cs",
+      "sha256": "a71ff41d4765d6cdf46fd9f12d4ed0adbf566ef0a774e1fd6017dbeed8e4d9e5"
+    },
+    {
+      "path": "src/Domenia.Simulation/Writes/SimulatedSyncStoreExecutor.cs",
+      "sha256": "3e236d1f4a38ab11157fe13ab70b3e6735149d0ec2724ea3af6cfa92d2ff5e2f"
+    },
+    {
+      "path": "src/Domenia.Store/AssemblyInfo.cs",
+      "sha256": "a2f53dd007ef3733f6e32605cb3a3fa680cd0c833595094b515c6a3d0ecb96a0"
+    },
+    {
+      "path": "src/Domenia.Store/Configuration/AccountsConfigurationFile.cs",
+      "sha256": "45177309ead50222f920e4ff20e9b39dbf6b425e1f57d41787309484e532f8db"
+    },
+    {
+      "path": "src/Domenia.Store/Configuration/FicheSettingsFileReader.cs",
+      "sha256": "b5876d499c909ae1a7275291cd0f2ccf339cde3fdd421de1fa5dd7a53c3ddd41"
+    },
+    {
+      "path": "src/Domenia.Store/Configuration/LegacyConfigurationFile.cs",
+      "sha256": "853236aadfdb8db1346b94050ad9949dec9f1e6ac16912b647fb8063e88408e8"
+    },
+    {
+      "path": "src/Domenia.Store/Configuration/PosteSettingsFileReader.cs",
+      "sha256": "f0ad510cc51f4927d9e8d91012596278176eb969bab6c7b0cc8ee3832ea63cb6"
+    },
+    {
+      "path": "src/Domenia.Store/Documents/FileDocumentStore.cs",
+      "sha256": "424724d50f23e6f8049a94c1c3f56e06a118d0ae9e6221efa5a24b9590f6c90b"
+    },
+    {
+      "path": "src/Domenia.Store/Domenia.Store.csproj",
+      "sha256": "07b12e86b4a117cd202efabdb46391df49fd0701982ca74537d2dd3a58a848ab"
+    },
+    {
+      "path": "src/Domenia.Store/Files/AtomicLocalFile.cs",
+      "sha256": "b4c39e2060dd475929eeddd6ff6bfffa61ca155e2fcdca3b941ae32577ddf283"
+    },
+    {
+      "path": "src/Domenia.Store/Logging/RotatingTechnicalJournal.cs",
+      "sha256": "eb857e9b51a4ee3ee31f00f57a856dddda5edfc07349f0b398812c239f698aa4"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/BoardLayoutDefaultsFile.cs",
+      "sha256": "5c3b0db836ede81e46016ec5c0ecb28391429d1ad997a30da9a38d9e88722843"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/FilePreferenceStore.Access.cs",
+      "sha256": "dfb2c0d16049c36f0d3c76fa8f17d57d54de5893ea64b93bb32b9bcb4d6a5af0"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/FilePreferenceStore.Atomic.cs",
+      "sha256": "f71425b78d02e1202337fbf6c8b9bfe1242327bb670c8f424ec3b08e383a3158"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/FilePreferenceStore.Backup.cs",
+      "sha256": "f5a2421ca5227dadb7094aac8356d6bfad290bd93d3da19d624c9e07f8a3bcaf"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/FilePreferenceStore.Configuration.cs",
+      "sha256": "ae3e2701ab6974954ebc3734fb7da577155cafed3e9cc8730464f9d7243d3e92"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/FilePreferenceStore.Migration.cs",
+      "sha256": "f6eb81a854bc823973c45512a63a38245ea3684e1a25773433de019a25f67a3a"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/FilePreferenceStore.cs",
+      "sha256": "31778f02a6db9f30f0a71c285293dc3cd2c20a3e3566a05008c1ef559202319f"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/LegacyBoardLayoutFile.cs",
+      "sha256": "8c3099f43dc94a44721f8a4c68e1b905cc2b1def22744a3399b89bbba520d0ef"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/LegacyCompatibilityFiles.cs",
+      "sha256": "0fd6740a851233b5794d9e89bf36937774a401361cfdd150bc68bb0525162398"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/PortableConfigurationFile.cs",
+      "sha256": "4ac1e5d545852303d3fa67e33f614d7d24f16c9aa41071ed16c28478fd69e878"
+    },
+    {
+      "path": "src/Domenia.Store/Preferences/PreferenceDocument.cs",
+      "sha256": "e6cbfc55b9c7cb56e518f81951a35125c2b4573db2d32400a93040b370df0ccd"
+    },
+    {
+      "path": "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs",
+      "sha256": "44594953805ced23e10f44c361d0616e96dc1d1a6f369d0a3f45adcb822b392f"
+    },
+    {
+      "path": "src/Domenia.Store/Receipts/FileReceiptStore.Limits.cs",
+      "sha256": "4cff113c4bcb8e950f4bea2209aeced0033d05b2e47c180e9c39537034f197bb"
+    },
+    {
+      "path": "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs",
+      "sha256": "2a75198137a5372c0d4e55e10f9e209bbf4ae419a5aca2c310e68b7d59080e09"
+    },
+    {
+      "path": "src/Domenia.Store/Receipts/FileReceiptStore.Read.cs",
+      "sha256": "9e5ac9c41031d3cb4a43f62b206857ee67282a79168152cf9bcc970083e47811"
+    },
+    {
+      "path": "src/Domenia.Store/Receipts/FileReceiptStore.cs",
+      "sha256": "c1f0ff1b2519e3d3aef3240b63818f88adc983c34ac88ebd426de6e010eaf8d8"
+    },
+    {
+      "path": "src/Domenia.Store/Shell/ShellLocalFiles.cs",
+      "sha256": "ca15a49e122454520c4ab2681a95456dd8df619a1c81be11287d20e0bdda85e4"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Backups.cs",
+      "sha256": "82c5a2b0d9e6df6503b1f511288ce3ae4e0d7ef2486a9350310b121e909cdb76"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Branches.cs",
+      "sha256": "cb275048a347ba563e96b884c4df6a996f8f29298d621aa11b8d85d8f90c83e4"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Legacy.cs",
+      "sha256": "edc3a9208555c49eee9d61f1dd20f4889aea0821ea05d7171acbff638a1a6497"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Location.cs",
+      "sha256": "2ac0c864fe29993ff298ba6f67b5441061bf4773f352e674d0da924f0432a1ff"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Operations.cs",
+      "sha256": "bcc8697295ffe3b3ed82341b4e7fa2171446461d31406294d9c4876c27ab09d7"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Poste.cs",
+      "sha256": "efc3886a29ca4d17f1d7f9d5798df1fe3722e6311fada9ffcb4548dd7f5cb1be"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Purge.cs",
+      "sha256": "19717a7a3571d8d263b2ae49636b06bd24f9bb13cb3081425694f01f811b3d6a"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Queries.cs",
+      "sha256": "7d73aeb32152700555f300f19cae1328bf542b18a916461696abc93c8a0f1a1c"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Retention.cs",
+      "sha256": "0bafdd5e018864f58b83d0ca7f04b646109ba6bc488c4e91830305e206f68969"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.SharedPark.cs",
+      "sha256": "cc0b138ab0a89cb52396bf316bd36fd8763294daa4f37868ff1e935ca619c1fe"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Spool.cs",
+      "sha256": "1c846107e7d7f4e989f7ebef7beda131e63b15ae3e745826bf2d77be1f197e1e"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.Execute.cs",
+      "sha256": "6a69aee0a1d8e2c21cd6d789c851f11c8cf8ccdd4abd6d5c0d4a5ae841be2e0d"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.Plans.cs",
+      "sha256": "8bc0b55a7d3cc7adca91a772cf9082112088b2d7dcccdba8ae83519ec450e560"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.State.cs",
+      "sha256": "d5e3989e2ac4c6f6dcabc835b748f90b40dbe62bd484f5138cf0f1d12808de0e"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Sync.cs",
+      "sha256": "fbce32f90ae04001681ae9fb153aa2b452fe4199df89adb667778878a4974005"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Writer.cs",
+      "sha256": "84b42fdcb0d756de5601e3b69699ec548dbafd74eadcaf5ab1befd851637cdc1"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs",
+      "sha256": "acfe0c57be9ab42e01bc6882a2225414e328a09c146d2604cd9b9b7ff443a1ef"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Automation.cs",
+      "sha256": "9c3c7d95e10792c7460d4b6fd07ef892929a838f6bccc70d8775f8fc489539bf"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.AutomationData.cs",
+      "sha256": "01e82d695c4dfe165ef72216b30d508c159230f8696c11f22ff0aedf0656d5a1"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Backups.Budget.cs",
+      "sha256": "0ea674a87f052eb22f00e7341955b355ce11e166106ddcdda63a3c7986e0899d"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Backups.cs",
+      "sha256": "5f1259f6b2cd66c205625814b034ab07023f968fe6d63f747ecab993cf1343a0"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Branches.cs",
+      "sha256": "c3f73931b88ede26bc2d6222a82851b866c6189a7bceeb5ccfdaca425559783b"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.CollectionStorage.cs",
+      "sha256": "9705e5b26a9133bfc4538874645a48d2bfccf20598cc7a694110f34996b541c6"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Deletions.cs",
+      "sha256": "953205acdd4aa094c9661da661f20078734506bab5d47de312f325aebb2d087a"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.Fields.cs",
+      "sha256": "25f968354db1dc5200c2b5bf49a13d7006d188ac7d1e1d24ef868a361040d909"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.Legacy.cs",
+      "sha256": "dcd59558136ac7d20c25a43bc1bad758689e413f69e7ae56311f3a9e8b773f8e"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.ReadDetails.cs",
+      "sha256": "24ace506d5b58a6357b1238f1a3b79672f7623a56be9c2d7ec533a9495f32cbb"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.Stage.cs",
+      "sha256": "0cdb6b5201e94f37a86dceba17ffca8db513d1fc019b381c9480e470d0530c3f"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.cs",
+      "sha256": "6e6b19b71e42c49579c50b808ee1384656828f07e792f7dbd8de5b597762d1fd"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.DomainAccounts.cs",
+      "sha256": "770276d912a5b547e247080ecaa58d9b0dc8074f47040fa7be4661ebf58d9dda"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Fiches.cs",
+      "sha256": "5e43bb38b89df59f9d36311a99b8fbdc8ae8306bda98386f3ba6067012d93e6c"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs",
+      "sha256": "5702ce8b9ab81b52721079e44e76a9999f6769c0b5d82ac3ce23e5823d61bbd5"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.FleetHistory.cs",
+      "sha256": "e47abd109eae84c9079ab0db6df76296339c9a9d53d1675c25eede674e20637e"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.FleetIdentity.cs",
+      "sha256": "d2c032503281d6aed964ec91ef21484b3d0b92e93e968382ed4d5a539ab965da"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.FleetRows.cs",
+      "sha256": "10f3e31cf2a4a541d65b52108b669972a912bdbc5bee0575910cc0942f614f5b"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Index.Legacy.cs",
+      "sha256": "0109be6951162bbb67bdee7ccc8d79b064e39e0fa2c636fe76ade54f362ba253"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Index.cs",
+      "sha256": "faa3c191719a4ee72fa4d43938bf0c4e334b753f47476b664400ae00c5697a7d"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Legacy.cs",
+      "sha256": "f380e4df3cdca211a798d3eb51a97a93099eb1f9a567a1ad72902fce2c447d2f"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.LegacyInventory.cs",
+      "sha256": "c0e4987dc17da28f74ea3355a04115401bbad8eb1acefd9780a3208e7bd4ed9e"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.LegacyRows.cs",
+      "sha256": "eaf3866241847d74c27130c000e97c49a8752b099a37f9d7405dd8a08c9278bb"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.BackupProof.cs",
+      "sha256": "0c13c795b4df604198fc27a4d2f5d50571ea200ec83c4e684d65cb4bf30cc825"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.Legacy.cs",
+      "sha256": "dbabda02fc8a6bf806b750fc6d382328f69a79bc127151d97fef01204e2c5564"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.Relocation.cs",
+      "sha256": "0e0a669a2c2aaa62c8621b061812b9a002ce78ec541033a5b1ea58ff08e200d6"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.TargetPages.cs",
+      "sha256": "19d026cf2afdde4ddce6e1528f6d41db5e22e3510bbb9a2559cfd092548f2385"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.cs",
+      "sha256": "10844aca13f6aa24492948b6bdc5226863db37a5db9cdf2d9141540b6e741a0f"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Purge.cs",
+      "sha256": "f8dc52ebec43799326e20113a7fc290fcbda475e0104240d4106ffa6e0737bd7"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.PurgeInventory.cs",
+      "sha256": "d3ead34c68e010cf765e1a05ba16e87a09f4df4b4a1c57b4ccc4bf42a838f666"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.PurgeSummary.cs",
+      "sha256": "378acb12a5b5d4e175af4aad9eb3ae7828a9bb56cf2b6da899f6c9dbeafcada2"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Queries.cs",
+      "sha256": "4a36e35eef6d83f48595fb3b617c56c3389f4429b55300dac392c097aedcfdf3"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLegacy.cs",
+      "sha256": "49377b73c748d192c10b853b61fc66622d4c6eb1b2a151af9fabb72037fec994"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs",
+      "sha256": "4416ff77886122d2daae77d93501abbb1acf99be1440467a19b9ff5f3643edb5"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.ReadPresence.cs",
+      "sha256": "b34b20a8657b46e64876fcbedd7244fde8f84a6903929769a4554c901307a313"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.RelationJournal.cs",
+      "sha256": "2dfe74fa46372d009cb04aa9d33946e369edb8886ff354085064a714705fe256"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.RelationJournalWrites.cs",
+      "sha256": "2090d4c6df59d4d692b0c59df5f79e1c856d805524cb6de7d5f7baf9148d8586"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.RelationSweepReset.cs",
+      "sha256": "14b81ea37f35c9e4e84b4f8eba4ee094ba09e9126712ff905a46c605b0ad3bec"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.RelationSweepWrites.cs",
+      "sha256": "db0310360f0b6e65ce460da7d34187cf90ced3f24a8e9da983c7cb3c07337402"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.RelationSweeps.cs",
+      "sha256": "345a2dfe1f1376e06f23e71735bf0c6c503381bdf015e800f9aa79b46af2f411"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.RelationWrites.cs",
+      "sha256": "504b478ebaaab151c6279c82c8e6a3512578e72d4436824d054ba16d7ba5bc45"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Relations.cs",
+      "sha256": "c8f10d2be8e63d0fef84046f7667920c4067aec910b2bdff3c119ecb492b6d0d"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.RemoteReads.cs",
+      "sha256": "5acf6c40a5a3ee1de347e4f616c529748f4c9411517a37a28b1f928e275fb2c5"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Retention.cs",
+      "sha256": "835c154039e699e45019d68f9501c5167f15361aa2bf5b0aa2393d5b6e9f6e24"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.RetentionInventory.cs",
+      "sha256": "1791d11c3d5682ce1b748039eebdd45ef3e215fa1ec86f789d29630a0df56db4"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Sessions.cs",
+      "sha256": "a4a4d6e10a4b4ae06c96474c1e8df00729c6d6cf244b12012f25ff1e02c9edbb"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.Catalog.cs",
+      "sha256": "5b6a59013f63ed3ec5c98c3243868fccc587206278466f1eb5269cd853e1b56c"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.Diagnostics.cs",
+      "sha256": "b38327bab56a0670fd02941189f3569b351b09d7483c21f7ae38b11f8cc26bb6"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs",
+      "sha256": "328e943e52c7af0bf7a6ba2736ceea4cf4d6dc2f2072c822f977671dd4b5400b"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.SharedPark.Apply.cs",
+      "sha256": "92be296019e2fd4567f6607a2b7f3ce5cb4128d9f8f756911c13cd554818b62d"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.SharedPark.Backups.cs",
+      "sha256": "a64eff5f12510f89b77517e834ab310ab8e4e67f13a3ca0d1eeb7bcbe7cd3076"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.SharedPark.Preview.cs",
+      "sha256": "8c4beba51abeb2b3eb1867a970066b3160eddfe16cdc3d660ffbec12b63b3ff3"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.SharedPark.Read.cs",
+      "sha256": "5ac3cee9bf21a85ee8723a4ef5b9a533f0d655582b05a9aa910c0287a56c6f30"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.SharedPark.Verify.cs",
+      "sha256": "0e674eab6198798b773de29ddf1ea6dbdaa68b7cc12edc2dc13d8cdd529fe18f"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Switch.cs",
+      "sha256": "df2bc52b7c736f521d8c7c398a3ee2001d71bbff79bebd62ad1733f12d02fe6c"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Sync.cs",
+      "sha256": "24b0af7b07da7cfca7b0857d67d0f348c718ada8bcf3191bc9aa7bd932ede813"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.SyncProofs.cs",
+      "sha256": "6fdc74c572e24205e418c52da55a8b27badf65bffb53f2ed4c46edcb38b18766"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.SyncWrites.cs",
+      "sha256": "e4d57374d9bb849ac080ae6304bee51f2b50245d75254e382fd3e540c341d894"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.EntryPoints.cs",
+      "sha256": "41ad80207195571703e0c0d4f444a3142e5645e3456bc93a72ace7851364f80e"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.Resume.cs",
+      "sha256": "2eb5e71f85f2600ed377181d0d139806e01e63368838ee6302b0c6e6a463a215"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs",
+      "sha256": "3b4f7f1d95f10ef87274ebb14e4d32366a0957dbc5b565779480a3faf6f99371"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/DomeniaDatabase.cs",
+      "sha256": "3100806ffbfe5a7618d8fe4f1aa76ef0d4e1edd79ae7a0fb148c82ff1d0169b9"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/LegacyImportFiles.cs",
+      "sha256": "4cb3dffa3dc8849929213f35042e4dc5cb7b945244d0463fa65531846e817c32"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/LegacyQueryFile.cs",
+      "sha256": "f25fea1ed706835e03b0a88cd136190c6bc6ea0716c68adc702f2517b800465e"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/LegacySearchFile.cs",
+      "sha256": "f264b75d858faa959bf771429b4953f9cc9fc102e815d7664a873af8c948fece"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/ReadOnlyDirectoryCache.cs",
+      "sha256": "247f3af8778d108ea2ddcbc8fc031d9d7fe42a54e566d31131d8275ce5e3a3de"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkFile.cs",
+      "sha256": "beb48574f78c9e93dffabdd2d07a4ea720cce481536d5477a046e383472194e4"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkIntentDocument.cs",
+      "sha256": "e85730577e64534b5b0420a22dff621a34f93077d8e0dbc1dadcff34d5ecdb28"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkIntentJournal.cs",
+      "sha256": "bd3610e02d990456a3be906c8d58468230fbc90a2b6305464ebfe797e44e1ba5"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkLocalPaths.cs",
+      "sha256": "9ada551a71dad70496c6dea84cdacf118b53d1baf6603b3830d0b02477e94d69"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkMerge.cs",
+      "sha256": "15ca4f439ba7929c9e04acce4426b2054b22057c8a00384b4ce703a3c9e6b084"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkPendingSqlite.cs",
+      "sha256": "5c300adc64875e362320a8145522f46da11af7beab631edae3d5a00ce5347f70"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkPreviewFile.cs",
+      "sha256": "4b72a57db432bbfc5fb1be9d8c94e6b09952c46a57eb3a59e2eab66514614eed"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkPublicationDacl.cs",
+      "sha256": "42665f5e4cd8e83764d388ef139a6b5ffcb7cbfd31eb3fc227574f5624e8191d"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkPublicationFile.cs",
+      "sha256": "12531d72620ed9b4d3adcebb1317f1b155b266844daad007cb69e31a8c9d0daa"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SharedParkRemoteReader.cs",
+      "sha256": "1cd3c51bb906192c8bf02f621bec51a1aa0a353c32c733749784a5e45079e6e3"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDatabase.cs",
+      "sha256": "2ebe9a29760237e0590a60fa477e6ac85416950f6109eeee2fbe2dc87acbafc3"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDirectoryCache.Backups.cs",
+      "sha256": "f2bdf67e9c9edd0cd4cd43b7d4b78845dbb92e23671cd8385edbd9d1e772a718"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDirectoryCache.Branches.cs",
+      "sha256": "8db502d9ab242d3ac9feab2f3d0b497e73b1fd74c967c5cb38e6a3dc85178b02"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDirectoryCache.Operations.cs",
+      "sha256": "aa5b3da7829c8b0e39140abdcdb03bccbf3108295cbe95bf5a89e3b3b0bed816"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDirectoryCache.Purge.cs",
+      "sha256": "5c05346940a6acc5ef5ad3d28a4c6e3c0df5704111df083e1ab1ac135468e6cd"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDirectoryCache.Queries.cs",
+      "sha256": "d8c14c8f1de96f73712169ab853d68a33ab12d9915f91edffc1103eac821466f"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDirectoryCache.Retention.cs",
+      "sha256": "1752854c90d19d8a3379f38111c8adb38f16cf0ab5f5184b4cd3ffc2d06590a5"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDirectoryCache.Sync.cs",
+      "sha256": "16a8f81c27240c81cd3073b4f2e064c153cd6a3f7149ae4f7989605363b6c94a"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SqliteDirectoryCache.cs",
+      "sha256": "fb73beb0675a9680eef989ac484e48a63bbcd742885af26db98dfd90c5bace9d"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/StoragePayloadDigest.cs",
+      "sha256": "204c5895dbc8a12e2f5a1acaed2870ea9e78f2082333276260ad31a89ee2134c"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/StorageWriteFence.cs",
+      "sha256": "78334ccec08921b32d98a1da549039cada6e357e1f851a9c2f583a1dbf148163"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/StorageWriteSnapshot.cs",
+      "sha256": "d4108b24effeaf1e8c802bb0d9b1cc7e5cd28f2d649348b91e4edc63d4b95750"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/SyncBatchFile.cs",
+      "sha256": "e142af7c4f9a0529dce9c1430ce3fbdd490ee1176fa696da32458a41001af845"
+    },
+    {
+      "path": "src/Domenia.Store/Sqlite/UserLocalStorageProtection.cs",
+      "sha256": "007401e48cfc7f324a4fdf9b55afad48e601f8672913a25401e003be7eac4fd3"
+    }
+  ],
+  "fingerprint": "6aec69f8e9164d0eb835bb912c7f0f027af347bf78a660172035b7bb475a4a13"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "TRV-230",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Writes/WriteCircuit.cs:382-396 — EnsureWritesFreeAsync : tout reçu pending refuse la nouvelle écriture ; même cible (Plan.Target.ObjectGuid) → write.targetPending, toute autre cible → write.receiptsPending",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:97 et :279 — le contrôle est fait à la préparation du plan puis refait juste avant l'envoi",
+    "src/Domenia.Core/Writes/WriteReceipts.cs:95-99 — IsPending : Result ∈ {Sent, Unknown} ET Verification == Unknown ; src/Domenia.Core/Writes/WriteReceipts.cs:17-18 — la phrase du reçu rappelle « Rien n'est renvoyé automatiquement. »",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:418-429 — reçus illisibles (IOException, UnauthorizedAccessException) : refus receipt.unavailable, aucune écriture admise (fail closed)",
+    "src/Domenia.Store/Receipts/FileReceiptStore.cs:243 — un enregistrement dont Result ou Verification n'est pas une valeur définie est rejeté par Normalize (fail closed sur une étape altérée) ; src/Domenia.Store/Receipts/FileReceiptStore.Read.cs:69 — compté illisible",
+    "src/Domenia.Store/Receipts/FileReceiptStore.cs:171-178 — sous la section critique machine, une version 1 est refusée si quoi que ce soit est pending, illisible, ou si l'identifiant a déjà servi : deux instances ne peuvent pas observer toutes deux un ensemble vide puis envoyer",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:176-190 et :197-220 — write.receipts.list, write.receipts.get et write.receipts.verify n'appellent jamais EnsureWritesFreeAsync : les lectures restent possibles pour vérifier",
+    "src/Domenia.Bridge/AdmissionGuards.cs:36-44 — en mode annuaire, Local, LocalRead, LocalWrite et NetworkRead sont admis ; Write seulement pour write.execute — un reçu incertain ne ferme aucune lecture",
+    "web/js/pages/operations/receipts.js:552 — un reçu pending est affiché avec la pastille « Bloque toutes les nouvelles écritures » ; web/js/write-flow.js:363-364 — un refus targetPending/receiptsPending propose « Ouvrir Opérations » sur le filtre à vérifier",
+    "tests/Domenia.Tests/WriteCircuitTests.cs:475-478 — « cible bloquée » (write.targetPending) puis « toutes les nouvelles écritures sont bloquées » (write.receiptsPending) ; :487-488 — après une relecture concluante, la cible et les autres objets redeviennent libres",
+    "tests/Domenia.Tests/WriteCircuitTests.cs:508-509 — « aucun plan tant que les reçus sont illisibles » (write.receiptUnavailable) et message WriteErrors.ReceiptsUnreadableMessage"
+  ],
+  "manque": "1) Pas de verrou par cible : la seule serrure est un sémaphore global (src/Domenia.Core/Writes/WriteCircuit.cs:45) et un blocage de toute l'application dès qu'un reçu est incertain (src/Domenia.Core/Writes/WriteCircuit.cs:394-395). L'énoncé demande que les reçus incertains d'une exécution précédente verrouillent leur propre cible, pas toute l'application ; ici un reçu incertain sur un objet bloque toute écriture sur tout autre objet (c'est ce qu'affirme le test tests/Domenia.Tests/WriteCircuitTests.cs:478). Aucune structure de verrous par clé de cible n'existe dans src/Domenia.Core/Writes. 2) Le verrou ne porte que sur le GUID : src/Domenia.Core/Writes/WriteCircuit.cs:390 compare Plan.Target.ObjectGuid et jamais le DN ; un reçu dont la cible a été renommée ou déplacée ne bloque plus les écritures adressées par l'ancien DN, et un reçu au GUID vide tombe par accident dans la branche « autre cible ». Aucune règle ni aucun test pour une cible sans GUID lisible. 3) « Comparaison brute de l'étape (fail closed) » n'est pas une comparaison brute : le caractère bloquant est un prédicat calculé sur deux énumérations (src/Domenia.Core/Writes/WriteReceipts.cs:95-99) ; un reçu dont Result est Applied ou NotApplied alors que sa relecture a échoué (Verification Unknown) n'est pas pending et ne retient plus rien — il est seulement toné Warn (src/Domenia.Core/Writes/WriteReceipts.cs:125-133). 4) Les enregistrements illisibles ne bloquent pas à la préparation : EnsureWritesFreeAsync (src/Domenia.Core/Writes/WriteCircuit.cs:384-389) ignore le compteur unreadable renvoyé par ReadAsync ; seul l'append durable refuse (src/Domenia.Store/Receipts/FileReceiptStore.cs:176). 5) Aucun test du cas deux instances (le chemin de verrou machine de src/Domenia.Store/Receipts/FileReceiptStore.cs:171-178 n'est pas testé) ni d'une cible dont le DN change pendant que son reçu est incertain.",
+  "effort": "L",
+  "depend": [
+    "TRV-236 (verrous par cible et classe d'action : même point de décision, src/Domenia.Core/Writes/WriteCircuit.cs:382-396)",
+    "TRV-231 (les reçus incertains d'une exécution précédente sont précisément ceux que la reprise doit verrouiller)",
+    "TRV-233 (définition de ce qui est non terminal : IsPending est le point unique)",
+    "TRV-232 (registre d'idempotence amorcé au démarrage, tenant compte des jobs actifs)",
+    "sujet « Reçus et revues » (src/Domenia.Core/Writes/WriteReceipts.cs:95-99)"
+  ],
+  "risque": "ecriture-AD"
+}

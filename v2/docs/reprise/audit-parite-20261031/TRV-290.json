@@ -1,0 +1,31 @@
+{
+  "id": "TRV-290",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/pages/accueil/board.js:938 — après un enregistrement de disposition, chaque widget nouveau (absent de previousIds) est collecté aussitôt : « for (const item of saved.items.filter(item => !previousIds.has(item.id))) void collections.collect(item, 'add') »",
+    "web/js/pages/accueil/board.js:708 — « Actualiser ce widget » passe le geste « refresh » (indice « confirmation » dans le menu)",
+    "web/js/pages/accueil/board.js:724 — la reprise d'un widget suspendu passe le geste « resume » après enregistrement",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:54 — le geste est validé : « add », « refresh » ou « resume », sinon refus",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:94 — confirmationRequired = gesture != \"add\" || missing.Count > 200 || probe?.Definition.Slow == true || kind is \"directory\" or \"bitlocker\" : l'ajout n'est confirmé qu'au-delà de 200 postes",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:182 — if (work.Plan.ConfirmationRequired && !confirmed) refuse par « widget.confirmation » : « Confirmez le nombre de postes avant cette collecte. »",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:71,77 — MissingWidgetTargetsAsync puis les identités du plan sont filtrées sur les seuls postes manquants : « targets.Identities.Where(p => missing.Contains(p.Key)) »",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:125-128 — la fraîcheur est lue du tableau de fraîcheur (CollectionSettingsRules.FreshnessTable) et de policy.ReuseMinutes : les mesures récentes sont réutilisées, pas relues",
+    "src/Domenia.Core/Screens/Settings/CollectionSettings.cs:99-106 — six familles de réutilisation (presence, console, attributes, inventory, staticProbe, volatileProbe), bornées de 0 à une semaine : l'équivalent D2 du MaxAge de Domenia 1",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:73-78 — plafond appliqué : « var maximum = settings.Budgets.GetValueOrDefault(CollectionSettingsRules.WidgetMax) » puis refus « widget.ceiling » au-delà",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:88 — geste « console » (LiveConsole) : « Ping puis utilisateur console des seuls postes qui répondent. » ; la lecture existe (src/Domenia.Inventory/WmiWorkstationReader.LastUser.cs)",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:91 — passe légère (ParkSweep) : « Ping puis inventaire léger des seuls postes sans mesure récente et qui répondent. » ; src/Domenia.Inventory/WmiWorkstationProbe.cs:11 se réclame de « Domenia 1 ParkPing and ParkSweep »",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:427 — « ajout explicite de moins de 200 postes sans seconde confirmation »",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:466-469 — « commande Actualiser demande une confirmation » puis refus « widget.confirmation » quand confirmed est faux",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:456-457 — « réponse définitive récente réutilisée comme une mesure » et « le même nom n'est pas redemandé dans la fenêtre de fraîcheur »",
+    "tests/Domenia.Tests/PersonalProbeTests.cs:133-135 — plan « add » puis refus de lancer sans confirmation explicite (« pas de collecte implicite »)"
+  ],
+  "manque": "Le plafond SE-05 des relevés n'est pas appliqué à la collecte d'un widget. Le seul plafond testé est « widgetMax » (src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:73-78) et son défaut est 0, c'est-à-dire « Sans plafond » (CollectionSettings.cs:132 et CollectionSettings.cs:362) : par défaut un ajout de widget peut collecter un nombre illimité de postes, la seule limite restant la confirmation au-delà de 200 (src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:94). Le budget « maxTargets » (Park.MaxTargets, l'admission SE-05 de Test-DomeniaParkTargetAdmission, src/Domenia.Core/Screens/Search/SearchSurvey.cs:24) n'est lu nulle part dans AccueilService.Widgets.cs ni AccueilRefresh.cs (rg « MaxTargets » dans ces deux fichiers ne renvoie que OperationsPersistence.MaxTargets, src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:190). Aucun test ne vérifie non plus le refus « widget.ceiling ».",
+  "effort": "S",
+  "depend": [
+    "TRV-291",
+    "TRV-292",
+    "PAR-037",
+    "PAR-041"
+  ],
+  "risque": "reseau"
+}

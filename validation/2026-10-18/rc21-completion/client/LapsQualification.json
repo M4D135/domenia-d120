@@ -1,0 +1,68 @@
+{
+    "Suite":  "Domenia.LapsQualification",
+    "Platform":  "Microsoft Windows NT 10.0.26200.0",
+    "PowerShell":  "5.1.26100.6584",
+    "Edition":  "Desktop",
+    "LiveRequested":  true,
+    "SecretRead":  false,
+    "Passed":  5,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Schema et expiration lus avec les postes, jamais le mot de passe",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Attributs secrets exclus de la fiche, expirations conservees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Secret lu seulement sur un geste explicite, avec le compte LAPS",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Etats LAPS explicables sans secret : historique, Windows LAPS, module absent, droit refuse, expiration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "En direct : schema LAPS et expiration du poste lus avec l identite courante, sans secret",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ],
+    "Live":  {
+                 "Computer":  "DC01",
+                 "SchemaLegacy":  false,
+                 "SchemaWindows":  false,
+                 "LegacyExpirationVisible":  false,
+                 "WindowsExpirationVisible":  false,
+                 "LapsModuleCommand":  true
+             },
+    "ManualScenarios":  [
+                            {
+                                "Scenario":  "Domaine sans schéma LAPS",
+                                "Expected":  "Index : état NoSchema (code X des requêtes), « Expiration LAPS non disponible dans ce domaine » ; aucun « sans LAPS » compté à tort.",
+                                "Status":  "NotExecuted"
+                            },
+                            {
+                                "Scenario":  "LAPS historique (ms-Mcs-AdmPwd)",
+                                "Expected":  "Expiration affichée sur la fiche et le tableau du poste ; secret lu seulement par « Charger LAPS », masqué jusquʼà la révélation.",
+                                "Status":  "NotExecuted"
+                            },
+                            {
+                                "Scenario":  "Windows LAPS chiffré, module présent puis absent",
+                                "Expected":  "Avec le module : déchiffrement par Get-LapsADPassword et le compte LAPS ; sans le module : état « Prérequis absent », aucune autre méthode tentée.",
+                                "Status":  "NotExecuted"
+                            },
+                            {
+                                "Scenario":  "Compte non délégué",
+                                "Expected":  "« Lecture refusée », « non confirmée » ou « déchiffrement refusé » selon le cas, proposition dʼun autre compte LAPS, jamais « aucun mot de passe ».",
+                                "Status":  "NotExecuted"
+                            }
+                        ],
+    "Limitations":  "Hors ligne : regles et code source. En direct (option) : schema et expiration seulement. Les quatre scenarios manuels restent a executer dans le laboratoire et ne sont pas comptes."
+}

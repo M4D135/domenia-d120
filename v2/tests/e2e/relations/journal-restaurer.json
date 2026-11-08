@@ -1,0 +1,61 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : restaurer une association retirée depuis le journal",
+  "description": "Ouvre le journal, filtre les retraits, restaure l’association retirée i.leger → PC-MRS-0006 par le circuit des écritures (plan, confirmation, reçu, relecture) et vérifie que l’entrée est marquée restaurée.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?onglet=journal",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-restore]",
+      "title": "Une suppression restaurable est listée"
+    },
+    {
+      "do": "expect",
+      "contains": "PC-MRS-0006",
+      "title": "Le retrait de PC-MRS-0006 figure au journal"
+    },
+    {
+      "do": "click",
+      "selector": "[data-restore]",
+      "nth": 0,
+      "title": "Restaurer l’association"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-target",
+      "title": "Le plan de restauration est affiché"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-receipt-title",
+      "timeoutMs": 20000,
+      "title": "Le reçu de restauration est affiché"
+    },
+    {
+      "do": "press",
+      "key": "Escape",
+      "title": "Fermer le panneau"
+    },
+    {
+      "do": "wait",
+      "contains": "Restaurée",
+      "title": "L’entrée du journal est marquée restaurée"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

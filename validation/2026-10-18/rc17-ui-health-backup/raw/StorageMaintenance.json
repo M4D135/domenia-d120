@@ -1,0 +1,63 @@
+{
+    "Suite":  "StorageMaintenance",
+    "Platform":  "Microsoft Windows NT 10.0.26200.0",
+    "PowerShell":  "5.1.26100.6584",
+    "Cases":  [
+                  {
+                      "Name":  "Policy defaults are opt-in and reject invalid bounds",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Backup scheduling respects interval, busy state and failed-attempt cooldown",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Restore uses a separate verified target and never overwrites the active file",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Backup is standalone and readable after export without WAL sidecars",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 34: restore preview dates the backup and compares it with the active base",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 34: restore over a corrupt active base leaves it untouched and writes no marker",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 36: integrity check of a healthy base is read-only and clean",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 36: integrity check reports foreign identity, newer receipts and missing columns",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 36: integrity check of an unreadable file reports it without throwing",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "RC13: asynchronous switch waits for receipt confirmation and rejects stale or changed copies",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Total":  10,
+    "Passed":  10,
+    "Failed":  0,
+    "Assertions":  61,
+    "NoNetwork":  true,
+    "Scope":  "Temporary SQLite databases; no Active Directory or real-user data."
+}

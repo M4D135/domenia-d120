@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : vue experte pour une seule consultation",
+  "description": "Depuis le profil Essentiel, la palette affiche la vue experte de l’écran : la puce « Vue experte · cette consultation » apparaît, le profil n’est pas changé ; l’écran suivant revient à la vue Essentiel, la puce disparaît (TRV-167).",
+  "modes": ["simulation"],
+  "start": "accueil",
+  "steps": [
+    { "do": "press", "key": "Control+K", "title": "Ouvrir la palette" },
+    { "do": "type", "selector": ".palette-backdrop .palette input", "text": "vue experte" },
+    { "do": "wait", "contains": "Afficher la vue experte", "within": ".palette-backdrop .results" },
+    { "do": "press", "key": "Enter", "title": "Afficher la vue experte" },
+    { "do": "wait", "selector": ".sh-expert-chip:not([hidden])", "title": "La puce de la vue experte est affichée" },
+    { "do": "click", "selector": ".nav-item[data-id=\"rechercher\"]", "title": "Changer d’écran" },
+    { "do": "wait", "ready": "rechercher" },
+    { "do": "expect", "selector": ".sh-expert-chip:not([hidden])", "absent": true, "title": "La vue experte ne déborde pas sur l’écran suivant" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

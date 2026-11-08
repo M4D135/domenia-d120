@@ -1,0 +1,21 @@
+{
+  "id": "TRV-044",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/web/js/app.js:1438 — après boot() et router.start(), requestAnimationFrame(() => quietCall('session.interfaceReady')) : la page déclare elle-même son premier rendu utilisable, une seule fois, à la fin du amorçage de l’interface",
+    "repo/v2/src/Domenia.Bridge/Operations/SessionOperations.cs:23-28 — session.interfaceReady (OperationClass.LocalRead, RequireNone) appelle context.Readers.Find<IStartupPresentation>()?.InterfaceReady() ; « Signale le premier rendu utilisable de l’interface locale, sans connexion. »",
+    "repo/v2/src/Domenia.App/StartupTrace.cs:11-16,31-33 — MarkInterfaceReady marque StartupPhase.InterfaceReady puis écrit la ligne de jalon « Démarrage/InterfaceReady : n ms ; depuis l’amorçage m ms. » dans le journal technique : le jalon de disponibilité est bien tracé (équivalent Complete-DomeniaStartupAvailability)",
+    "repo/v2/src/Domenia.Core/Startup/StartupMeasurements.cs:13-21 — horloge monotone unique, file bornée à 32 observations, exception de sortie avalée : une trace qui échoue ne casse pas l’ouverture déjà affichée (garde-fou de l’énoncé, côté mesure)",
+    "repo/v2/src/Domenia.App/MainForm.cs:106 et 237-240 — la disponibilité déclarée masque le bandeau startupStatus ; NavigationCompleted appelle RevealInitialInterface() seulement si result.IsSuccess, sinon ShowFallback affiche un message explicite : un échec après affichage est annoncé sans fermer la fenêtre",
+    "repo/v2/web/js/app.js:545-580 — au démarrage, les appels de la coquille partent en parallèle et sans file (app.info, readShellSession, shell.interface.get, shell.policy, refreshActivity, installWindowActivity, startPulse) : aucune exécution « une par une » ordonnancée",
+    "repo/v2/web/js/pages/synchro.js:210 — les figures de Stockage (synchro.overview) ne sont lues qu’à l’affichage de l’écran ; rien de correspondant n’est préparé juste après le premier rendu d’Accueil"
+  ],
+  "manque": "Il ne reste que le jalon ; la fonction différée elle-même n’existe pas. 1) Aucune machinery d’étapes différées : rg « deferred|différé|prewarm|idle » dans src/Domenia.App, src/Domenia.Bridge et src/Domenia.Core ne remonte aucun Register-DomeniaDeferredStartupStep / Invoke-DomeniaNextDeferredStartupStep / Start-DomeniaDeferredStartup transplanté (seules occurrences de « différée », MainForm.Transitions.cs:63, MainForm.Update.cs:38, StorageBackupScheduler.cs:11, sans rapport). 2) Aucune préparation des pages hors premier écran après le rendu d’Accueil : arbre de Rechercher, écrans Stockage et figures de la base se chargent à l’ouverture de la page (synchro.js:210 ; app.js:1356-1357 onChange → checkScreenOpened), et les appels du boot sont concurrents (app.js:545-580), donc ni séquentiels ni « avant toute saisie ». 3) Le garde-fou « un échec d’étape différée est tracé et annoncé » n’a pas d’objet : aucune étape n’étant différée, aucune ligne de journal ni annonce n’existe pour ce cas ; l’échec d’un appel de coquille se noie dans console.warn/notify (app.js:562, 571-572, 579). 4) Le jalon est nommé InterfaceReady (mesure de performance) et non « Accueil disponible » : aucune ligne ne distingue la disponibilité de l’Accueil de celle de la coquille, et aucun test ne vérifie que la ligne est écrite (rg « InterfaceReady » dans tests/ : seulement la déclaration d’opération PlatformTests.cs:487 et son appel SessionWritePolicyTests.cs:85).",
+  "effort": "M",
+  "depend": [
+    "TRV-043 (KeepMonitorUntilReady et l’ordre des étapes partagent le même jalon de disponibilité)",
+    "TRV-042 (si une liste de fonctions critiques est ajoutée, son contrôle doit précéder les étapes différées, sans les bloquer)",
+    "repo/v2/src/Domenia.Bridge/BridgeScheduling.cs — priorités et retraits de la file : une étape différée doit passer en basse priorité et rester annulable pour ne pas concurrencer la première saisie"
+  ],
+  "risque": "lecture"
+}

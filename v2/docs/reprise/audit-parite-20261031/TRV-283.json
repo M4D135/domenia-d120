@@ -1,0 +1,37 @@
+{
+  "id": "TRV-283",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:7-10 — ArchiveThreshold = 384, RetainedCompleted = 256, MaximumPending = 512, MaximumArchiveFiles = 4096 : les quatre seuils de la fiche",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:11 — ArchiveDirectory = <dossier>/archive/<nom-du-journal-sans-extension> : les reçus partent bien dans archive\\",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:35 — aucun travail sous 384 reçus et 4 Mio : « if (current.Count <= ArchiveThreshold && bytes < 4 * 1024 * 1024) return; »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:36-37 — completed = reçus non en attente triés du plus récent au plus ancien, puis Skip(256) : ce sont bien les plus anciens qui sont archivés, 256 terminés restent actifs",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:47 — retained = tous les reçus en attente ++ les 256 terminés les plus récents : les reçus non résolus restent en place",
+    "src/Domenia.Core/Writes/WriteReceipts.cs:95-98 — IsPending = (Sent ou Unknown) et Verification Unknown ; sont donc terminaux (archivables) Vérifiée, Revue, Non appliquée, Déjà faite/rien envoyé et Appliquée (src/Domenia.Core/Writes/WriteModels.cs:21-28, 35-41)",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:64 — « Un reçu incertain ne peut pas être archivé. » : garde-fou explicite avant tout archivage",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:33 — « Plus de 512 reçus non résolus ; vérification manuelle requise, aucun reçu supprimé. »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:19-21 — plus de 4096 fichiers, sous-dossier, extension autre que .jsonl ou identifiant de plan invalide = « Archive de reçus hors contrat ou au-delà de 4096 fichiers ; vérification manuelle requise. »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:39-40 — saturation anticipée de l'archive : « Archive de reçus pleine ; aucun reçu supprimé, vérification manuelle requise. »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:31 — journal illisible : « Compaction des reçus refusée : journal incomplet ou illisible conservé intégralement. » (return sans aucune suppression)",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:59 — le finally ne supprime que le fichier temporaire de la compaction ; le journal d'origine n'est jamais effacé",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:52-56 — le fichier compacté est relu intégralement et comparé octet à octet avant File.Replace ; sinon « journal initial conservé »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:67-74 — une archive déjà présente est relue et comparée (empreinte du plan, SentAt, version) : jamais remplacée sur divergence",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:26 — commentaire et réalité du verrou : la compaction s'exécute dans la même section critique machine que l'ajout",
+    "src/Domenia.Store/Receipts/FileReceiptStore.cs:162-163,204,208 — Append prend le Mutex « Global\\Domenia.Receipts.<SHA-256 du chemin> » (FileReceiptStore.cs:73), appelle CompactReceipts() à l'intérieur, et ne libère le mutex qu'au finally : pas de verrou writer.lock distinct, c'est ce mutex machine qui sérialise écriture et compaction",
+    "src/Domenia.Store/Receipts/FileReceiptStore.cs:174-177 — avant un premier envoi, reliure sous le même mutex : reçus incertains ou illisibles = « aucun nouvel envoi autorisé »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs:12-19 — ValidateReceiptPath : disque fixe local exigé, aucun partage UNC, puis CompatibleDirectoryCache.ValidateLocalPath (src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:156-159) qui refuse fichier ou ancêtre ReparsePoint : un reçu redirigé est refusé à l'ouverture, jamais déplacé ni supprimé",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Read.cs:29 — la lecture relie aussi les archives (ArchiveFiles()), donc rien n'est perdu par la compaction",
+    "tests/Domenia.Tests/ReceiptStoreArchiveTests.cs:10-35 — Compaction_archives_old_terminal_receipts_and_keeps_all_uncertain_evidence : 256 terminés + tous les incertains dans le journal actif, archives créées avant le remplacement atomique, aucune archive non terminale, relecture sans reçu manquant",
+    "tests/Domenia.Tests/ReceiptStoreArchiveTests.cs:40-56 — une archive interrompue est repliée mais une archive corrompue reste bloquante et empêche un nouvel envoi",
+    "tests/Domenia.Tests/ReceiptStoreArchiveTests.cs:61-78 — plus de 512 incertains = vérification demandée et « aucune preuve retirée face à la limite » ; fichier inattendu dans archive\\ = signalé et « aucun nettoyage opportuniste »",
+    "tests/Domenia.Tests/ReceiptStoreProtectionTests.cs:33 — Redirected_and_alternate_receipt_paths_are_rejected_before_opening",
+    "tests/Domenia.Tests/ReceiptStoreTests.cs:53,152 — Two_instances_see_each_other_appends et Names_paths_and_locks_of_the_receipts (le verrou machine est couvert)"
+  ],
+  "manque": "Rien de fonctionnel. Deux résidus mineurs, vérifiables : (1) la branche « plus de 4096 fichiers » du refus (FileReceiptStore.Archive.cs:20-21) n'est pas exercée telle quelle par un test — seul le second terme de la même condition (fichier au format inattendu) est testé (tests/Domenia.Tests/ReceiptStoreArchiveTests.cs:74-77) ; (2) la compaction n'est déclenchée que par un ajout (seule occurrence de CompactReceipts : FileReceiptStore.cs:204) — un journal qui a franchi 384 reçus puis n'en reçoit plus aucun reste au-dessus du seuil jusqu'au prochain envoi ; le libellé de la fiche (« au-delà de 384 reçus ») ne précise pas de passe de maintenance, mais Domenia 1 l'appelait depuis le worker.",
+  "effort": "S",
+  "depend": [
+    "TRV-281",
+    "TRV-282"
+  ],
+  "risque": "ecriture-locale"
+}

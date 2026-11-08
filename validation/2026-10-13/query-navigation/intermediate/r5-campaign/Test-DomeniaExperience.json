@@ -1,0 +1,301 @@
+{
+    "Build":  "2026.09.30-R1.11-SUITE",
+    "Runtime":  "5.1.26100.6584",
+    "Executed":  "2026-10-13T02:40:56.0005219+02:00",
+    "Passed":  58,
+    "Failed":  0,
+    "WpfExecuted":  false,
+    "NoADAccess":  true,
+    "Tests":  [
+                  {
+                      "Name":  "Parseur natif : tous les scripts du pack",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "false textuel reste faux",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bool invalide utilise le defaut",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "NaN refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Infini refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Nombre borne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Nombre negatif borne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Expert JSON prime sur ancien Tech",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Essentiel JSON prime sur ancien Admin",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Migration du profil absent",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Profil invalide revient au defaut",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Preferences nouvelles rechargees",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Configuration arbitraire et secret non importes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Enregistrement refuse remonte explicitement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Enregistrement accepte ne leve pas erreur",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Palette claire et sombre chargees",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Login et principale partagent le bleu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Login et principale partagent le fond",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre insensible a la casse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre plusieurs mots combine les colonnes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre ne cherche pas dans les secrets",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre ne traite pas etoile comme joker",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre ne traite pas crochet comme regex",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre vide affiche la ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ligne nulle exclue",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Export sans selection prend seulement les lignes visibles",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Export selection preserve ordre de la grille",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Selection obsolete ne fuit pas dans export",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Grille vide exporte zero ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un clic sur une ligne puis Exporter = toute la liste",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Deux lignes selectionnees : la selection seule",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Journal lisible : heure HH:mm, icone et premiere ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Journal lisible : avertissement et information",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Journal lisible : phrase longue bornee",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Copie masquee : chemins AD, comptes, DNS, adresses et noms connus",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Copie masquee : texte ordinaire conserve",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Copie masquee : chemins locaux, versions et noms .NET conserves",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Copie masquee : hote UNC et nom DNS en fin de phrase masques",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Journal lisible : WARN et ERROR de Write-AppLog visibles et comptes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Lecture courante annulable",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Autre session non annulable",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Mutation refusee meme si NonCancellable faux",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Lecture protegee refusee",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Annulation repetee refusee",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Metadonnees manquantes refus par defaut",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Faux booleen textuel refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Projection contient duree exacte",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Projection ne recopie pas callback ni secret",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Detach reste nettoyage et non annulable",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Mutation interrompue reste a verifier",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Lecture stoppee reste arret demande",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Recherche journal trouve une occurrence",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Recherche journal reboucle",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Recherche journal borne indice negatif",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Recherche journal sans resultat retourne -1",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Recherche journal vide ne selectionne rien",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bouton arret recontrole la vraie mutation",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bouton arret demande une seule lecture par clic",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ]
+}

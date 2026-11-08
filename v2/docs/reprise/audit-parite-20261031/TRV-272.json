@@ -1,0 +1,24 @@
+{
+  "id": "TRV-272",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.cs:77 — PrepareReadCoreAsync appelle EnsureBackup avant toute relecture : la mise à jour d'OU est précédée d'une copie",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:470 — l'étape « backup » du plan d'actualisation appelle PrepareDirectoryRefreshAsync et consigne « Sauvegarde locale vérifiée · SHA-256 … » (ligne 472) ; l'étape est en tête du plan",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:162 — sans préparation de sauvegarde vérifiée, la relecture AD est refusée : « aucune lecture AD sans sauvegarde vérifiée » (constante ligne 58)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.RelationWrites.cs:45 — import CSV d'associations et retrait des orphelines : « if (destructive || !Table(...)) { lastBackup = Backup(db, token); } else { EnsureBackup(db, token); } » — une écriture destructive force une copie fraîche",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.SyncWrites.cs:34 — oubli des relevés du parc : « var backup = lastBackup = Backup(db, cancellationToken); » puis relecture de la copie (ligne 44) avant « DELETE FROM park_state; » (ligne 67)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.cs:183 — une copie vérifiée de moins de 30 minutes sert de point de retour : « lastBackup … clock.GetUtcNow() - saved.At < TimeSpan.FromMinutes(30) && File.Exists(saved.Path) »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.cs:186 — cette copie n'est réutilisée qu'après VerifyOrRetainBackup, qui recompare le SHA-256 du fichier (src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.BackupProof.cs:26-36)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.cs:255 — la copie est validée par « PRAGMA quick_check » avant d'être publiée (File.Move create-only, ligne 257)",
+    "src/Domenia.Core/Writes/Storage/StorageWrites.cs:207 — refus sous maintenance pour le plan de sauvegarde : « Bascule à terminer : aucune sauvegarde tant qu'elle n'est pas reprise ou annulée. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.BackupProof.cs:16 — une copie déjà tenue est signalée : « Une collecte locale détient déjà la preuve de sauvegarde. »",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:348 — l'état « Copie en attente. » / « Étape de maintenance en cours. » est affiché à l'opérateur",
+    "tests/Domenia.Tests/AccueilTests.cs:469 — « Directory_mode_refuses_an_AD_read_without_a_verified_backup » : étape « backup » en tête, refus « refresh.backupUnavailable » en mode annuaire",
+    "tests/Domenia.Tests/NativeStorageBackupTests.cs:142 — « sauvegarde préalable réellement produite » ; lignes 232 et 234 : empreinte relue et « PRAGMA quick_check » « ok » sur la copie",
+    "tests/Domenia.Tests/SqliteRelationWriteTests.cs:65 — « sauvegarde avant premier lot » et empreinte vérifiable pour les écritures d'associations"
+  ],
+  "manque": "La série « Geste-*.db » n'existe pas. Les seules séries réelles sont « manual » et « scheduled » (StorageWrites.cs:106-107, refus des autres à StorageWrites.cs:202 et DomeniaDatabase.Backups.cs:181) et les noms de fichiers viennent de BackupFileName avec pour seuls préfixes utilisés « Domenia » et « Domenia-restauree » (StorageWrites.cs:179, appelés lignes 211 et 404) : aucune occurrence de « Geste » dans src. Les copies préalables des gestes sont produites par Backup() (DomeniaDatabase.cs:232) sous le nom « {base}-{timestamp}-{guid}.db », sans reçu, sans annexe de préférences et sans série : elles ne sont donc ni listées ni restaurables en tant que série, et leur « rotation séparée » n'est qu'un effet accidentel de l'absence de reçu. Les kinds « gesture »/« retention »/« purge »/« migration »/« import » ne sont produits que par la simulation (SimulatedLocalStore.cs:150, SimulatedStorageExecutors.cs:222, :287, :546) ; le magasin réel n'affecte « gesture » qu'à la dernière copie, quel qu'en soit l'origine (DomeniaDatabase.Settings.cs:146), avec les étiquettes de LocalStoreRules.cs:688-692 jamais atteintes hors simulation. Le garde-fou « réessayer ou « Continuer sans sauvegarde », choix journalisé et limité à la session et à la base demandées » est absent : aucune chaîne « Continuer sans » dans src ni web ; l'échec de la copie lève une exception sèche (DomeniaDatabase.Directory.cs:189) et le geste est simplement refusé, sans option ni journalisation d'un renoncement. Le refus sous maintenance n'est écrit que pour le plan de sauvegarde (StorageWrites.cs:207) : Backup() appelé depuis EnsureBackup ne consulte pas Maintenance.Locked. Enfin « le geste ne part que du rappel de succès » n'est réel que pour l'actualisation de l'OU (AccueilRefresh.cs:162) : les gestes associations et parc appellent Backup()/EnsureBackup au milieu de leur transaction, sans relire un succès antérieur.",
+  "effort": "L",
+  "depend": ["TRV-271", "TRV-275"],
+  "risque": "ecriture-locale"
+}

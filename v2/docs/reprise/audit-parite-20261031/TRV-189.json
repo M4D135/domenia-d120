@@ -1,0 +1,20 @@
+{
+  "id": "TRV-189",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Inventory/WmiWorkstationReader.cs:463 — ReportedName = cs?.Text(\"Name\") : le nom Win32_ComputerSystem renvoyé est capturé à chaque relevé",
+    "repo/v2/src/Domenia.Core/Fleet/WorkstationIdentity.cs:17-18 — Matches(computer, reportedName) compare le nom rapporté au nom NetBIOS issu de samAccountName ($ retiré), ligne 13 : cohérence premier libellé DNS exigée",
+    "repo/v2/src/Domenia.Ad/Screens/AdRelationsReader.Inventory.cs:82 — ReportedName différent → « Identité Windows différente du poste attendu ; inventaire écarté. »",
+    "repo/v2/src/Domenia.Ad/Screens/AdRelationsReader.Inventory.cs:84-89 — ReportedName nul → toutes les lignes Ok/Empty/Partial basculées Unavailable « Identité Windows non confirmée ; données non attribuées au poste. »",
+    "repo/v2/src/Domenia.Inventory/WmiWorkstationReader.cs:276 — lecture Diagnostic : arrêt et « Identité Windows non confirmée ; sources restantes non contactées. » si le nom rapporté ne correspond pas",
+    "repo/v2/src/Domenia.Ad/Screens/AdPosteReader.FullDiagnostic.cs:38-43 — état d'identité affiché : foreign → « Le nom Windows ne correspond pas au compte AD ; autres accès authentifiés suspendus. » (libellé ERREUR, pas « Incohérente »)",
+    "repo/v2/src/Domenia.Ad/Screens/AdQueryAccess.cs:68 et AdPosteReader.Network.cs:80,146,185 — chaque chemin de lecture (atelier WMI, réseau, sondes) exige WorkstationIdentity.Matches avant attribution",
+    "repo/v2/src/Domenia.Inventory/WorkstationPresenceReader.cs:141-142 — le ping est émis sur l'adresse et publié comme fait indépendant du nom (le ping reste un fait de l'adresse)",
+    "repo/v2/tests/Domenia.Tests/CampaignInventoryMergeTests.cs:26-27 — test : un autre poste n'est jamais fusionné, données directes non identifiées jamais ajoutées",
+    "repo/v2/tests/Domenia.Tests/WorkstationDetailsTests.cs:120 — test : motif « non confirmée » visible"
+  ],
+  "manque": "La comparaison côté cible ne porte que sur le Name NetBIOS de Win32_ComputerSystem : le DNSHostName renvoyé par la lecture CIM n'est jamais comparé au nom demandé (la cohérence DNS est seulement vérifiée localement entre dNSHostName AD et samAccountName, WorkstationIdentity.cs:13). Le d1_refs Get-LiveHostIdentityCheck/Set-LiveIdentityMismatch comparait DNSHostName/Name renvoyés ; aucune tolérance ni comparaison de la forme NetBIOS 15 caractères tronquée n'existe (Matches est une égalité stricte, WorkstationIdentity.cs:18). L'état d'identité « Incohérente » n'existe pas comme tel : seul le diagnostic complet affiche ERREUR avec le détail « Le nom Windows ne correspond pas au compte AD » (AdPosteReader.FullDiagnostic.cs:43) ; le nom demandé lui-même (forme demandée vs renvoyée) n'est pas comparé, seul le compte AD de référence sert de borne.",
+  "effort": "M",
+  "depend": [],
+  "risque": "lecture"
+}

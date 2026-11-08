@@ -1,0 +1,15 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : revenir à l’écran d’origine",
+  "description": "L’atelier ouvert depuis l’Accueil propose « Revenir à l’écran Accueil » ; le bouton rouvre l’Accueil.",
+  "modes": ["simulation"],
+  "start": "requetes?retour=accueil&cible=computer",
+  "steps": [
+    { "do": "wait", "selector": ".rq-back", "title": "Le bouton de retour est proposé" },
+    { "do": "expect", "contains": "Revenir à l’écran Accueil", "within": ".rq-hero" },
+    { "do": "expect", "selector": "h1.rq-title", "count": 1, "title": "Un seul titre de niveau 1" },
+    { "do": "click", "selector": ".rq-back" },
+    { "do": "wait", "selector": ".main[data-page=\"accueil\"]", "title": "L’Accueil est rouvert" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

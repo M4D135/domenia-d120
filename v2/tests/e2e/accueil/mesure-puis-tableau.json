@@ -1,0 +1,52 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : une mesure d’indicateur recalcule le tableau du parc",
+  "description": "Mesure « Postes en ligne » (Actualiser ce widget), puis vérifie que le tableau du parc est recalculé une fois depuis la base locale (sa date « Calculé le » change) : les deux ne montrent jamais des chiffres contradictoires (ACC-033).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "accueil",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-entry=\"fleet.machines\"]",
+      "title": "Le tableau du parc est calculé"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-slot=\"board\"]",
+      "attribute": "data-measure-sync",
+      "equals": null,
+      "title": "Aucun recalcul lié à une mesure pour l’instant"
+    },
+    {
+      "do": "click",
+      "selector": "[data-refresh]",
+      "within": "[data-widget=\"workstationsOnline\"]",
+      "title": "Mesurer « Postes en ligne »"
+    },
+    {
+      "do": "expect",
+      "contains": "mesure actualisée.",
+      "within": ".toasts"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-slot=\"board\"]",
+      "attribute": "data-measure-sync",
+      "equals": "1",
+      "title": "Le tableau du parc a été recalculé une fois, depuis la base locale"
+    },
+    {
+      "do": "click",
+      "selector": "[data-related=\"fleet.presence\"]",
+      "within": "[data-widget=\"workstationsOnline\"]",
+      "title": "Aller à la présence détaillée du tableau du parc"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

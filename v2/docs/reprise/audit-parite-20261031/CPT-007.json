@@ -1,0 +1,25 @@
+{
+  "id": "CPT-007",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:566-572 — contrat écrit de accounts.connection.switch : refus pendant qu'une écriture attend sa relecture, UNE seule authentification, nouvelle époque, rien n'est rejoué, annulation sans effet",
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:574 SwitchAsync ; ligne 580-583 refusé quand le changement n'est pas disponible (avec le motif) ; ligne 585 EnsureNoWriteAsync ; ligne 616 une seule ouverture reader.OpenSessionAsync ; ligne 649 NewEpochLocked ; ligne 652 RememberAsync (identifiant seul) ; ligne 653 entrée de journal « comptes et refus de la session précédente oubliés »",
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1072-1078 — EnsureNoWriteAsync : « aucun compte ne peut être changé avant sa relecture dans Opérations »",
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:636-647 — échec ou identité non confirmée : refus enregistré, message et ton, l'époque courante est rendue, la session précédente est conservée",
+    "src/Domenia.Ad/Screens/AdAccountsAccessReader.cs:58-77 — OpenSessionAsync réel : ClearPending, compte d'annuaire exigé, une seule liaison, identité et SID confirmés, puis candidate.Adopt(source, epoch, correction: false) sous verrou ; aucune session simulante n'est ouverte",
+    "src/Domenia.Ad/AdDirectorySource.cs:116-152 — AdoptConnection : écriture en cours refusée (ligne 121), époque vérifiée (ligne 122), domaine et identité confirmés (lignes 125-130), connexion remplacée puis ancienne fermée (ligne 151 previous.Dispose) ; lignes 143-148, pour un changement de compte : state = null, localLoaded = false, fleet vidé — aucune référence de l'ancienne base ne survit ; ligne 149 epoch++",
+    "src/Domenia.Bridge/Operations/AccountsAccessOperations.cs:159-180 — opération accounts.connection.switch : une seule saisie du secret (AccountsCredentialEntry.AskAsync), ligne 169 annulation sans effet avec l'époque courante, description « rien n'est rejoué »",
+    "web/js/pages/comptes/acces.js:672-701 — formulaire « Changer de compte » prérempli avec le compte courant (ligne 680 login: c.connected ? c.identity : ''), effets annoncés (une seule validation, oublis, relecture sans rejeu), puis accès relus, dirty vidé et événement domenia:session-changed (ligne 699)",
+    "web/js/app.js:383-390 et 551 — sur changement de session : demandes en attente retirées et panneaux fermés sans rien exécuter, barre supérieure et activité relues pour la nouvelle session",
+    "tests/Domenia.Tests/AccountsAccessTests.cs:170 — Changing_account_starts_a_new_epoch_and_forgets_the_former_session ; ligne 125 — No_account_changes_while_a_write_waits_for_its_re_read ; ligne 139 — une seule validation à la fois et l'annulation garde le compte précédent",
+    "tests/Domenia.Tests/AdAccountsAccessTests.cs:31 — Switching_authenticates_once_then_adopts_the_exact_account_and_disposes_the_previous_connection ; ligne 59 — liaison échouée, domaine étranger ou identité non résolue gardent la session précédente ; ligne 126 — une validation tardive ne remplace pas une session réinitialisée ; ligne 142 — annulation revient avant l'appel natif et ferme la connexion tardive"
+  ],
+  "manque": "Rien de bloquant, mais deux écarts de lettre avec la description, vérifiés : (1) « Sauvegarde les données en attente » n'existe pas sous forme de sauvegarde — le changement est REFUSÉ pendant qu'une écriture attend sa relecture (AccountAccess.cs:1072-1078, AdDirectorySource.cs:121), les observations différées de la session précédente sont écartées à la nouvelle époque (src/Domenia.Ad/Screens/AdRelationSession.cs:154-158) et les demandes en attente de l'interface sont fermées sans rien exécuter (web/js/app.js:384-389) ; (2) « rien n'est écrit dans les réglages » est vrai sauf l'identifiant : il est mémorisé quand l'option « Se souvenir de cet identifiant » est active (AccountsAccessOperations.cs:171-172 et AccountAccess.cs:652), ce que le commentaire AccountAccess.cs:570 assume explicitement.",
+  "effort": "S",
+  "depend": [
+    "Domenia.Ad (OpenSessionAsync / AdoptConnection)",
+    "CPT-001 (pastille d'accès et refus par ressource)",
+    "REL-013 (observations différées écartées à la nouvelle époque)"
+  ],
+  "risque": "reseau"
+}

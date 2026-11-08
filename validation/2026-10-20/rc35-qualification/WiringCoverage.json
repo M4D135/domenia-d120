@@ -1,0 +1,19 @@
+{
+  "Kind": "CoverageFromFullRunAndTargetedRetest",
+  "NativeWindowsPowerShell51": true,
+  "FullRun": {
+    "Passed": 188,
+    "Failed": 2,
+    "Report": "final-qualification/WiringCache.json"
+  },
+  "TargetedRetest": {
+    "Passed": 2,
+    "Failed": 0,
+    "Report": "wiring-final-delta/WiringCache.json"
+  },
+  "DistinctCases": 190,
+  "LatestPassed": 190,
+  "LatestFailed": 0,
+  "SingleFinalFullExecution": false,
+  "Note": "The 188 successes were not rerun. Two obsolete fixtures were corrected and passed in a targeted rerun. The former 120 ms Dispatcher budget is replaced by execution of the real ComputeBoard worker branch within its configured 120 s timeout; this is not a claim of performance improvement."
+}

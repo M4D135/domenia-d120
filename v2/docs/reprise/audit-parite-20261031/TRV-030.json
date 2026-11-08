@@ -1,0 +1,17 @@
+{
+  "id": "TRV-030",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/Program.cs:189-197 — dans CheckPackage, le catch d'échec construit « Domenia | Démarrage refusé\\n » + ex.Message, l'écrit sur la sortie d'erreur standard puis n'affiche la boîte que si !unattended (ligne 195)",
+    "repo/v2/src/Domenia.App/StartupWindow.cs:35 — ShowFailure appelle MessageBoxW(0, message, \"Domenia | Démarrage\", 0x10) : la boîte intitulée « Domenia | Démarrage » existe bien",
+    "repo/v2/src/Domenia.App/Program.cs:150-156 — checkOnly entre dans localDiagnostic donc dans unattended : aucune boîte en --check-only (conforme au « Hors -CheckOnly »)",
+    "repo/v2/src/Domenia.App/Program.cs:133-143 et 352-368 — Fail() : toute erreur de démarrage passe par TechnicalLog.Error ; la boîte montre FatalMessage (ligne 14) sans aucun chemin de fichier",
+    "repo/v2/src/Domenia.App/TechnicalLog.cs:10-13 — les erreurs vont dans RotatingTechnicalJournal vers %LOCALAPPDATA%\\Domenia\\logs\\domenia.log (repli %TEMP%\\Domenia\\logs\\domenia.log) ; lignes 34-40 — Flush enveloppe l'écriture dans un try/catch (une erreur du journal ne masque pas la cause)",
+    "repo/v2/src/Domenia.Core/Platform/TechnicalJournalRecord.cs:32 — horodatage ISO 8601 UTC « yyyy-MM-ddTHH:mm:ssZ » en tête de chaque ligne du journal",
+    "repo/v2/tests/Domenia.Tests/TechnicalJournalTests.cs:12 — le format (horodatage ISO + niveau + message masqué) est testé"
+  ],
+  "manque": "Deux éléments du texte D1 ne sont pas rendus. (1) Il n'existe aucun fichier d'erreur de démarrage dédié « %TEMP%\\Domenia-startup-error.log » : les erreurs de lancement ne vont que dans le journal technique général domenia.log (TechnicalLog.cs:10-12), jamais dans un fichier propre au démarrage — rg « startup-error|Domenia-startup » ne renvoie rien dans src/tests. (2) La boîte « Domenia | Démarrage » affiche le message mais jamais le chemin du diagnostic : le texte envoyé est « Domenia | Démarrage refusé\\n » + ex.Message (Program.cs:192) et FatalMessage (Program.cs:14) dit « le journal de l'application » sans jamais donner le chemin (TechnicalLog.FilePath existe, TechnicalLog.cs:29, mais n'est jamais inséré dans la boîte). Aucun test ne couvre la boîte d'échec de démarrage ni l'écriture d'un journal de démarrage.",
+  "effort": "S",
+  "depend": [],
+  "risque": "ecriture-locale"
+}

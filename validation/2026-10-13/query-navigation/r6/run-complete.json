@@ -1,0 +1,46 @@
+{
+    "UTC":  "2026-10-13T01:47:29.7799962Z",
+    "Processes":  [
+                      {
+                          "Name":  "PRODArchiveCheck",
+                          "StartUTC":  "2026-10-13T01:16:44.3603942Z",
+                          "EndUTC":  "2026-10-13T01:16:50.6035787Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  7377
+                      },
+                      {
+                          "Name":  "Test-DomeniaWiringRecherche",
+                          "StartUTC":  "2026-10-13T01:16:50.6071344Z",
+                          "EndUTC":  "2026-10-13T01:17:19.7775779Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  44893
+                      },
+                      {
+                          "Name":  "ExtendedRunner",
+                          "StartUTC":  "2026-10-13T01:17:19.7788132Z",
+                          "EndUTC":  "2026-10-13T01:24:27.4878876Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  469735
+                      },
+                      {
+                          "Name":  "AdditionalRunner",
+                          "StartUTC":  "2026-10-13T01:24:27.4878876Z",
+                          "EndUTC":  "2026-10-13T01:32:54.4989680Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  527707
+                      },
+                      {
+                          "Name":  "AllOfflineRunner",
+                          "StartUTC":  "2026-10-13T01:32:54.5015797Z",
+                          "EndUTC":  "2026-10-13T01:47:29.7772977Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  816135
+                      }
+                  ],
+    "AllProcessesPassed":  true
+}

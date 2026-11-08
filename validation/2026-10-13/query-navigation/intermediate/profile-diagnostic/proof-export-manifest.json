@@ -1,0 +1,401 @@
+{
+  "OriginalEvidence": "/tmp/profile-diagnostic/profile-diagnostic",
+  "Entries": [
+    {
+      "File": "domenia-profile-child.ps1",
+      "OriginalPath": "/tmp/domenia-profile-child.ps1",
+      "OriginalSHA256": "0c30f43cbcfffbe2f4cc3b58085ba5f7ecad5b893a297cd7272e323b0c6ad992",
+      "ExportedSHA256": "80c30acc0b512b7b3f87db4bd92c0ca8ebe213bd92d01346d788c7af575897da",
+      "OriginalBytes": 3389,
+      "ExportedBytes": 3386,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-cleanup.ps1",
+      "OriginalPath": "/tmp/domenia-profile-cleanup.ps1",
+      "OriginalSHA256": "4410f4ff95b8164594692463d7b61c159b74ca5169771a4a6c4ed608a5dbd77f",
+      "ExportedSHA256": "4410f4ff95b8164594692463d7b61c159b74ca5169771a4a6c4ed608a5dbd77f",
+      "OriginalBytes": 964,
+      "ExportedBytes": 964,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-diagnostic.ps1",
+      "OriginalPath": "/tmp/domenia-profile-diagnostic.ps1",
+      "OriginalSHA256": "f7ca2f80527bc7f30c05145819fb275fef9c90e6e25a9a90610d948249c671bc",
+      "ExportedSHA256": "cde41f23ee65b28c10520eda8b84eb690b0421b7b8e3fec60b2a5e5d650acdeb",
+      "OriginalBytes": 3445,
+      "ExportedBytes": 3442,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-expose-tree.ps1",
+      "OriginalPath": "/tmp/domenia-profile-expose-tree.ps1",
+      "OriginalSHA256": "2030220745081b116f5aa00c275e57ba5a1e63e02341d43b7f48109e262dd169",
+      "ExportedSHA256": "2030220745081b116f5aa00c275e57ba5a1e63e02341d43b7f48109e262dd169",
+      "OriginalBytes": 432,
+      "ExportedBytes": 432,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-expose.ps1",
+      "OriginalPath": "/tmp/domenia-profile-expose.ps1",
+      "OriginalSHA256": "c617801bf8834caabdae53776a7257d7dc94968af8cb43f235c14a1467a2c658",
+      "ExportedSHA256": "c617801bf8834caabdae53776a7257d7dc94968af8cb43f235c14a1467a2c658",
+      "OriginalBytes": 374,
+      "ExportedBytes": 374,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-exposed-start.ps1",
+      "OriginalPath": "/tmp/domenia-profile-exposed-start.ps1",
+      "OriginalSHA256": "3ff332d697c07d973288e58b3af8e2c74f2767b81f5030756289be584496af86",
+      "ExportedSHA256": "3ff332d697c07d973288e58b3af8e2c74f2767b81f5030756289be584496af86",
+      "OriginalBytes": 286,
+      "ExportedBytes": 286,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-exposure-receipt.txt",
+      "OriginalPath": "/tmp/domenia-profile-exposure-receipt.txt",
+      "OriginalSHA256": "6a985d8c7a622fe8dedd00e68d8387714c9f3a0917fb5984aaf9ee51cb412bda",
+      "ExportedSHA256": "c6007a6ed30c2f06601bac7b3ad742703c9f0399e1ad3b0a6238f32f3a966373",
+      "OriginalBytes": 183,
+      "ExportedBytes": 177,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-held-receipt.txt",
+      "OriginalPath": "/tmp/domenia-profile-held-receipt.txt",
+      "OriginalSHA256": "e526e3a9156244aeb24dbd5d96f9168e280fc0cfeab9d2088c203dc78ab5c307",
+      "ExportedSHA256": "0e7aadda54318b0155fe9599beb0775a1c16b1fe410aa5f197a425648cb78d78",
+      "OriginalBytes": 335,
+      "ExportedBytes": 325,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-held.ps1",
+      "OriginalPath": "/tmp/domenia-profile-held.ps1",
+      "OriginalSHA256": "ac0b23a44e8f51b977be8d37a2f2ea282eb3b4c7ef7d77a9cfb0b212439bebd9",
+      "ExportedSHA256": "ac0b23a44e8f51b977be8d37a2f2ea282eb3b4c7ef7d77a9cfb0b212439bebd9",
+      "OriginalBytes": 1123,
+      "ExportedBytes": 1123,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-held2-receipt.txt",
+      "OriginalPath": "/tmp/domenia-profile-held2-receipt.txt",
+      "OriginalSHA256": "348bbe323420f913a644618d3fd5bf6c33c51dae68407ee94995b7d96c84ca0d",
+      "ExportedSHA256": "3db89bc3992d338a7689270ed83105d2d3d3e918e15dd6e9ed34a8a32372e59a",
+      "OriginalBytes": 335,
+      "ExportedBytes": 325,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-keeper-receipt.txt",
+      "OriginalPath": "/tmp/domenia-profile-keeper-receipt.txt",
+      "OriginalSHA256": "50e8e2db89edd8abbe06460295a989afcfcb40e6ba40cf2d02a31cb7312e2b06",
+      "ExportedSHA256": "2d0a557f98e34cf7ee9e6d5abb76b49cf3f461f018cb1fec5c0df5ebb700a707",
+      "OriginalBytes": 258,
+      "ExportedBytes": 250,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-keeper-start.ps1",
+      "OriginalPath": "/tmp/domenia-profile-keeper-start.ps1",
+      "OriginalSHA256": "75313a3dbb070e4a4b1c4695414a6bcd5659bbe34c3d1b560675a0517a596ec6",
+      "ExportedSHA256": "75313a3dbb070e4a4b1c4695414a6bcd5659bbe34c3d1b560675a0517a596ec6",
+      "OriginalBytes": 451,
+      "ExportedBytes": 451,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent-exposure-receipt.txt",
+      "OriginalPath": "/tmp/domenia-profile-parent-exposure-receipt.txt",
+      "OriginalSHA256": "b04365fa20074b72c718c89fdb1549797d194db85d90a207b7bc6e51e21c42ae",
+      "ExportedSHA256": "679caf75cc83573bf19f92333e6245278f69fb15b87c0df3bcded31c974a90f9",
+      "OriginalBytes": 187,
+      "ExportedBytes": 181,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent-held-stage.ps1",
+      "OriginalPath": "/tmp/domenia-profile-parent-held-stage.ps1",
+      "OriginalSHA256": "ac0f47c208f022b5c44b1a4d81c5932b36cb04ecb7dafa9a4534804626874653",
+      "ExportedSHA256": "ac0f47c208f022b5c44b1a4d81c5932b36cb04ecb7dafa9a4534804626874653",
+      "OriginalBytes": 443,
+      "ExportedBytes": 443,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent-held.ps1",
+      "OriginalPath": "/tmp/domenia-profile-parent-held.ps1",
+      "OriginalSHA256": "9a5ceb6e7d4306a360755b05cbb5942580a234ee7dbc23bba0707046f8d6d7e8",
+      "ExportedSHA256": "337ae37c050ab52cd25fe38eca61fa0288205e90ff896e652f73eb26d58f62f1",
+      "OriginalBytes": 1075,
+      "ExportedBytes": 1072,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent-held2-stage.ps1",
+      "OriginalPath": "/tmp/domenia-profile-parent-held2-stage.ps1",
+      "OriginalSHA256": "bc2e50706c4366dff7a4881e12f074e0aef2e3b1eeb80ad20eaf17568348c469",
+      "ExportedSHA256": "bc2e50706c4366dff7a4881e12f074e0aef2e3b1eeb80ad20eaf17568348c469",
+      "OriginalBytes": 446,
+      "ExportedBytes": 446,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent-held2.ps1",
+      "OriginalPath": "/tmp/domenia-profile-parent-held2.ps1",
+      "OriginalSHA256": "1eeb551916fe98cd1ae402baa5989c0170df1280e112413164b9a0bcd26e716a",
+      "ExportedSHA256": "43dfa57b478836dfe77f9099bd6be72114eecee2f090b7be031a9c0df6944919",
+      "OriginalBytes": 1100,
+      "ExportedBytes": 1097,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent-process-stage.ps1",
+      "OriginalPath": "/tmp/domenia-profile-parent-process-stage.ps1",
+      "OriginalSHA256": "3fa09ac51a100565b46e266f464fa1dceeab7dfee283084fe372dc19b62e2ab8",
+      "ExportedSHA256": "3fa09ac51a100565b46e266f464fa1dceeab7dfee283084fe372dc19b62e2ab8",
+      "OriginalBytes": 452,
+      "ExportedBytes": 452,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent-process.ps1",
+      "OriginalPath": "/tmp/domenia-profile-parent-process.ps1",
+      "OriginalSHA256": "e41c9e3b265ec6855b99dec5c6ec4facc509664e546805ada9d1555a58be421c",
+      "ExportedSHA256": "4d0a7f89bf76c1c24ed753fe4f8303655f2bd67a1cea958fc649965b9c6c99c1",
+      "OriginalBytes": 1112,
+      "ExportedBytes": 1109,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent-stage.ps1",
+      "OriginalPath": "/tmp/domenia-profile-parent-stage.ps1",
+      "OriginalSHA256": "40700ed2df59dcee31e9a063d37a5a226578cb83318c74af83f206a254f82a1e",
+      "ExportedSHA256": "40700ed2df59dcee31e9a063d37a5a226578cb83318c74af83f206a254f82a1e",
+      "OriginalBytes": 524,
+      "ExportedBytes": 524,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-parent.ps1",
+      "OriginalPath": "/tmp/domenia-profile-parent.ps1",
+      "OriginalSHA256": "b7b9af3743b5655dd338fa247a7927c6677103d9ad506876e8f42a8a837ee021",
+      "ExportedSHA256": "ff8bc8c919008bbb48998fc33e6829aaa377107d3bc87c90221036a3aae0c11e",
+      "OriginalBytes": 1068,
+      "ExportedBytes": 1065,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-pull.ps1",
+      "OriginalPath": "/tmp/domenia-profile-pull.ps1",
+      "OriginalSHA256": "7a8d5bec428365a6432c85ace0831448ef4d9a0e921dec5675723eb94b1226b0",
+      "ExportedSHA256": "7a8d5bec428365a6432c85ace0831448ef4d9a0e921dec5675723eb94b1226b0",
+      "OriginalBytes": 242,
+      "ExportedBytes": 242,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-stage.ps1",
+      "OriginalPath": "/tmp/domenia-profile-stage.ps1",
+      "OriginalSHA256": "5c1af289258e516c64abc30161f12fa17d86e55e0619dc9aad0150c3f24a2815",
+      "ExportedSHA256": "5c1af289258e516c64abc30161f12fa17d86e55e0619dc9aad0150c3f24a2815",
+      "OriginalBytes": 513,
+      "ExportedBytes": 513,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-transition-stage.ps1",
+      "OriginalPath": "/tmp/domenia-profile-transition-stage.ps1",
+      "OriginalSHA256": "ba29bd061716bf2c18ef8c547dde557603a9095f676954da1d14bf06593756ff",
+      "ExportedSHA256": "ba29bd061716bf2c18ef8c547dde557603a9095f676954da1d14bf06593756ff",
+      "OriginalBytes": 515,
+      "ExportedBytes": 515,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-transition.ps1",
+      "OriginalPath": "/tmp/domenia-profile-transition.ps1",
+      "OriginalSHA256": "a0bee95ebf87311f3d683170b6ccdde6a928bff85353ae01b6f8ce3ffd7e04d7",
+      "ExportedSHA256": "49c476ac0e91ec518aa922f14d20da96566a2288e0e17fab94c4720471b96715",
+      "OriginalBytes": 4293,
+      "ExportedBytes": 4290,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "domenia-profile-tree-exposure-receipt.txt",
+      "OriginalPath": "/tmp/domenia-profile-tree-exposure-receipt.txt",
+      "OriginalSHA256": "2c03e68695573f4b21fe14551aaefeced347176bca041fea39cdc25843330263",
+      "ExportedSHA256": "6cc79a3c661bec7533c96f07993939859117640f4fbe936a3efe0cda818b38d8",
+      "OriginalBytes": 187,
+      "ExportedBytes": 181,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "control-started.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/control-started.json",
+      "OriginalSHA256": "91571baea46de62117d41a2981458976f6cb57bc0770c79a9dc7202178e89dcd",
+      "ExportedSHA256": "1e209b98ecf43ff323f5e8d6dbfd17c3817e89c6d9c18512884130000495da7d",
+      "OriginalBytes": 117,
+      "ExportedBytes": 113,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "control.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/control.json",
+      "OriginalSHA256": "3921a442e75211d59fbd413a7af9ab4ce56478bcaf2c4dd05410f9085c844c7e",
+      "ExportedSHA256": "d2818933a4e5fa2576e31e48e086e3f8a56e66ea5411a04570e377363cbea27d",
+      "OriginalBytes": 84301,
+      "ExportedBytes": 82987,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "exposed-started.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/exposed-started.json",
+      "OriginalSHA256": "bbfe8edaaf0eb8ce6e341209a52eee98877f658790f8f8ade73a29ccc97e4d9b",
+      "ExportedSHA256": "c27c629a16e7bfa738dec9b223614b3979974765d0dead978e7533bf0721e508",
+      "OriginalBytes": 117,
+      "ExportedBytes": 113,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "exposed.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/exposed.json",
+      "OriginalSHA256": "0d7aaa39cc7b6d3c56c222163ad864a9582fc32bf62003acacf39c87458d96d2",
+      "ExportedSHA256": "d2ade1e5f839601220e1e7b2898a5e86ec115ed6fc5756f0517c7eb60ea30881",
+      "OriginalBytes": 84301,
+      "ExportedBytes": 82987,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "parent-held.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/parent-held.json",
+      "OriginalSHA256": "1b26aff1cb41d7c205e8c5964544c70fa30601b1c1d1e37194298125e665b57b",
+      "ExportedSHA256": "e62f65ed4a74631142bce60039d21575d5dc4bce01cade93ccdd8c460c72253f",
+      "OriginalBytes": 120,
+      "ExportedBytes": 117,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "parent-held2.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/parent-held2.json",
+      "OriginalSHA256": "f163ddd27ad4d201d03d8813ea56d83c14e888581e803cddec6ba690e4c99d24",
+      "ExportedSHA256": "697e54cd13d86029ac91ec6c0baf6d42ba77c4e4b199b3889b987c65c78337a0",
+      "OriginalBytes": 120,
+      "ExportedBytes": 117,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "parent-profile-process.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/parent-profile-process.json",
+      "OriginalSHA256": "b12801dbe407206d94291cd3824075ac760a24a8eee936c42751ed83cab764b2",
+      "ExportedSHA256": "1bf42f1da4fd63c6ba15b136422f352652eabd1c75c98b0dd21397982a1d63ba",
+      "OriginalBytes": 120,
+      "ExportedBytes": 117,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "parent.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/parent.json",
+      "OriginalSHA256": "bfbec12d8fafafbfb868de47159b7fef52df4d669d8d72574764b7aacb55d019",
+      "ExportedSHA256": "6d2fa0ca0eea36de923b2bbb0f1dde6f1eaf66ed088fa674ba9af5cf85056e19",
+      "OriginalBytes": 120,
+      "ExportedBytes": 117,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "spawned-during-copy-started.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/spawned-during-copy-started.json",
+      "OriginalSHA256": "fa345a5225cb708ce6e1a6d3517bc1ad516ad88c0491f6ca8a71e471ce3cea48",
+      "ExportedSHA256": "24570f9e749e2f7c8d46344e5b0fe4261ef88441916c8793f2691c71498197be",
+      "OriginalBytes": 128,
+      "ExportedBytes": 124,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "spawned-during-copy.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/spawned-during-copy.json",
+      "OriginalSHA256": "427bb9f74dd73b80d2efc950f10fe6db5ac6dcc05fa012c5afde88f0315cb9cd",
+      "ExportedSHA256": "92019a9854261c2e5bf9e6de4b53c3a99befc78c10410d65971449e686d6b89c",
+      "OriginalBytes": 83062,
+      "ExportedBytes": 81772,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "spawned-held-session-started.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/spawned-held-session-started.json",
+      "OriginalSHA256": "17ccb4876c2184c69cf7d674a8fdbf930c6378a9512802f557f9e11c5e11c0b9",
+      "ExportedSHA256": "3cd69aa941087beed90d8c8565d395ff503b9fcfc6cf4d2e9b27b5d70199eb96",
+      "OriginalBytes": 130,
+      "ExportedBytes": 126,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "spawned-held-session.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/spawned-held-session.json",
+      "OriginalSHA256": "940e15b1b07cb242c624e316eb322f484ba45ead103556791823efeb4cf5b7e4",
+      "ExportedSHA256": "9717278f839d5265b48e7bf39bd8616e14cb75ca6f57b9fa57ad23fd7f730894",
+      "OriginalBytes": 83063,
+      "ExportedBytes": 81773,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "spawned-held-session2-started.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/spawned-held-session2-started.json",
+      "OriginalSHA256": "3c257ea6a969a60e55e7c4c892eced4eaa5e1c7c867a6506a6fb1418a4cbba1d",
+      "ExportedSHA256": "98aef2bf844261ea3a4f8b40aecbee00400fe9b2dd1a06504238d31101266574",
+      "OriginalBytes": 131,
+      "ExportedBytes": 127,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "spawned-held-session2.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/spawned-held-session2.json",
+      "OriginalSHA256": "7a7d40f4206ae0ffd13a2aa285f564016c1e533dc12725ffd200c61a79344303",
+      "ExportedSHA256": "3b1b2149d76e26ae78283dd85da3a34d85e723284fe9bd32b12a374f373a8678",
+      "OriginalBytes": 83064,
+      "ExportedBytes": 81774,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "spawned-profile-process-started.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/spawned-profile-process-started.json",
+      "OriginalSHA256": "9a2747ed36015ca243ce0206d0ef7fa4b85527c9798b2a893b58e439137ec005",
+      "ExportedSHA256": "e128cf67f9b8f76cd3b467c95b310e9b133be86dbda17c29ee45dd8063ffb8e0",
+      "OriginalBytes": 133,
+      "ExportedBytes": 129,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "spawned-profile-process.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/spawned-profile-process.json",
+      "OriginalSHA256": "d138c2442e1f540dbd95e0146ec76e469ceb1b59c89bb5ae6e5b34353b1874f1",
+      "ExportedSHA256": "c244ff3b6be1de682daa9b3a2d3f9e5edb615142214cab629e5d009a8e446799",
+      "OriginalBytes": 83066,
+      "ExportedBytes": 81776,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "transition-started.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/transition-started.json",
+      "OriginalSHA256": "38a28b15d2dcaad34c043c49da9b5698921fe40aa6f5584ff392f5a9779f7eca",
+      "ExportedSHA256": "e172836ada672f7673a916d528443daf6d11f8dc7e8205e0db090ca1592ee963",
+      "OriginalBytes": 119,
+      "ExportedBytes": 115,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "transition.json",
+      "OriginalPath": "/tmp/profile-diagnostic/profile-diagnostic/transition.json",
+      "OriginalSHA256": "2270c5ddcf81e8d35b409e70688e2b3fe8f8780c4848e1f1a0de04a2fb38eded",
+      "ExportedSHA256": "e35417514c798529d7cc7eb987c140ce173309268c62270858a777871c36acd6",
+      "OriginalBytes": 84650,
+      "ExportedBytes": 83328,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    }
+  ]
+}

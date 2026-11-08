@@ -1,0 +1,30 @@
+{
+  "id": "TRV-292",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/pages/accueil/widget-collections.js:6-14 — collectionText rend les phases : « Recherche des mesures manquantes… » (preparing), « Confirmation · N postes à lire » (confirming), « En file · après la collecte et le recalcul en cours » (queued), « Mesures enregistrées · recalcul du tableau » (drawing), « Lecture AD de cette OU · sauvegarde et reçu local » (directory), « Lecture de la présence BitLocker · aucune clé lue » (bitlocker), « Vérification des mesures déjà enregistrées… » (planning), et « Collecte · N/M · x déjà frais · y non confirmés »",
+    "web/js/pages/accueil/widget-collections.js:48 — follow() : ctx.pulse.every('accueil.widget.collections', 1000, poll), la ligne est remise à jour chaque seconde",
+    "web/js/pages/accueil/widget-collections.js:55-59 — poll() arrête la minuterie dès qu'il ne reste ni ligne suivie ni demande (stopPulse?.(); stopPulse = null)",
+    "web/js/pages/accueil/widget-collections.js:144-150 — destroy() coupe la minuterie, incrémente la génération et annule toute demande en cours ou en file (minuterie liée à la session)",
+    "web/js/pages/accueil/widget-collections.js:31-37 — paint() écrit le texte sur [data-widget-progress] de la carte du widget, le cache sinon, et pose la classe is-collecting ; un détail [data-widget-queue] liste les suivis avec bouton Retirer/Arrêter",
+    "web/js/pages/accueil/board.js:254,268 — chaque carte de widget porte <p class=\"fw-collect-progress\" data-widget-progress aria-live=\"polite\" hidden>",
+    "web/js/pages/accueil/widget-collections.js:124-132 — scope() : si la portée affichée change de « dn|subtree », generation++ et annulation (accueil.widget.cancel) de toute demande déjà admise",
+    "web/js/pages/accueil/widget-collections.js:97-104 — après run(), request.phase = 'drawing' puis await onChanged() : le tableau n'est acquitté (accueil.widget.drawn) que si le redessin a vraiment réussi",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:9 — HomeWidgetActivity(Id, WidgetId, Title, Phase, Done, Total, Fresh, Failed, Detail) : le chiffre rendu vient de l'état moteur, pas de la lecture en cours",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:304 — phase « running » : « Collecte des postes sans mesure récente ; les chiffres restent ceux du dernier relevé. »",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:222 — phase « drawing » : « Mesures enregistrées ; recalcul et dessin du tableau en attente. »",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:285,295 — phases « directory » (Lecture AD de l'OU avec sauvegarde et reçu local) et « bitlocker » (présence des objets de récupération, sans les clés)",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:361-371 — SetWidgetProgress sous verrou et WidgetCollectionStateAsync qui expose Phase/Done/Total/Fresh/Failed à la page",
+    "src/Domenia.Bridge/Operations/AccueilOperations.cs:104 — accueil.widget.state en OperationClass.LocalRead (le relai de progression ne lit pas le réseau)",
+    "tests/web/accueil-widget-collections.test.mjs:39 — « compteurs de progression indépendants » : la ligne affiche bien « 1/2 » pendant la collecte",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:431 — « phase de dessin explicite » : la file attend le dessin réel",
+    "web/js/pages/poste/board-layout.js:10 — createBoardLayout, utilisé par les tableaux Poste (web/js/pages/poste/overview.js:71) et Logiciels (web/js/pages/poste/inventory.js:279) : aucune occurrence de « collect » ni « progress » dans ce fichier"
+  ],
+  "manque": "Trois éléments de la fiche ne sont pas là. (1) Aucun fil de progression par widget sur les tableaux Poste et Logiciels : web/js/pages/poste/board-layout.js ne contient ni [data-widget-progress] ni appel « accueil.widget.* » ; la progression n'existe que sur le tableau du parc d'Accueil (web/js/pages/accueil/board.js:68), alors que la fiche promet la progression « sur le tableau du poste ». (2) Pas de libellé distinct pour l'inventaire, les logiciels ni le « WMI mémorisé » : toute mesure passe par la phase unique « running » (src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:304) et collectionText rend le même « Collecte · N/M » (web/js/pages/accueil/widget-collections.js:14) ; les phases nommées de D1 (inventaire, logiciels, WMI mémorisé) n'ont pas de texte. (3) La phase « Recherche des mesures manquantes… » (web/js/pages/accueil/widget-collections.js:7) n'affiche pas N/M : le total n'est connu qu'au retour de accueil.widget.plan.",
+  "effort": "M",
+  "depend": [
+    "TRV-291",
+    "TRV-290"
+  ],
+  "risque": "reseau"
+}

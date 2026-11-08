@@ -1,0 +1,10 @@
+{
+    "Build":  "RC1.17.20",
+    "StartedUtc":  "2026-10-18T10:10:19.9379289Z",
+    "Session":  1,
+    "Passed":  false,
+    "ExitCode":  1,
+    "Error":  "Capture script exited 1",
+    "Stack":  "at \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\Run-Captures.ps1: line 15",
+    "FinishedUtc":  "2026-10-18T10:11:24.5437259Z"
+}

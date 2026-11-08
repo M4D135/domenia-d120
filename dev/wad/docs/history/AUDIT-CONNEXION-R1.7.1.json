@@ -1,0 +1,385 @@
+{
+  "Build": "2026.09.22-R1.7.1-LOGIN",
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveDirectoryExecuted": false,
+  "NativeScenariosProvidedNotExecuted": 30,
+  "BaselineCompared": true,
+  "CoreSha256": "ca3e3521d39e130786a4ad40285864b87804c662a8f68ef8606bd1a303873512",
+  "Passed": 62,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "Only four existing functions declared modified",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "No original function removed",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "One UI hint helper added",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unique top-level functions",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): ADCC.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): INSTALLER-MISE-A-JOUR.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/ADCC-Core.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/maintenance/Debloquer-Paquet.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/maintenance/Preview-AdccUi.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/maintenance/Sauvegarder-Cache.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/modules/ADCC-Support.Model.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/modules/ADCC-Support.UI.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/modules/ADCC-UX.UI.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/Test-ADCC.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/Test-ADCCAccounts.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/Test-ADCCInterface.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/Test-ADCCLastUser.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/Test-ADCCLogin.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/Test-ADCCRemote.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/Test-ADCCSupport.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/Test-ADCCTheme.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parsing): wad/tests/fixtures/AuthProbe-R1.7.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Null-indexing fallback removed",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "ADSI discovery and native bind use PSBase",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "ADSI attributes use guarded collection",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "No unguarded discovery double-index",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "RefreshCache has no fallback that hides its failure",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "One explicit DirectoryEntry constructor and native bind",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Native bind remains required and null cannot mean success",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "No alternate credential retries after explicit attempt",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "DirectoryEntry Secure and Windows Negotiate retained",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "PSObject optional flag not indexed unsafely",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Internal and metadata failures are distinguished",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "ErrorId, stage and worker line are preserved",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Technical log receives diagnostic and original error",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "AD access denial is distinct from credentials and network",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Diagnostics refer to the selected DC after explicit bind",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Wrong-credential hint is no longer generic",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Internal-error hint explicitly avoids password verdict",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Negative LDAP code not presented as real LDAP response",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Standard login XML parses",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Open log and copy diagnostics buttons visible",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Secret reveal helper remains hidden",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Error and stage wrap instead of being truncated",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Native tests run before copying code",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Installer stops if native tests fail",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Native fixture blocks OS domain discovery",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Native fixture blocks unmocked DS constructors",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Native scenarios include old masking, new preservation, bad credentials and MTA",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: ADCC.ico",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: ADCC.exe",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/ActiveDirectoryPowerShellResources.dll",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/ADCC.ico",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/PsExec.exe",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/modules/ADCC-UX.help.json",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/modules/ADCC-Support.UI.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/modules/ADCC-Support.xaml",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/modules/ADCC-UX.UI.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged bytes: wad/modules/ADCC-Support.Model.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    },
+    {
+      "Name": "Actual diff limited to approved functions",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": "['Invoke-AdccInProcessAuthProbe', 'Convert-AdccLoginFailureMessage', 'Update-AdccFastLoginAttempt', 'Get-AdccStandardLoginXaml']"
+    },
+    {
+      "Name": "All 562 other original core functions exact match",
+      "Status": "PASS",
+      "Kind": "StaticSourceOrXml",
+      "Detail": ""
+    }
+  ]
+}

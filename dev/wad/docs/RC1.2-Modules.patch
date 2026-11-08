@@ -1,0 +1,60 @@
+--- RC1.1/wad/Domenia-Core.ps1
++++ RC1.2/wad/Domenia-Core.ps1
+@@ -19685,7 +19685,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.1-ACL"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.2-MODULES"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -22231,9 +22231,9 @@
+ 
+     $sessionButton=Get-DomeniaControl 'BtnSessionsRead';if($null -ne $sessionButton){$sessionButton.Add_Click({Start-DomeniaSessionsRead})}
+     Initialize-DomeniaGuard
++    Initialize-DomeniaLive
+     Initialize-DomeniaReconcile
+-    Initialize-DomeniaLive
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.1 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.2 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -23363,7 +23363,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1.1"
++$script:DomeniaBuild = "Domenia 1.0 RC1.2"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -24388,24 +24388,11 @@
+ 
+ # Main autoritaire
+ try {
+-    # Fixed local modules; no dynamic plugin loading, no network call at import.
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-UX.UI.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Support.Model.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Support.UI.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Live.Model.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Live.UI.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Access.UI.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Continuity.Model.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Continuity.UI.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Guard.Model.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Accounts.Async.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Storage.Worker.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Storage.UI.ps1')
+-    . (Join-Path $PSScriptRoot 'modules\Domenia-Receipts.Worker.ps1')
++    # Same validated definition-only entry point as the standalone package check.
++    # Dot-sourcing here keeps the functions in this application script scope.
++    . (Join-Path $PSScriptRoot 'Domenia-Modules.ps1')
+     $script:WorkerCommon += "`r`n"+(Get-DomeniaReceiptsCommon)
+     $script:ReceiptReady=$false;$script:ReceiptPending=0
+-    . (Join-Path $script:RootDir 'modules\Domenia-Sessions.UI.ps1')
+-    . (Join-Path $script:RootDir 'modules\Domenia-Guard.UI.ps1')
+     Load-AppConfig | Out-Null
+     Initialize-DomeniaDataStore | Out-Null
+     if ($DomeniaSelfTest) {

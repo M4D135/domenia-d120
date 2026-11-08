@@ -1,0 +1,17 @@
+{
+  "id": "TRV-210",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.Closing.cs:10-19 — PrepareCloseAsync clôt la porte (closing=true) puis, si InFlight, renvoie Allowed=false : « Une écriture attend encore son résultat et sa relecture » — l'écriture en cours n'est jamais interrompue silencieusement",
+    "repo/v2/src/Domenia.App/MainForm.Closing.cs:15-33 — CheckClosing annule toujours la fermeture (e.Cancel), suspend les nouvelles lectures de tâches distantes puis consulte PrepareCloseAsync ; !Allowed → MessageBox « Écriture en cours » et retour, pas de fermeture",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.Closing.cs:22-33 — reçus à vérifier ou illisibles → ConfirmationRequired avec le rappel : « Fermer ne rejoue ni n'annule les écritures ; vérifiez leurs reçus dans Opérations au prochain démarrage » ; moteur/reçus illisibles → confirmation exigée aussi (fail closed) ; :41-44 — EnsureOpenLocked refuse tout nouvel envoi (write.closing) pendant le choix",
+    "repo/v2/src/Domenia.App/MainForm.Closing.cs:35-47 — MessageBox YesNo « Fermer Domenia malgré cette incertitude ? » avec le détail ; :60-73 — journal de tâches distante illisible ou tâches actives → avertissement additionnel exigeant la confirmation explicite",
+    "repo/v2/tests/Domenia.Tests/WriteClosingTests.cs:24-45 — l'écriture active empêche la fermeture tant que l'exécuteur n'est pas revenu ; :49-61 — reçu incertain : confirmation explicite, aucune réexécution, aucune relecture réseau implicite ; :65-71 — reçus illisibles : confirmation + envois reste à fenced",
+    "repo/v2/src/Domenia.App/Settings/HostWindow.cs:151,156 — à la fermeture de la fenêtre de configuration : SaveNow(wait) (réglages flushed) ; repo/v2/src/Domenia.App/MainForm.cs:95-98 — FormClosed : lifetime.Cancel() puis DrainPendingMessages() ; :426-434 — Dispose libère dispatcher, lifetime, webView (moteur arrêté)",
+    "repo/v2/src/Domenia.Store/Receipts/FileReceiptStore.cs:24 — reçus durables sur fichier (le reçu est écrit avant l'envoi, WriteCircuit.cs:16) ; repo/v2/src/Domenia.App/TechnicalLog.cs:27 — journal technique flushed à ProcessExit"
+  ],
+  "manque": "Le presse-papiers secret n'est pas nettoyé à la fermeture : ClipboardGuard.ClearLater (repo/v2/src/Domenia.App/Secrets/PasswordWindow.cs:399-427) n'efface que sur minuteur après copie et, fenêtre fermée entre-temps, « le presse-papiers est laissé tel quel » (:421-426) — aucun équivalent de Clear-DomeniaSecretClipboard appelé depuis CheckClosing/FormClosed. La géométrie de la fenêtre principale n'est ni sauvegardée ni restaurée à la fermeture (taille fixe 1440×900 centrée, MainForm.cs:64-67 ; FormClosed ne fait que lifetime.Cancel + DrainPendingMessages :95-98 ; seule la géométrie de capture d'écran est appliquée, :131). Pas de Flush-DomeniaIndex équivalent à la fermeture : l'index local est écrit au fil de l'eau (repo/v2/src/Domenia.Store) mais aucune écriture de clôture de l'index n'est déclenchée dans CheckClosing. La validation de compte (validation de compte D1) n'a pas de nettoyage explicite à la fermeture identifié (repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs ClearAsync n'est appelé par aucun chemin de fermeture).",
+  "effort": "M",
+  "depend": ["TRV-214"],
+  "risque": "ecriture-locale"
+}

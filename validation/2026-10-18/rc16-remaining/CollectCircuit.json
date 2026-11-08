@@ -1,0 +1,46 @@
+{
+  "Suite": "Domenia.CollectCircuit",
+  "Platform": "Unix",
+  "PowerShell": "7.4.6",
+  "Pass": 7,
+  "Fail": 0,
+  "Tests": [
+    {
+      "Name": "Chaque collecte lancée exécute le corps épinglé pour son opération",
+      "Pass": true,
+      "Error": ""
+    },
+    {
+      "Name": "Retention and WMI schema use the actual reviewed generated bodies",
+      "Pass": true,
+      "Error": ""
+    },
+    {
+      "Name": "Le ping du poste sélectionné utilise le corps de sonde épinglé sans identifiants",
+      "Pass": true,
+      "Error": ""
+    },
+    {
+      "Name": "Chaque rappel de collecte enregistre dans SQLite avant toute publication",
+      "Pass": true,
+      "Error": ""
+    },
+    {
+      "Name": "Les mesures publiées sont relues dans le reçu SQLite du lot",
+      "Pass": true,
+      "Error": ""
+    },
+    {
+      "Name": "Les horloges des relevés d OU ne sont affichées qu après leur reçu SQLite",
+      "Pass": true,
+      "Error": ""
+    },
+    {
+      "Name": "Le vieux ping de résultats non enregistré n a plus aucun appelant",
+      "Pass": true,
+      "Error": ""
+    }
+  ],
+  "PendingPins": [],
+  "Limitations": "Preuve statique sur les sources (AST) : aucune exécution de worker, d AD, de réseau, de SQLite ni de WPF. Tout lancement absent du registre épinglé fait échouer ce contrôle."
+}

@@ -1,0 +1,43 @@
+{
+  "Suite": "StorageMaintenance",
+  "Platform": "Unix 26.4.0",
+  "PowerShell": "7.4.6",
+  "Cases": [
+    {
+      "Name": "Backup is standalone and readable after export without WAL sidecars",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Retention deletes only old migrated families and preserves unknown recent and legacy rows",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Retention refusal rolls back and never silently accepts stale confirmation",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 36: the integrity worker checks exactly the tables and columns of the model",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 36: integrity check of a healthy base is read-only and clean",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 37: link history keeps every change and the bounds of each period",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "Total": 6,
+  "Passed": 6,
+  "Failed": 0,
+  "Assertions": 36,
+  "NoNetwork": true,
+  "Scope": "Temporary SQLite databases; no Active Directory or real-user data."
+}

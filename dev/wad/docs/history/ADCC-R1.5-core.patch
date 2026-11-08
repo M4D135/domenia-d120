@@ -1,0 +1,113 @@
+--- R1.4/wad/ADCC-Core.ps1
++++ R1.5/wad/ADCC-Core.ps1
+@@ -1995,6 +1995,8 @@
+     )
+ 
+     $Text = Protect-AdccLogText $Text
++    # R1.5: bounded local explanations; a support failure must not break logging.
++    try { Add-AdccSupportIncidentFromLog -Text $Text -Level $Level -Area $Area } catch { }
+     try {
+         if ($null -eq $script:UiLogLines) {
+             $script:UiLogLines = New-Object System.Collections.Generic.List[string]
+@@ -17564,7 +17566,9 @@
+         [pscustomobject]@{Name="Lancer l'auto-verification ADCC";Key="selfcheck"},
+         [pscustomobject]@{Name="Ouvrir la gestion des comptes";Key="accounts"},
+         [pscustomobject]@{Name="Ouvrir les relations utilisateur / poste";Key="relations"},
+-        [pscustomobject]@{Name="Ouvrir le journal detaille";Key="log"}
++        [pscustomobject]@{Name="Ouvrir le journal detaille";Key="log"},
++        [pscustomobject]@{Name="Atelier : comprendre la fiche";Key="support"},
++        [pscustomobject]@{Name="Atelier : comparer les captures";Key="supportdiff"}
+     )
+     foreach($i in $items){[void]$list.Items.Add($i)}
+     $list.DisplayMemberPath="Name"
+@@ -17578,7 +17582,7 @@
+         $term=([string]$search.Text).Trim()
+         $list.Items.Clear()
+         foreach($i in $items){
+-            if([string]::IsNullOrWhiteSpace($term) -or [string]$i.Name -like "*$term*"){[void]$list.Items.Add($i)}
++            if([string]::IsNullOrWhiteSpace($term) -or ([string]$i.Name).IndexOf($term,[StringComparison]::OrdinalIgnoreCase) -ge 0){[void]$list.Items.Add($i)}
+         }
+         if($list.Items.Count -gt 0){$list.SelectedIndex=0}
+     }
+@@ -17599,11 +17603,24 @@
+             "accounts" { Select-AdccWorkspace -Workspace "TabAccounts"; Update-AdccAccountUi }
+             "relations" { Select-AdccWorkspace -Workspace "TabRelations"; Refresh-LinkGrid -All }
+             "log" { Select-AdccWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabLog" }
++            "support" { Invoke-AdccSafeUiAction -Operation "Atelier" -Action { Select-AdccWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportAnalysisTab"; Update-AdccSupportView -Force } }
++            "supportdiff" { Select-AdccWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportCompareTab" }
+         }
+     }
+     $list.Add_MouseDoubleClick({&$run})
+     $search.Add_KeyDown({param($s,$e) if($e.Key -eq "Enter"){&$run;$e.Handled=$true}elseif($e.Key -eq "Down"){ $list.Focus(); if($list.Items.Count -gt 0){$list.SelectedIndex=0};$e.Handled=$true }elseif($e.Key -eq "Escape"){$window.Close();$e.Handled=$true}})
+     $list.Add_KeyDown({param($s,$e) if($e.Key -eq "Enter"){&$run;$e.Handled=$true}elseif($e.Key -eq "Escape"){$window.Close();$e.Handled=$true}})
++    # Copy the host resources for this owned window; native styles preserve selection contrast.
++    if ($null -ne $script:Window) {
++        foreach ($key in $script:Window.Resources.Keys) { $window.Resources[$key]=$script:Window.Resources[$key] }
++        $window.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'WindowBg')
++        $window.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
++        $search.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'BgInput')
++        $search.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
++        $list.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty,'BgCard')
++        $list.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,'TextColor')
++        $footer.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty,'MutedColor')
++    }
+     $window.Content=$root
+     $window.Add_ContentRendered({$search.Focus();$list.SelectedIndex=0})
+     [void]$window.ShowDialog()
+@@ -17857,6 +17874,7 @@
+         if (-not (Show-LoginWindow)) { Set-Status 'Relogin annule. La session courante est conservee.' 'WARN'; return }
+ 
+         $script:SessionEpoch = [long]$script:SessionEpoch + 1
++    try { Reset-AdccSupportSession } catch { }
+         $script:GlobalSearchGeneration++
+         $script:PresenceScanGeneration++
+         $script:SelectedObjectGeneration++
+@@ -18354,7 +18372,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.21-R1.4-ACCOUNTS"
++$script:MasterBuild = "2026.09.21-R1.5-ATELIER"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -20453,6 +20471,7 @@
+     $script:SelectionResetDn = $Dn
+ 
+     $script:LastLoadedEntry = $entry
++    try { Set-AdccSupportObjectSource -Dn $Dn -IsLive:($isLiveRead -and -not [bool]$script:ShowingCachedObject) } catch { }
+     Reset-AdccDeferredViews -Dn $Dn
+     Clear-Secrets
+     Set-VisibleTabsForType $Type
+@@ -21801,6 +21820,12 @@
+         Invoke-AdccStartupStage "Moteur multithread" { Initialize-AsyncEngine; Initialize-AdccWorkerContextCache } | Out-Null
+         Invoke-AdccStartupStage "Branchement des evenements" { Wire-Events } | Out-Null
+         Invoke-AdccStartupStage "Gestion des comptes" { Initialize-AdccAccountPanel } | Out-Null
++        # Optional local workspace: its failure cannot prevent the AD console from opening.
++        try { Initialize-AdccSupportUi }
++        catch {
++            try { Stop-AdccSupportUi } catch { }
++            Add-AdccUiLog -Area "Atelier" -Level "WARN" -Text ("Atelier indisponible : " + $_.Exception.Message)
++        }
+         Invoke-AdccStartupStage "Aides et ergonomie" { Apply-AutoTooltips; Apply-AdccGuiElementPolicy } | Out-Null
+         Invoke-AdccStartupStage "Base autonome ADCC" {
+             $dbBoot=[Diagnostics.Stopwatch]::StartNew()
+@@ -21891,7 +21916,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:AdccBuild = "ADCC 1.0 R1.4 ACCOUNTS"
++$script:AdccBuild = "ADCC 1.0 R1.5 ATELIER"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -22940,6 +22965,9 @@
+ 
+ # Main autoritaire
+ try {
++    # Fixed local modules; no dynamic plugin loading, no network call at import.
++    . (Join-Path $PSScriptRoot 'modules\ADCC-Support.Model.ps1')
++    . (Join-Path $PSScriptRoot 'modules\ADCC-Support.UI.ps1')
+     Load-AppConfig | Out-Null
+     Initialize-AdccDataStore | Out-Null
+     if ($AdccSelfTest) {

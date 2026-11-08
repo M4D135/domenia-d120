@@ -1,0 +1,50 @@
+{
+    "Kind":  "Wiring",
+    "Lot":  "recherche",
+    "Points":  [
+                   "D012",
+                   "D031",
+                   "D032",
+                   "D033",
+                   "D034",
+                   "D035",
+                   "D036",
+                   "D037",
+                   "D038",
+                   "D039",
+                   "D040",
+                   "CO-20",
+                   "CO-21",
+                   "DS-07",
+                   "FI-21",
+                   "FO-04",
+                   "PF-14",
+                   "SE-13",
+                   "UI-16",
+                   "UX-25",
+                   "UX-33",
+                   "UX-26",
+                   "CO-35",
+                   "SP-05",
+                   "SP-15"
+               ],
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell51":  true,
+    "Wpf":  true,
+    "LiveAD":  false,
+    "LiveCIM":  false,
+    "LivePing":  false,
+    "Passed":  1,
+    "Failed":  0,
+    "Complete":  false,
+    "Filter":  "^D028 ",
+    "Subset":  true,
+    "Limitation":  "Raccordement prouve par les vraies fonctions et de vrais controles WPF, reseau double. Ne prouve pas un acces a un domaine reel.",
+    "Tests":  [
+                  {
+                      "Name":  "D028 LblLiveState porte le libelle de la regle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

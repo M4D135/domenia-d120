@@ -1,0 +1,25 @@
+{
+  "id": "RCH-004",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Search/SearchMemory.cs:293 — SearchMemoryRules.ImportLegacy : une recherche d'OU devient un favori, le texte passe au filtre local ; ligne 303 : « global » (recherche texte sur tout le domaine) exclue, plafond MaxFavorites ; ligne 308 : le favori existant garde la main sur le même DN",
+    "src/Domenia.Core/Screens/Search/SearchMemory.cs:433 — ImportLegacyOnceAsync : premier affichage d'un domaine, une seule fois ; ligne 436 : drapeau « legacyImported » porteur de la clé du domaine (DomainKey = SHA-256 de la racine, ligne 322) ; une lecture en échec est tracée et réessayée, jamais affirmée",
+    "src/Domenia.Core/Screens/Search/SearchMemory.cs:452 — la liste d'origine est seulement lue (saved.Select …) et passée aux règles ; ligne 467 : entrée de journal « … reprises : N OU en favoris (une seule fois ; la liste d'origine est conservée) »",
+    "src/Domenia.Core/Screens/Search/SearchMemory.cs:141 — validation du DN (longueur et Within domaine), ligne 145 : le domaine entier n'est pas épinglé, ligne 149 : nom aplati à 80 caractères, ligne 158 : texte de requête borné (Flat(term, 120))",
+    "src/Domenia.Bridge/Operations/SearchOperations.cs:272 — search.memory appelle memory.StateAsync(…, reader.LegacySavedSearchesAsync) : la reprise est branchée sur le lecteur du domaine affiché",
+    "src/Domenia.Ad/Screens/AdSearchReader.Local.cs:84 — le lecteur du mode annuaire expose LegacySavedSearchesAsync via ILegacySearchCache (le point noté « reste à faire » est donc réalisé)",
+    "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:63 — ReadLegacySearchesAsync lit les Domenia.settings.json / ADCC.settings.json (chemins validés, isolated = [])",
+    "src/Domenia.Store/Sqlite/LegacySearchFile.cs:14-20 — chemin validé, taille bornée à 4 Mio, tableau « SavedSearches » ≤ 5000 lignes ; ligne 25 : DN hors du domaine ignoré ; ligne 27 : mode Global ignoré ; ligne 30-37 : type ramené à un type connu ; lecture seule (File.ReadAllBytes), aucun écrit sur le fichier source",
+    "src/Domenia.Simulation/Screens/SimulatedSearchReader.cs:431 — échantillon fixe en simulation : deux recherches d'OU et une recherche texte globale (exclue)",
+    "tests/Domenia.Tests/SearchOperationsTests.cs:363 — « recherches de Domenia 1 reprises » = 2 et 2 favoris ; ligne 366 : second search.memory → imported = 0 (« reprise unique »)",
+    "tests/Domenia.Tests/AdSearchTests.cs:119 — LegacySearchFile : nom unicode, profondeur, type historique et texte conservés, DN d'un autre domaine rejeté",
+    "web/js/pages/rechercher.js:1028 — l'écran annonce la reprise (« … une seule fois ; la liste d'origine est conservée »)"
+  ],
+  "manque": "Rien de fonctionnel. Deux écarts de lettre avec le garde-fou écrit, tous deux sans risque et vérifiés : le texte repris est tronqué à 120 caractères (SearchMemory.cs:158) au lieu d'être refusé au-delà de 256, et le favori ne porte pas de limite — la borne 1–20 000 est appliquée à la lecture des résultats (SearchText.cs MaxLimit, Math.Clamp dans AdSearchReader.Local.cs:79), pas à la reprise.",
+  "effort": "S",
+  "depend": [
+    "RCH-003 (favoris d'OU)",
+    "stockage local (CompatibleDirectoryCache)"
+  ],
+  "risque": "lecture"
+}

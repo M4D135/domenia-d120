@@ -1,0 +1,567 @@
+{
+  "Build": "2026.09.30-R1.11-SUITE",
+  "Environment": "Linux/Python, source/XML/contrast/hash checks only",
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveAdExecuted": false,
+  "GPOrRBPCodeModified": false,
+  "Passed": 98,
+  "Failed": 0,
+  "Observations": {
+    "ChangedCoreFunctions": [
+      "Set-AdccItemsSource",
+      "Get-AdccDefaultSettings",
+      "Load-AdccSettings",
+      "Save-AdccSettings",
+      "Get-AdccBootThemePalette",
+      "Save-AdccTheme",
+      "Apply-AdccTheme",
+      "Get-MainXaml",
+      "Update-TaskUi",
+      "Clear-AdccGlobalSearch",
+      "Export-CurrentResults",
+      "Update-AdccAccountUi",
+      "Get-AdccStandardLoginXaml"
+    ],
+    "UnchangedCoreFunctions": 560,
+    "OriginalCoreFunctions": 573,
+    "PinnedWorkersMatched": 45,
+    "NewInteractiveControls": [
+      "BtnSuiteActivity",
+      "BtnSuiteCancelRead",
+      "BtnSuiteLogNext",
+      "BtnSuiteLoginTheme",
+      "BtnSuiteRefreshActivity",
+      "BtnSuiteResultClear",
+      "ChkSuiteLogWrap",
+      "CmbSuiteDensity",
+      "CmbSuiteLogSize",
+      "DgSuiteActivity",
+      "TabExperience",
+      "TxtSuiteLogFind",
+      "TxtSuiteResultFilter",
+      "UxSuiteIdentities"
+    ],
+    "CalculatedContrastRatios": {
+      "Dark/TextColor/BgCard": 13.954,
+      "Dark/MutedColor/BgCard": 9.659,
+      "Dark/TextColor/BgInput": 12.584,
+      "Dark/MutedColor/DataGridAlt": 9.063,
+      "Dark/BtnFg/BtnBg": 11.578,
+      "Dark/RowSelFg/RowSelBg": 8.637,
+      "Dark/InfoFg/InfoBg": 9.702,
+      "Dark/AccentText/AccentSoft": 6.102,
+      "Dark/StatusError/BgCard": 8.132,
+      "Dark/StatusWarning/BgCard": 10.704,
+      "Dark/StatusSuccess/BgCard": 10.992,
+      "Dark/White/AccentColor": 5.667,
+      "Light/TextColor/BgCard": 15.557,
+      "Light/MutedColor/BgCard": 6.191,
+      "Light/TextColor/BgInput": 15.557,
+      "Light/MutedColor/DataGridAlt": 5.87,
+      "Light/BtnFg/BtnBg": 12.214,
+      "Light/RowSelFg/RowSelBg": 9.566,
+      "Light/InfoFg/InfoBg": 7.632,
+      "Light/AccentText/AccentSoft": 5.553,
+      "Light/StatusError/BgCard": 6.47,
+      "Light/StatusWarning/BgCard": 7.09,
+      "Light/StatusSuccess/BgCard": 7.13,
+      "Light/White/AccentColor": 4.979
+    },
+    "PowerShellCasesProvidedNotRun": 48,
+    "MainPreviewAssertionDefinitionsProvidedNotRun": 47,
+    "NewWpfScenariosProvidedNotRun": 13
+  },
+  "Checks": [
+    {
+      "Name": "All 573 original core functions retained, no duplicate definitions",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Exactly the 13 reviewed core functions changed",
+      "Passed": true,
+      "Detail": "['Set-AdccItemsSource', 'Get-AdccDefaultSettings', 'Load-AdccSettings', 'Save-AdccSettings', 'Get-AdccBootThemePalette', 'Save-AdccTheme', 'Apply-AdccTheme', 'Get-MainXaml', 'Update-TaskUi', 'Clear-AdccGlobalSearch', 'Export-CurrentResults', 'Update-AdccAccountUi', 'Get-AdccStandardLoginXaml']"
+    },
+    {
+      "Name": "New module function names do not collide with existing functions",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Invoke-AdccInProcessAuthProbe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Start-AdccFastLoginAttempt",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Update-AdccFastLoginAttempt",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Complete-AdccFastLoginSuccess",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Start-AdccLoginAuthRunspace",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Invoke-GlobalSearch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Get-AdccSearchScope",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Test-AdccSearchStateCurrent",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Invalidate-AdccSearchResults",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Start-AdccWriteTask",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Assert-AdccCapability",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged engine Wire-Events",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Remote worker common source unchanged",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "All 45 pinned worker bodies resolve and registry is unchanged",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: ADCC.exe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: ADCC.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: ADCC.ico",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/PsExec.exe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/modules/ADCC-Support.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/modules/ADCC-Support.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/modules/ADCC-Support.xaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/ADCC.config.json",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/ADCC.login-mode.cfg",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/ADCC.theme.cfg",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Protected file unchanged: wad/ADCC.ui-profile.cfg",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved collapsible/OU behavior Get-AdccUxLayoutPlan",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved collapsible/OU behavior Get-AdccUxOuDisplay",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved collapsible/OU behavior Save-AdccUxLayoutSettings",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved collapsible/OU behavior Update-AdccUxLayout",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/ADCC-Core.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/modules/ADCC-UX.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/modules/ADCC-Experience.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/modules/ADCC-Experience.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/maintenance/Preview-AdccUi.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/maintenance/Preview-AdccLogin.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/maintenance/Verifier-Paquet.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/tests/Test-ADCCExperience.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: wad/tests/Test-ADCCTheme.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate lexical balance, NOT native parse: INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Edited PowerShell files retain UTF-8 BOM",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "XML and unique template/window namescopes: Get-MainXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Original controls and types retained: Get-MainXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "XML and unique template/window namescopes: Get-AdccStandardLoginXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Original controls and types retained: Get-AdccStandardLoginXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "XML and unique template/window namescopes: Get-AdccDebugLoginXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Original controls and types retained: Get-AdccDebugLoginXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "XML and unique template/window namescopes: Get-LoginXamlLegacy",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Original controls and types retained: Get-LoginXamlLegacy",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "XML and unique template/window namescopes: Get-AdccStartupXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Original controls and types retained: Get-AdccStartupXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Main XAML static/dynamic named resources are defined",
+      "Passed": true,
+      "Detail": "[]"
+    },
+    {
+      "Name": "New activity view is nested in the existing tools host",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "OU tree and results remain together",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Local filter controls track the result write lock",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Local timer checks disabled grid before applying pending filter",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Result grid virtualization retained",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unique names in static help catalogue",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "All new interactive controls have catalogue, tooltip and accessible names",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login remains non-maximizable with adaptive height",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Caps Lock hint is initially collapsed, never reads password",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Theme saving error is a visible independent message",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login theme does not run authentication or modify credential fields",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Contract names only ADCC as actually implemented",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Contract is fixed local JSON, validated and size limited",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Main and startup read the same shared palette",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selected opaque text palette pairs meet 4.5:1 (not a full accessibility audit)",
+      "Passed": true,
+      "Detail": "Minimum 4.979"
+    },
+    {
+      "Name": "Step active indication follows navigation Tag, disabled text not faded",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Valid JSON profile takes precedence over legacy configuration",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preference normalization is closed over existing default keys",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Transient filter, passwords and write enablement are not new defaults",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Theme save checks result and throws only when requested",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Export is based on visible grid and excludes hidden selected items",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Result filter uses literal matching over six fixed nonsensitive fields",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Local result filter neither invokes LDAP nor mutates search root",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Activity projection excludes payload and output assignments",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Cancellation rechecks live job, never force-stops a write",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Malformed jobs and cross-session cancellation rejected by guards",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No invented completed task history or automatic replay",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Activity uses existing throttled UI updates and bounded rows",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Local filter timer stops on close and no network timer added",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "New UI modules have no AD mutation or remote process invocation",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Log find pauses scrolling without clearing/rewriting log",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Collapsed log hides both search controls and log without deletion",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Log font and expanded height bounded",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "48 isolated PowerShell test definitions provided, not executed",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Previews extract fixed presentation functions, no real app bootstrap",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preview uses isolated settings and empty job fixture",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login verification uses appearance-only mock, no live auth invocation",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "New native suite blocks incomplete tests before backup or copy",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Read-only verifier checks hash and native syntax without bootstrapping",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Verifier bounds manifest and rejects links/path traversal",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Verifier does not claim authentic publisher from self-supplied hashes",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Write locks, read-only defaults and auth source were not softened",
+      "Passed": true,
+      "Detail": ""
+    }
+  ]
+}

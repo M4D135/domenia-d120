@@ -1,0 +1,307 @@
+{
+    "Build":  "RC1.14-L04-relations",
+    "Suite":  "Raccordement relations D041-D050 et L04",
+    "Host":  "5.1.26100.7462",
+    "NativeWindowsPowerShell":  true,
+    "Wpf":  true,
+    "MockedNetwork":  true,
+    "LiveAD":  false,
+    "LiveCIM":  false,
+    "Expected":  54,
+    "Passed":  50,
+    "Failed":  8,
+    "Skipped":  0,
+    "Complete":  false,
+    "Tests":  [
+                  {
+                      "Name":  "Chargeur ferme : modules Relations declares avec toutes leurs fonctions",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Point 9 : un nom reattribue ne reprend ni l association ni le GUID d un autre objet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D042 Console d un autre compte : l affectation declaree reste, les deux relations restent visibles",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D042 Retour A B A : la console revenue redevient la relation stockee sans doublon",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D042 Console reconfirmee : une affectation declaree reste prioritaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D042 Canonique : l affectation declaree n est pas evincee par une observation plus recente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D042 File de stockage reelle : l affectation declaree devient la ligne enregistree du poste",
+                      "Status":  "Failed",
+                      "Detail":  "System.Management.Automation.RuntimeException: Affectation non enregistree"
+                  },
+                  {
+                      "Name":  "D049 Postes partages : une seconde declaration n ecrase pas la premiere",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D042 Observation Live d un autre compte : ajoutee, sans ecraser ni score fixe",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D043 Aucun score fixe ecrit par les confirmations de console",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D045 Confirmer sans cible : refus explicite, aucune tache",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D045 Aucun ShowDialog, fenetre ni boite modale dans le parcours d association",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D046 Un candidat explique pourquoi ; une IP ne suffit pas a associer",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D047 Sonde hors du plan confirme : aucun resultat enregistre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D047 Worker : seul l objet AD confirme (GUID) est sonde",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D048 Une origine de liste ne declenche aucune sonde",
+                      "Status":  "Failed",
+                      "Detail":  "System.Management.Automation.RuntimeException: Sonde de la machine selectionnee absente"
+                  },
+                  {
+                      "Name":  "D048 Compteurs interroges, refuses, confirmes et restants",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D048 Arret : compteur et resultat partiel annonces",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D049 Compte local, autre domaine ou nom nu : aucun lien",
+                      "Status":  "Failed",
+                      "Detail":  "System.Management.Automation.RuntimeException: Refus non explique pour PC-A\\alice"
+                  },
+                  {
+                      "Name":  "D049 Historique LogonUI : indice affiche, aucun lien automatique",
+                      "Status":  "Failed",
+                      "Detail":  "System.Management.Automation.RuntimeException: Historique transforme en lien"
+                  },
+                  {
+                      "Name":  "D049 Resultat rattache au sujet Relations meme si la fiche montre un autre poste",
+                      "Status":  "Failed",
+                      "Detail":  "System.Management.Automation.RuntimeException: Resultat du sujet Relations rejete"
+                  },
+                  {
+                      "Name":  "D049 Worker : compte local ignore, source suivante du domaine retenue",
+                      "Status":  "Failed",
+                      "Detail":  "System.Management.Automation.CommandNotFoundException: Le terme « Register-WCredentialFailure » n\u0027est pas reconnu comme nom d\u0027applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l\u0027orthographe du nom, ou si un chemin d\u0027accès existe, vérifiez que le chemin d\u0027accès est correct et réessayez.\r\n   à System.Management.Automation.ExceptionHandlingOps.CheckActionPreference(FunctionContext funcContext, Exception exception)\r\n   à System.Management.Automation.Interpreter.ActionCallInstruction`2.Run(InterpretedFrame frame)\r\n   à System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)\r\n   à System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)"
+                  },
+                  {
+                      "Name":  "D050 Suppression tracee, journalisee sur disque et restauree sans AD",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D050 Restauration apres redemarrage depuis le journal",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D050 Suppression confirmee dans la page quand la confirmation integree existe",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-30 Pick depuis Pending : message francais dans la page, noms internes au journal seulement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-08 Import-LinksCsv : apercu sans ecriture, index local lu par LocalIndexRead, source forcee Import CSV, annulation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-13 : import CSV et retrait des orphelines attendent la sauvegarde verifiee de la base",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-13 : un autre apercu ou d autres cases choisis pendant la sauvegarde ne sont jamais enregistres sans leur clic",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-08 Index local vide ou illisible : presence non verifiee, motif exact",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Points 137-138 : export GLPI et osquery, conflits et rejets avant application, lot annulable apres redemarrage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Revue L04 : 64 associations au plus par enregistrement, file occupee nommee, rien a moitie applique",
+                      "Status":  "Failed",
+                      "Detail":  "System.Management.Automation.CommandNotFoundException: Le terme « Get-DomeniaStorageInputRefusal » n\u0027est pas reconnu comme nom d\u0027applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l\u0027orthographe du nom, ou si un chemin d\u0027accès existe, vérifiez que le chemin d\u0027accès est correct et réessayez.\r\n   à System.Management.Automation.ExceptionHandlingOps.CheckActionPreference(FunctionContext funcContext, Exception exception)\r\n   à System.Management.Automation.Interpreter.ActionCallInstruction`2.Run(InterpretedFrame frame)\r\n   à System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)\r\n   à System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)"
+                  },
+                  {
+                      "Name":  "CO-29 Stockage : tri canonique sur l instant, la plus recente gardee pour une meme relation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Revue L04 : une reference perimee est retrouvee par le poste, sans balayer tout le stockage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-29 Dates : ancienne date locale relue en heure locale, reecrite en UTC par l actualisation et la restauration, affichee en heure locale sur la fiche",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Revue L04 : changement de session, apercu d import et orphelines fermes avec un message",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D041 Onglet Associer utilisable depuis un poste, recherche d un utilisateur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D041 D045 Parcours poste vers utilisateur complet, dans la page",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D041 Detecter depuis un poste lit sa session, rattachee au sujet",
+                      "Status":  "Failed",
+                      "Detail":  "System.Management.Automation.RuntimeException: Lecture de session non lancee"
+                  },
+                  {
+                      "Name":  "D044 Choisir un poste dans Rechercher ne remplace pas l utilisateur en attente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D044 Recherche de cible en cours : un autre utilisateur ne remplace pas le sujet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D044 Confirmation refusee si le compte de lecture a change",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D047 Aucun poste connu : lecture AD seule, pas de bascule vers l OU",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D047 Liste chargee tronquee : apercu dans la page, puis liste confirmee seulement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D043 Grilles Relations : Qualification et regle, aucun pourcentage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D050 Bouton Restaurer actif apres une suppression locale",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-28 Restaurer : libelle nommant le lien, puis inactif apres la restauration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-29 Colonne Date : heure locale affichee, tri sur l instant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PF-16 Page cachee : rafraichissement note, puis execute a l ouverture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FO-14 Toutes les associations : filtre, puces, compteur, double-clic et clic droit",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-40 Orphelines listees avec motif dans la page, retrait confirme, journalise et restaurable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-40 Une source devenue importee apres le controle n est jamais retiree",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-08 Apercu de l import dans la page, puis Annuler l import",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CD-06 Ancien interrupteur RelationsSymmetry a faux : sans effet, le poste reste un sujet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CD-06 Ancien interrupteur DetectionPreview a faux : apercu toujours montre, aucune soumission directe",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-09 Deux zones : associations a gauche, panneau Ajouter a droite, precautions derriere ?",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CD-06 Aucun reste des interrupteurs RC1.10.7 dans le code",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "DS-17 Puces de qualification : cle interne, libelle accentue, couleur et regle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

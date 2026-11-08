@@ -1,0 +1,70 @@
+{
+  "Schema": "DomeniaReleaseContract/1",
+  "Product": "Domenia",
+  "Version": "1.0",
+  "Release": "RC1.17.39",
+  "Build": "2026.10.20-DOMENIA-1.0-RC1.17.39-D120",
+  "DisplayName": "Domenia 1.0",
+  "Date": "2026-10-20",
+  "Channel": "Candidate",
+  "ReleaseStatus": "CandidateRequiresWindowsValidation",
+  "DataSchemaVersion": 11,
+  "MinimumPowerShell": "5.1",
+  "RuntimeFileLimit": 250,
+  "Components": [
+    {
+      "Path": "Domenia.exe",
+      "Name": "Lanceur natif Domenia",
+      "Version": "launcher-1.0 (RC1.10, conserve a l octet)",
+      "Sha256": "3535a6cbceea3baa0066d9024ea316a8dfa2992a463f8eb17cc8baa40b6be7ac",
+      "Origin": "Construit depuis tools/launcher/launcher.c (sources versionnees) ; non recompile pour RC1.11.0 (decision F8).",
+      "Pinned": true
+    },
+    {
+      "Path": "wad/Microsoft.ActiveDirectory.Management.dll",
+      "Name": "Microsoft Active Directory Management",
+      "Version": "fourni par l archive ADCC R1.13",
+      "Sha256": "1a6af7b8f8bce5b35ff873e2528746480c980526d86e38ca5acd04c2e9037157",
+      "Origin": "Composant tiers Microsoft, non modifie ; revue de licence requise.",
+      "Pinned": true
+    },
+    {
+      "Path": "wad/ActiveDirectoryPowerShellResources.dll",
+      "Name": "Ressources PowerShell Active Directory",
+      "Version": "fourni par l archive ADCC R1.13",
+      "Sha256": "e233d92238aa31ea1b3c60145d8811edb2e517e1b9b53f4bc496883ee5d9973b",
+      "Origin": "Composant tiers Microsoft, non modifie ; revue de licence requise.",
+      "Pinned": true
+    },
+    {
+      "Path": "wad/PsExec.exe",
+      "Name": "Sysinternals PsExec",
+      "Version": "fourni par l archive ADCC R1.13",
+      "Sha256": "edfae1a69522f87b12c6dac3225d930e4848832e3c551ee1e7d31736bf4525ef",
+      "Origin": "Composant tiers Microsoft Sysinternals, non modifie ; revue de licence requise.",
+      "Pinned": true
+    },
+    {
+      "Path": "wad/modules/M4D.Admin.Common.Query.dll",
+      "Name": "Moteur de requêtes commun",
+      "Version": "0.1.1-domenia.1",
+      "Sha256": "472d9c5feba970e2999621072ded76a8bf691ef22dc4de23fd4e5d0fb45a4d98",
+      "Origin": "Sources versionnées, compilées avec le script de développement correspondant sous Windows PowerShell 5.1 dans CNAMTS-W11-01 le 16/10/2026. Roslyn 4.8.0, références net472 1.0.3, C# 5, deux compilations identiques. Preuves : validation/2026-10-16/rc13-corrections.",
+      "Pinned": true
+    },
+    {
+      "Path": "wad/modules/Domenia.Native.dll",
+      "Name": "Lecteur et agrégateur natifs Domenia",
+      "Version": "1.0.0.0",
+      "Sha256": "c3659bb893abcbe9b09237ee4428dc9aec9ecb1adb2b4502087a36a384cf8d66",
+      "Origin": "Sources versionnées, compilées avec le script de développement correspondant sous Windows PowerShell 5.1 dans CNAMTS-W11-01 le 16/10/2026. Roslyn 4.8.0, références net472 1.0.3, C# 5, deux compilations identiques. Preuves : validation/2026-10-16/rc13-corrections.",
+      "Pinned": true
+    }
+  ],
+  "SystemComponents": [
+    "Windows PowerShell 5.1 (Desktop) et WPF",
+    "winsqlite3.dll (fourni par Windows)",
+    "CIM/WMI, WTS, LDAP (System.DirectoryServices) fournis par Windows",
+    ".NET Framework 4.7.2 ou ultérieur"
+  ]
+}

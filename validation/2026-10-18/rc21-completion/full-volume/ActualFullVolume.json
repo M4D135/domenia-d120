@@ -1,0 +1,82 @@
+﻿{
+    "Suite":  "RC21.ActualFullVolume",
+    "Passed":  false,
+    "PowerShell":  "5.1.26100.6584",
+    "StartedUtc":  "2026-10-18T12:10:46.0685069Z",
+    "Checks":  [
+                   {
+                       "Name":  "Fresh disposable VHD path",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Unused non-system drive letter",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Selected volume belongs only to disposable VHD",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "NTFS genuinely full (Windows ERROR_DISK_FULL), no SQLite quota",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Production writer explicitly refuses the full volume",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "No partial revision or receipt after failed write",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "No partial payload",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Same batch writes successfully after space is freed",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Second replay does not duplicate the batch",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Exactly one committed revision and one receipt",
+                       "Passed":  true
+                   }
+               ],
+    "Error":  "; cleanup: The process cannot access the file \u0027C:\\Windows\\Temp\\Domenia-RC21-Completion\\full-volume\\disposable-ac16e36eb73f49b6b80a7197fe6f2584.vhd\u0027 because it is being used by another process.",
+    "Cleanup":  false,
+    "Volume":  {
+                   "BackingFile":  "C:\\Windows\\Temp\\Domenia-RC21-Completion\\full-volume\\disposable-ac16e36eb73f49b6b80a7197fe6f2584.vhd",
+                   "Drive":  "Z",
+                   "SizeBytes":  134217728,
+                   "DiskNumber":  1,
+                   "FileSystem":  "NTFS"
+               },
+    "FullVolume":  {
+                       "FreeBytes":  0,
+                       "Win32Error":  112,
+                       "Message":  "There is not enough space on the disk.\r\n"
+                   },
+    "Refusal":  "StorageInsufficientSpace : espace libre 0 octets, reserve minimale 35654692 octets. Le lot reste non enregistre.",
+    "Before":  {
+                   "Integrity":  "ok",
+                   "Revision":  1,
+                   "Receipts":  1,
+                   "BatchReceipts":  0
+               },
+    "AfterFailure":  {
+                         "Integrity":  "ok",
+                         "Revision":  1,
+                         "Receipts":  1,
+                         "BatchReceipts":  0
+                     },
+    "Final":  {
+                  "Integrity":  "ok",
+                  "Revision":  2,
+                  "Receipts":  2,
+                  "BatchReceipts":  1
+              },
+    "EndedUtc":  "2026-10-18T12:11:24.2095075Z"
+}

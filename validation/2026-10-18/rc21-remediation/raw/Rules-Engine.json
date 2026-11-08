@@ -1,0 +1,475 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  72,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "CO-02",
+                       "D011",
+                       "D012",
+                       "D015",
+                       "D016",
+                       "D017",
+                       "D018",
+                       "D019",
+                       "D020",
+                       "D029",
+                       "D051",
+                       "FI-03",
+                       "MO-05",
+                       "P12",
+                       "P122",
+                       "P15",
+                       "P16",
+                       "P160",
+                       "P17",
+                       "P-CD-07",
+                       "PF-04",
+                       "PF-06",
+                       "UX-30"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "D011",
+                      "Name":  "Plan valide : ordre respectant les dependances",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D011",
+                      "Name":  "Dependance absente refusee avant tout import",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D011",
+                      "Name":  "Cycle de dependances refuse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D011",
+                      "Name":  "Dependance chargee dans une phase ulterieure refusee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D011",
+                      "Name":  "Deux fournisseurs pour une meme fonction refuses",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D011",
+                      "Name":  "Le bootstrap ne peut pas appeler un fournisseur de la phase Modules",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D012",
+                      "Name":  "Identite immuable : aucune propriete modifiable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D012",
+                      "Name":  "Changer le libelle ne change pas la cible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D012",
+                      "Name":  "GUID absent : aucune identite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D012",
+                      "Name":  "Compte de lecture, session ou generation differents : contexte different",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D012",
+                      "Name":  "GUID binaire dans une collection a un element accepte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "Classes : ecriture, action explicite, selection, fond",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "Classes : vrais identifiants du registre, actions par bouton explicites",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "Lectures strictement identiques : meme cle de partage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "Compte, generation ou cible differents : pas de partage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "Ecriture ou charge utile vivante : jamais partagee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "Le fond laisse des places aux actions explicites",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "Saturation : lecture en attente, ecriture jamais mise en file",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "File : priorite puis ordre d arrivee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D017",
+                      "Name":  "Etats exacts : attente, execution, arret demande, nettoyage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D017",
+                      "Name":  "Un arret demande n est jamais presente comme termine",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D017",
+                      "Name":  "Un worker detache termine n est plus compte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D017",
+                      "Name":  "Arret encore en cours : le detache reste en nettoyage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Refus d identifiants : aucun nouvel essai, meme explicite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Pannes repetees : le fond est suspendu, l action explicite reste possible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Pannes repetees : une lecture causee par une selection reste envoyee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Temporisation croissante et bornee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Une ecriture n est jamais rejouee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Fournisseurs distincts par operation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Actions distantes sur un poste : jamais budgetees comme l annuaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Refus d identifiants : bloque ce compte, pas un autre compte choisi explicitement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Issue d un worker : refus, identifiants, delai, annulation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "C3 : table des besoins identique aux listes historiques (57 operations)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "C3 : un refus WTS ou stockage ne suspend jamais le canal AD",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D051",
+                      "Name":  "C3 : liste et cle BitLocker classees comme ReadBitLocker (compte Secrets, ressource BitLocker)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D015",
+                      "Name":  "File : une lecture qui attend trop longtemps est retiree",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D016",
+                      "Name":  "Isolement : desactive par defaut, jamais pour une ecriture ni un compte explicite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D019",
+                      "Name":  "Chaque ressource a un proprietaire et un nettoyage, meme apres une erreur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D019",
+                      "Name":  "Liberation par nature : les minuteurs sans les jobs actifs",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D019",
+                      "Name":  "Longue session avec annulations : retour a un niveau stable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D020",
+                      "Name":  "Fenetre inactive ou reduite : aucun rafraichissement de fond",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "UX-30",
+                      "Name":  "Fenetre inactive mais visible : la vue affichee reste a jour, les lectures reseau de fond attendent",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "UX-30",
+                      "Name":  "Fenetre reduite ou masquee : recalcul de vue suspendu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "FI-03",
+                      "Name":  "Ecriture admise malgre 12 lectures detachees, sur sa place reservee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "FI-03",
+                      "Name":  "Action explicite : une place reservee ; lectures de fond et de selection plafonnees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "MO-05",
+                      "Name":  "Fournisseur sature : candidat saute et garde en file, un autre fournisseur part",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "MO-05",
+                      "Name":  "Refus durable : le candidat est rendu pour que son depart signale l erreur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PF-04",
+                      "Name":  "Ordre de traitement : ecriture, action explicite, selection, fond, puis arrivee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "CO-02",
+                      "Name":  "Seules les taches de premier plan pilotent Annuler et la barre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PF-06",
+                      "Name":  "Pulsation : aucun abonne actif, aucun reveil ; fenetre reduite, seuls taches et sauvegardes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PF-06",
+                      "Name":  "Pulsation : un abonne proche de son echeance partage le reveil courant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D020",
+                      "Name":  "Recus et sauvegardes en cours restent suivis",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D020",
+                      "Name":  "Une page cachee ne se reconstruit pas et ne lance pas son rafraichissement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D020",
+                      "Name":  "Sources de travail de fond : correspondance avec la politique de repos",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D029",
+                      "Name":  "Mesure et purge locales ne recoivent aucun compte annuaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P12",
+                      "Name":  "Partage : un autre compte, un autre délai ou une autre classe ne partagent jamais la lecture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P16",
+                      "Name":  "Fond en longue attente : une place réservée lui est accordée, jamais au-delà du plafond",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P16",
+                      "Name":  "File : le travail de fond le plus ancien passe devant après son attente, sinon lʼaction explicite garde la priorité",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P16",
+                      "Name":  "Fond en longue attente : départ malgré le budget du fournisseur ou du site occupé, jamais par-dessus une pause",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P16",
+                      "Name":  "Charge simulée : sous une rafale dʼactions explicites, le travail de fond démarre après son attente et pas avant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P17",
+                      "Name":  "Délais : une lecture de campagne qui progresse continue, une lecture bloquée sʼarrête, la durée totale borne tout",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P15",
+                      "Name":  "Sites : des délais répétés suspendent le fond de ce site seulement, ni les autres ni lʼannuaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P160",
+                      "Name":  "Reprise progressive : après la pause, une lecture de fond à la fois, une de plus par réponse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P160",
+                      "Name":  "Panneau : les postes en pause ou en reprise sont regroupés par fournisseur, les sites restent nommés",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P122",
+                      "Name":  "Percentiles : la recherche locale garde sa propre serie",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P122",
+                      "Name":  "Percentiles : categories disjointes, aucune mesure comptee deux fois",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P122",
+                      "Name":  "Percentiles : rang le plus proche, 95e centile seulement a partir de 20 mesures",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P122",
+                      "Name":  "Percentiles : texte honnete, aucune mesure ne devient 0 ms",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-07",
+                      "Name":  "Table des opérations : une ligne par opération épinglée du registre, et réciproquement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-07",
+                      "Name":  "Table des opérations : lue une fois, sans distinction de casse, inconnue = aucune ligne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-07",
+                      "Name":  "Table des opérations : chaque règle répond comme les anciennes listes pour chaque identifiant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D018",
+                      "Name":  "Effets des operations de lecture et de stockage classes apres revue",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

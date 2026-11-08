@@ -1,0 +1,18 @@
+{
+  "id": "TRV-073",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/web/js/pages/parametres/journaux.js:186-187 — copie le journal tel qu'affiché, filtre compris : text = visible().map(lineText).join('\\n') — visible() applique « Erreurs seulement » et la marque d'effacement (lignes 45-48)",
+    "repo/v2/web/js/pages/parametres/journaux.js:188-201 — option « Masquer les noms » cochée par défaut avec aperçu avant copie (data-preview, refresh ligne 196) et avertissement annoncé : « Masquage au mieux : relisez avant d'envoyer. Les secrets reconnus sont masqués ; les noms internes demandent votre vérification. » ; le toast confirme « noms masqués » (ligne 201)",
+    "repo/v2/web/js/pages/parametres/pure.js:53-61 — maskNames : chemins AD (CN/OU/DC), DOMAINE\\compte, UPN, adresses IPv4, noms DNS d'au moins trois labels ; les noms de fichiers (extensions connues) et les versions (débuts par un chiffre) sont conservés — testé repo/v2/tests/web/parametres.test.mjs:32-40 (Camille/adm-jmartin/adm@example.local/10.0.0.4/pc-01.site.example.local masqués, Domenia.Core.dll et 2.0.0.1 conservés)",
+    "repo/v2/src/Domenia.Core/Platform/TechnicalJournalRecord.cs:12,18,21 — Protect-DomeniaLogText a son équivalent toujours appliqué : SupportSecretMask.Protect est appelé à l'écriture de chaque ligne (avant échappement, avec repli « Message hors limites » sans fragment), donc aucune copie ne peut révéler un secret reconnu ; testé repo/v2/tests/Domenia.Tests/TechnicalJournalTests.cs:10-23",
+    "repo/v2/web/js/pages/operations/journal.js:106-108 — sur l'onglet Opérations › Journal, la copie applique maskSecrets avant presse-papiers ; repo/v2/web/js/pages/accueil/session-tools.js:175 — la copie du journal technique depuis l'Accueil copie les lignes telles quelles (les secrets n'y sont jamais car exclus à l'écriture)"
+  ],
+  "manque": "Le masquage des noms est incomplet par rapport à la liste de la fiche : pure.js:54-60 ne masque ni le nom de domaine seul, ni le NetBIOS seul, ni un nom de serveur, ni un compte sans préfixe DOMAINE\\ (le garde-fou assumé « Un nom de poste isolé peut rester visible » est écrit dans repo/v2/web/js/shell/help-catalog.js:602 (ChkUiLogCopyMask)), ni surtout le nom de l'objet sélectionné — aucune fonction ne reçoit le nom de l'objet courant pour le masquer. Deuxième écart mineur : la copie « Copier le journal technique » de l'Accueil (session-tools.js:175) n'offre aucune option « Masquer les noms » (copie brute, seule la version Paramètres masque). À noter aussi : l'aperçu de copie est tronqué à 20 000 caractères (journaux.js:196) sans que la copie réelle le soit — l'opérateur relit un extrait, pas l'ensemble.",
+  "effort": "M",
+  "depend": [
+    "TRV-070 (même page ; le masquage s'applique au texte de la vue lisible/brute), TRV-072 (copie après recherche : la ligne trouvée doit rester copiable masquée)",
+    "Sujet « assistance / masquage des noms » : SupportSecretMask (côté serveur) et maskNames (côté client) sont deux périmètres distincts — toute extension des motifs devrait rester cohérente entre les deux"
+  ],
+  "risque": "lecture"
+}

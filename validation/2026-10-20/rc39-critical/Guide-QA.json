@@ -1,0 +1,79 @@
+{
+  "utc": "2026-10-20T20:42:11.040410+00:00",
+  "passed": true,
+  "scope": "Contact sheets of every page plus enlarged changed pages; no native Word execution",
+  "docx_render_pages": {
+    "technicien": 34,
+    "administrateur": 84
+  },
+  "distribution_pdf_pages": {
+    "technicien": 43,
+    "administrateur": 102
+  },
+  "docx_detail_pages": {
+    "technicien": [
+      3,
+      4,
+      13,
+      24,
+      28
+    ],
+    "administrateur": [
+      3,
+      19,
+      37,
+      72,
+      73,
+      74
+    ]
+  },
+  "pdf_detail_pages": {
+    "technicien": [
+      3,
+      5,
+      16,
+      30,
+      35,
+      43
+    ],
+    "administrateur": [
+      3,
+      24,
+      45,
+      87,
+      89
+    ]
+  },
+  "provenance": "Text RC1.17.39; screenshots explicitly historical RC1.17.20, unchanged",
+  "findings": "No clipping, overlap or overflowing table found. PDF chapter breaks leave some short pages; content remains readable. Different DOCX/PDF pagination reflects distinct exports.",
+  "files": [
+    {
+      "source": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/opencode-supervision-rc14/isolated-checkout/guides/build/Domenia-1.0-Guide-technicien.docx",
+      "destination": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/opencode-supervision-rc14/isolated-checkout/DOC/Domenia-1.0-Guide-technicien.docx",
+      "sha256": "2c9ce3ebb6de04b2ea01394203184afba36bf86ed1b1ba8a494076b1a2f9215e",
+      "size": 5212741,
+      "identical": true
+    },
+    {
+      "source": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/opencode-supervision-rc14/isolated-checkout/guides/build/Domenia-1.0-Guide-technicien.pdf",
+      "destination": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/opencode-supervision-rc14/isolated-checkout/DOC/Domenia-1.0-Guide-technicien.pdf",
+      "sha256": "2b5ffb26f71346238d41927e58c5191218155b635e957f2f22e587eff41f2fe5",
+      "size": 4582005,
+      "identical": true
+    },
+    {
+      "source": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/opencode-supervision-rc14/isolated-checkout/guides/build/Domenia-1.0-Guide-administrateur.docx",
+      "destination": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/opencode-supervision-rc14/isolated-checkout/DOC/Domenia-1.0-Guide-administrateur.docx",
+      "sha256": "31610c9640f84650d29d295d6680e9f3ea9aae5ef178342ad2ef9432bbd64812",
+      "size": 5289043,
+      "identical": true
+    },
+    {
+      "source": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/opencode-supervision-rc14/isolated-checkout/guides/build/Domenia-1.0-Guide-administrateur.pdf",
+      "destination": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/opencode-supervision-rc14/isolated-checkout/DOC/Domenia-1.0-Guide-administrateur.pdf",
+      "sha256": "26f66d8aec86d16fb98b78c6c9575d5c0ebf437d0ca93cddb83086ad335b507c",
+      "size": 5648804,
+      "identical": true
+    }
+  ]
+}

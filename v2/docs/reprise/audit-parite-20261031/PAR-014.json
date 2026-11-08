@@ -1,0 +1,20 @@
+{
+  "id": "PAR-014",
+  "verdict": "fait-sans-test",
+  "preuves": [
+    "web/js/pages/parametres/donnees.js:83 — bouton « Copier le chemin » de la carte Emplacement, désactivé avec exactement la raison annoncée « Aucune base active : aucun chemin à copier. » quand loc.path est vide",
+    "web/js/pages/parametres/donnees.js:520 — le gestionnaire d'événements ignore tout bouton désactivé (isOff) ; ligne 526-530 — l'action « copy-path » copie view.location.path ?? view.location.pathLabel puis affiche « Chemin de la base copié. », ou « Copie impossible : presse-papiers indisponible. » en ton warn",
+    "web/js/pages/parametres/common.js:183 — isOff couvre disabled et aria-disabled ; ligne 163-167 — button() pose bien data-act et l'infobulle de la raison",
+    "web/js/ui.js:491-506 — copyText() : navigator.clipboard.writeText, puis repli sur une zone de texte masquée et document.execCommand('copy'), et renvoie false si les deux échouent (le message du garde-fou est donc atteignable)",
+    "src/Domenia.Bridge/Operations/SettingsOperations.cs:103 — le chemin n'est fourni que quand la base est disponible (snapshot.Available ? snapshot.PathLabel : null), donc le bouton n'est actif qu'avec une base active ; src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:229 — Path et PathLabel sortent de la même vue",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:150 — en mode annuaire PathLabel est le vrai chemin du fichier SQLite inspecté (src/Domenia.Ad/Screens/AdSettingsReader.cs:11-13) : la copie porte sur le chemin réel, plus sur une base fictive seule",
+    "web/js/shell/gui-policy.js:4 — BtnIndexCopyPath est mappé sur '[data-act=\"copy-path\"]' plafonné à '.pr-page' (ligne 31-33) : la restriction de l'administrateur atteint le bouton ; web/js/shell/help-catalog.js:392 — « Copie le chemin complet du fichier de la base dans le presse-papiers. »"
+  ],
+  "manque": "Rien de fonctionnel n'est absent : la copie, le garde-fou de la base active et sa raison sont en place. Deux réserves vérifiables. (1) Aucun test : aucune occurrence de « copy-path », « Chemin de la base copié » ou « presse-papiers » dans tests/ (ni tests/web/parametres.test.mjs, ni tests/e2e/parametres), alors que les fonctions voisines de la même carte ont un scénario (tests/e2e/parametres/ecrivain-suspendu.json, restaurer-base-illisible.json). (2) Incohérence avec le bouton voisin en démonstration : « Ouvrir l'emplacement » y est refusé comme portant sur une base sans fichier (web/js/pages/parametres/donnees.js:84, noFile = v.simulated || !loc.path) alors que « Copier le chemin » n'a pas de condition v.simulated (ligne 83) et copie donc un chemin fictif que rien n'existe sur le disque. En pratique le garde-fou « aucune base active » n'est d'ailleurs jamais vu : quand la base n'est pas disponible la carte entière est remplacée par l'état vide (web/js/pages/parametres/donnees.js:350-353), donc loc.path est toujours non vide quand le bouton est rendu.",
+  "effort": "S",
+  "depend": [
+    "GuiElementPolicy / PAR-044 (web/js/shell/gui-policy.js:4 — BtnIndexCopyPath doit rester aligné sur l'unique instance du bouton)",
+    "PAR-013 (même carte : la ligne d'emplacement et son chemin d'infobulle), PAR-015 (bouton voisin, même condition de base fictive à trancher)"
+  ],
+  "risque": "lecture"
+}

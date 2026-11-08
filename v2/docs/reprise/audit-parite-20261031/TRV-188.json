@@ -1,0 +1,19 @@
+{
+  "id": "TRV-188",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Platform/CimReadSafety.cs:13-44 — liste des classes servies par MSIProv et ancêtres génériques qui y mènent (Win32_Product, CIM_Product, ~90 noms), reprise de Get-DomeniaMsiProviderClassNames",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/Wmi/Wql.cs:202-209 — WqlRules.CheckTarget refuse toute classe de la liste MsiProviderClasses avant toute lecture, atelier de requêtes inclus",
+    "repo/v2/src/Domenia.Inventory/CimQuery.cs:20-29 — IsReadOnlySelect : seule une lecture SELECT conforme à la grammaire fermée passe, CheckTarget appelé ; le transport refuse tout le reste (CimSession.cs:145)",
+    "repo/v2/src/Domenia.Bridge/Operations/RequetesWmiOperations.cs:107,173 — chaque opération WQL de l'atelier passe par CheckTarget avant exécution",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:457 — contrat de sonde refuse classe MSI ou refusée ; ligne 352 refuse aussi root\\subscription, LDAP, RSOP, default, security",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:438-440 — comportement refusé si Code != Aucun ou méthodes non vides : aucun code, aucune méthode WMI possible",
+    "repo/v2/src/Domenia.Inventory/NativeReadProcess.cs:31-33 — le worker natif est toujours le propre exécutable de l'application : aucun chemin, exécutable ou script n'est accepté par IPC (d'où les here-strings D1 sans équivalent saisissable)",
+    "repo/v2/src/Domenia.Inventory/RemoteWinRmScriptLauncher.cs:10 — « never an arbitrary script through Query/SELECT » : le lanceur transitoire n'exécute aucun script arbitraire (msiexec /f ne peut donc être injecté nulle part)",
+    "repo/v2/tests/Domenia.Tests/CimReadSafetyTests.cs:13-26 — test : les 88 noms D1 refusés dans atelier, transport, Poste et contrat Accueil ; ligne 29 : ancêtres refusés sans fermer les feuilles en lecture bornée"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

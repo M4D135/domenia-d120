@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : exporter puis réinitialiser les réglages de collecte",
+  "description": "Exporte les préférences (sans identité de connexion), puis réinitialise le groupe « Collecte » après confirmation. En mode E2E, les préférences restent en mémoire : celles de l’opérateur ne sont ni lues ni modifiées.",
+  "modes": ["simulation"],
+  "start": "parametres?section=preferences",
+  "steps": [
+    { "do": "wait", "ready": "parametres", "title": "L’écran Paramètres est prêt" },
+    { "do": "click", "selector": "[data-act=\"export\"]", "title": "Exporter les préférences" },
+    { "do": "expect", "selector": ".pr-export textarea", "title": "Le texte de l’export est affiché" },
+    { "do": "expect", "contains": "domenia.preferencesExport", "within": ".pr-export", "title": "Le format est nommé" },
+    { "do": "click", "selector": "[data-act=\"reset:collection\"]", "title": "Réinitialiser la collecte" },
+    { "do": "click", "text": "Réinitialiser", "within": ".k-dlg", "title": "Confirmer la réinitialisation" },
+    { "do": "expect", "contains": "Préférences réinitialisées", "within": ".toasts", "title": "La notification nomme le groupe réinitialisé" },
+    { "do": "journal", "contains": "Préférences en mémoire seulement (mode E2E)", "title": "Journal : préférences de l’opérateur non touchées" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

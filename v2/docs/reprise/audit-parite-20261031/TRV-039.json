@@ -1,0 +1,18 @@
+{
+  "id": "TRV-039",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/TechnicalLog.cs:10-12 — le journal technique s'écrit %LOCALAPPDATA%\\Domenia\\logs\\domenia.log (AppPaths.UserData) avec repli explicite dans TEMP : Path.Combine(Path.GetTempPath(), \"Domenia\", \"logs\", \"domenia.log\") — le couple « LOCALAPPDATA ou TEMP » de l'énoncé est couvert",
+    "repo/v2/src/Domenia.Core/Platform/TechnicalJournalRecord.cs:14-33 — chaque ligne est masquée par SupportSecretMask.Protect (ligne 21), les sauts de ligne et caractères de contrôle échappés (lignes 25-30) et la ligne bornée à 16 384 : équivalent fonctionnel de Protect-DomeniaLogText ; repo/v2/src/Domenia.Store/Logging/RotatingTechnicalJournal.cs:22-29 — file bornée 2 048 lignes, perte comptée et signalée",
+    "repo/v2/src/Domenia.App/Program.cs:160 — le contrôle 64 bits (« Domenia exige Windows 64 bits. ») est le premier refus du Main, avant toute composition de module ; les premières lignes journalisées (Program.cs:181 « Paquet vérifié… », Program.cs:255 « Démarrage de {ProductInfo.Name} {ProductInfo.Version} : mode… ») précèdent bien la création des modules (Composition, ligne 332)",
+    "repo/v2/src/Domenia.App/Program.cs:80-99 — traces de dernier recours : exception fatale du domaine, tâche inobservée, échec LDAP (codes seuls) vers le journal ; repo/v2/src/Domenia.App/StartupTrace.cs:22-33 — les phases d'amorçage (intégrité, fenêtre, préparation) sont journalisées avec durées après la vérification du paquet",
+    "Absence de relance cachée au démarrage : aucune occurrence de ProcessStartInfo WindowStyle.Hidden ou de redémarrage de Domenia.exe dans le chemin de démarrage de Program.cs ; les enfants cachés du dépôt sont affectés à d'autres fonctions (repo/v2/src/Domenia.App/PackageUpdateChannel.cs:75-76 canal de mise à jour CreateNoWindow, repo/v2/src/Domenia.App/MainForm.Demonstration.cs:23-24 session de démonstration)"
+  ],
+  "manque": "La trace d'amorçage elle-même n'existe pas. 1) Aucun fichier « Domenia-bootstrap.log » ni équivalent : aucune occurrence de « bootstrap » comme nom de fichier dans repo/v2/src (seul un commentaire, Program.cs:339). 2) Aucune ligne ne porte le PID, l'hôte, la version et le 64 bits avant tout module : la première ligne technique (Program.cs:181) est celle du paquet et ne contient ni PID (aucune occurrence de Environment.ProcessId dans TechnicalLog ou Program.cs) ni nom d'hôte ; la ligne de version (Program.cs:255) vient après la vérification d'intégrité et le mode ; le contrôle 64 bits (ligne 160) refuse sans rien journaliser. 3) Le chemin d'échec de CheckPackage (Program.cs:189-196) n'écrit que sur stderr et en boîte de message : le journal reste vide précisément quand le démarrage échoue tôt, alors que l'énoncé veut une trace avant tout module. 4) Le bloc ISE n'a pas d'équivalent ni de trace écrite de son abandon : Domenia 2 est un EXE compilé sans hôte PowerShell (repo/v2/ARCHITECTURE.md:3,21), l'avertissement ISE n'a pas d'objet — à acter comme sans objet dans le catalogue plutôt que laissé « a-faire » silencieux. 5) Aucun test n'asservit une première ligne d'amorçage avec PID/hôte/version (aucune occurrence de bootstrap ou ProcessId dans les tests du journal).",
+  "effort": "S",
+  "depend": [
+    "TRV-040 (la déduction de la racine et des chemins où écrire la trace, repo/v2/src/Domenia.App/AppPaths.cs:22-26)",
+    "sujet « Journal technique » (RotatingTechnicalJournal, format de ligne, repo/v2/src/Domenia.Core/Platform/TechnicalJournalRecord.cs:14-33)"
+  ],
+  "risque": "ecriture-locale"
+}

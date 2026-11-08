@@ -1,0 +1,21 @@
+{
+  "id": "TRV-194",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheAttributeRules.cs:43-50 — liste noire : unicodePwd, userPassword, clearTextPassword, dBCSPwd, supplementalCredentials, ntPwdHistory/lmPwdHistory, currentValue/priorValue/pekList, trustAuth*, ms-Mcs-AdmPwd, msLAPS-* (y c. historiques), msFVE-RecoveryPassword/KeyPackage, msDS-ManagedPassword* (gMSA), msDS-KeyCredentialLink",
+    "repo/v2/src/Domenia.Ad/Ldap/AdConnection.cs:171-189 — ValidateReadRequest/SafeReadAttribute : aucune demande LDAP ne peut demander un attribut sensible (refus avant la lecture, l'équivalent du prelude worker)",
+    "repo/v2/src/Domenia.Ad/Ldap/AdConnection.Schema.cs:70 — les noms d'attributs du schéma sont filtrés par IsSensitive",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheAttributeRules.cs:175-196 — côté UI : Rows exclut tout attribut IsSensitive et compte les « attributs sensibles exclus »",
+    "repo/v2/src/Domenia.Ad/AdDirectoryReader.cs:81-85 et AdDirectoryMapper.*Attributes — liste blanche : seules les attributs mappés par type entrent dans le snapshot, donc dans le stockage",
+    "repo/v2/src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.cs:26-28 — refus si ReadAt absent/futur ou identité de lot invalide",
+    "repo/v2/src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.cs:35-37 — refus « Lot hors périmètre ou identités dupliquées : aucune écriture » si GUID vide ou DN hors scope",
+    "repo/v2/src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.cs:150 — type de projection locale inconnu → InvalidDataException (type non pris en charge refusé)",
+    "repo/v2/tests/Domenia.Tests/AdContactTests.cs:33 — test : aucun attribut sensible demandé par les listes d'attributs",
+    "repo/v2/tests/Domenia.Tests/FicheTests.cs:172,213,400 — tests : unicodePwd sensible, aucun sensible affiché, refus avant plan d'écriture",
+    "repo/v2/tests/Domenia.Tests/DirectoryStorageReceiptTests.cs:103-105 — tests : lecture future et lecture non datée refusées"
+  ],
+  "manque": "Rien de fonctionnel : les deux filtres (noir avant LDAP, blanc par projection typée avant stockage) et les trois refus du garde-fou (GUID/DN/date/type) sont en place et testés ; la liste noire vit uniquement dans FicheAttributeRules, aucune liste dédiée au moment du stockage (redondance absente mais non exigée).",
+  "effort": "S",
+  "depend": ["LocalStore"],
+  "risque": "ecriture-locale"
+}

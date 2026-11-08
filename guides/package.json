@@ -1,0 +1,9 @@
+{
+  "name": "domenia-guides",
+  "private": true,
+  "description": "Fabrication des guides Word et PDF de Domenia",
+  "dependencies": {
+    "docx": "^9.9.0",
+    "jszip": "^3.10.1"
+  }
+}

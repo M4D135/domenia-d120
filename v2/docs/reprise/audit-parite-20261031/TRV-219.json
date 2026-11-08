@@ -1,0 +1,17 @@
+{
+  "id": "TRV-219",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/Secrets/CredentialWindow.cs:12 — minuterie de masquage sur AccountsConfiguration.RevealSeconds ; :127-128 — bouton Afficher/Masquer qui (re)démarre la minuterie ; :130 — masque à l'échéance ; :131 — masque dès que la fenêtre est délaissée ou réduite (Deactivate)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountsConfiguration.cs:20 — RevealSeconds = 5 (paramètre, pas un réglage)",
+    "repo/v2/src/Domenia.App/Secrets/SecureEntry.cs:210 — WmCut/WmCopy/WmClear/WmUndo refusés dans la zone de saisie : pas de copie ni d'historique d'annulation pendant l'affichage",
+    "repo/v2/tests/Domenia.Tests/LoginPresentationTests.cs:26 — test : soumission refusée tant que le mot de passe est révélé",
+    "repo/v2/web/js/pages/machine/panel.js:119 — calque en lecture seule au-dessus du champ (pas de sélection, pas de copie) ; :130 — un second clic masque ; :136 — minuterie PEEK_SECONDS = 5 (:19) ; :235 — une frappe masque ; :174 — formulaire occupé masque ; :254 — fermeture : calque vidé et champ effacé",
+    "repo/v2/web/js/pages/comptes/acces.js:195 — le panneau d'accès comptes utilise bindReveal",
+    "repo/v2/web/js/pages/comptes/shared.js:138 — bindReveal bascule input.type en « text » : le champ devient sélectionnable et copiable, contrairement au calque en lecture seule"
+  ],
+  "manque": "La plage réglable 1 à 30 secondes n'existe pas : RevealSeconds est une constante à 5 (repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountsConfiguration.cs:20), sans bornage ni validation d'une valeur configurée (repo/v2/web/js/pages/comptes/acces.js:195 reprend s.revealSeconds sans contrôle). Aucun test web ne couvre la minuterie ni le masquage automatique du calque Compte poste (aucune occurrence de showPeek/hidePeek/bindReveal dans repo/v2/tests/web) ; côté natif seul le refus de soumission révélé est testé. Enfin bindReveal, utilisé hors des deux surfaces imposées (panneau d'accès comptes, repo/v2/web/js/pages/comptes/acces.js:195), rend le champ éditable et copiable (type=text, repo/v2/web/js/pages/comptes/shared.js:138) au lieu d'un calque en lecture seule.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

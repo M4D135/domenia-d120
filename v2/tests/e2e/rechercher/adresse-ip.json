@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : une adresse IP dans les relevés locaux",
+  "description": "Saisit une adresse IPv4 : la barre annonce une recherche dans les relevés locaux, sans scan réseau ; le poste relevé est listé avec son adresse et la date du relevé. Une adresse inconnue n’offre la résolution DNS inverse que sur un clic.",
+  "modes": ["simulation"],
+  "start": "rechercher",
+  "steps": [
+    { "do": "click", "selector": ".rch-input" },
+    { "do": "type", "selector": ".rch-input", "text": "10.10.1.12" },
+    { "do": "expect", "contains": "sans scan réseau", "within": ".rch-bar-host", "title": "Aucun scan réseau n’est annoncé" },
+    { "do": "press", "key": "Enter" },
+    { "do": "wait", "selector": ".rch-res-kind[data-kind=\"address\"]", "title": "Liste d’une recherche par adresse" },
+    { "do": "wait", "contains": "PC-PAR-0001", "within": ".rch-results .k-gbody", "title": "Le poste relevé avec cette adresse est listé" },
+    { "do": "expect", "contains": "10.10.1.12", "within": ".rch-results .k-gbody", "title": "L’adresse relevée est une colonne de la liste" },
+    { "do": "type", "selector": ".rch-input", "text": "10.99.99.99", "clear": true },
+    { "do": "press", "key": "Enter" },
+    { "do": "wait", "contains": "Chercher dans le DNS", "within": ".rch-notices", "title": "La résolution inverse est seulement proposée" },
+    { "do": "shot", "name": "adresse-inconnue" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

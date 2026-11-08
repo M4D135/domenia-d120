@@ -1,0 +1,18 @@
+{
+  "Suite": "LiveIdentity",
+  "Platform": "Unix 6.17.0.1026",
+  "PowerShell": "7.4.6",
+  "Cases": [
+    {
+      "Name": "RC14 Point 127 : identite des sondes seules, presence brute conservee",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "Total": 1,
+  "Passed": 1,
+  "Failed": 0,
+  "Assertions": 31,
+  "NoNetwork": true,
+  "Scope": "Real Live module and pinned worker-body functions extracted by AST over in-memory packets; worker code checked as text; no CIM, network or SQLite."
+}

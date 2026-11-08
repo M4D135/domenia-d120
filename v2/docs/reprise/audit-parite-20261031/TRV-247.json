@@ -1,0 +1,26 @@
+{
+  "id": "TRV-247",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Documents/FileDocumentStore.cs:244 — écriture dans un fichier temporaire en FileMode.CreateNew, FileOptions.WriteThrough | Asynchronous",
+    "src/Domenia.Store/Documents/FileDocumentStore.cs:69 — remplacement atomique par File.Move(temporary, target, overwrite: false) : rien n'écrase une cible déjà là",
+    "src/Domenia.Store/Documents/FileDocumentStore.cs:220 — point de réanalyse refusé sur le chemin (IOException)",
+    "src/Domenia.Store/Documents/FileDocumentStore.cs:253 — Discard supprime le temporaire en cas d'échec",
+    "src/Domenia.Store/Documents/FileDocumentStore.cs:157 — CheckLocalFolder n'admet qu'un dossier local (partage réseau refusé)",
+    "src/Domenia.Core/Platform/IDocumentStore.cs:10 — reçu SavedDocument(bool Saved, string? Path, string Name, string? Folder) : le reçu Saved/Path existe",
+    "src/Domenia.Core/Screens/Assistance/AssistanceDocuments.cs:15 — documents d'assistance bornés à 1 048 576 octets",
+    "src/Domenia.Core/Screens/Assistance/AssistanceDocuments.cs:18 — UTF8Encoding sans identifiant d'encodage : UTF-8 sans BOM à l'écriture",
+    "src/Domenia.Store/Shell/ShellLocalFiles.cs:158 — MaxFileBytes = 1 048 576 en lecture",
+    "src/Domenia.Store/Shell/ShellLocalFiles.cs:267 — lecture refusée si point de réanalyse ou fichier au-dessus de 1 Mo",
+    "src/Domenia.Store/Shell/ShellLocalFiles.cs:271 — décodage UTF-8 strict sans BOM, BOM de tête retiré",
+    "src/Domenia.Store/Shell/ShellLocalFiles.cs:440 — extension contrôlée à la lecture, mais seulement .csv et .json",
+    "tests/Domenia.Tests/AssistanceSessionTests.cs:266 — aucun fichier temporaire laissé après écriture d'un dossier",
+    "tests/Domenia.Tests/AssistanceSessionTests.cs:267 — nom contenant un chemin (..\\evade.txt) refusé",
+    "tests/Domenia.Tests/AssistanceSessionTests.cs:271 — partage réseau refusé comme dossier de documents",
+    "tests/Domenia.Tests/AssistanceSessionTests.cs:285 — dossier lui-même sous lien symbolique refusé"
+  ],
+  "manque": "Pas de worker épinglé pour les documents : le magasin de documents ouvre des FileStream normaux, sans poignée épinglée ni contrôle des points de réanalyse sur tout le chemin (seul le dossier est vérifié, FileDocumentStore.cs:157). L'extension n'est pas contrôlée à l'écriture (IsPlainName, FileDocumentStore.cs:211) et le plafond d'écriture est 128 MiB (FileDocumentStore.cs:25), pas 1 Mo ; le 1 Mo sans BOM n'existe que côté lecture (ShellLocalFiles) et pour les documents d'assistance. La lecture DocumentStore des types annoncés .html et .txt n'existe pas (ShellLocalFiles n'accepte que csv/json).",
+  "effort": "M",
+  "depend": ["DocumentStore"],
+  "risque": "ecriture-locale"
+}

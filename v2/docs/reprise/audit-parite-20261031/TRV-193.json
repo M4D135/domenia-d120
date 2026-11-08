@@ -1,0 +1,21 @@
+{
+  "id": "TRV-193",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Bridge/BridgeReadIdentity.cs:41-44 — identité capturée par cible : empreinte (SHA-256, sans secret) de { ObjectGuid, Kind, Sid, DN canonique } pour fiche.lockouts, fiche.logonByDc, poste.logonByDc, search.revalidate, relations.targets.search (BridgeReadIdentity.cs:12)",
+    "repo/v2/src/Domenia.Bridge/BridgeReadIdentity.cs:36-40 — aucune identité si le DN ne désigne pas exactement un objet avec GUID, ou sans type/SID attendu (fiche.lockouts exige user+SID, poste.logonByDc exige computer) → pas de résultat partagé, donc pas d'action",
+    "repo/v2/src/Domenia.Bridge/BridgeAdmission.cs:254-256 — SameContext : « Identité locale de la cible modifiée depuis la demande ; résultat partagé refusé » ; BridgeAdmission.cs:248-249 identité non qualifiée refusée",
+    "repo/v2/src/Domenia.Bridge/BridgeScheduling.cs:145-161 — stamp de session : époque de session, compte, méthode d'authentification, contrôleur, périmètre, génération MachineAccountService et SélectionVersion AccountAccess, le tout haché (empreinte sans secret)",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:184-188 — un plan exige l'identité exacte de sa cible (DN, GUID, nom, type) ; WritePlans.cs:111-116 IsIntact vérifie l'empreinte du plan",
+    "repo/v2/src/Domenia.Ad/Writes/AdAccountPasswordResetExecutor.cs:23,54 — à la préparation puis à l'application, GUID+USN comparés à la capture",
+    "repo/v2/src/Domenia.Core/Writes/Objects/ObjectWrites.cs:54-57 et repo/v2/src/Domenia.Ad/Writes/AdFicheStructureExecutors.cs:9-11 — expectedGuid capturé à l'ouverture du sélecteur (FIC-018) vérifié contre l'objet courant",
+    "repo/v2/src/Domenia.Bridge/Operations/RelationsOperations.cs:336-345 — relations.associate.plan : « sujet et cible relus, GUID comparés à ceux affichés »",
+    "repo/v2/src/Domenia.Ad/Screens/AdRelationsReader.Console.cs:47-49 — expectedGuid vérifié contre la poste relu avant console",
+    "repo/v2/src/Domenia.Core/Screens/Assistance/AssistanceModels.cs:100-113 — SubjectRecord capture Dn, Guid, Kind, Name, Login, Path, ReadAt",
+    "repo/v2/tests/Domenia.Tests/BridgeSharedReadTests.cs:95,121 et BridgeSchedulingTests.cs:189,194,337 — tests : aucun résultat de l'ancienne identité ni de l'ancienne session publié ; changement de contexte refusé au dernier contrôle"
+  ],
+  "manque": "L'identité n'est pas capturée en une seule structure portant « époque de session et génération » par écran : l'époque et les générations vivent dans le stamp du pont (vérifiées autour des lectures partagées) et l'identité d'objet dans BridgeReadIdentity, sans enregistrement immuable conjoint côté Fiche. Assistance ne rejoue pas le contrôle SameContext sur l'objet : EnsureSameSessionAsync (SupportWorkshop.cs:106-113, AssistanceOperations.cs:484) ne compare que le jeton de session, jamais le GUID/SID du sujet capturé au moment des exécutions ; les opérations hors des cinq lectures partagées ne portent pas l'identité d'objet au moment de l'admission.",
+  "effort": "M",
+  "depend": ["TRV-192"],
+  "risque": "lecture"
+}

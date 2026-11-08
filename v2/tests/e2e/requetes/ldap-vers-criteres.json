@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : un filtre LDAP saisi devient des critères",
+  "description": "Saisit un filtre LDAP sur les comptes utilisateurs, vérifie que la cible passe sur les utilisateurs et que les critères suivent ; puis une parenthèse manquante est signalée à sa position sans rien changer.",
+  "modes": ["simulation"],
+  "start": "requetes?cible=user",
+  "steps": [
+    { "do": "wait", "selector": ".rq-ldap-input", "title": "L’éditeur LDAP est prêt" },
+    { "do": "type", "selector": ".rq-ldap-input", "text": "(&(objectCategory=person)(objectClass=user)(department=Comptabilité))", "clear": true },
+    { "do": "wait", "contains": "Synchronisé", "within": ".rq-ldap-state", "title": "Le texte est lu par le moteur" },
+    { "do": "expect", "contains": "Comptabilité", "within": ".rq-crit-list", "title": "Le service devient un critère" },
+    { "do": "expect", "selector": ".rq-target [data-target=\"user\"]", "attribute": "aria-checked", "equals": "true", "title": "La cible est « Utilisateurs »" },
+    { "do": "type", "selector": ".rq-ldap-input", "text": "(&(department=Comptabilité)", "clear": true },
+    { "do": "wait", "contains": "Filtre refusé", "within": ".rq-ldap-state", "title": "Le filtre incomplet est refusé" },
+    { "do": "expect", "selector": ".rq-ldap .l-err", "title": "La position de l’erreur est marquée" },
+    { "do": "expect", "contains": "Comptabilité", "within": ".rq-crit-list", "title": "Les critères ne changent pas" },
+    { "do": "shot", "name": "erreur-ldap", "selector": ".rq-ldap-card" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

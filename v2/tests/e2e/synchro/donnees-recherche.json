@@ -1,0 +1,24 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Synchronisation : rechercher dans la base locale, trier par l’en-tête",
+  "description": "Onglet Données : saisie d’un terme (délai de 250 ms, aucune lecture à la frappe), clic sur l’en-tête « Nom » qui trie toute la population dans le moteur, ordre décroissant, retour à la pertinence (ordre sans sens), fiche locale de l’objet choisi.",
+  "modes": ["simulation"],
+  "start": "synchro?onglet=donnees",
+  "steps": [
+    { "do": "wait", "contains": "correspondants dans la base", "within": ".sy-data-status", "title": "Le périmètre est listé" },
+    { "do": "expect", "selector": "[data-d=\"order\"]", "attribute": "aria-disabled", "equals": "true", "title": "Pertinence : l’ordre croissant ou décroissant n’a pas de sens" },
+    { "do": "type", "selector": ".sy-search input", "text": "pc-lyo", "title": "Saisir « pc-lyo »" },
+    { "do": "wait", "contains": "page 1 sur", "within": ".sy-data-status", "title": "La recherche répond" },
+    { "do": "expect", "contains": "PC-LYO", "within": ".sy-grid-host", "title": "Des postes de Lyon sont listés" },
+    { "do": "click", "selector": ".k-gh[data-col=\"name\"]", "within": ".sy-grid-host", "title": "Trier par l’en-tête « Nom »" },
+    { "do": "wait", "contains": "Nom (croissant)", "within": ".sy-pager-text", "title": "Le moteur trie toute la population par nom" },
+    { "do": "click", "selector": "[data-d=\"order\"]", "title": "Ordre décroissant" },
+    { "do": "wait", "contains": "Nom (décroissant)", "within": ".sy-pager-text" },
+    { "do": "expect", "selector": "[data-d=\"order\"]", "attribute": "aria-pressed", "equals": "true" },
+    { "do": "click", "selector": "[data-d=\"relevance\"]", "title": "Revenir au tri par pertinence" },
+    { "do": "wait", "contains": "Pertinence", "within": ".sy-pager-text" },
+    { "do": "expect", "contains": "Poste", "within": ".sy-detail", "title": "La fiche locale de la première ligne est affichée" },
+    { "do": "shot", "name": "donnees", "selector": ".sy-data" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

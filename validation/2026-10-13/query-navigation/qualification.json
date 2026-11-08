@@ -1,0 +1,4421 @@
+{
+  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.3-D120",
+  "Status": "PASS",
+  "BaseCommit": "443b999c61be5a2100e1f3fa4d18a55eb305456a",
+  "DEV_SHA256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+  "PROD_SHA256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+  "UTC": "2026-10-13T01:24:27.4377599Z",
+  "Machine": "W11-01",
+  "PowerShell": "5.1.26100.6584",
+  "Session": 0,
+  "TestFiles": [
+    "Test-Domenia",
+    "Test-DomeniaAccounts",
+    "Test-DomeniaAcl",
+    "Test-DomeniaActivityLayout",
+    "Test-DomeniaBoardRefresh",
+    "Test-DomeniaBoards",
+    "Test-DomeniaCandidate",
+    "Test-DomeniaCompactUi",
+    "Test-DomeniaDnScopes",
+    "Test-DomeniaEmbeddedUi",
+    "Test-DomeniaEngineLoad",
+    "Test-DomeniaEngineResilience",
+    "Test-DomeniaExperience",
+    "Test-DomeniaFaults",
+    "Test-DomeniaGeometry",
+    "Test-DomeniaIndexActions",
+    "Test-DomeniaIndexPersistence",
+    "Test-DomeniaIndexSorting",
+    "Test-DomeniaInstaller",
+    "Test-DomeniaInterface",
+    "Test-DomeniaInterfaceTelemetry",
+    "Test-DomeniaLastUser",
+    "Test-DomeniaLiveSearchView",
+    "Test-DomeniaLogin",
+    "Test-DomeniaLoginForeground",
+    "Test-DomeniaModules",
+    "Test-DomeniaNative",
+    "Test-DomeniaParkDetection",
+    "Test-DomeniaPreload",
+    "Test-DomeniaQuery",
+    "Test-DomeniaQueryTargets",
+    "Test-DomeniaQueryTemplates",
+    "Test-DomeniaRegressions",
+    "Test-DomeniaRelationsAlignment",
+    "Test-DomeniaRelease",
+    "Test-DomeniaRemote",
+    "Test-DomeniaRules",
+    "Test-DomeniaScale",
+    "Test-DomeniaSearchPresence",
+    "Test-DomeniaSearchQueries",
+    "Test-DomeniaSearchScope",
+    "Test-DomeniaSelection",
+    "Test-DomeniaSelectionIdentity",
+    "Test-DomeniaStableUi",
+    "Test-DomeniaStartupLogin",
+    "Test-DomeniaStreaming",
+    "Test-DomeniaSupport",
+    "Test-DomeniaTheme",
+    "Test-DomeniaUxRefinements",
+    "Test-DomeniaUxStateSafety",
+    "Test-DomeniaWiringAcces",
+    "Test-DomeniaWiringCache",
+    "Test-DomeniaWiringEcritures",
+    "Test-DomeniaWiringInline",
+    "Test-DomeniaWiringInterface",
+    "Test-DomeniaWiringMoteur",
+    "Test-DomeniaWiringRecherche",
+    "Test-DomeniaWiringRelations",
+    "Test-DomeniaWiringSuites"
+  ],
+  "TestFileCount": 59,
+  "TotalQualificationSteps": 63,
+  "PassedQualificationSteps": 63,
+  "HelperSteps": 4,
+  "Suites": [
+    {
+      "Suite": "Ps51Compat",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 31106,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "ProdFactory",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 40145,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "NativeParser",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2441,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "StartupCheckOnly",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 4391,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaModules",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 46761,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-Domenia",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 22768,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaLiveSearchView",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 83248,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaUxRefinements",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 14006,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaBoards",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 41858,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaBoardRefresh",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 883,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaInterfaceTelemetry",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 1928,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaUxStateSafety",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 9025,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaSearchQueries",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 3825,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaLoginForeground",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 12164,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringInterface",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 11416,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaParkDetection",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 8820,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaEngineResilience",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 3254,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaQuery",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 4771,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaIndexSorting",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 7197,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaIndexActions",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2776,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaDnScopes",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 4901,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaQueryTemplates",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 3745,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaQueryTargets",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2449,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaStreaming",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 40811,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaRules",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 41541,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaNative",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 1544,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaIndexPersistence",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 20678,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaEmbeddedUi",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 15712,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaExperience",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 5935,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaSearchScope",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 18849,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaSearchPresence",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 38544,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaSelectionIdentity",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 6352,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaScale",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 49474,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaEngineLoad",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 38522,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringCache",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 110864,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringMoteur",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 203963,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaGeometry",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 27944,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaCompactUi",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 1306,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaStableUi",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 9118,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaAccounts",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 6449,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaLastUser",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 5324,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaLogin",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 3304,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaPreload",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 75258,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaSelection",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 9879,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaStartupLogin",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 37366,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaRemote",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 6783,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaRegressions",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 24551,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaFaults",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 58791,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaAcl",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2767,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaCandidate",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 70084,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaSupport",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 7426,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaTheme",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 5521,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaActivityLayout",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 11123,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaRelationsAlignment",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 6235,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaInterface",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 32037,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringAcces",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 36840,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringInline",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 1850,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringRelations",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 26501,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringSuites",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 26892,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringEcritures",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 57910,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaInstaller",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 242241,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaRelease",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 59877,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringRecherche",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 44893,
+      "ReportWritten": true
+    }
+  ],
+  "PassedSuites": 63,
+  "FailedSuites": 0,
+  "TimedOutSuites": 0,
+  "AdditionalSuites": {
+    "Count": 12,
+    "Passed": 12,
+    "Failed": 0,
+    "Report": "_additional-ui.json"
+  },
+  "RemainingOfflineSuites": {
+    "Count": 23,
+    "Passed": 23,
+    "Failed": 0,
+    "Report": "_all-offline-ui.json"
+  },
+  "RuntimeChanged": [],
+  "PROD_CheckOnly": {
+    "PROD_SHA256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+    "ExitCode": 0,
+    "TimedOut": false,
+    "Milliseconds": 6377,
+    "Command": "Domenia-Start.ps1 -CheckOnly",
+    "EXEStarted": false,
+    "ADAccessed": false
+  },
+  "WiringRecherche": {
+    "Passed": 44,
+    "Failed": 0,
+    "Complete": true
+  },
+  "Data": "Synthetic fixtures; no real AD directory, remote CIM or endpoint ping",
+  "Wpf": "Real Windows WPF, session0; not interactive Alt-Tab qualification",
+  "Reports": [
+    {
+      "File": "NativeParser.json",
+      "Metrics": {
+        "Status": "PASS",
+        "Files": [
+          {
+            "File": "Domenia.ps1",
+            "Status": "PASS",
+            "SHA256": "C88496443ED583A0EBA005ED6EE1803BD3462137B472573272EA4882CD1F4010",
+            "Errors": []
+          },
+          {
+            "File": "INSTALLER-MISE-A-JOUR.ps1",
+            "Status": "PASS",
+            "SHA256": "DF6175DB0681AA59440C4D90DA9A84E7B0350B0CBEA0753D3FC1FC9ABED3D344",
+            "Errors": []
+          },
+          {
+            "File": "engineering\\d120\\Test-NativeParser.ps1",
+            "Status": "PASS",
+            "SHA256": "4AD70C8E04AF888D398064452D859279D2BF3E7929A2F360500B13226DDB304C",
+            "Errors": []
+          },
+          {
+            "File": "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaAdditionalUi.ps1",
+            "Status": "PASS",
+            "SHA256": "6578BC6501564BE2F3954C6ED8F64EC0066F952D80E30F1F16CD207280B04814",
+            "Errors": []
+          },
+          {
+            "File": "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaAllOffline.ps1",
+            "Status": "PASS",
+            "SHA256": "AD35890C50057C2EED99FFA8838284F91F2DD6E570AA8C3324CF8EC2ED2261E8",
+            "Errors": []
+          },
+          {
+            "File": "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaQuickUi.ps1",
+            "Status": "PASS",
+            "SHA256": "BA2972F9BB1E0340D30F8B038F6D5B0EF4B8D9E27FF45273655FA71921B64A47",
+            "Errors": []
+          },
+          {
+            "File": "engineering\\d120\\quick-ui-20261012\\Test-DomeniaProdFactory.ps1",
+            "Status": "PASS",
+            "SHA256": "DF9339F689BD591249F45107D1FB102E22F76C517DF6AFCC9F2438A15B1267AE",
+            "Errors": []
+          },
+          {
+            "File": "tools\\build_native.ps1",
+            "Status": "PASS",
+            "SHA256": "303B3B3988E758E1A5C155754B3E619224847F1B6C660DC56A7BAB410271CE00",
+            "Errors": []
+          },
+          {
+            "File": "tools\\Fabriquer-Prod.ps1",
+            "Status": "PASS",
+            "SHA256": "00184761AD3B28151F1CE63730485D024A020A0FA78787FD813F5DBBE2D58B94",
+            "Errors": []
+          },
+          {
+            "File": "tools\\Production.Source.ps1",
+            "Status": "PASS",
+            "SHA256": "D49916845858B46C4A5387B321923B82431B5C768C9A054BDF4E00F813B869B3",
+            "Errors": []
+          },
+          {
+            "File": "tools\\Signer-Distribution.ps1",
+            "Status": "PASS",
+            "SHA256": "38DAA5052C33B8551F8062BAE59868A1DE20483D53B92B778A990382ACBEE758",
+            "Errors": []
+          },
+          {
+            "File": "tools\\Test-DomeniaPs51Compat.ps1",
+            "Status": "PASS",
+            "SHA256": "3E13CD609FF682B6B247464B58ABC619DA6B06CBA5208BCCB1FD6201A28E2197",
+            "Errors": []
+          },
+          {
+            "File": "tools\\Test-DomeniaSignature.ps1",
+            "Status": "PASS",
+            "SHA256": "FB2C0891747F2CCB3DAC040DF97FB0BBEF44E0A9BADB9657E8E2729523ED3760",
+            "Errors": []
+          },
+          {
+            "File": "tools\\Test-DomeniaUiBlocking.ps1",
+            "Status": "PASS",
+            "SHA256": "2675E06FF622A4F1C1971084FDEA50947178EA60E2FCCAF313635A146793D6F1",
+            "Errors": []
+          },
+          {
+            "File": "tools\\Test-DomeniaUiBlockingDebt.ps1",
+            "Status": "PASS",
+            "SHA256": "C8F3408442142503655863ABAADBF58E5E6F41A506EF90FA53CED172E5E28A32",
+            "Errors": []
+          },
+          {
+            "File": "vendor\\m4d-admin-common\\tests\\Query\\Test-Query.ps1",
+            "Status": "PASS",
+            "SHA256": "69AC5B1C0C8530D13950B6C30792CA26D831B9E30D3BC7FB1A066C6D097337EB",
+            "Errors": []
+          },
+          {
+            "File": "wad\\Domenia-Core.ps1",
+            "Status": "PASS",
+            "SHA256": "41B82E030868A1AF6816D639328D218ED3F290A776AD069051A07015845B98FE",
+            "Errors": []
+          },
+          {
+            "File": "wad\\Domenia-Modules.ps1",
+            "Status": "PASS",
+            "SHA256": "B7EB959844DD9FA405F5972F5A8A0278237A70C58AC151996B34EC569C2AF135",
+            "Errors": []
+          },
+          {
+            "File": "wad\\Domenia-Start.ps1",
+            "Status": "PASS",
+            "SHA256": "D8AAAE59B5BAA81B079C6145E06DBEF822CE7A43C99F08E8AF20B16358D43E97",
+            "Errors": []
+          },
+          {
+            "File": "wad\\maintenance\\Preview-DomeniaLogin.ps1",
+            "Status": "PASS",
+            "SHA256": "74B1D18345AC9A36AF76E03426906D67052DFB0FB236771A60743A1AC2410066",
+            "Errors": []
+          },
+          {
+            "File": "wad\\maintenance\\Preview-DomeniaProgress.ps1",
+            "Status": "PASS",
+            "SHA256": "9AB973588C396B425DDD83AC9B3AAD94CBF0EE987009E6629DBE675C59E3DC0B",
+            "Errors": []
+          },
+          {
+            "File": "wad\\maintenance\\Preview-DomeniaUi.ps1",
+            "Status": "PASS",
+            "SHA256": "36D657D39D21B543A6942A1F12D42BAE65EDCCB4E58F57DB676662E338E60D6B",
+            "Errors": []
+          },
+          {
+            "File": "wad\\maintenance\\Sauvegarder-Cache.ps1",
+            "Status": "PASS",
+            "SHA256": "BD52F319E568B4FEC0A4B762D056164C8B4203D3D7CEE5A09DCAA68C198AAB3D",
+            "Errors": []
+          },
+          {
+            "File": "wad\\maintenance\\Verifier-Paquet.ps1",
+            "Status": "PASS",
+            "SHA256": "CBD999F68B387B9263846F08E0A4F05CD495E8FEBA7AE9B3CCE1B086570B6D2C",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Access.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "6C4CDDA5E2D395D7824BCA6F018061C66645A0012002E613DE8F171F34781AE3",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Access.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "D586DF3BECCA3F804841816BE122A3BBDEA78E07AECB9B0ADB186AAD3C84B7CE",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Accounts.Async.ps1",
+            "Status": "PASS",
+            "SHA256": "91860B5746E5C356E3756793A494AFD232BC6625400F0706D50DAA73AD1C7D81",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-BoardComputer.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "5C7101FC3DA5EF33A76922B1BCED5726398885BE5B15C4C7ADFFAACE7B782EBD",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-BoardFleet.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "EF9D778B40D8B22E724212C4F4632E79FB8BEC527016CD8D8DF15A8C2F7B3DBD",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Boards.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "07CDDB312F1ECD0AEBC25059788A63A0DFCFEB40182E1B31B8A46556DD19CBBF",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-BoardSoftware.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "A237AEE00A6E5A071AFF2BA71DC5CEDC6A16AEFF9AC35F20F7D6CDE02FEB8718",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Cache.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "91EAE39D0596F29779F7D9628C197B61098015DB8E18C0385DE317DC346A7054",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Charts.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "6297F10D4C174DB7DEECA53B7848EC299FF3BE30E53C7FB50059250C6635E70E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Common.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "DB17C532A83A2F17D0218D4544B890431A3D1EBCD2E114DC0050A1D52626B3C7",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Continuity.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "74C3ADBE8CCDA07A3B5A05157813B57E545C623BA3B6CB9AF9CCECA6AA87073E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Continuity.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "910A5F75439A77EB5A396B49E11F30F200494508C8722669956A014AD4B14646",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Dashboard.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "E7D11B5AE7041970F4BC6C310EFCAF6CCE26C0183E8641B970C613269F6EA588",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Demo.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "B5BD808F5356BB2EB477B230067FE5CBA981CFFC997CA4EC46022EE074FA09B6",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Demo.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "6717745C11AE231250FD4334359092F25C33F11A70CADCD0D1EE880BEF634F7E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Demo.Worker.ps1",
+            "Status": "PASS",
+            "SHA256": "4642D799E6CA86B459E4F8FB2CE186EB0B29C411E26216A23EFF610D07018D0E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Directory.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "90A8F2F6685C7FF198C625D8AC245C58CC0B0921F55C93BA3CE815DD13327C92",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Dossier.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "9D6D07CD0A9202D027139E022F7B34A7D05E0266401F6784570529F19EE4BCFF",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Dossier.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "620090E7EE794237F55E77442F2D41FE3D49D5B317459DE808CB52A2277112FC",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Embedded.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "754C33C2EA4CC3958C566B3A0B37E1F782047F432A95A1040BFBA3314FF69C48",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Engine.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "67EE24E9C67F0EA7FB08DBFA666E8A04107EFC3D6677CC9644FC2A183A708DB7",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Engine.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "16097F29BF9C1AF0F7B021E6379310548F6CFE541591ACF11C048D86001D04F9",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Engine.Worker.ps1",
+            "Status": "PASS",
+            "SHA256": "BC77945FDEACE25F3484399E0E000B89C70B103026D6D049962CF11E92E1670F",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Experience.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "4B4397F5D6F358675D9A0018504B44E2B37345854AA677C7E299F1ED3503A239",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Experience.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "E39651D35B472930D77A56AA86B270A20FE502A457CD3F44AD91C3A8146B1CAC",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Guard.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "CD305AFFCD81E9AF750A4B20DCC4706E63BA3CA7CED54C18614673914F4B7B3F",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Guard.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "210918DB7F9463A78729D3E056B8FC2ABE6C3793CD1B7D801247E021D0E34260",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Inline.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "4C6D519AE76FADDD4B1D5E26F40036C47B6699F7829FACB2C5AEF01BAADB3685",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Insight.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "6287EE0F3FE04F5D03E25E529BB1F4B056ECE8F66C2DE26872BCAA228C9DE27A",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Isolation.Worker.ps1",
+            "Status": "PASS",
+            "SHA256": "DDA9BE0B91370AE8C23CA130198FF17C5BB3B4A0F584C8510588029D5C9E0A33",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Live.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "F5E9B6C302A3D38F53461208521BBA4A3E6081EA2F4FC3FA1D5251A84A01956B",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Live.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "1514F0BE4CD88C60822660D0F4CDD44F643BD6F8DD6A8CD6951FE83323F599FA",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Migration.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "8998983AEC38359C01D1877B52D2088696F5D2933FAF6BACF2D26173D4365FCD",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Migration.Worker.ps1",
+            "Status": "PASS",
+            "SHA256": "6A361EC210DD38A269AD544980449C6D05E73DC4A6CC553EC4D3537F14A6AE5D",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Park.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "91A4CC09C315B45286CF1DB3AF62329F7CCCB3EE46A0B222CF8F48141A822594",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Park.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "6800D7276E0BC7926B5C33E2C2F46EF8414C3E9079379FA663BF142D574DB6C9",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Probes.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "9DF125208A21B7EE474C8380047EDA5EBFD96563E37D05B46C427E34314592BF",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Query.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "A6086863C2477238FA854D76F1E3E6B46DBFD735B7A946B6E7B8A73EABEDB7CD",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Query.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "55222EDFA2BE2EE20DF918B4622FD3009D38E6954330095A545C36DB6BDA8DDB",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Query.Worker.ps1",
+            "Status": "PASS",
+            "SHA256": "8A40BCA4B66C23B7B4C97A7D6A05A3E1F44E05D589F8130C2491570668093520",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-QueryTargets.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "CAD98FEA95F3FF6E804B55EE320C45E6CAA3128CF93B1ACA29237150DABD2E10",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Receipts.Worker.ps1",
+            "Status": "PASS",
+            "SHA256": "D44A9DFB7B8EB7AB9DB3F1806CE697C9236117121E2C5E054DA1788C87B19A8D",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Reconcile.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "3CF22706B2ACA92BB71467BC1122EE155A2EBBC47C350CF5DC2AA8987021F9F7",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Relations.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "A9A84746AE9E39A55B91C1CA4A015184B49DC43DE3C43D61BBF22E4C6F2ED796",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Relations.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "5F7C8E7B3608DF3AE7FF5B99517FE6556F4CD27F4074F165AFF956294A71ED11",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Release.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "C47FCC6F008DBB513280BFEE5B641E06D946360238EB95ECCAEF4F4BC2360545",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Safety.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "00BCB6545D59458C727CC9DFB91F60A561D2A8DAE01642FE438F9B6D3924D5E3",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Search.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "5FB57090D4E4C3F58CD18BD46758E589F45AE0FB1BB238229902DF781E4F6A0E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Search.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "267EB5D4B05AFCABC9F5DEE74FD632C0B5EA6BFD0AA15D4AF8BC710A195B306A",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Secrets.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "D885E02DDE01D288F3F5F4C2BBF16851D5C675608FE3501005614D41726EE656",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Secrets.Worker.ps1",
+            "Status": "PASS",
+            "SHA256": "8F5B009EEA769A9C81DC01B1EBD070F43DDA1838908CC3476F8181165ACB0F9E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Selection.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "9F216FBE3765DC4F6AA929E0C017B2D91CA456AA2712203371D002799287FA80",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Sessions.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "61FF96DA919DEDE8DBE956CCFF814750FC2F986A3C61B597F9D869FAE0F56809",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Shell.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "685C73E9F81F2513800798EE2DC6B5D61C0B750BF6AA57F8BECDDE538AEC9D74",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Startup.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "A9F9D4C997B315C3D185CB6B62A2D80C4660C5CDEE7D9CD3755D8F0765351805",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Storage.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "C811E13F34DF19D7DE60BB8B20480A47BFA2C7CDD8871857EB7E217909215EA7",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Storage.Worker.ps1",
+            "Status": "PASS",
+            "SHA256": "9627D0DC9CF8C110898908DB2FD94C8DE25A0085B5F716EFAA9354D272D2C134",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Support.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "DC86FBE76C2A30663223B3AC11D29CCC38DB3F6080D2E4BE3569E25A8406B3A6",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Support.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "4E468D6396EEA16C46228A787733BBBF0E1D8378F7730289FD6640B8CD90DFF2",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-UX.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "5E4D3DB4CCE3EEFCA6FC1E1DE18680DFE91C923D5C264127EBE7A07BBA24C6EA",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Widgets.UI.ps1",
+            "Status": "PASS",
+            "SHA256": "55DA60C9887D129411F9C5457FB8330C1B7F6D9FEFB54883D606AE0087A61E38",
+            "Errors": []
+          },
+          {
+            "File": "wad\\modules\\Domenia-Workstation.Model.ps1",
+            "Status": "PASS",
+            "SHA256": "F9BDF0580B09964AF9BDC9D229B28E683C6691897399A97C68563395B2788CF3",
+            "Errors": []
+          },
+          {
+            "File": "wad\\Support\\Debloquer-Paquet.ps1",
+            "Status": "PASS",
+            "SHA256": "A62BECF6CC25F85A0A21B6CE018FDC0826B43EC99D9897EB5E227967E8BA9454",
+            "Errors": []
+          },
+          {
+            "File": "wad\\Support\\INSTALLER-MISE-A-JOUR.ps1",
+            "Status": "PASS",
+            "SHA256": "8DE2D1C4C8F3AF56668412DF44BADB52166386514FED60991B42662AAD13D8CD",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-Domenia.ps1",
+            "Status": "PASS",
+            "SHA256": "106306E7AC1F2585BF18F33E585996156F546813793FC3F3A828085DFDC290F5",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaAccounts.ps1",
+            "Status": "PASS",
+            "SHA256": "50B00242B4217FA732D866506E619A216A5EA09D74084D83DE60D46C49E9DCCE",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaAcl.ps1",
+            "Status": "PASS",
+            "SHA256": "41E9D7A75D458486B3EEF4903278A749451BCFEFC4E6235FF64E4E927E1F9333",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaActivityLayout.ps1",
+            "Status": "PASS",
+            "SHA256": "44AA129146E9C4AE8B9EE35D51BE6627CE629AA0296524A45FF15C7A56709109",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaBoardRefresh.ps1",
+            "Status": "PASS",
+            "SHA256": "7FEB5040713317D39E65DC94FC2C0E34C3BE276FA50A1356EF63DA99534524FC",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaBoards.ps1",
+            "Status": "PASS",
+            "SHA256": "DB887F58F0010D16CDB277E3ACEE3CDDA45DCB00FF7A8F208EC6194029456EB1",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaCandidate.ps1",
+            "Status": "PASS",
+            "SHA256": "18F4AE0657947088E32EF168A3D73980BBB01866F7B9AC6E6802640632D5C6D1",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaCompactUi.ps1",
+            "Status": "PASS",
+            "SHA256": "F6ADDC77B9E03978C462E16BC60B33E6DFC6EA94B710F69D3FE36EE3BFFB990E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaDnScopes.ps1",
+            "Status": "PASS",
+            "SHA256": "4D5CFB9806B76D5C5020832952C1223CBE26E3D864A38406989881E7624F6085",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaEmbeddedUi.ps1",
+            "Status": "PASS",
+            "SHA256": "B13CC7041E602B18C9D810418B31142DBD7D05E78D120D0D4B27D9BD4B112E0A",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaEngineLoad.ps1",
+            "Status": "PASS",
+            "SHA256": "1F3899A71B8319052669158C89F6A046220B1CEF63DF6ADE8ABC3A601BC3EE91",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaEngineResilience.ps1",
+            "Status": "PASS",
+            "SHA256": "4E5CB21927562B26634F855352E0B58DFDB65E51FA9DF37AC9AF79B696145D81",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaExperience.ps1",
+            "Status": "PASS",
+            "SHA256": "7E560A4E5ACACF4A12EFD1D8D2A836A4B29866C3FF6DCA4010B7CE3EEFCB4E8F",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaFaults.ps1",
+            "Status": "PASS",
+            "SHA256": "F0A54F49C1BE88A37A4206C4FBB8617C6D3690F3A460258254993EB7E8EFED99",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaGeometry.ps1",
+            "Status": "PASS",
+            "SHA256": "A45395E41E08E332615EE61E364554129AA1CC8DBF68193C5D93A66AA9D25EBE",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaIndexActions.ps1",
+            "Status": "PASS",
+            "SHA256": "952278B7DA126FCDF932EA0F8DC18D5C46AD8E56D4D9D8A558CADDDE6B515D51",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaIndexPersistence.ps1",
+            "Status": "PASS",
+            "SHA256": "1F210FD693977427D82D5ECF46F67AA8C3F9DC4D93BBB3F77BD17A92B42B75F3",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaIndexSorting.ps1",
+            "Status": "PASS",
+            "SHA256": "7F0ECEB43DDEF315524654DA9A5DEB57BB80B2CB1053FAACF41D24D8624A1035",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaInstaller.ps1",
+            "Status": "PASS",
+            "SHA256": "9D38B8792C3D64CA59DED0D4F5A1F7169CE86A00CEDBE873505ED8E1C049A238",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaInterface.ps1",
+            "Status": "PASS",
+            "SHA256": "6A4984FD1681AC94FEA89DA791E6BDAFA513B84661712DDEC8EA6D92A1C83768",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaInterfaceTelemetry.ps1",
+            "Status": "PASS",
+            "SHA256": "8E30C1DDDF723659C4546CF9A4F3A1C210385343FE1387E450716A4ACE8E3A9B",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaLastUser.ps1",
+            "Status": "PASS",
+            "SHA256": "BA24A2CD457BCC3D69545B3EC19AEFE703C9CC1F6707212285034D2BFF7B349D",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaLiveSearchView.ps1",
+            "Status": "PASS",
+            "SHA256": "75EA2CCD02788A8D4E877200AA2B31F6AEB6BC80C6FC434A3D3012CFC7E711B5",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaLogin.ps1",
+            "Status": "PASS",
+            "SHA256": "F306F888A1DE498DE6D17A7C58D869BE1E06AACF8CDDD74D5EC5019360299266",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaLoginForeground.ps1",
+            "Status": "PASS",
+            "SHA256": "6F99B746B3C164C2BA4AD2735C8F6D30DAFFAC4E5F37E952F9EE821B418D89A1",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaModules.ps1",
+            "Status": "PASS",
+            "SHA256": "0B3A5EB84770CAE9F44E042D1A843B78AF3167384320A1D268EF0332487639F7",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaNative.ps1",
+            "Status": "PASS",
+            "SHA256": "81D9EA4A15455089699DD5971C4194E75D19517E09F34627A8C05B1C36308848",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaParkDetection.ps1",
+            "Status": "PASS",
+            "SHA256": "E3D67804A8DA9E562574D0CF1F4B6FA1E28B39E7C4177DA1B1CBB84212E0B798",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaPreload.ps1",
+            "Status": "PASS",
+            "SHA256": "45E6202ECD3AFC2DCA89395DFBAAE920E763D4AE4071821E9C023CE0120789C2",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaQuery.ps1",
+            "Status": "PASS",
+            "SHA256": "15058C9977D0590E2B36534BCCBCB77C0CDD22A0E692AEA437BEB218034BE545",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaQueryTargets.ps1",
+            "Status": "PASS",
+            "SHA256": "70F11B0715D2831CF04BEF84E93FAB0A2C4B1C2F206CF4C7EC65D423533C39BD",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaQueryTemplates.ps1",
+            "Status": "PASS",
+            "SHA256": "329B4CC97ED73A31B60BDAC08146B09FAD8943760DE9BF55D745C7001C03AD09",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaRegressions.ps1",
+            "Status": "PASS",
+            "SHA256": "8E5571AD7AEF37BFAC145B0BC27518A076137D069C2B3408A288F18C40BE822E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaRelationsAlignment.ps1",
+            "Status": "PASS",
+            "SHA256": "640475CFBD75DCF7C88F49E137530B47229BC8734B36DB16F2FAE36A402E66E2",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaRelease.ps1",
+            "Status": "PASS",
+            "SHA256": "6972E8E4BA7964BD5364E004232149B76BA5A32CA4696C2812B3D24519BBF1C4",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaRemote.ps1",
+            "Status": "PASS",
+            "SHA256": "F8431B400754078EC451E4D13B455554A6BC4AF536A794167091210D8B9194FD",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaRules.ps1",
+            "Status": "PASS",
+            "SHA256": "C12A6E7185A3AB30556A0C0C0C704DBBCDD8F594862FFAEBFBC22D0717648272",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaScale.ps1",
+            "Status": "PASS",
+            "SHA256": "4407956CCFB6A20C14B93AEC4AD8A55DC37E69FE63BAF6D1614535A21C8DCB58",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaSearchPresence.ps1",
+            "Status": "PASS",
+            "SHA256": "136443A0ED1CA3902436D0680598216C0D3480366FD436AEEADF1C404C9615DA",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaSearchQueries.ps1",
+            "Status": "PASS",
+            "SHA256": "EEE013FE06656BE9854D558DBB788C3BBC83893414DE81E1FB74213E959D6D96",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaSearchScope.ps1",
+            "Status": "PASS",
+            "SHA256": "26A3BE8DCC769C46EEDE09D8B722ECC77D795793AAF5D1EE0E6A7B94517D2948",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaSelection.ps1",
+            "Status": "PASS",
+            "SHA256": "DE2F0D87BB1930AF19779784107EA69F709F7E631B924239D84A98023ED58C3C",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaSelectionIdentity.ps1",
+            "Status": "PASS",
+            "SHA256": "F999D55D53F1C13CC00065086E582D48A87575F950DA16E39BCC5D20CACE8F7C",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaStableUi.ps1",
+            "Status": "PASS",
+            "SHA256": "4894E307F4D44790FF2225F4A44CD0EBF1F637D7B6455C6EE40211C518199BAC",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaStartupLogin.ps1",
+            "Status": "PASS",
+            "SHA256": "10CEB229E92426EBA6894939C688EF78077062F77B950E31E767A9BF90BF5FA1",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaStreaming.ps1",
+            "Status": "PASS",
+            "SHA256": "3B4947CBC9834996CCBC30E52E163FDA8F7571E2F223633EFEDEFC718B5822E6",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaSupport.ps1",
+            "Status": "PASS",
+            "SHA256": "926A4E9085898882F0E7D77AC7BF031EDEB929D7EF42A9A547304B16D7D34F8D",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaTheme.ps1",
+            "Status": "PASS",
+            "SHA256": "65DCAFE0BCCB0A29488E68912C26B5F13E99C7DC694AFC4D43A5104C5F6EE86A",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaUxRefinements.ps1",
+            "Status": "PASS",
+            "SHA256": "6C9DC05201BA1BF20C68F04C3E8EF603FCD017DA0CFE4EF6B35B24158EBA9873",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaUxStateSafety.ps1",
+            "Status": "PASS",
+            "SHA256": "F8092B4B51459DE435E496594D1226CD3BE33C464FFE70D26CF3DF0829C47222",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringAcces.ps1",
+            "Status": "PASS",
+            "SHA256": "869A0DF8745AC6F82D070752143F6DDE7A906485C3AF660059D259CA6AC214EA",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringCache.ps1",
+            "Status": "PASS",
+            "SHA256": "A4ECAA18DFAD982C0A91F8ABCAA2CE2E908C5C5D2BF117CB54359126305EF685",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringEcritures.ps1",
+            "Status": "PASS",
+            "SHA256": "8473C62861C28966EDFD4CBE93F7B371D064DDBD63C2A30B31A9704530C2F010",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringInline.ps1",
+            "Status": "PASS",
+            "SHA256": "BBC19445880161EFF5AB2ADA331B9723B787A974A6D7E5B3AB55DA7052195109",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringInterface.ps1",
+            "Status": "PASS",
+            "SHA256": "497DDBBF7E550EA22460292DB1807BFB7B690C4CE9AB418A1C9DD7939293F3D9",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringMoteur.ps1",
+            "Status": "PASS",
+            "SHA256": "3871E9CADEBE6B5C14C082A6B882D987D12D0AD950A9CC9469097D6D532C576A",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringRecherche.ps1",
+            "Status": "PASS",
+            "SHA256": "A776B0A60923DAA766CD938986B51F8775E9F54006AE6F0285DDA79A34853BB8",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringRelations.ps1",
+            "Status": "PASS",
+            "SHA256": "50B566A7B5F7B5E30E804C69D915619B4E21F3B23AEA74B9DD9EDC1D4426633A",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\Test-DomeniaWiringSuites.ps1",
+            "Status": "PASS",
+            "SHA256": "8C12F28ACD67E309879D408481EA93A0ADB4EDA55CA2B2EC19964A2AC45A2471",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\fixtures\\AuthProbe-R1.7.1.ps1",
+            "Status": "PASS",
+            "SHA256": "BF0AB379B1404D578EA0FC81611DCDA2F89865DF52A9D0C32769579B9600167C",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\fixtures\\AuthProbe-R1.7.ps1",
+            "Status": "PASS",
+            "SHA256": "3EF4646A519B361EFCBF3FB42A63ED2F9CE7ED50DFF1BADE24230C22A504D116",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\fixtures\\Domenia-AdFixtures.ps1",
+            "Status": "PASS",
+            "SHA256": "FBB0D35480CE45E2A8F740710C2E30CA85D8421E5ABF1B6241BEC4BC2747D60F",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\fixtures\\RC1.1-ModuleImports.ps1",
+            "Status": "PASS",
+            "SHA256": "7F8F402E3B28F9BDA9731A93F9208E618E041D4818C9470F974CE535BD325C77",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Access.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "4C12C08DEB6ADCF0023966443CA16D4BB070F7768B6D167F583746D455EBE31E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\BoardFleet.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "3C59F5CB1946D320A2E631E85D2DB18263C543D4B929C41000210D20932698E4",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Boards.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "8FC12FD286AACDED804080C79C373169F8A7F698C5E5CCE1AB174B92DA5774D3",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\BoardSoftware.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "715E7E15C5774969924D4644FC0CBA4CDE47D205DCF634EECD85DCC9D639A416",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Cache.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "53A751F63BF0844478F7FF060E88F1C58A1997BF8214A649ACFB2A9B61F3037C",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Directory.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "E430CC0CE8F690667D3597BC3FB643E5D0F8B74B8F394668DBB270F7445282C8",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Engine.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "BF3CF7E486D895C4F53DCBA7188C7F5EE74848CB3CEAAB90C83B4F0D34AD459A",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Fixtures.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "2F19E812027C99ADBB243C851B76A5149385BF69DA3D8D7889989570D882E415",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Insight.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "23B4CA2DE1DCE79A69DE4E8F1FFC71F3685015A631370EF5798DE404C3BFA2FF",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Live.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "5D871E5170F93BE2CF24A72507B70274612FDDD29412AF5D72C9047002FB77E2",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Probes.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "AC1FBE359F32CB04387AAB50807E6385FFFFA9B95E152C2DF356943A0962B5B9",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Races.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "9053AEF52AB3C679541CF1CCB8D066541DA432DE267CED5E057E3111456CBB48",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Relations.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "A5B373EC003417A8A6546FEB5D8A1141DE7DEC9C0FD062D5417EE857D658C0AD",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Release.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "52CAE2EC922B32134D905B9B8B1E5BA1C3730DC57BCD02DB9AF68F639607061E",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Safety.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "E50854B5D5A3C453F7F5CF893D0846D1FAA01CAAE6FB3A54EE8447209C63F566",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Search.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "D58CCB1B5650EAA3E3D51E425D61E13B78E41597779CB0DD81969DC25156855B",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Shell.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "F7E851D90F3B011E2F914F26D5DB2726295487B1904A77A6CEF3F6FFCE77A651",
+            "Errors": []
+          },
+          {
+            "File": "wad\\tests\\rules\\Workstation.Tests.ps1",
+            "Status": "PASS",
+            "SHA256": "8899B6151821A748405EA55FE1D8EB7DBCF433EE5A3774B3110088973B9C0226",
+            "Errors": []
+          }
+        ]
+      }
+    },
+    {
+      "File": "ProdFactory.json",
+      "Metrics": {
+        "Passed": true
+      }
+    },
+    {
+      "File": "Ps51Compat.json",
+      "Metrics": {
+        "Status": "PASS",
+        "Files": 169,
+        "Errors": 0,
+        "Warnings": 0
+      }
+    },
+    {
+      "File": "Test-Domenia.json",
+      "Metrics": {
+        "Passed": 219,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaAccounts.json",
+      "Metrics": {
+        "Passed": 27,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaAcl.json",
+      "Metrics": {
+        "Passed": 38,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaActivityLayout.json",
+      "Metrics": {
+        "Passed": 52,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaBoardRefresh.json",
+      "Metrics": {
+        "Passed": true,
+        "Failed": 0,
+        "Cases": 17
+      }
+    },
+    {
+      "File": "Test-DomeniaBoards.json",
+      "Metrics": {
+        "Passed": 42,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaCandidate.json",
+      "Metrics": {
+        "Passed": 192,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaCompactUi.json",
+      "Metrics": {
+        "Passed": 22,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaEmbeddedUi.json",
+      "Metrics": {
+        "Passed": 97,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaEngineLoad.json",
+      "Metrics": {
+        "Passed": 3,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaEngineResilience.json",
+      "Metrics": {
+        "Passed": 40,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaExperience.json",
+      "Metrics": {
+        "Passed": 58,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaFaults.json",
+      "Metrics": {
+        "Passed": 21,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaGeometry.json",
+      "Metrics": {
+        "Passed": 42,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaInstaller.json",
+      "Metrics": {
+        "Passed": 15,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaInterface.json",
+      "Metrics": {
+        "Passed": 50,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaInterfaceTelemetry.json",
+      "Metrics": {
+        "Passed": 5,
+        "Failed": 0,
+        "Cases": [
+          {
+            "Name": "551 ms is recorded separately and warns with threshold and handler",
+            "Pass": true,
+            "Error": ""
+          },
+          {
+            "Name": "Modal waits are subtracted and negative effective durations are clamped",
+            "Pass": true,
+            "Error": ""
+          },
+          {
+            "Name": "The warning threshold is preserved, with strict greater-than semantics",
+            "Pass": true,
+            "Error": ""
+          },
+          {
+            "Name": "Callback, worker and heartbeat samples stay isolated and bounded",
+            "Pass": true,
+            "Error": ""
+          },
+          {
+            "Name": "Operations health exposes measured callback percentiles without claiming network performance",
+            "Pass": true,
+            "Error": ""
+          }
+        ],
+        "Assertions": 12
+      }
+    },
+    {
+      "File": "Test-DomeniaLastUser.json",
+      "Metrics": {
+        "Passed": 21,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaLiveSearchView.json",
+      "Metrics": {
+        "Passed": true,
+        "Failed": 0,
+        "Cases": 11,
+        "Assertions": 63
+      }
+    },
+    {
+      "File": "Test-DomeniaLogin.json",
+      "Metrics": {
+        "Passed": 54,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaLoginForeground.json",
+      "Metrics": {
+        "Passed": 8,
+        "Failed": 0,
+        "Complete": true,
+        "Assertions": 74
+      }
+    },
+    {
+      "File": "Test-DomeniaModules.json",
+      "Metrics": {
+        "Passed": 114,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaParkDetection.json",
+      "Metrics": {
+        "Passed": 22,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaPreload.json",
+      "Metrics": {
+        "Passed": 116,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaQueryTargets.json",
+      "Metrics": {
+        "Pass": 37,
+        "Fail": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaQueryTemplates.json",
+      "Metrics": {
+        "Pass": 1516,
+        "Fail": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaRegressions.json",
+      "Metrics": {
+        "Passed": 20,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaRelationsAlignment.json",
+      "Metrics": {
+        "Passed": 65,
+        "Failed": 0,
+        "Complete": true,
+        "Cases": [
+          {
+            "Name": "01 Parseur du corps du worker inverse",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "02 Selection seule : aucun travail soumis",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "03 Filtre utilisateur connu, sans toutes les relations",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "04 Changer utilisateur change le filtre",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "05 GUID recree exclut ancien lien homonyme",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "06 Ancien lien sans GUID reste historique",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "07 Selection programmatique ignoree",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "08 Meme objet ne redemarre pas une recherche",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "09 Autre utilisateur invalide la requete precedente",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "10 Etat capture valide",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "11 Requete tardive rejetee",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "12 GUID utilisateur different rejete",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "13 Session differente rejetee",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "14 Controleur different invalide le retour",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "15 Nouveau credential meme nom invalide le retour",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "16 Annulation interdit tout enregistrement tardif",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "17 Indice AD non enregistre automatiquement",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "18 Console confirmee enregistree en lot",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "19 Lien manuel preserve meme pour le meme compte",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "20 Refus file stockage conserve la vue precedente",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "21 Sauvegarde differee si ecrivain occupe",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "22 Ecriture AD bloque application des liens",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "23 Worker sans scan : aucun CIM",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "24 Worker reprend les associations et leur date",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "25 Responsable declare ne devient pas session",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "26 Lecture AD utilise le compte annuaire",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "27 Ressources LDAP toujours liberees",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "28 Console utilise le compte poste distinct",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "29 Console du bon domaine confirmee",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "30 Toutes les sessions CIM creees fermees",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "31 Compte console autre utilisateur non associe",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "32 Meme nom autre domaine non associe",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "33 Compte local homonyme non associe",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "34 Nom non qualifie non devine",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "35 UPN exact accepte",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "36 Console vide ne conclut pas aux sessions RDP",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "37 Machine recue differente non attribuee",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "38 Acces refuse visible dans tentatives",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "39 Delai conserve observation historique",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "40 Rejet identifiants arrete les sondes suivantes",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "41 Canal deja bloque : aucun nouvel essai",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "42 Configuration CIM desactivee respectee",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "43 Limite de sondes respectee",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "44 Aucun candidat : aucun balayage domaine implicite",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "45 GUID ordinateur recree non sonde par ancien lien",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "46 GUID utilisateur recree arrete la recherche",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "47 Refus AD distinct et aucun CIM",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "48 Journal du controleur desactive par defaut",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "49 Journal cible le SID et le compte AD",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "50 Adresse IP conservee entiere comme indice",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "51 Progression pleine ne bloque pas retour final",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "52 Perimetre OU explicitement transmis",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "53 Perimetre liste exclut les candidats hors liste",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Light : onglet selection uniquement Alice",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Light : changement de focus ne passe pas a Tous",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Light : grille active Toutes explicite",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Light : texte activite aligne au bord gauche",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Light : placeholder aligne sur le caractere saisi",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Light : contenu stable pendant activite longue",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Dark : onglet selection uniquement Alice",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Dark : changement de focus ne passe pas a Tous",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Dark : grille active Toutes explicite",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Dark : texte activite aligne au bord gauche",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Dark : placeholder aligne sur le caractere saisi",
+            "Passed": true,
+            "Error": ""
+          },
+          {
+            "Name": "Dark : contenu stable pendant activite longue",
+            "Passed": true,
+            "Error": ""
+          }
+        ]
+      }
+    },
+    {
+      "File": "Test-DomeniaRelease.json",
+      "Metrics": {
+        "Passed": 49,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaRemote.json",
+      "Metrics": {
+        "Passed": 46,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaRules.json",
+      "Metrics": {
+        "Passed": 547,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaScale.json",
+      "Metrics": {
+        "Passed": true
+      }
+    },
+    {
+      "File": "Test-DomeniaSearchPresence.json",
+      "Metrics": {
+        "Passed": 62,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaSearchQueries.json",
+      "Metrics": {
+        "Pass": 47,
+        "Fail": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaSearchScope.json",
+      "Metrics": {
+        "Passed": 42,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaSelection.json",
+      "Metrics": {
+        "Passed": 47,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaSelectionIdentity.json",
+      "Metrics": {
+        "Passed": 14,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaStableUi.json",
+      "Metrics": {
+        "Passed": 52,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaStartupLogin.json",
+      "Metrics": {
+        "Passed": 44,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaStreaming.json",
+      "Metrics": {
+        "Passed": 72,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaSupport.json",
+      "Metrics": {
+        "Passed": 53,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaTheme.json",
+      "Metrics": {
+        "Passed": 28,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaUxRefinements.json",
+      "Metrics": {
+        "Passed": 11,
+        "Failed": 0,
+        "Assertions": 100
+      }
+    },
+    {
+      "File": "Test-DomeniaUxStateSafety.json",
+      "Metrics": {
+        "Passed": true
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringAcces.json",
+      "Metrics": {
+        "Passed": 33,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringCache.json",
+      "Metrics": {
+        "Passed": 157,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringEcritures.json",
+      "Metrics": {
+        "Passed": 47,
+        "Failed": 0
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringInline.json",
+      "Metrics": {
+        "Passed": 15,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringInterface.json",
+      "Metrics": {
+        "Passed": 20,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringMoteur.json",
+      "Metrics": {
+        "Passed": 49,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringRecherche.json",
+      "Metrics": {
+        "Passed": 44,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringRelations.json",
+      "Metrics": {
+        "Passed": 54,
+        "Failed": 0,
+        "Complete": true
+      }
+    },
+    {
+      "File": "Test-DomeniaWiringSuites.json",
+      "Metrics": {
+        "Passed": 19,
+        "Failed": 0,
+        "Complete": true
+      }
+    }
+  ],
+  "HiddenRenderMicrobench": [
+    {
+      "Sample": 1,
+      "FullHiddenRenderMs": 425.93850000000003,
+      "DeferredHiddenUpdateMs": 0.7499,
+      "WidgetCount": 16
+    },
+    {
+      "Sample": 2,
+      "FullHiddenRenderMs": 410.38140000000004,
+      "DeferredHiddenUpdateMs": 0.9267000000000001,
+      "WidgetCount": 16
+    },
+    {
+      "Sample": 3,
+      "FullHiddenRenderMs": 462.59360000000004,
+      "DeferredHiddenUpdateMs": 0.6007,
+      "WidgetCount": 16
+    }
+  ],
+  "HiddenRenderTimingScope": "Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded",
+  "Scale5000": {
+    "ScenarioMilliseconds": 69649,
+    "Meaning": "Synthetic progressive WPF/CollectionView plus dispatcher pumping/filtering, not AD throughput"
+  },
+  "CaptureScriptSHA256": "1f8ac7b4902a975c7c322396ccf912188c0480c0d439ed403ee5ce9ea34ca2f0",
+  "Images": [
+    {
+      "File": "accueil-sonde-requete.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "39f698cdd2b4fb888d0df72c59d8ffb71910df7519bde92061e361aa54dfec4b"
+    },
+    {
+      "File": "accueil.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "0511147393fd9ad21d4483d4f0cdca9d3ee01d9750f0f72493b6d39e4a86bdb7"
+    },
+    {
+      "File": "actions-poste.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "a6f3413b8eda5041482ac5eff50150addeb10a82cead021c9227afe19c141406"
+    },
+    {
+      "File": "alerte-selection.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "e1c35814c7c3d7048c3c675054b331cb283edbe7a8f1500b20183ca3b9ed4062"
+    },
+    {
+      "File": "atelier-bibliotheque.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "3346e1abc7cc5e096e0116d0e99cde299da6aa56569e60071a366cb7f08147d9"
+    },
+    {
+      "File": "atelier-catalogue.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "e658011036062aadfa6258691f1f2d4b4f2c21a641a965ff69511b4bf384c5e8"
+    },
+    {
+      "File": "atelier-collecte.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "ecac2b6c77b1c629ad45b6d5ea7e5c13d573747fa7abade0083b93aa03367baa"
+    },
+    {
+      "File": "atelier-condition.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "d854e1c672963ec34f18a1e25a9dfb5ecfb4547c0b958236ae4f1e05076b41a7"
+    },
+    {
+      "File": "atelier-desactives.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "4d5a9fb85498810c45aa0da22d4c5d9761d15d8b257b0682efafba2c81ee05c4"
+    },
+    {
+      "File": "atelier-fiche-locale.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "14919288e57044134fe85199db3618824860d0c0c6c8b3db70d5b71beb840307"
+    },
+    {
+      "File": "atelier-modeles.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "fa1c4299c22ea562f93c405f771c7cb468f7dc807b6c5ba4049e9763931564a3"
+    },
+    {
+      "File": "atelier-poste.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "60c8f604303136d43b7ec9fe50e1f72d61350ff6cb6d15e4e24281a661add7c6"
+    },
+    {
+      "File": "atelier-requetes.png",
+      "Width": 1920,
+      "Height": 1240,
+      "SHA256": "005075eae8340a42b2be6ce567a88906f54f630436e1d338849dc48df1d13b34"
+    },
+    {
+      "File": "atelier-viewport-1280x720.png",
+      "Width": 1280,
+      "Height": 720,
+      "SHA256": "181509030598a53671eb11803e270d6e8087f734b5a504dc957c55cc708568c2"
+    },
+    {
+      "File": "atelier-viewport-1920x1080.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "8a452c055e9bbb8f1d1c9e98edd8699671b063017dd4f3d2bb52f71b3f57f232"
+    },
+    {
+      "File": "base-autonome.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "0cb032bafa4ab4917ffabf639857b5e74ed8ce02015864901b556583c4a8840a"
+    },
+    {
+      "File": "base-details.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "94b82692806b4d59268c034a536575ed85e5bae037cd1a9d86252b7d5427287f"
+    },
+    {
+      "File": "base-mise-a-jour.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "bbf5dcabe47366e0a4f0b4fb10707d3689946416f0ff346b277acb4f58c8de1e"
+    },
+    {
+      "File": "base-progression.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "43dd668e6d96b29d51f5e707b2065f9a99ed6a78b75be4e79a8ad55023c42b87"
+    },
+    {
+      "File": "base-stockage.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "10ba2ec6e3c54d927a645c8fa587dca7f7272162375fc46092a64ed36bf28110"
+    },
+    {
+      "File": "connexion.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "9c573914c9d8b985679cd286cdc8ca7321878c012390dcb63fd3aecbfd8c5d45"
+    },
+    {
+      "File": "editeur-widget.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "289f51ffacae9f08ea8e1765a7a9ee875962723ecdbda2cd98e177bc1bef9ac2"
+    },
+    {
+      "File": "etat-moteur.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "9746505bb3fc918f457ace0709584f504130e7cf00c893a54c22a36293c0ecb0"
+    },
+    {
+      "File": "fiche-poste.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "3615429c1cd4d0b7c4766c24615281ed02ed8c596408a373d1cb4420e1f00f37"
+    },
+    {
+      "File": "logiciels.png",
+      "Width": 1920,
+      "Height": 1560,
+      "SHA256": "47e76eb33892dbcfe28341ad30a8ca3a556d5523030acf9231593c33786bd37a"
+    },
+    {
+      "File": "personnaliser.png",
+      "Width": 1920,
+      "Height": 1100,
+      "SHA256": "f14b9e8ff038034c0ab21b0c3d8177547f586b13dc681959935b862f701e8884"
+    },
+    {
+      "File": "poste-sonde-requete.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "8667169e03e2a301aee99465d2e04eff69433b3d897813422285f1c6a8e4be5d"
+    },
+    {
+      "File": "recherche-actions.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "83b4c0fccc00728cc2bd1e949d9485c64b0587a688725c3709dc3e31766ba6a7"
+    },
+    {
+      "File": "recherche-inconnus.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "3f7951fc6b0f5a3c5d0eb114bc24ad30fd626e8c2270e868daa67696331825df"
+    },
+    {
+      "File": "recherche-requete.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "1cb179e88e04fd47058a7a18d26786a32224290d9a8df3ba3385b44fb5ba284e"
+    },
+    {
+      "File": "recherche-requetes.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "1c6d46cd61701d935cef29c608b5e32559d227555244e248c666dc679f8a7cf1"
+    },
+    {
+      "File": "recherche.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "83b4c0fccc00728cc2bd1e949d9485c64b0587a688725c3709dc3e31766ba6a7"
+    },
+    {
+      "File": "selecteur-ou.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "09036f1255bb65eaf3bba09097f699a5a00601352b69097348dffd04401fa599"
+    },
+    {
+      "File": "tableau-poste.png",
+      "Width": 1920,
+      "Height": 1840,
+      "SHA256": "39e95f7b492f494848b4ab999a4c6c7ed8d39bb4162d2fca419883fdb3085df8"
+    },
+    {
+      "File": "zoom-clair.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "d35bb273402444984ce561792e29be3646f31780fe67a1c8f0e9fbead630ab31"
+    },
+    {
+      "File": "zoom-sombre.png",
+      "Width": 1920,
+      "Height": 1080,
+      "SHA256": "80411d12f520b58c0f3d9b87f95138f31a4c8767c1b4e54f0a7a4cd077229439"
+    }
+  ],
+  "OriginalEvidence": "/tmp/query-navigation-r6/proof",
+  "NormalizationManifest": "proof-export-manifest.json",
+  "SourceBaseCommit": "443b999c61be5a2100e1f3fa4d18a55eb305456a",
+  "DevZipSHA256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+  "ProdZipSHA256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+  "VM": "W11-01",
+  "Apartment": "STA",
+  "Is64Bit": true,
+  "ADAccessed": false,
+  "SuiteCount": 63,
+  "CurrentSourceMatchesArchive": true,
+  "SourceComparisonScope": "All files included in DEV archive; source-only engineering/history files excluded by the package contract are outside this inventory.",
+  "ExactInventory": "exact-source-inventory.json",
+  "Limitations": [
+    "Synthetic data only; no real Active Directory qualification.",
+    "WPF session0 does not replace a human interactive desktop walkthrough.",
+    "R4 Native.dll and R5 Query.dll Add-Type E_UNEXPECTED incidents are preserved as failed attempts. Seven isolated Query loads did not reproduce the error; its cause remains unestablished. The distinct R6 campaign uses the same immutable archives, with no concurrent authenticated GuestControl operations. A passing R6 proves that execution only, not correction of the earlier assembly-load incident."
+  ],
+  "SourceBinding": "Exact current source and executed runtime inventory matched to immutable DEV ZIP; package manifest binds all packaged tools and tests.",
+  "RuntimeFilesIdentical": 93,
+  "ArchiveComparison": "archive-comparison93.json",
+  "SuiteSummaries": {
+    "NativeParser": {
+      "Status": "PASS",
+      "Files": [
+        {
+          "File": "Domenia.ps1",
+          "Status": "PASS",
+          "SHA256": "C88496443ED583A0EBA005ED6EE1803BD3462137B472573272EA4882CD1F4010",
+          "Errors": []
+        },
+        {
+          "File": "INSTALLER-MISE-A-JOUR.ps1",
+          "Status": "PASS",
+          "SHA256": "DF6175DB0681AA59440C4D90DA9A84E7B0350B0CBEA0753D3FC1FC9ABED3D344",
+          "Errors": []
+        },
+        {
+          "File": "engineering\\d120\\Test-NativeParser.ps1",
+          "Status": "PASS",
+          "SHA256": "4AD70C8E04AF888D398064452D859279D2BF3E7929A2F360500B13226DDB304C",
+          "Errors": []
+        },
+        {
+          "File": "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaAdditionalUi.ps1",
+          "Status": "PASS",
+          "SHA256": "6578BC6501564BE2F3954C6ED8F64EC0066F952D80E30F1F16CD207280B04814",
+          "Errors": []
+        },
+        {
+          "File": "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaAllOffline.ps1",
+          "Status": "PASS",
+          "SHA256": "AD35890C50057C2EED99FFA8838284F91F2DD6E570AA8C3324CF8EC2ED2261E8",
+          "Errors": []
+        },
+        {
+          "File": "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaQuickUi.ps1",
+          "Status": "PASS",
+          "SHA256": "BA2972F9BB1E0340D30F8B038F6D5B0EF4B8D9E27FF45273655FA71921B64A47",
+          "Errors": []
+        },
+        {
+          "File": "engineering\\d120\\quick-ui-20261012\\Test-DomeniaProdFactory.ps1",
+          "Status": "PASS",
+          "SHA256": "DF9339F689BD591249F45107D1FB102E22F76C517DF6AFCC9F2438A15B1267AE",
+          "Errors": []
+        },
+        {
+          "File": "tools\\build_native.ps1",
+          "Status": "PASS",
+          "SHA256": "303B3B3988E758E1A5C155754B3E619224847F1B6C660DC56A7BAB410271CE00",
+          "Errors": []
+        },
+        {
+          "File": "tools\\Fabriquer-Prod.ps1",
+          "Status": "PASS",
+          "SHA256": "00184761AD3B28151F1CE63730485D024A020A0FA78787FD813F5DBBE2D58B94",
+          "Errors": []
+        },
+        {
+          "File": "tools\\Production.Source.ps1",
+          "Status": "PASS",
+          "SHA256": "D49916845858B46C4A5387B321923B82431B5C768C9A054BDF4E00F813B869B3",
+          "Errors": []
+        },
+        {
+          "File": "tools\\Signer-Distribution.ps1",
+          "Status": "PASS",
+          "SHA256": "38DAA5052C33B8551F8062BAE59868A1DE20483D53B92B778A990382ACBEE758",
+          "Errors": []
+        },
+        {
+          "File": "tools\\Test-DomeniaPs51Compat.ps1",
+          "Status": "PASS",
+          "SHA256": "3E13CD609FF682B6B247464B58ABC619DA6B06CBA5208BCCB1FD6201A28E2197",
+          "Errors": []
+        },
+        {
+          "File": "tools\\Test-DomeniaSignature.ps1",
+          "Status": "PASS",
+          "SHA256": "FB2C0891747F2CCB3DAC040DF97FB0BBEF44E0A9BADB9657E8E2729523ED3760",
+          "Errors": []
+        },
+        {
+          "File": "tools\\Test-DomeniaUiBlocking.ps1",
+          "Status": "PASS",
+          "SHA256": "2675E06FF622A4F1C1971084FDEA50947178EA60E2FCCAF313635A146793D6F1",
+          "Errors": []
+        },
+        {
+          "File": "tools\\Test-DomeniaUiBlockingDebt.ps1",
+          "Status": "PASS",
+          "SHA256": "C8F3408442142503655863ABAADBF58E5E6F41A506EF90FA53CED172E5E28A32",
+          "Errors": []
+        },
+        {
+          "File": "vendor\\m4d-admin-common\\tests\\Query\\Test-Query.ps1",
+          "Status": "PASS",
+          "SHA256": "69AC5B1C0C8530D13950B6C30792CA26D831B9E30D3BC7FB1A066C6D097337EB",
+          "Errors": []
+        },
+        {
+          "File": "wad\\Domenia-Core.ps1",
+          "Status": "PASS",
+          "SHA256": "41B82E030868A1AF6816D639328D218ED3F290A776AD069051A07015845B98FE",
+          "Errors": []
+        },
+        {
+          "File": "wad\\Domenia-Modules.ps1",
+          "Status": "PASS",
+          "SHA256": "B7EB959844DD9FA405F5972F5A8A0278237A70C58AC151996B34EC569C2AF135",
+          "Errors": []
+        },
+        {
+          "File": "wad\\Domenia-Start.ps1",
+          "Status": "PASS",
+          "SHA256": "D8AAAE59B5BAA81B079C6145E06DBEF822CE7A43C99F08E8AF20B16358D43E97",
+          "Errors": []
+        },
+        {
+          "File": "wad\\maintenance\\Preview-DomeniaLogin.ps1",
+          "Status": "PASS",
+          "SHA256": "74B1D18345AC9A36AF76E03426906D67052DFB0FB236771A60743A1AC2410066",
+          "Errors": []
+        },
+        {
+          "File": "wad\\maintenance\\Preview-DomeniaProgress.ps1",
+          "Status": "PASS",
+          "SHA256": "9AB973588C396B425DDD83AC9B3AAD94CBF0EE987009E6629DBE675C59E3DC0B",
+          "Errors": []
+        },
+        {
+          "File": "wad\\maintenance\\Preview-DomeniaUi.ps1",
+          "Status": "PASS",
+          "SHA256": "36D657D39D21B543A6942A1F12D42BAE65EDCCB4E58F57DB676662E338E60D6B",
+          "Errors": []
+        },
+        {
+          "File": "wad\\maintenance\\Sauvegarder-Cache.ps1",
+          "Status": "PASS",
+          "SHA256": "BD52F319E568B4FEC0A4B762D056164C8B4203D3D7CEE5A09DCAA68C198AAB3D",
+          "Errors": []
+        },
+        {
+          "File": "wad\\maintenance\\Verifier-Paquet.ps1",
+          "Status": "PASS",
+          "SHA256": "CBD999F68B387B9263846F08E0A4F05CD495E8FEBA7AE9B3CCE1B086570B6D2C",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Access.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "6C4CDDA5E2D395D7824BCA6F018061C66645A0012002E613DE8F171F34781AE3",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Access.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "D586DF3BECCA3F804841816BE122A3BBDEA78E07AECB9B0ADB186AAD3C84B7CE",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Accounts.Async.ps1",
+          "Status": "PASS",
+          "SHA256": "91860B5746E5C356E3756793A494AFD232BC6625400F0706D50DAA73AD1C7D81",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-BoardComputer.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "5C7101FC3DA5EF33A76922B1BCED5726398885BE5B15C4C7ADFFAACE7B782EBD",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-BoardFleet.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "EF9D778B40D8B22E724212C4F4632E79FB8BEC527016CD8D8DF15A8C2F7B3DBD",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Boards.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "07CDDB312F1ECD0AEBC25059788A63A0DFCFEB40182E1B31B8A46556DD19CBBF",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-BoardSoftware.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "A237AEE00A6E5A071AFF2BA71DC5CEDC6A16AEFF9AC35F20F7D6CDE02FEB8718",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Cache.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "91EAE39D0596F29779F7D9628C197B61098015DB8E18C0385DE317DC346A7054",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Charts.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "6297F10D4C174DB7DEECA53B7848EC299FF3BE30E53C7FB50059250C6635E70E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Common.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "DB17C532A83A2F17D0218D4544B890431A3D1EBCD2E114DC0050A1D52626B3C7",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Continuity.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "74C3ADBE8CCDA07A3B5A05157813B57E545C623BA3B6CB9AF9CCECA6AA87073E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Continuity.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "910A5F75439A77EB5A396B49E11F30F200494508C8722669956A014AD4B14646",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Dashboard.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "E7D11B5AE7041970F4BC6C310EFCAF6CCE26C0183E8641B970C613269F6EA588",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Demo.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "B5BD808F5356BB2EB477B230067FE5CBA981CFFC997CA4EC46022EE074FA09B6",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Demo.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "6717745C11AE231250FD4334359092F25C33F11A70CADCD0D1EE880BEF634F7E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Demo.Worker.ps1",
+          "Status": "PASS",
+          "SHA256": "4642D799E6CA86B459E4F8FB2CE186EB0B29C411E26216A23EFF610D07018D0E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Directory.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "90A8F2F6685C7FF198C625D8AC245C58CC0B0921F55C93BA3CE815DD13327C92",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Dossier.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "9D6D07CD0A9202D027139E022F7B34A7D05E0266401F6784570529F19EE4BCFF",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Dossier.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "620090E7EE794237F55E77442F2D41FE3D49D5B317459DE808CB52A2277112FC",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Embedded.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "754C33C2EA4CC3958C566B3A0B37E1F782047F432A95A1040BFBA3314FF69C48",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Engine.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "67EE24E9C67F0EA7FB08DBFA666E8A04107EFC3D6677CC9644FC2A183A708DB7",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Engine.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "16097F29BF9C1AF0F7B021E6379310548F6CFE541591ACF11C048D86001D04F9",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Engine.Worker.ps1",
+          "Status": "PASS",
+          "SHA256": "BC77945FDEACE25F3484399E0E000B89C70B103026D6D049962CF11E92E1670F",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Experience.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "4B4397F5D6F358675D9A0018504B44E2B37345854AA677C7E299F1ED3503A239",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Experience.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "E39651D35B472930D77A56AA86B270A20FE502A457CD3F44AD91C3A8146B1CAC",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Guard.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "CD305AFFCD81E9AF750A4B20DCC4706E63BA3CA7CED54C18614673914F4B7B3F",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Guard.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "210918DB7F9463A78729D3E056B8FC2ABE6C3793CD1B7D801247E021D0E34260",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Inline.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "4C6D519AE76FADDD4B1D5E26F40036C47B6699F7829FACB2C5AEF01BAADB3685",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Insight.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "6287EE0F3FE04F5D03E25E529BB1F4B056ECE8F66C2DE26872BCAA228C9DE27A",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Isolation.Worker.ps1",
+          "Status": "PASS",
+          "SHA256": "DDA9BE0B91370AE8C23CA130198FF17C5BB3B4A0F584C8510588029D5C9E0A33",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Live.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "F5E9B6C302A3D38F53461208521BBA4A3E6081EA2F4FC3FA1D5251A84A01956B",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Live.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "1514F0BE4CD88C60822660D0F4CDD44F643BD6F8DD6A8CD6951FE83323F599FA",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Migration.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "8998983AEC38359C01D1877B52D2088696F5D2933FAF6BACF2D26173D4365FCD",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Migration.Worker.ps1",
+          "Status": "PASS",
+          "SHA256": "6A361EC210DD38A269AD544980449C6D05E73DC4A6CC553EC4D3537F14A6AE5D",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Park.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "91A4CC09C315B45286CF1DB3AF62329F7CCCB3EE46A0B222CF8F48141A822594",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Park.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "6800D7276E0BC7926B5C33E2C2F46EF8414C3E9079379FA663BF142D574DB6C9",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Probes.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "9DF125208A21B7EE474C8380047EDA5EBFD96563E37D05B46C427E34314592BF",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Query.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "A6086863C2477238FA854D76F1E3E6B46DBFD735B7A946B6E7B8A73EABEDB7CD",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Query.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "55222EDFA2BE2EE20DF918B4622FD3009D38E6954330095A545C36DB6BDA8DDB",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Query.Worker.ps1",
+          "Status": "PASS",
+          "SHA256": "8A40BCA4B66C23B7B4C97A7D6A05A3E1F44E05D589F8130C2491570668093520",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-QueryTargets.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "CAD98FEA95F3FF6E804B55EE320C45E6CAA3128CF93B1ACA29237150DABD2E10",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Receipts.Worker.ps1",
+          "Status": "PASS",
+          "SHA256": "D44A9DFB7B8EB7AB9DB3F1806CE697C9236117121E2C5E054DA1788C87B19A8D",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Reconcile.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "3CF22706B2ACA92BB71467BC1122EE155A2EBBC47C350CF5DC2AA8987021F9F7",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Relations.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "A9A84746AE9E39A55B91C1CA4A015184B49DC43DE3C43D61BBF22E4C6F2ED796",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Relations.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "5F7C8E7B3608DF3AE7FF5B99517FE6556F4CD27F4074F165AFF956294A71ED11",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Release.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "C47FCC6F008DBB513280BFEE5B641E06D946360238EB95ECCAEF4F4BC2360545",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Safety.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "00BCB6545D59458C727CC9DFB91F60A561D2A8DAE01642FE438F9B6D3924D5E3",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Search.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "5FB57090D4E4C3F58CD18BD46758E589F45AE0FB1BB238229902DF781E4F6A0E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Search.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "267EB5D4B05AFCABC9F5DEE74FD632C0B5EA6BFD0AA15D4AF8BC710A195B306A",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Secrets.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "D885E02DDE01D288F3F5F4C2BBF16851D5C675608FE3501005614D41726EE656",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Secrets.Worker.ps1",
+          "Status": "PASS",
+          "SHA256": "8F5B009EEA769A9C81DC01B1EBD070F43DDA1838908CC3476F8181165ACB0F9E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Selection.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "9F216FBE3765DC4F6AA929E0C017B2D91CA456AA2712203371D002799287FA80",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Sessions.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "61FF96DA919DEDE8DBE956CCFF814750FC2F986A3C61B597F9D869FAE0F56809",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Shell.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "685C73E9F81F2513800798EE2DC6B5D61C0B750BF6AA57F8BECDDE538AEC9D74",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Startup.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "A9F9D4C997B315C3D185CB6B62A2D80C4660C5CDEE7D9CD3755D8F0765351805",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Storage.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "C811E13F34DF19D7DE60BB8B20480A47BFA2C7CDD8871857EB7E217909215EA7",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Storage.Worker.ps1",
+          "Status": "PASS",
+          "SHA256": "9627D0DC9CF8C110898908DB2FD94C8DE25A0085B5F716EFAA9354D272D2C134",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Support.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "DC86FBE76C2A30663223B3AC11D29CCC38DB3F6080D2E4BE3569E25A8406B3A6",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Support.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "4E468D6396EEA16C46228A787733BBBF0E1D8378F7730289FD6640B8CD90DFF2",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-UX.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "5E4D3DB4CCE3EEFCA6FC1E1DE18680DFE91C923D5C264127EBE7A07BBA24C6EA",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Widgets.UI.ps1",
+          "Status": "PASS",
+          "SHA256": "55DA60C9887D129411F9C5457FB8330C1B7F6D9FEFB54883D606AE0087A61E38",
+          "Errors": []
+        },
+        {
+          "File": "wad\\modules\\Domenia-Workstation.Model.ps1",
+          "Status": "PASS",
+          "SHA256": "F9BDF0580B09964AF9BDC9D229B28E683C6691897399A97C68563395B2788CF3",
+          "Errors": []
+        },
+        {
+          "File": "wad\\Support\\Debloquer-Paquet.ps1",
+          "Status": "PASS",
+          "SHA256": "A62BECF6CC25F85A0A21B6CE018FDC0826B43EC99D9897EB5E227967E8BA9454",
+          "Errors": []
+        },
+        {
+          "File": "wad\\Support\\INSTALLER-MISE-A-JOUR.ps1",
+          "Status": "PASS",
+          "SHA256": "8DE2D1C4C8F3AF56668412DF44BADB52166386514FED60991B42662AAD13D8CD",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-Domenia.ps1",
+          "Status": "PASS",
+          "SHA256": "106306E7AC1F2585BF18F33E585996156F546813793FC3F3A828085DFDC290F5",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaAccounts.ps1",
+          "Status": "PASS",
+          "SHA256": "50B00242B4217FA732D866506E619A216A5EA09D74084D83DE60D46C49E9DCCE",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaAcl.ps1",
+          "Status": "PASS",
+          "SHA256": "41E9D7A75D458486B3EEF4903278A749451BCFEFC4E6235FF64E4E927E1F9333",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaActivityLayout.ps1",
+          "Status": "PASS",
+          "SHA256": "44AA129146E9C4AE8B9EE35D51BE6627CE629AA0296524A45FF15C7A56709109",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaBoardRefresh.ps1",
+          "Status": "PASS",
+          "SHA256": "7FEB5040713317D39E65DC94FC2C0E34C3BE276FA50A1356EF63DA99534524FC",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaBoards.ps1",
+          "Status": "PASS",
+          "SHA256": "DB887F58F0010D16CDB277E3ACEE3CDDA45DCB00FF7A8F208EC6194029456EB1",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaCandidate.ps1",
+          "Status": "PASS",
+          "SHA256": "18F4AE0657947088E32EF168A3D73980BBB01866F7B9AC6E6802640632D5C6D1",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaCompactUi.ps1",
+          "Status": "PASS",
+          "SHA256": "F6ADDC77B9E03978C462E16BC60B33E6DFC6EA94B710F69D3FE36EE3BFFB990E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaDnScopes.ps1",
+          "Status": "PASS",
+          "SHA256": "4D5CFB9806B76D5C5020832952C1223CBE26E3D864A38406989881E7624F6085",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaEmbeddedUi.ps1",
+          "Status": "PASS",
+          "SHA256": "B13CC7041E602B18C9D810418B31142DBD7D05E78D120D0D4B27D9BD4B112E0A",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaEngineLoad.ps1",
+          "Status": "PASS",
+          "SHA256": "1F3899A71B8319052669158C89F6A046220B1CEF63DF6ADE8ABC3A601BC3EE91",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaEngineResilience.ps1",
+          "Status": "PASS",
+          "SHA256": "4E5CB21927562B26634F855352E0B58DFDB65E51FA9DF37AC9AF79B696145D81",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaExperience.ps1",
+          "Status": "PASS",
+          "SHA256": "7E560A4E5ACACF4A12EFD1D8D2A836A4B29866C3FF6DCA4010B7CE3EEFCB4E8F",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaFaults.ps1",
+          "Status": "PASS",
+          "SHA256": "F0A54F49C1BE88A37A4206C4FBB8617C6D3690F3A460258254993EB7E8EFED99",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaGeometry.ps1",
+          "Status": "PASS",
+          "SHA256": "A45395E41E08E332615EE61E364554129AA1CC8DBF68193C5D93A66AA9D25EBE",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaIndexActions.ps1",
+          "Status": "PASS",
+          "SHA256": "952278B7DA126FCDF932EA0F8DC18D5C46AD8E56D4D9D8A558CADDDE6B515D51",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaIndexPersistence.ps1",
+          "Status": "PASS",
+          "SHA256": "1F210FD693977427D82D5ECF46F67AA8C3F9DC4D93BBB3F77BD17A92B42B75F3",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaIndexSorting.ps1",
+          "Status": "PASS",
+          "SHA256": "7F0ECEB43DDEF315524654DA9A5DEB57BB80B2CB1053FAACF41D24D8624A1035",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaInstaller.ps1",
+          "Status": "PASS",
+          "SHA256": "9D38B8792C3D64CA59DED0D4F5A1F7169CE86A00CEDBE873505ED8E1C049A238",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaInterface.ps1",
+          "Status": "PASS",
+          "SHA256": "6A4984FD1681AC94FEA89DA791E6BDAFA513B84661712DDEC8EA6D92A1C83768",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaInterfaceTelemetry.ps1",
+          "Status": "PASS",
+          "SHA256": "8E30C1DDDF723659C4546CF9A4F3A1C210385343FE1387E450716A4ACE8E3A9B",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaLastUser.ps1",
+          "Status": "PASS",
+          "SHA256": "BA24A2CD457BCC3D69545B3EC19AEFE703C9CC1F6707212285034D2BFF7B349D",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaLiveSearchView.ps1",
+          "Status": "PASS",
+          "SHA256": "75EA2CCD02788A8D4E877200AA2B31F6AEB6BC80C6FC434A3D3012CFC7E711B5",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaLogin.ps1",
+          "Status": "PASS",
+          "SHA256": "F306F888A1DE498DE6D17A7C58D869BE1E06AACF8CDDD74D5EC5019360299266",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaLoginForeground.ps1",
+          "Status": "PASS",
+          "SHA256": "6F99B746B3C164C2BA4AD2735C8F6D30DAFFAC4E5F37E952F9EE821B418D89A1",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaModules.ps1",
+          "Status": "PASS",
+          "SHA256": "0B3A5EB84770CAE9F44E042D1A843B78AF3167384320A1D268EF0332487639F7",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaNative.ps1",
+          "Status": "PASS",
+          "SHA256": "81D9EA4A15455089699DD5971C4194E75D19517E09F34627A8C05B1C36308848",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaParkDetection.ps1",
+          "Status": "PASS",
+          "SHA256": "E3D67804A8DA9E562574D0CF1F4B6FA1E28B39E7C4177DA1B1CBB84212E0B798",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaPreload.ps1",
+          "Status": "PASS",
+          "SHA256": "45E6202ECD3AFC2DCA89395DFBAAE920E763D4AE4071821E9C023CE0120789C2",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaQuery.ps1",
+          "Status": "PASS",
+          "SHA256": "15058C9977D0590E2B36534BCCBCB77C0CDD22A0E692AEA437BEB218034BE545",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaQueryTargets.ps1",
+          "Status": "PASS",
+          "SHA256": "70F11B0715D2831CF04BEF84E93FAB0A2C4B1C2F206CF4C7EC65D423533C39BD",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaQueryTemplates.ps1",
+          "Status": "PASS",
+          "SHA256": "329B4CC97ED73A31B60BDAC08146B09FAD8943760DE9BF55D745C7001C03AD09",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaRegressions.ps1",
+          "Status": "PASS",
+          "SHA256": "8E5571AD7AEF37BFAC145B0BC27518A076137D069C2B3408A288F18C40BE822E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaRelationsAlignment.ps1",
+          "Status": "PASS",
+          "SHA256": "640475CFBD75DCF7C88F49E137530B47229BC8734B36DB16F2FAE36A402E66E2",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaRelease.ps1",
+          "Status": "PASS",
+          "SHA256": "6972E8E4BA7964BD5364E004232149B76BA5A32CA4696C2812B3D24519BBF1C4",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaRemote.ps1",
+          "Status": "PASS",
+          "SHA256": "F8431B400754078EC451E4D13B455554A6BC4AF536A794167091210D8B9194FD",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaRules.ps1",
+          "Status": "PASS",
+          "SHA256": "C12A6E7185A3AB30556A0C0C0C704DBBCDD8F594862FFAEBFBC22D0717648272",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaScale.ps1",
+          "Status": "PASS",
+          "SHA256": "4407956CCFB6A20C14B93AEC4AD8A55DC37E69FE63BAF6D1614535A21C8DCB58",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaSearchPresence.ps1",
+          "Status": "PASS",
+          "SHA256": "136443A0ED1CA3902436D0680598216C0D3480366FD436AEEADF1C404C9615DA",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaSearchQueries.ps1",
+          "Status": "PASS",
+          "SHA256": "EEE013FE06656BE9854D558DBB788C3BBC83893414DE81E1FB74213E959D6D96",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaSearchScope.ps1",
+          "Status": "PASS",
+          "SHA256": "26A3BE8DCC769C46EEDE09D8B722ECC77D795793AAF5D1EE0E6A7B94517D2948",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaSelection.ps1",
+          "Status": "PASS",
+          "SHA256": "DE2F0D87BB1930AF19779784107EA69F709F7E631B924239D84A98023ED58C3C",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaSelectionIdentity.ps1",
+          "Status": "PASS",
+          "SHA256": "F999D55D53F1C13CC00065086E582D48A87575F950DA16E39BCC5D20CACE8F7C",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaStableUi.ps1",
+          "Status": "PASS",
+          "SHA256": "4894E307F4D44790FF2225F4A44CD0EBF1F637D7B6455C6EE40211C518199BAC",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaStartupLogin.ps1",
+          "Status": "PASS",
+          "SHA256": "10CEB229E92426EBA6894939C688EF78077062F77B950E31E767A9BF90BF5FA1",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaStreaming.ps1",
+          "Status": "PASS",
+          "SHA256": "3B4947CBC9834996CCBC30E52E163FDA8F7571E2F223633EFEDEFC718B5822E6",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaSupport.ps1",
+          "Status": "PASS",
+          "SHA256": "926A4E9085898882F0E7D77AC7BF031EDEB929D7EF42A9A547304B16D7D34F8D",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaTheme.ps1",
+          "Status": "PASS",
+          "SHA256": "65DCAFE0BCCB0A29488E68912C26B5F13E99C7DC694AFC4D43A5104C5F6EE86A",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaUxRefinements.ps1",
+          "Status": "PASS",
+          "SHA256": "6C9DC05201BA1BF20C68F04C3E8EF603FCD017DA0CFE4EF6B35B24158EBA9873",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaUxStateSafety.ps1",
+          "Status": "PASS",
+          "SHA256": "F8092B4B51459DE435E496594D1226CD3BE33C464FFE70D26CF3DF0829C47222",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringAcces.ps1",
+          "Status": "PASS",
+          "SHA256": "869A0DF8745AC6F82D070752143F6DDE7A906485C3AF660059D259CA6AC214EA",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringCache.ps1",
+          "Status": "PASS",
+          "SHA256": "A4ECAA18DFAD982C0A91F8ABCAA2CE2E908C5C5D2BF117CB54359126305EF685",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringEcritures.ps1",
+          "Status": "PASS",
+          "SHA256": "8473C62861C28966EDFD4CBE93F7B371D064DDBD63C2A30B31A9704530C2F010",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringInline.ps1",
+          "Status": "PASS",
+          "SHA256": "BBC19445880161EFF5AB2ADA331B9723B787A974A6D7E5B3AB55DA7052195109",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringInterface.ps1",
+          "Status": "PASS",
+          "SHA256": "497DDBBF7E550EA22460292DB1807BFB7B690C4CE9AB418A1C9DD7939293F3D9",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringMoteur.ps1",
+          "Status": "PASS",
+          "SHA256": "3871E9CADEBE6B5C14C082A6B882D987D12D0AD950A9CC9469097D6D532C576A",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringRecherche.ps1",
+          "Status": "PASS",
+          "SHA256": "A776B0A60923DAA766CD938986B51F8775E9F54006AE6F0285DDA79A34853BB8",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringRelations.ps1",
+          "Status": "PASS",
+          "SHA256": "50B566A7B5F7B5E30E804C69D915619B4E21F3B23AEA74B9DD9EDC1D4426633A",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\Test-DomeniaWiringSuites.ps1",
+          "Status": "PASS",
+          "SHA256": "8C12F28ACD67E309879D408481EA93A0ADB4EDA55CA2B2EC19964A2AC45A2471",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\fixtures\\AuthProbe-R1.7.1.ps1",
+          "Status": "PASS",
+          "SHA256": "BF0AB379B1404D578EA0FC81611DCDA2F89865DF52A9D0C32769579B9600167C",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\fixtures\\AuthProbe-R1.7.ps1",
+          "Status": "PASS",
+          "SHA256": "3EF4646A519B361EFCBF3FB42A63ED2F9CE7ED50DFF1BADE24230C22A504D116",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\fixtures\\Domenia-AdFixtures.ps1",
+          "Status": "PASS",
+          "SHA256": "FBB0D35480CE45E2A8F740710C2E30CA85D8421E5ABF1B6241BEC4BC2747D60F",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\fixtures\\RC1.1-ModuleImports.ps1",
+          "Status": "PASS",
+          "SHA256": "7F8F402E3B28F9BDA9731A93F9208E618E041D4818C9470F974CE535BD325C77",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Access.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "4C12C08DEB6ADCF0023966443CA16D4BB070F7768B6D167F583746D455EBE31E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\BoardFleet.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "3C59F5CB1946D320A2E631E85D2DB18263C543D4B929C41000210D20932698E4",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Boards.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "8FC12FD286AACDED804080C79C373169F8A7F698C5E5CCE1AB174B92DA5774D3",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\BoardSoftware.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "715E7E15C5774969924D4644FC0CBA4CDE47D205DCF634EECD85DCC9D639A416",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Cache.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "53A751F63BF0844478F7FF060E88F1C58A1997BF8214A649ACFB2A9B61F3037C",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Directory.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "E430CC0CE8F690667D3597BC3FB643E5D0F8B74B8F394668DBB270F7445282C8",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Engine.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "BF3CF7E486D895C4F53DCBA7188C7F5EE74848CB3CEAAB90C83B4F0D34AD459A",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Fixtures.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "2F19E812027C99ADBB243C851B76A5149385BF69DA3D8D7889989570D882E415",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Insight.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "23B4CA2DE1DCE79A69DE4E8F1FFC71F3685015A631370EF5798DE404C3BFA2FF",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Live.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "5D871E5170F93BE2CF24A72507B70274612FDDD29412AF5D72C9047002FB77E2",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Probes.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "AC1FBE359F32CB04387AAB50807E6385FFFFA9B95E152C2DF356943A0962B5B9",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Races.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "9053AEF52AB3C679541CF1CCB8D066541DA432DE267CED5E057E3111456CBB48",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Relations.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "A5B373EC003417A8A6546FEB5D8A1141DE7DEC9C0FD062D5417EE857D658C0AD",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Release.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "52CAE2EC922B32134D905B9B8B1E5BA1C3730DC57BCD02DB9AF68F639607061E",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Safety.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "E50854B5D5A3C453F7F5CF893D0846D1FAA01CAAE6FB3A54EE8447209C63F566",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Search.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "D58CCB1B5650EAA3E3D51E425D61E13B78E41597779CB0DD81969DC25156855B",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Shell.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "F7E851D90F3B011E2F914F26D5DB2726295487B1904A77A6CEF3F6FFCE77A651",
+          "Errors": []
+        },
+        {
+          "File": "wad\\tests\\rules\\Workstation.Tests.ps1",
+          "Status": "PASS",
+          "SHA256": "8899B6151821A748405EA55FE1D8EB7DBCF433EE5A3774B3110088973B9C0226",
+          "Errors": []
+        }
+      ]
+    },
+    "ProdFactory": {
+      "Passed": true
+    },
+    "Ps51Compat": {
+      "Status": "PASS",
+      "Files": 169,
+      "Errors": 0,
+      "Warnings": 0
+    },
+    "Test-Domenia": {
+      "Passed": 219,
+      "Failed": 0
+    },
+    "Test-DomeniaAccounts": {
+      "Passed": 27,
+      "Failed": 0
+    },
+    "Test-DomeniaAcl": {
+      "Passed": 38,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaActivityLayout": {
+      "Passed": 52,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaBoardRefresh": {
+      "Passed": true,
+      "Failed": 0,
+      "Cases": 17
+    },
+    "Test-DomeniaBoards": {
+      "Passed": 42,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaCandidate": {
+      "Passed": 192,
+      "Failed": 0
+    },
+    "Test-DomeniaCompactUi": {
+      "Passed": 22,
+      "Failed": 0
+    },
+    "Test-DomeniaEmbeddedUi": {
+      "Passed": 97,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaEngineLoad": {
+      "Passed": 3,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaEngineResilience": {
+      "Passed": 40,
+      "Failed": 0
+    },
+    "Test-DomeniaExperience": {
+      "Passed": 58,
+      "Failed": 0
+    },
+    "Test-DomeniaFaults": {
+      "Passed": 21,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaGeometry": {
+      "Passed": 42,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaInstaller": {
+      "Passed": 15,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaInterface": {
+      "Passed": 50,
+      "Failed": 0
+    },
+    "Test-DomeniaInterfaceTelemetry": {
+      "Passed": 5,
+      "Failed": 0,
+      "Cases": [
+        {
+          "Name": "551 ms is recorded separately and warns with threshold and handler",
+          "Pass": true,
+          "Error": ""
+        },
+        {
+          "Name": "Modal waits are subtracted and negative effective durations are clamped",
+          "Pass": true,
+          "Error": ""
+        },
+        {
+          "Name": "The warning threshold is preserved, with strict greater-than semantics",
+          "Pass": true,
+          "Error": ""
+        },
+        {
+          "Name": "Callback, worker and heartbeat samples stay isolated and bounded",
+          "Pass": true,
+          "Error": ""
+        },
+        {
+          "Name": "Operations health exposes measured callback percentiles without claiming network performance",
+          "Pass": true,
+          "Error": ""
+        }
+      ],
+      "Assertions": 12
+    },
+    "Test-DomeniaLastUser": {
+      "Passed": 21,
+      "Failed": 0
+    },
+    "Test-DomeniaLiveSearchView": {
+      "Passed": true,
+      "Failed": 0,
+      "Cases": 11,
+      "Assertions": 63
+    },
+    "Test-DomeniaLogin": {
+      "Passed": 54,
+      "Failed": 0
+    },
+    "Test-DomeniaLoginForeground": {
+      "Passed": 8,
+      "Failed": 0,
+      "Complete": true,
+      "Assertions": 74
+    },
+    "Test-DomeniaModules": {
+      "Passed": 114,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaParkDetection": {
+      "Passed": 22,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaPreload": {
+      "Passed": 116,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaQueryTargets": {
+      "Pass": 37,
+      "Fail": 0
+    },
+    "Test-DomeniaQueryTemplates": {
+      "Pass": 1516,
+      "Fail": 0
+    },
+    "Test-DomeniaRegressions": {
+      "Passed": 20,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaRelationsAlignment": {
+      "Passed": 65,
+      "Failed": 0,
+      "Complete": true,
+      "Cases": [
+        {
+          "Name": "01 Parseur du corps du worker inverse",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "02 Selection seule : aucun travail soumis",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "03 Filtre utilisateur connu, sans toutes les relations",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "04 Changer utilisateur change le filtre",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "05 GUID recree exclut ancien lien homonyme",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "06 Ancien lien sans GUID reste historique",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "07 Selection programmatique ignoree",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "08 Meme objet ne redemarre pas une recherche",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "09 Autre utilisateur invalide la requete precedente",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "10 Etat capture valide",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "11 Requete tardive rejetee",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "12 GUID utilisateur different rejete",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "13 Session differente rejetee",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "14 Controleur different invalide le retour",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "15 Nouveau credential meme nom invalide le retour",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "16 Annulation interdit tout enregistrement tardif",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "17 Indice AD non enregistre automatiquement",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "18 Console confirmee enregistree en lot",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "19 Lien manuel preserve meme pour le meme compte",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "20 Refus file stockage conserve la vue precedente",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "21 Sauvegarde differee si ecrivain occupe",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "22 Ecriture AD bloque application des liens",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "23 Worker sans scan : aucun CIM",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "24 Worker reprend les associations et leur date",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "25 Responsable declare ne devient pas session",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "26 Lecture AD utilise le compte annuaire",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "27 Ressources LDAP toujours liberees",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "28 Console utilise le compte poste distinct",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "29 Console du bon domaine confirmee",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "30 Toutes les sessions CIM creees fermees",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "31 Compte console autre utilisateur non associe",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "32 Meme nom autre domaine non associe",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "33 Compte local homonyme non associe",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "34 Nom non qualifie non devine",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "35 UPN exact accepte",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "36 Console vide ne conclut pas aux sessions RDP",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "37 Machine recue differente non attribuee",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "38 Acces refuse visible dans tentatives",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "39 Delai conserve observation historique",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "40 Rejet identifiants arrete les sondes suivantes",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "41 Canal deja bloque : aucun nouvel essai",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "42 Configuration CIM desactivee respectee",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "43 Limite de sondes respectee",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "44 Aucun candidat : aucun balayage domaine implicite",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "45 GUID ordinateur recree non sonde par ancien lien",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "46 GUID utilisateur recree arrete la recherche",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "47 Refus AD distinct et aucun CIM",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "48 Journal du controleur desactive par defaut",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "49 Journal cible le SID et le compte AD",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "50 Adresse IP conservee entiere comme indice",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "51 Progression pleine ne bloque pas retour final",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "52 Perimetre OU explicitement transmis",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "53 Perimetre liste exclut les candidats hors liste",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Light : onglet selection uniquement Alice",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Light : changement de focus ne passe pas a Tous",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Light : grille active Toutes explicite",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Light : texte activite aligne au bord gauche",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Light : placeholder aligne sur le caractere saisi",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Light : contenu stable pendant activite longue",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Dark : onglet selection uniquement Alice",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Dark : changement de focus ne passe pas a Tous",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Dark : grille active Toutes explicite",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Dark : texte activite aligne au bord gauche",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Dark : placeholder aligne sur le caractere saisi",
+          "Passed": true,
+          "Error": ""
+        },
+        {
+          "Name": "Dark : contenu stable pendant activite longue",
+          "Passed": true,
+          "Error": ""
+        }
+      ]
+    },
+    "Test-DomeniaRelease": {
+      "Passed": 49,
+      "Failed": 0
+    },
+    "Test-DomeniaRemote": {
+      "Passed": 46,
+      "Failed": 0
+    },
+    "Test-DomeniaRules": {
+      "Passed": 547,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaScale": {
+      "Passed": true
+    },
+    "Test-DomeniaSearchPresence": {
+      "Passed": 62,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaSearchQueries": {
+      "Pass": 47,
+      "Fail": 0
+    },
+    "Test-DomeniaSearchScope": {
+      "Passed": 42,
+      "Failed": 0
+    },
+    "Test-DomeniaSelection": {
+      "Passed": 47,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaSelectionIdentity": {
+      "Passed": 14,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaStableUi": {
+      "Passed": 52,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaStartupLogin": {
+      "Passed": 44,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaStreaming": {
+      "Passed": 72,
+      "Failed": 0
+    },
+    "Test-DomeniaSupport": {
+      "Passed": 53,
+      "Failed": 0
+    },
+    "Test-DomeniaTheme": {
+      "Passed": 28,
+      "Failed": 0
+    },
+    "Test-DomeniaUxRefinements": {
+      "Passed": 11,
+      "Failed": 0,
+      "Assertions": 100
+    },
+    "Test-DomeniaUxStateSafety": {
+      "Passed": true
+    },
+    "Test-DomeniaWiringAcces": {
+      "Passed": 33,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaWiringCache": {
+      "Passed": 157,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaWiringEcritures": {
+      "Passed": 47,
+      "Failed": 0
+    },
+    "Test-DomeniaWiringInline": {
+      "Passed": 15,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaWiringInterface": {
+      "Passed": 20,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaWiringMoteur": {
+      "Passed": 49,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaWiringRecherche": {
+      "Passed": 44,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaWiringRelations": {
+      "Passed": 54,
+      "Failed": 0,
+      "Complete": true
+    },
+    "Test-DomeniaWiringSuites": {
+      "Passed": 19,
+      "Failed": 0,
+      "Complete": true
+    }
+  },
+  "HumanGUI": {
+    "Status": "BLOCKED_MAC_LOCKED_NOT_RUN",
+    "NotIncludedInOfflineQualification": true
+  },
+  "SyntheticScale": {
+    "Count": 5000,
+    "ProbesPerObservedComputer": 78,
+    "Checks": 14572,
+    "Passed": true,
+    "PeakWorkingSetMB": 587.2,
+    "ManagedRetainedMB": 324.8,
+    "DatabaseMB": 49.2,
+    "Qualification": "Local synthetic SQLite and pure rules only; Windows/WPF/AD not evaluated"
+  },
+  "Attempt": "R6",
+  "PreviousAttempt": {
+    "Status": "FAIL",
+    "PassedSteps": 62,
+    "FailedSteps": 1,
+    "Evidence": "../intermediate/r5-campaign/attempt-status.json",
+    "NotMergedIntoThisCampaign": true
+  },
+  "EnvironmentDiagnostic": {
+    "Status": "INCONCLUSIVE",
+    "Evidence": "../intermediate/profile-diagnostic/diagnostic-summary.json",
+    "NoRuntimeOrSecurityChanges": true,
+    "NoAutomaticRetries": true
+  },
+  "CaptureEvidence": {
+    "Attempt": "R5",
+    "RawEvidence": "/tmp/query-navigation-r5/proof",
+    "Process": {
+      "Name": "GuideCaptures",
+      "StartUTC": "2026-10-13T00:31:39.5268930Z",
+      "EndUTC": "2026-10-13T00:32:41.1143817Z",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 65687
+    },
+    "Binding": "Exact same DEV archive SHA, capture harness SHA, source manifest SHA and every PNG SHA verified"
+  },
+  "ExternalOrchestration": {
+    "Runner": "external-runner.ps1",
+    "ProdCheck": "external-prod-check.ps1",
+    "Source": "Guest files copied only after campaign termination; original and normalized SHA in proof-export-manifest.json",
+    "Staging": "external-stage.ps1"
+  },
+  "GuestProtocol": {
+    "AuthenticatedGuestControlOperationsDuringCampaign": 0,
+    "Monitoring": "Host COM GuestSession.Processes.Status only; no guest authentication until termination",
+    "ProfileStart": "profile-start.json",
+    "ProfileEnd": "profile-end.json",
+    "ProfileOptionGuarantee": false,
+    "HostMonitoringLog": "host-process-monitor.jsonl",
+    "CompletionObservedUTC": "2026-10-13T01:47:55.658110+00:00",
+    "SourceScript": "host-process-monitor.py"
+  },
+  "EvidenceDirectory": "validation/2026-10-13/query-navigation/r6",
+  "EvidenceSha256": {
+    "validation/2026-10-13/query-navigation/r6/capture-checks.json": "9fef71978669c6ac97da103d76dc95154be43b91fe771f65c63f1dfb9b35549b",
+    "validation/2026-10-13/query-navigation/r6/capture-layouts.json": "c716e467bd06b2b7bb171ae02488c00b47ab1af0d173f72eb706cd0296bd97bc",
+    "validation/2026-10-13/query-navigation/r6/capture-provenance.json": "1705e4f1b675c6b547ce2443777249c8065beedcbf37ab08b3288896eff3f4d1",
+    "validation/2026-10-13/query-navigation/r6/AdditionalRunner-process.json": "db2841e60f24b383ae49ec6882e70aacad282b3ab673aaf317b7c21526fb5fee",
+    "validation/2026-10-13/query-navigation/r6/AllOfflineRunner-process.json": "49a590759981259cd21e6bf7fe6a4b78ff4ccf5985a604922d9401c95580b789",
+    "validation/2026-10-13/query-navigation/r6/ExtendedRunner-process.json": "422ebe11fd0816081559292e54cb9c7adac5dd5da522b7a9597c43a913427800",
+    "validation/2026-10-13/query-navigation/r6/NativeParser.json": "ad39bab9f11a34bee854ab2f14815cb7d8fe8337ce974accdbf26a2cd565864e",
+    "validation/2026-10-13/query-navigation/r6/PROD-CheckOnly-process.json": "1273da731cf0d38de57f0597aebd7015145eea78aacebcffa86caee03061103f",
+    "validation/2026-10-13/query-navigation/r6/PRODArchiveCheck-process.json": "6f38bf9d13e49d0339901ec81f3b159e4c6e0d928d0d7ae1ed65423a5f40fea8",
+    "validation/2026-10-13/query-navigation/r6/ProdFactory.json": "40cadf1b83f216a5994a44ab03bb30fff08aea5ac1f50ee34dd9acaf62e491df",
+    "validation/2026-10-13/query-navigation/r6/Ps51Compat.json": "d431839895110ab991694c06dea2b1f20ad44538d0b77e18065a1aed9740662a",
+    "validation/2026-10-13/query-navigation/r6/StartupCheckOnly.stdout.txt": "caff9874a98ef39b579fb7c53beafc42b2d8974942ab315abcfe1b4e838fb012",
+    "validation/2026-10-13/query-navigation/r6/Test-Domenia.json": "4880a85ba43fac19b1a7dfd788b8597ee45fa5f1c4f64c9eeb80236fd023bc48",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaAccounts.json": "fd75a8303515c6696750ce5ae9c7d3edddd7c05b60cb2f3b7fbb19ba452ac07b",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaAcl.json": "7cae1168da35bf131a083efd80ad3713ce4f44d7995f76d5b1a2869bc400adef",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaActivityLayout.json": "0d988f7e15b8d56a700bcded7beebc20abce0c031bbe487f02107b59c70692b4",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaBoardRefresh.json": "d5604e3fe5e156660b1a006bf68fe64ac8e011a49958c438b9ffcc1188437cd3",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaBoards.json": "61c52ecdf9cab46e7b2ccbb56c0e1be48bc083ec63f76ef722c13b889d92820b",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaCandidate.json": "0401081d989501f374b9363fa3c7e7fe0a23b2c3e6cb47749f15b67804df390e",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaCompactUi.json": "43825bce4d74ac40049df79e1101e4e9b4cc39739f5767030b47279cf7bbd8a5",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaDnScopes.stdout.txt": "c8a1b79b379a239647042a01925bce15bd3094aa95e0d259f8b0942ec7c2d98a",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaEmbeddedUi.json": "5ce831b2c9a498f12e1c81b822824838924b997f3053f44faac0f163e47f7649",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaEngineLoad.json": "32f14d70b48aa63e227546d89e967d4e84e7ca1fe6b3f4035c02b0bdf050455e",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaEngineResilience.json": "5a3149f7850e80423c6db368e8d1a026f89e816aecbfa8d5f9d228e70a39c34f",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaExperience.json": "8305a9de99a9fc243e72176f8992b80cc6bac180a799e11a606e51199329f2cd",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaFaults.json": "6825a2a8613684efdef81c6e685a1be5634a1f87a36d46842165c86361269cf1",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaGeometry.json": "505b2f1149efc2c48ff2f3447ba82cda0f7c813215ced39aba8507266b89f41d",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaIndexActions.stdout.txt": "88bdd130ebe909710b656b815ce7388f6683ce361852b482ba1721f04429938c",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaIndexPersistence.stdout.txt": "c4f4ca15cb7f4a74cf446e33fa04eab1bf72395f8a165fcfe5f60f31b5b281ba",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaIndexSorting.stdout.txt": "027c0879877a31cd4cc06083b11d534fe609357274026ab15ea552ca3b0f8980",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaInstaller.json": "7e3796c0f5b48a947760528ab4ffe807b3a84ec15348f81424efc183867a5cbf",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaInterface.json": "bb59e7a71bd0d3f436cbd0f83e41cd8f83834575703e74ae5cb43eed5c89161a",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaInterfaceTelemetry.json": "82210544ee3aa88b691a23751b367bf1d2f5d4313a8f14cef40c39a9ee164545",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaLastUser.json": "3ed97ff312d90ab822ce205a56e3446a42cc4708cf47708c817a33e429c27ce1",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaLiveSearchView.json": "fc074c80e44d88177a81dcfae589605a7f734c930a64126c682255bf19c1548b",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaLogin.json": "0808a19e41263b4fcedcea4e67935c61131149b1071437a9db0683261b622b91",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaLoginForeground.json": "25687c5a7cf277ce36e524dfc5e4d944b61f01aae5e331f28d9cd7116c807423",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaModules.json": "bbdbaf975440f609274e379452969235bc138e3ed50c02642398cd768c76ce9d",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaNative.stdout.txt": "e6559bbbb0ab49a3cb88ecaed0b1cfa6e849293106135bb53cec869897c6837e",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaParkDetection.json": "2e19be99c416fb8d6b7e7a19c8a432de647234acd11652ebe04f2eb81ff9889e",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaPreload.json": "d79e858273081ea2b1fc476da2ac3a8d24076121f0caf57a39ee9fbe1b055a7d",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaQuery.stdout.txt": "9fe6e0eacdace12b6eed649aba9fe8bf048fd23eb664b665dc1b926ecd4cd9ad",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaQueryTargets.json": "d89894fd0e6cc71351904767f0592dd3de5ffa4f8846e79ead633cca7be9b289",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaQueryTemplates.json": "90c25ff5c87d73a63a801d10078f9635a30fe6b88889e356d99c1eb205428b0a",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaRegressions.json": "da1d74b5861a8c78ecfef95ffbae8b709b428762b70022b11ff0446a2f105187",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaRelationsAlignment.json": "942731604129a5439c96c2d1ee6580ff0e614d134e1c7ab5ad70cefe8cafffd8",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaRelease.json": "b0b55c4b97d80b07e2fc41943a61830007bf527699173f2bbfa31d80a3a827e3",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaRemote.json": "d0fd5ca5848bf9186b23151253e886e697b6c3688c5a3df9bee45cad1979d22f",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaRules.json": "1c3649508178a5532ae6ae0361b6de89cec5d914875a4254355a696079f02d96",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaScale.json": "9befc701a57963d378abd5117164aab8a5ec5c8c07b04284395b7c3958c04db2",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaSearchPresence.json": "58e2ac5330f971bc0de6e8618dc49bf5697bea6d4e7be54e5a33c0708116eadb",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaSearchQueries.json": "143d550672e5e36f619bfc592f6ee7b9eaa76529881f5fc35b6033a64a888d73",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaSearchScope.json": "888b2c863cf72dee410fa3c3ad9a75b58d31755034d0c916551d30fcb33ff87e",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaSelection.json": "8e4122c080f90e78b786fbd563880fad2e7d649a3afb874937e346b1973f4461",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaSelectionIdentity.json": "d0745750d87f0528da52c8dc26e417702a1cf50facbc5442e1f4bf38a82b806a",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaStableUi.json": "aff05372468eb6cb3ef59d066bafef6f141274e0dcf3272dc0cd22893ab1658a",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaStartupLogin.json": "bf0ae21cae5c498af00777348816e7acdb55c0a9ce73ccb47ce8829779c92162",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaStreaming.json": "622ae414e73c078f3d9170c98f0054213883c22b313e9f67de61b9b12159f57b",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaSupport.json": "ae47df7c93f84a9bbbb736cae8a3ad03e32a8069f444bd6fa20fb4e00b77ae2c",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaTheme.json": "27923c12baf9bef483c5872f366889fbc276290fafc74cde5da2526b7bcf551e",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaUxRefinements.json": "77f273b7f915cff8b05ad95238f3a43f029e9f8fb1e0b73c5be3f9a047b391c6",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaUxStateSafety.json": "a84e10ed70323a1d81a24a74c585de5236ce8396954bac58051c3b26a40913c6",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringAcces.json": "0535dc781288d58198461b4385e9766e3a3f8460f38e40460163f2b5ec04aca5",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringCache.json": "c6cb8dddca0ddaace3ccceef16e10c2b5f6e9165f9bc779341ad70d7a4006ad7",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringEcritures.json": "14a6664b0e043bec4452fae41384ba1ad434836c909b23bb2cff8d50b3da5073",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringInline.json": "e6b3adcae6ee37a1579fd95658360f2d8719641e304fe9f9a5ccfecac969dd7e",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringInterface.json": "c8c67ef7767d66be8c8834edb41d49f8b82162ec899e159295c953811375af7f",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringMoteur.json": "9ceec7218c27dbee2967b856b5a7046a198119725b95ababb3b5f88c7d1b39cb",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringRecherche-process.json": "daf5cafcca462a33f43be86e09d52318770e2eea186914b8d92d6c7afd5002f5",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringRecherche.json": "adbe4c88f66a2c6eb9b0a8a6b8fe33e8014edb5f620cc2e28e32974d896102fd",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringRelations.json": "199751a0d97dbdd28754d5ccc3d1b3475f9617b50630667144519d3443af90d7",
+    "validation/2026-10-13/query-navigation/r6/Test-DomeniaWiringSuites.json": "8cf8fd32df5289a247fdf7504f91a8dc97dfb48bbc38fb4e1456c8402fdfe6a9",
+    "validation/2026-10-13/query-navigation/r6/_additional-ui.json": "b8013b17dfc062f868fa5fd9bb474dc8e95e38054ec7e3b2c5e1c485c4bfd894",
+    "validation/2026-10-13/query-navigation/r6/_all-offline-ui.json": "1d6f1490f7828d9454d3dc002a755590ff896a124d0ebb930cca1a39df46108f",
+    "validation/2026-10-13/query-navigation/r6/_quick-ui.json": "423f91b8fa2a5bf3f768471c7e35a76f918702ed02102374a0ad86895424eb97",
+    "validation/2026-10-13/query-navigation/r6/additional-runtime-source.json": "b52a01a1bc5442c265eaf12d3ad8ef6615122f83ebabb3eb016f1fc0b059b3e7",
+    "validation/2026-10-13/query-navigation/r6/all-offline-runtime-source.json": "b52a01a1bc5442c265eaf12d3ad8ef6615122f83ebabb3eb016f1fc0b059b3e7",
+    "validation/2026-10-13/query-navigation/r6/external-prod-check.ps1": "8544f59ef7f90cdbfccd552daada09f77ace0c80e4dfe2c77bd2d7712874a201",
+    "validation/2026-10-13/query-navigation/r6/external-runner.ps1": "8e03f53f5949bb000de280fd9bfd6e0ac9d91079387caebe967f3cf8d901ac49",
+    "validation/2026-10-13/query-navigation/r6/package.json": "fe2e62516678b936ad503b441c53ce8e2929213d41cf5b49063215026fd9bd20",
+    "validation/2026-10-13/query-navigation/r6/profile-end.json": "708b199c0eb9cb391611dda3470222c311a9c65b9d81cb02e5f9cb363b313002",
+    "validation/2026-10-13/query-navigation/r6/profile-start.json": "6c495228387e1ea6154bf0d4d8fefdf9739dd892794dc519da714537978f6131",
+    "validation/2026-10-13/query-navigation/r6/run-complete.json": "5fce3392de96292441023a628710957e27e73dbddd5055aa7926d70abbae5d0d",
+    "validation/2026-10-13/query-navigation/r6/runtime-source.json": "b52a01a1bc5442c265eaf12d3ad8ef6615122f83ebabb3eb016f1fc0b059b3e7",
+    "validation/2026-10-13/query-navigation/r6/text-encodings.json": "532acb491c9e0fb10a3d9bdafbd225f61df53e8baab303b0a5971e0ba91a4efc",
+    "validation/2026-10-13/query-navigation/r6/exact-source-inventory.json": "5621422fab30f52bd26eece48ee6ad92c6da0378c56352775826a951dc0658d4",
+    "validation/2026-10-13/query-navigation/r6/archive-comparison93.json": "b9ed791de59dec2e700d890ff138d34daa01ba183451fe4227fccaf7c1303544",
+    "validation/2026-10-13/query-navigation/r6/host-process-monitor.jsonl": "9b7fee309bcd8bbedc33c15900a66ca50a91a73cb1aaf34965e5da4ffd693084",
+    "validation/2026-10-13/query-navigation/r6/host-process-monitor.py": "79bc93c9b9cd02a98f0ccee78f976f8695f10b40cce9322158113d5a9924f2a1",
+    "validation/2026-10-13/query-navigation/r6/external-stage.ps1": "7521dbc6f8dc7ca613264b0a13d63aa1d7fe19737d957674d2ec44a43e278c37",
+    "validation/2026-10-13/query-navigation/r6/export-evidence.py": "fdbb3ac59984c19ef183fea71170af695a0558e5b45347104805d0bf57e1fdc2"
+  },
+  "QuickSuites": {
+    "Count": 27,
+    "Passed": 27,
+    "Failed": 0,
+    "Report": "_quick-ui.json"
+  },
+  "ProofExporter": "export-evidence.py",
+  "DocumentationQA": "validation/2026-10-13/query-navigation/documentation-qa.json",
+  "DocumentationSHA256": "6f1463f8afd974c570ba1fb149bde13d9da8a0c0d4bff94e656b6f05cbe6f4b2",
+  "Documents": [
+    {
+      "role": "technicien",
+      "pages": 28,
+      "figures": 33,
+      "visualReviewComplete": true
+    },
+    {
+      "role": "administrateur",
+      "pages": 68,
+      "figures": 33,
+      "visualReviewComplete": true
+    }
+  ],
+  "InteractiveGUIReport": "validation/2026-10-13/query-navigation/interactive-gui.json",
+  "InteractiveGUIStatus": "BLOCKED_MAC_LOCKED",
+  "OriginalWindowsQualification": {
+    "Path": "validation/2026-10-13/query-navigation/r6/qualification.json",
+    "SHA256": "2c98aace794739a9d0d1108fe6137939dcfdb764f2e6fa07642027139fca6d7c",
+    "AdditionalRootMetadata": "Documentation and interactive GUI status added after native report export."
+  }
+}

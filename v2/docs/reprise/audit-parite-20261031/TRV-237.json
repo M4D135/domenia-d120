@@ -1,0 +1,26 @@
+{
+  "id": "TRV-237",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Bridge/AdmissionGuards.cs:41-45 — ReadOnlyDirectory : Local, LocalRead, LocalWrite et NetworkRead admis, Write admis seulement pour le circuit d'écriture, tout le reste refusé (write.unavailable) — le défaut du switch est le refus",
+    "src/Domenia.Bridge/AdmissionGuards.cs:17-28 — en simulation, NetworkRead est refusé sauf opération marquée servie par la source simulée et tout Write hors circuit est refusé (simulation.readOnly) : « refused by default, so a future remote tool can never run for real »",
+    "src/Domenia.Bridge/AdmissionGuards.cs:52-56 — IsWriteCircuit : porte unique (write.execute) et For(mode) impose une garde par mode, donc aucune opération n'est admise sans règle",
+    "src/Domenia.Bridge/BridgeDispatcher.cs:60 — la garde est évaluée avant tout handler et sa réponse est rendue comme BridgeError (Refuse), non comme une exception ouverte ; BridgeDispatcher.cs:126,151 — elle est revérifiée en cours et en fin d'exécution",
+    "src/Domenia.Core/Directory/SessionModels.cs:67,93 — la session et session.info portent un champ ReadOnly ; src/Domenia.Ad/AdDirectorySource.cs:290,304 — en mode annuaire il est à true dans les deux états (non connecté et connecté) : la session n'est jamais ouverte",
+    "src/Domenia.Core/Directory/SessionModels.cs:100-101 — WritePolicy = « confirmationPerOperation » (ou « simulation ») et WritePlanAvailable = connecté ou simulé : « A session never grants a global write authority »",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:265-268 — RequireConnectedSession : un exécuteur IDirectoryMutationExecutor exige ConnectionState.Connected, sinon refus write.sessionRequired ; WriteCircuit.cs:274-276 et 289-291 — la session est relue et revérifiée avant les préconditions et après, avant tout envoi",
+    "src/Domenia.App/Settings/SettingsHostOperations.cs:263 — « La lecture seule et les filtres de présence ne sont jamais restaurés d'une session à l'autre » : aucun état persisté qui pourrait être illisible à la reprise",
+    "src/Domenia.Bridge/EngineSelfTest.cs:66-67 — auto-contrôles « simulation.no-real-provider » et « write.closed-door » (une Write ordinaire refusée par ReadOnlyDirectory)",
+    "tests/Domenia.Tests/WriteCircuitTests.cs:621-634 — les deux modes refusent une opération de classe Write qui n'est pas le circuit (simulation.readOnly / write.unavailable) et « le nom seul ne suffit pas » : write.execute doit être de classe Write",
+    "tests/Domenia.Tests/PlatformTests.cs:739-740 — « écriture AD refusée, même marquée servie » en simulation, LocalWrite admise"
+  ],
+  "manque": "La fonction demandée — une case de mode lecture seule que les gardes d'écriture relisent, avec dernier mode connu avant la fenêtre principale et case illisible tenant pour lecture seule — n'existe pas sous cette forme. 1) Aucune case, aucune opération ni clé de réglage : la seule occurrence de « readOnly » comme code est src/Domenia.Core/DomeniaOperationException.cs:25 (simulation.readOnly) ; le seul bouton « Basculer la lecture seule » est une démonstration de la page kit (web/js/pages/kit.js:441-442, variable locale readOnly) et n'appelle rien. L'opérateur n'a donc aucun geste pour fermer les écritures (la fermeture est structurelle, ce qui est plus sûr mais n'est pas la fonction) ni aucun moyen de la rouvrir ni de la voir changée. 2) L'indicateur d'état est faux en permanence : web/js/shell/store.js:289-291 — writeActive() exige state.session?.readOnly === false, alors que le natif renvoie toujours ReadOnly = true en mode annuaire (src/Domenia.Ad/AdDirectorySource.cs:304) ; la pastille « Écritures sur confirmation » (web/js/app.js:249) ne s'affiche donc jamais, on reste sur « Lecture seule par défaut » (web/js/app.js:250), et le marqueur d'écriture du titre de fenêtre (src/Domenia.Core/Screens/Shell/ShellTexts.cs:33 WriteActiveMark, appliqué par src/Domenia.App/Shell/WindowChrome.cs:23,45 via shell.window.chrome, src/Domenia.App/Shell/ShellHostOperations.cs:56-61) n'apparaît jamais en mode annuaire. La palette d'actions, elle, se fie à writePreparationAvailable (web/js/app.js:932 puis web/js/shell/session-flow.js:32-34 et src/Domenia.Core/Directory/SessionModels.cs:101) et reste juste — les deux lectures de l'état divergent. 3) Le garde-fou « une garde n'ouvre jamais sur une erreur » n'est assuré que par le défaut du switch : AdmissionGuards.cs:37-45 est une fonction pure sans try/catch ni test d'exception, et aucun test n'existe pour un état de session illisible ou indéterminé (les seuls tests portent sur l'admission par classe, tests/Domenia.Tests/WriteCircuitTests.cs:621-634 et tests/Domenia.Tests/PlatformTests.cs:739-740).",
+  "effort": "M",
+  "depend": [
+    "TRV-236 (verrous : l'autre famille de gardes d'écriture, à faire passer par le même point de décision)",
+    "TRV-281 (reçu écrit avant l'envoi, src/Domenia.Core/Writes/WriteCircuit.cs:295-300)",
+    "PAR-045 (Security.ReadOnlyReturnMinutes, clé annoncée mais lue par personne)",
+    "sujet « Barre et palette du shell » (pastille de mode et titre de fenêtre, web/js/app.js:244-255, src/Domenia.App/Shell/WindowChrome.cs:23-45)"
+  ],
+  "risque": "ecriture-AD"
+}

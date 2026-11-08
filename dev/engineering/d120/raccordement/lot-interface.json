@@ -1,0 +1,99 @@
+{
+  "Lot": "interface",
+  "Points": [
+    "D082",
+    "D085"
+  ],
+  "Modules": [
+    {
+      "File": "Domenia-Selection.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Cache.Model.ps1",
+        "Domenia-Shell.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    },
+    {
+      "File": "Domenia-Access.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Access.Model.ps1",
+        "Domenia-Guard.Model.ps1",
+        "Domenia-Shell.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    },
+    {
+      "File": "Domenia-Experience.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Shell.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    }
+  ],
+  "TypeFiles": [],
+  "Operations": [],
+  "OperationsModified": [],
+  "SelfTestRequiredFunctions": [
+    "Update-DomeniaAccessButton",
+    "Update-DomeniaExperienceActivity",
+    "Update-DomeniaSelectionReadUi",
+    "Enter-DomeniaSelectionContext",
+    "Reset-DomeniaSelectionBoundViews",
+    "Complete-DomeniaInventoryUi",
+    "Complete-DomeniaSoftwareUi"
+  ],
+  "HelpEntries": [
+    {
+      "Name": "LblSelectionReadState",
+      "Title": "Aperçu de lecture",
+      "Text": "Une ligne de 20 unités : type, nom, état de lecture. La souris donne le détail.",
+      "Kind": "TextBlock"
+    },
+    {
+      "Name": "BadgeAccessRecovery",
+      "Title": "Compteurs d'activité",
+      "Text": "Le badge reste Hidden à zéro ; sa taille réservée ne bouge pas.",
+      "Kind": "Border"
+    },
+    {
+      "Name": "BadgeSuiteActivity",
+      "Title": "Compteurs d'activité",
+      "Text": "Le badge reste Hidden à zéro ; sa taille réservée ne bouge pas.",
+      "Kind": "Border"
+    }
+  ],
+  "Features": [],
+  "StartRequired": [
+    "wad/modules/Domenia-Selection.UI.ps1",
+    "wad/modules/Domenia-Access.UI.ps1",
+    "wad/modules/Domenia-Experience.UI.ps1"
+  ],
+  "WiringTests": [
+    "wad/tests/Test-DomeniaWiringInterface.ps1"
+  ],
+  "CoreFunctionsModified": [
+    "Reset-DomeniaSelectionBoundViews",
+    "Complete-DomeniaInventoryUi",
+    "Complete-DomeniaSoftwareUi"
+  ],
+  "Notes": "Aucune here-string de worker modifiée, donc aucun ré-épinglage SHA-256 dans ce lot. Décision zéro compteur : -ZeroText '0' pour préserver Test-DomeniaStableUi et Test-DomeniaActivityLayout ; la bascule vers le vide reste une décision explicite à prendre avec mise à jour exacte des assertions. Le raccordement WMI ajoute DN dans les CallbackState (lignes 13240, 13262, 13293) pour rendre possible la garde anti-vues périmées. audit_preload.py:98 doit continuer à voir LblSelectionReadState Height='20'.",
+  "DevOnlyFiles": [
+    "wad/tests/Test-DomeniaWiringInterface.ps1"
+  ]
+}

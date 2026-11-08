@@ -1,0 +1,10 @@
+[
+ "Test-DomeniaTheme :: * / Get-LoginXamlLegacy",
+ "Test-DomeniaTheme :: * / Get-DomeniaDebugLoginXaml",
+ "Test-DomeniaLoginVault :: Real XAML contains explicit unchecked consent and manual buttons in both modes",
+ "Test-DomeniaLoginVault :: Windows renders both login forms with native vault controls",
+ "Test-DomeniaLogin :: Credentials reels : message de refus conserve",
+ "Test-DomeniaAccounts :: Test compte AD : nom modifie refuse sans envoyer le mot de passe actif",
+ "Test-DomeniaAccounts :: Test compte AD : nom court du meme domaine accepte avec identite active exacte",
+ "Test-DomeniaAccounts :: Test compte AD : session Windows seule ne remplace pas le compte saisi"
+]

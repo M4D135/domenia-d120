@@ -1,0 +1,374 @@
+{
+  "Lot": "acces",
+  "Points": [
+    "D051",
+    "D052",
+    "D053",
+    "D054",
+    "D055",
+    "D056",
+    "D057",
+    "D058",
+    "D059",
+    "D060"
+  ],
+  "Branch": "worktree-wf_5b4a8d8b-62c-4",
+  "Modules": [
+    {
+      "File": "Domenia-Access.Model.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Relations.Model.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaOperationResource",
+        "ConvertTo-DomeniaMachineKey",
+        "Test-DomeniaLocalAccountName",
+        "Get-DomeniaCredentialScope",
+        "Test-DomeniaCredentialContext",
+        "Set-DomeniaScopeAccount",
+        "Get-DomeniaErrorDecision",
+        "New-DomeniaDenialCoalescer",
+        "Add-DomeniaAccessDenial",
+        "Complete-DomeniaAccessPrompt",
+        "Get-DomeniaReauthPlan",
+        "New-DomeniaCredentialLease",
+        "Test-DomeniaCredentialLease",
+        "Use-DomeniaCredentialLease",
+        "Clear-DomeniaCredentialLease",
+        "Get-DomeniaOperationAuthNeed",
+        "Get-DomeniaCapabilityExplanation",
+        "ConvertTo-DomeniaLapsView",
+        "ConvertTo-DomeniaBitLockerKeyList",
+        "Find-DomeniaBitLockerKey",
+        "Test-DomeniaDirectChildDn",
+        "Test-DomeniaSecretRevealAllowed",
+        "Get-DomeniaSecretExposurePolicy",
+        "Protect-DomeniaSecretText",
+        "Test-DomeniaTextHasSecret",
+        "Select-DomeniaAllowedFields",
+        "Get-DomeniaTransportPolicy",
+        "Test-DomeniaTransportFallbackAllowed",
+        "Test-DomeniaTransportCodeSafety"
+      ],
+      "Change": "Module deja declare : ajouter ConvertTo-DomeniaMachineKey et Test-DomeniaDirectChildDn a sa liste fermee (liste complete ci-contre)."
+    },
+    {
+      "File": "Domenia-Access.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Access.Model.ps1",
+        "Domenia-Guard.Model.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaAccessFailureKind",
+        "Get-DomeniaAccessScope",
+        "Get-DomeniaAccessNow",
+        "Get-DomeniaAccessIdleMinutes",
+        "Get-DomeniaRetryScopeKey",
+        "Test-DomeniaAccessLeaseUsable",
+        "Use-DomeniaAccessLease",
+        "Remove-DomeniaAccessCredential",
+        "Get-DomeniaRetryCredential",
+        "Set-DomeniaRetryWorkerContext",
+        "Test-DomeniaSecretDenied",
+        "Set-DomeniaSecretDenied",
+        "Test-DomeniaAccessBusyWrite",
+        "Test-DomeniaSecretOperation",
+        "ConvertTo-DomeniaAccessCategory",
+        "Get-DomeniaAccessCoalescer",
+        "Add-DomeniaAccessDenialUi",
+        "Complete-DomeniaAccessPromptUi",
+        "Request-DomeniaAccessRecovery",
+        "Update-DomeniaAccessButton",
+        "Test-DomeniaAccessSessionCurrent",
+        "Show-DomeniaAlternateCredential",
+        "Invoke-DomeniaAccessRecovery",
+        "Resolve-DomeniaCapabilityRoute",
+        "Invoke-DomeniaCapabilityRoute",
+        "Get-DomeniaControlCapabilityExplanation",
+        "Get-DomeniaUnavailableReasonLines",
+        "New-DomeniaAccessState",
+        "Clear-DomeniaAccessAccounts",
+        "Invoke-DomeniaAccessLeaseSweep",
+        "Get-DomeniaTransportPolicyRows",
+        "Update-DomeniaTransportPolicyView",
+        "Initialize-DomeniaAccess",
+        "Inspect-DomeniaAccessResult"
+      ],
+      "Change": "Module deja declare : liste fermee complete ci-contre (20 fonctions ajoutees ; Test-DomeniaAccessBusyWrite reste au lot annuaire, inchange)."
+    },
+    {
+      "File": "Domenia-Secrets.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaBitLockerListWorkerCode",
+        "Get-DomeniaBitLockerKeyWorkerCode"
+      ],
+      "Change": "Nouveau module : corps epingles ReadBitLockerList et ReadBitLockerKey."
+    },
+    {
+      "File": "Domenia-Secrets.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Access.Model.ps1",
+        "Domenia-Access.UI.ps1",
+        "Domenia-Secrets.Worker.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "Test-DomeniaBitLockerKeySelection",
+        "Test-DomeniaSecretSingleExposure",
+        "Get-DomeniaSecretIdentityReason",
+        "Get-DomeniaSecretButtonExplanation",
+        "Update-DomeniaSecretsPrerequisite",
+        "Select-DomeniaSecretRow",
+        "Start-DomeniaSecretReveal",
+        "Get-DomeniaSelectedSecretIndex",
+        "Complete-DomeniaBitLockerListUi",
+        "Invoke-DomeniaBitLockerRecoveryIdFilter",
+        "Request-DomeniaBitLockerKey",
+        "Complete-DomeniaBitLockerKeyUi",
+        "Fail-DomeniaBitLockerKeyUi",
+        "Invoke-DomeniaSecretsPrerequisite",
+        "Initialize-DomeniaSecretsUi"
+      ],
+      "Change": "Nouveau module : selection d une cle BitLocker, revelation unique, route du prerequis, identite des lectures de secrets."
+    }
+  ],
+  "ModulesUnchangedLists": [
+    "Domenia-Guard.Model.ps1",
+    "Domenia-Guard.UI.ps1",
+    "Domenia-Sessions.UI.ps1",
+    "Domenia-Accounts.Async.ps1"
+  ],
+  "TypeFiles": [],
+  "Operations": [
+    {
+      "Operation": "ReadBitLockerList",
+      "File": "wad/modules/Domenia-Secrets.Worker.ps1",
+      "Function": "Get-DomeniaBitLockerListWorkerCode",
+      "LiteralIndex": 0,
+      "Sha256": "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9",
+      "Provider": "Ldap",
+      "Resource": "BitLocker",
+      "NeedsDirectoryCredential": true,
+      "NeedsMachineCredential": false,
+      "NonDirectory": false,
+      "IsWrite": false,
+      "Class": "Interactive",
+      "CredentialNeeds": "Comme ReadBitLocker : compte Secrets de l onglet Comptes s il existe, sinon compte AD de session ; Secrets=true, Resource=BitLocker, Directory=true (LDAP)."
+    },
+    {
+      "Operation": "ReadBitLockerKey",
+      "File": "wad/modules/Domenia-Secrets.Worker.ps1",
+      "Function": "Get-DomeniaBitLockerKeyWorkerCode",
+      "LiteralIndex": 0,
+      "Sha256": "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F",
+      "Provider": "Ldap",
+      "Resource": "BitLocker",
+      "NeedsDirectoryCredential": true,
+      "NeedsMachineCredential": false,
+      "NonDirectory": false,
+      "IsWrite": false,
+      "Class": "Interactive",
+      "CredentialNeeds": "Comme ReadBitLocker : Secrets=true, Resource=BitLocker, Directory=true (LDAP). Une seule cle par appel, sur geste explicite."
+    }
+  ],
+  "OperationsModified": [
+    "ReadLaps"
+  ],
+  "OperationHashes": {
+    "ReadLaps": "51B8A2DA023D46E85199FEF76EFBEC0C14E820322B7DF67B672E2556341C851A",
+    "ReadBitLocker": "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485 (inchange, repli Features.BitLockerKeySelection=false)"
+  },
+  "WorkerBehaviourChangedWithoutRepin": "Get-DomeniaStructuredError (Domenia-Guard.Model.ps1) est recopie dans chaque runspace et appele par le corps epingle GlobalSearch : le marqueur [DOMENIA:...] est desormais cherche dans toute la chaine d exceptions, et les textes 'user name or password is incorrect', 'nom d utilisateur ou le mot de passe est incorrect' (LogonFailure) et 'droit de dechiffrement' (AccessDenied) sont reconnus. Aucune empreinte ne change ; a citer dans les notes RC1.11.0.",
+  "SelfTestRequiredFunctions": [
+    "Get-DomeniaErrorDecision",
+    "Get-DomeniaCredentialScope",
+    "Test-DomeniaCredentialContext",
+    "ConvertTo-DomeniaMachineKey",
+    "Protect-DomeniaSecretText",
+    "Get-DomeniaBitLockerListWorkerCode",
+    "Get-DomeniaBitLockerKeyWorkerCode",
+    "Request-DomeniaBitLockerKey",
+    "Complete-DomeniaBitLockerListUi",
+    "Resolve-DomeniaCapabilityRoute",
+    "Update-DomeniaTransportPolicyView",
+    "Get-DomeniaRetryCredential",
+    "Set-DomeniaTargetCredentialContext"
+  ],
+  "SelfTestChecks": [
+    "Masquage du journal : Protect-DomeniaLogText 'secret=MARQUEUR motdepasse=MARQUEUR -pass MARQUEUR' ne contient plus MARQUEUR (marqueur genere a l execution).",
+    "Decision d erreur : Get-DomeniaAccessFailureKind 'Access is denied' et 'Acces refuse' donnent AccessDenied ; 'RPC timeout' donne une chaine vide.",
+    "Portee : Get-DomeniaAccessScope 'ReadBitLockerKey' egale Get-DomeniaAccessScope 'ReadBitLocker' ; Get-DomeniaCredentialScope 'ComputerInventory' 'pc-01.example' vaut 'Remote:pc-01'.",
+    "Registre : Assert-DomeniaWorkerOperationCode accepte ReadBitLockerList et ReadBitLockerKey avec le code des fonctions de Domenia-Secrets.Worker.ps1."
+  ],
+  "HelpEntries": [
+    {
+      "Name": "BtnSecretsPrerequisite",
+      "Title": "Ouvrir le prerequis",
+      "Text": "Ouvre la page du prerequis manquant d une lecture de secrets indisponible (Rechercher, Comptes, Fiabilite). Navigation seule : aucun droit ni reglage n est modifie.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "TxtBitLockerRecoveryId",
+      "Title": "Identifiant de recuperation BitLocker",
+      "Text": "Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local sur les metadonnees deja lues : aucune cle n est lue ni revelee.",
+      "Kind": "TextBox"
+    },
+    {
+      "Name": "DgTransportPolicy",
+      "Title": "Transports utilises",
+      "Text": "Transports utilises par Domenia, leur etat et leur regle. Aucun certificat accepte a l aveugle, aucun reglage WinRM, pare-feu, antivirus ou strategie modifie, aucun transport intrusif sans autorisation explicite et ciblee.",
+      "Kind": "DataGrid"
+    },
+    {
+      "Name": "BtnToggleSecrets",
+      "Title": "Afficher la valeur choisie",
+      "Text": "Affiche uniquement la valeur selectionnee pendant 30 s. Pour BitLocker, lit d abord la seule cle choisie. Les autres valeurs restent masquees.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnCopySecret",
+      "Title": "Copier",
+      "Text": "Copie la seule valeur selectionnee (pour BitLocker, lit d abord la cle choisie) puis efface le presse-papiers apres quelques instants. Les gestionnaires de presse-papiers tiers et l historique Windows peuvent conserver une copie hors de Domenia.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnCopyAllSecrets",
+      "Title": "Copier tout",
+      "Text": "Copie groupee desactivee par defaut (Features.SecretSingleCopy) : copiez la seule valeur necessaire.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnLoadBitLocker",
+      "Title": "BitLocker",
+      "Text": "Liste les cles de recuperation du poste (metadonnees : identifiant, date). Aucune cle n est lue a l ouverture ; une seule cle est lue a votre demande.",
+      "Kind": "Button"
+    }
+  ],
+  "Features": [
+    {
+      "Name": "BitLockerKeySelection",
+      "Default": true,
+      "Purpose": "D058 : lecture BitLocker en deux temps (ReadBitLockerList puis ReadBitLockerKey pour la seule cle choisie). false = lecture historique ReadBitLocker (toutes les cles lisibles)."
+    },
+    {
+      "Name": "SecretSingleCopy",
+      "Default": true,
+      "Purpose": "D059 : une seule valeur revelee (30 s) ou copiee a la fois ; Copier tout desactive. false = revelation de toute la grille (60 s) et copie groupee."
+    }
+  ],
+  "ConfigKeys": [
+    {
+      "Section": "Security",
+      "Name": "AlternateCredentialIdleMinutes",
+      "Default": 30,
+      "Purpose": "D054 : delai d inactivite (1 a 480 min) des comptes temporaires acceptes apres un refus ; mesure depuis le dernier depart d un worker avec ce compte."
+    }
+  ],
+  "StartRequired": [
+    "wad/modules/Domenia-Secrets.UI.ps1",
+    "wad/modules/Domenia-Secrets.Worker.ps1"
+  ],
+  "CoreFunctionsModified": [
+    "Protect-DomeniaLogText",
+    "ConvertTo-DomeniaErrorInfo",
+    "Get-MainXaml",
+    "Clear-Secrets",
+    "Update-SecretsGrid",
+    "Complete-DomeniaSecretLoadUi",
+    "Fail-DomeniaSecretLoadUi",
+    "Start-LoadComputerSecrets",
+    "Toggle-SecretsVisibility",
+    "Copy-SelectedSecret",
+    "Copy-AllSecrets",
+    "Update-DomeniaSecretActionUi"
+  ],
+  "CoreFunctionsAdded": [],
+  "XamlControlsAdded": [
+    "BtnSecretsPrerequisite",
+    "TxtBitLockerRecoveryId",
+    "LblBitLockerRecoveryHint",
+    "LblSecretsExposure",
+    "DgTransportPolicy",
+    "LblTransportPolicy"
+  ],
+  "WiringTests": [
+    "wad/tests/Test-DomeniaWiringAcces.ps1"
+  ],
+  "RuleTestsAdded": [
+    "wad/tests/rules/Access.Tests.ps1 : 10 cas (D051 x2, D052 x3, D053, D055, D057, D058, D059)"
+  ],
+  "CrossLaneRequests": [
+    {
+      "To": "moteur",
+      "Request": "C3 Get-DomeniaOperationCredentialNeeds : classer ReadBitLockerList et ReadBitLockerKey comme ReadBitLocker (Directory=true, Secrets=true, Resource=BitLocker, Provider=Directory, NonDirectory=false). Get-WorkerContext doit alors leur donner le compte Secrets et les inclure dans $directoryRecovery (sinon, canal AD suspendu + compte Secrets actif bloque la liste et la cle alors que ReadBitLocker passe). Set-DomeniaTargetCredentialContext applique deja le compte Secrets a toute ressource Laps/BitLocker, sans toucher Get-WorkerContext."
+    },
+    {
+      "To": "moteur",
+      "Request": "Complete-UiTasks, disjoncteur : garder la regex et l UNIR a Get-DomeniaErrorDecision (Category CredentialsRejected ou AccountState), en passant l objet exception ($_.Exception de EndInvoke) a Get-DomeniaStructuredError (le marqueur est desormais lu dans toute la chaine). $separate : (Get-DomeniaOperationResource $job.OperationId) -in @('Laps','BitLocker') pour couvrir ReadBitLockerList et ReadBitLockerKey. Les nouveaux workers renvoient deja leurs refus comme donnees (pas d exception), le risque de suspension globale par un mauvais compte Secrets est donc deja ecarte cote acces."
+    },
+    {
+      "To": "moteur",
+      "Request": "Register-DomeniaProviderOutcome : la classification peut s appuyer sur Get-DomeniaErrorDecision (meme decision FR/EN, delai jamais CredentialRejected)."
+    },
+    {
+      "To": "integrateur",
+      "Request": "Enregistrer ReadBitLockerList (B1456CEA...EEC9) et ReadBitLockerKey (8A98EBCD...EE6F) dans Get-DomeniaWorkerOperationHashes et tools/operation-contracts.json (File wad/modules/Domenia-Secrets.Worker.ps1, LiteralIndex 0), re-epingler ReadLaps (51B8A2DA...851A) par update_worker_contracts.py --apply apres relecture, recalculer l empreinte du registre, mettre a jour tools/preload-baseline.json. Ajouter Features.BitLockerKeySelection=true, Features.SecretSingleCopy=true et Security.AlternateCredentialIdleMinutes=30 dans New-DefaultConfig et Domenia.config.json. Declarer Domenia-Secrets.Worker.ps1 et Domenia-Secrets.UI.ps1 (plan, Domenia-Start, manifestes), et completer les listes d Access.Model et Access.UI. Ajouter les entrees d aide. Tant que le registre n est pas mis a jour, le bouton BitLocker (interrupteur vrai par defaut) echoue sur 'Operation worker non autorisee'."
+    },
+    {
+      "To": "suites-historiques",
+      "Request": "Test-DomeniaRelease, Test-DomeniaAccounts, Test-DomeniaRemote et Test-DomeniaLastUser doivent charger le plan ferme (Domenia-Modules.ps1) : Access.UI depend desormais d Access.Model (Get-DomeniaOperationResource, Get-DomeniaErrorDecision, coalesceur, baux) et de Secrets.UI. Les fixtures AccessState doivent passer par New-DomeniaAccessState (Leases, Coalescer) ; le champ Expires n existe plus. Le correctif 'Canal Active Directory suspendu' (Release l.105) est deja applique dans Request-DomeniaAccessRecovery. Test-DomeniaStartupLogin : 57 operations deviennent 59 (+ReadBitLockerList, +ReadBitLockerKey). audit_release.py 'Cancel preserves previous credential' cherche un texte qui n existait deja plus ($script:AccessState.Credentials[$Record.Scope]) : viser [$credentialKey]. Test-Domenia (Update-SecretsGrid seul) et Test-DomeniaCandidate (Protect-DomeniaLogText seul) restent valides : ces fonctions ne dependent d aucun module quand ils sont absents."
+    },
+    {
+      "To": "interface",
+      "Request": "D056 hors perimetre acces : Apply-CurrentPermissionUi et Set-ControlsBusy doivent produire leurs infobulles via Get-DomeniaCapabilityExplanation (ou Get-DomeniaControlCapabilityExplanation d Access.UI, qui reprend leurs etats) avec une route resolue par Resolve-DomeniaCapabilityRoute / Invoke-DomeniaCapabilityRoute (Access.UI). Une seule source de motifs avec Get-DomeniaDisabledHelp (D088). C4 : Invoke-DomeniaAccessRecovery, Copy-SelectedSecret et le bilan Show-DomeniaUnavailableReasons utilisent encore Confirm-Action / Show-DomeniaDialog ; a basculer sur Request-DomeniaInlineConfirmation si InlineConfirm le prevoit."
+    },
+    {
+      "To": "demo",
+      "Request": "DemoDirectory doit repondre a ReadBitLockerList (metadonnees factices, sans cle) et a ReadBitLockerKey (une cle factice marquee DEMO), ou les refuser explicitement ; ReadLaps renvoie desormais Meta (Source, Published, ExpirationUtc, Account, Decryptor, PasswordPresent, ReadStatus, DecryptStatus, Reader)."
+    },
+    {
+      "To": "annuaire",
+      "Request": "Test-DomeniaAccessBusyWrite (votre perimetre) n intervient plus dans l expiration des comptes temporaires (D054) ; il reste appele sans parametre pour interdire un changement de compte (Invoke-DomeniaAccessRecovery, Oublier). Si ScopedLocks introduit -Class Credential, ces deux appels sont de cette classe."
+    },
+    {
+      "To": "release",
+      "Request": "Test-DomeniaTransportCodeSafety (Access.Model) est a jouer comme scenario de la campagne de qualification sur le ZIP extrait (en excluant Domenia-Access.Model.ps1 qui contient les motifs)."
+    }
+  ],
+  "Decisions": [
+    "D058 : option recommandee par la carte retenue (deux operations sous Features.BitLockerKeySelection, ReadBitLocker inchange pour le repli).",
+    "D051 : un seul compte Secrets pour LAPS et BitLocker, garde et documente ; les portees de reprise restent distinctes (ReadLaps, ReadBitLocker).",
+    "D054 (c) NON tranchee : les comptes de l onglet Comptes (Secrets, poste) survivent encore a une reconnexion dans le meme domaine ; aucun bail Session ajoute sans decision de David.",
+    "D060 (a) NON tranchee : Test-DomeniaTransportFallbackAllowed refuse tout transport intrusif pour une lecture meme consentie, alors que le consentement cible de 5 min (Set-DomeniaArtifactConsent) l autorise pour un diagnostic ; la regle n est pas branchee sur l execution (AllowRemoteArtifacts, Get-WorkerContext) tant que David n a pas choisi. La politique est affichee."
+  ],
+  "Notes": "Rien n a ete execute hormis les controles statiques (validate_powershell_static.py, audit_function_names.py, BOM/LF/guillemets, et dans la VM w-acces : Test-NativeParser 5.1 et Test-DomeniaPs51Compat). La suite Test-DomeniaWiringAcces.ps1 est ecrite, non lancee ; ses cas 'Plan ferme' et 'Operations epinglees' echouent tant que l integrateur n a pas applique ce manifeste. Show-DomeniaAlternateCredential capture desormais les fonctions appelees par ses gestionnaires (GetNewClosure lie le bloc a un module relie a la portee globale seulement : sous -File, les fonctions de portee script n y etaient vraisemblablement pas visibles ; non verifie sous 5.1). Show-DomeniaUnavailableReasons reste une boite Show-DomeniaDialog existante (Oui/Non pour ouvrir le premier prerequis) ; la route des boutons de secrets est un bouton dans la page (BtnSecretsPrerequisite).",
+  "StaticChecks": {
+    "Local": [
+      "validate_powershell_static.py : PASS (89 fichiers)",
+      "audit_function_names.py : aucun doublon ; ecarts attendus = fonctions et modules non encore declares (plan de l integrateur)",
+      "BOM, LF, guillemets typographiques : conformes sur les fichiers modifies (les apostrophes typographiques du XAML principal sont anterieures)",
+      "XAML principal analyse en Python : 6 controles ajoutes, ressources statiques resolues"
+    ],
+    "VM w-acces (CNAMTS-W11-01, Windows PowerShell 5.1.26100.6584)": [
+      "Test-NativeParser -RequireWindows51 : RC=0, tous les fichiers PASS (dont Secrets.UI, Secrets.Worker, Test-DomeniaWiringAcces)",
+      "Test-DomeniaPs51Compat : 0 erreur, 0 avertissement (90 fichiers)",
+      "Corps workers ReadBitLockerList, ReadBitLockerKey, ReadBitLocker, ReadLaps : 0 erreur au parseur natif (analyse seule)"
+    ],
+    "NotRun": [
+      "Aucune suite Test-*.ps1, ni Invoke-LabRun, ni l application (decision : modifications avant les tests)."
+    ]
+  }
+}

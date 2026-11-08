@@ -1,0 +1,31 @@
+{
+  "BaseCommit": "2e916526ded4bbe69ae2e948183ead474e8e9a6a",
+  "Build": "2026.10.20-DOMENIA-1.0-RC1.17.37-D120",
+  "Packs": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3090067,
+      "sha256": "380306786f83ea68e5a0a34cecffab55169743443aad14eeed137571b211f721",
+      "files": 172,
+      "archive_files_including_manifest": 173,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6596375,
+      "sha256": "aeb66196a88a7fe9f202634d5658a832d684c01d424497798b8cc87ec0409169",
+      "files": 647,
+      "archive_files_including_manifest": 648,
+      "archive_root": "dev/"
+    }
+  ],
+  "Runtime": {
+    "Domenia-Core.ps1": "6e30c54f77aa2a936924cd9fc5fac23b9e84a7003e96f7f24fc59cfc37299458",
+    "modules/Domenia-Common.Model.ps1": "44532494f39a59dd98bb21fb902c982a29c4f0bd49cd5b47501403ad096ec9c4",
+    "modules/Domenia-Engine.Worker.ps1": "fa9c9ee44ee21acd0878718fff5a63f070a7722c9500863a41d255521fa7bf8c"
+  },
+  "NativePackHashesMatched": true,
+  "NativeRuntimeHashesMatched": true
+}

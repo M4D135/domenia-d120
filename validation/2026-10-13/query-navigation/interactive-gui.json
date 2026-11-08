@@ -1,0 +1,53 @@
+{
+  "Status": "BLOCKED_MAC_LOCKED",
+  "VM": "CNAMTS-W11-01",
+  "Access": "CUA / Windows App / existing VirtualBox console on relay host",
+  "Safety": "Read-only application flows on lab domain. No directory writes or system security changes.",
+  "Scenarios": [
+    {
+      "Name": "Launch final package and visible login",
+      "Status": "NOT_RUN"
+    },
+    {
+      "Name": "Choose OU using tree and search field",
+      "Status": "NOT_RUN"
+    },
+    {
+      "Name": "Search objects and inspect table scrolling",
+      "Status": "NOT_RUN"
+    },
+    {
+      "Name": "Compare same OU computer population with dashboard",
+      "Status": "NOT_RUN"
+    },
+    {
+      "Name": "Run ready-made local query and change result state",
+      "Status": "NOT_RUN"
+    },
+    {
+      "Name": "Open workshop from Tools and Search pencil; return to origin",
+      "Status": "NOT_RUN"
+    },
+    {
+      "Name": "Zoom and restore; verify reachable controls",
+      "Status": "NOT_RUN"
+    },
+    {
+      "Name": "Inspect data freshness and update progress controls",
+      "Status": "NOT_RUN"
+    },
+    {
+      "Name": "Read operation state and warning journal",
+      "Status": "NOT_RUN"
+    }
+  ],
+  "Notes": [
+    "The shared interactive desktop was coordinated with the FILPRO task before any further input.",
+    "The Windows login screen was reached before the Mac locked. Domenia itself was not launched interactively, and none of the nine application scenarios has been performed.",
+    "CUA blocks interactive access while the Mac is locked. Native WPF fixture tests and guide renders use separate, explicitly synthetic evidence. No attempt was made to bypass the lock."
+  ],
+  "LastAvailabilityCheckUtc": "2026-10-13T00:41:00.858636+00:00",
+  "UnavailableReason": "The Mac is locked and automatic unlock could not unlock it. Ask the user to unlock the Mac manually before continuing.",
+  "ApplicationScenariosPassed": 0,
+  "LastToolCall": "CUA rdp.getAXStateAndScreenshot()"
+}

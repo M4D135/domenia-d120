@@ -1,0 +1,23 @@
+{
+  "id": "TRV-274",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Settings/LegacyRules.cs:44 — FileKinds : les magasins TSV de l'ancienne version (Index\\objets.tsv, parc.tsv, recherches.tsv, secrets-etat.tsv, Domenia-user-machine-links.csv) et leur table cible",
+    "src/Domenia.Core/Screens/Settings/LegacyRules.cs:55 — EmptyTables : les quatre tables cibles doivent être vides avant la reprise (les liens sauf)",
+    "src/Domenia.Core/Screens/Settings/LegacyRules.cs:75 — DomainOf, explicitement « Domenia 1 ConvertTo-DomeniaMigrationDomain » ; LegacyRules.cs:148 bloque toute reprise si le domaine diffère de celui de la session",
+    "src/Domenia.Core/Screens/Settings/LegacyRules.cs:162 — la base n'est acceptée qu'au schéma 11 (SupportedSchema, ligne 41) ; LegacyRules.cs:166 refuse une révision domenia_schema inconnue (SupportedRevision = « 1 », ligne 44)",
+    "src/Domenia.Core/Screens/Settings/LegacyRules.cs:134 — idempotence du plan : « already » quand le marqueur appliqué égale le marqueur des sources ; ligne 284 « la reprise est idempotente, rien n'est rejoué »",
+    "src/Domenia.Core/Screens/Settings/LegacyRules.cs:280 — un plan refusé n'écrit rien : toute étape « import »/« add » est basculée en « refuse » avec un motif, les écritures comptées ramenées à 0 (ligne 276)",
+    "src/Domenia.Store/Sqlite/LegacyImportFiles.cs:120 — liens canoniques : Computer() (ligne 141) et RelationImport.NormalizeUser, rejets sur GUID et DN invalides ; src/Domenia.Core/Screens/Relations/RelationImport.cs:514 et :533 pour les normalisations (équivalents de ConvertTo-DomeniaMigrationComputerKey / UserLogin)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Legacy.cs:89 — aucun poste avec deux liens : un poste déjà associé est sauté (« before.LinkedComputers.Contains(row.Key) ») ; ligne 62 un second passage renvoie « Reprise déjà validée ; aucun rejeu. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Legacy.cs:70 — sauvegarde vérifiée avant d'écrire, puis relecture de la copie contre l'empreinte du contenu confirmé (lignes 74-79)",
+    "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:135 — ADCC.db est reprise sur place (« if (!File.Exists(legacy) && name == \"Domenia.db\") legacy = …ADCC.db »), avec contrôle du même domaine ligne 139 (base_dn de sync_state) ; ligne 145 pour Domains/ADCC.db",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.cs:109 — la base adoptée est copiée et vérifiée (quick_check, ligne 255) avant « Upgrade(db) » (ligne 115), qui ajoute la révision domenia_schema",
+    "tests/Domenia.Tests/NativeStorageLegacyTests.cs:24 — « …keeps_existing_links_and_has_restart_proof » : ligne 50 « marqueur identique empêche reprise », déclaration existante conservée, seul le lien absent ajouté",
+    "tests/Domenia.Tests/NativeStorageLegacyTests.cs:60 — « Duplicate_and_cross_domain_legacy_sources_refuse_the_whole_transaction » : un doublon ou un domaine étranger refuse tout le lot"
+  ],
+  "manque": "Le volet préférences n'existe pas : « wad\\ADCC.* copiées vers wad\\Domenia.* seulement si absentes » n'est écrit nulle part. Les fichiers ADCC.settings.json ne sont que LUS en dernier recours, sans jamais produire de Domenia.settings.json (CompatibleDirectoryCache.cs:120, LegacyBoardLayoutFile.cs:46, CompatibleDirectoryCache.SharedPark.cs:235) — rg « ADCC » dans src ne renvoie que des lectures. L'adoption d'ADCC.db est silencieuse : elle se fait dans la résolution du chemin (CompatibleDirectoryCache.cs:135) et n'apparaît dans aucun plan — l'étape « database » du plan (LegacyRules.cs:163) décrit la base déjà ouverte (DomeniaDatabase.Settings.cs:142), pas l'ADCC.db reprise ; aucun test ne couvre cette adoption (rg « ADCC » dans tests ne renvoie que l'OU de recette « ADCC-Lab »). Enfin le garde-fou « aucune configuration Domenia existante écrasée » n'a pas d'équivalent testé côté préférences, faute d'écriture.",
+  "effort": "M",
+  "depend": ["TRV-275"],
+  "risque": "ecriture-locale"
+}

@@ -1,0 +1,40 @@
+{
+    "Build":  "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
+    "StartedUTC":  "2026-10-13T15:57:50.1724902Z",
+    "PID":  4396,
+    "Computer":  "W11-01",
+    "OS":  "Microsoft Windows NT 10.0.26200.0",
+    "PowerShell":  "5.1.26100.6584",
+    "PSEdition":  "Desktop",
+    "Is64Bit":  true,
+    "Apartment":  "STA",
+    "SessionId":  0,
+    "UserInteractive":  false,
+    "RunnerSha256":  "d30570c33b92a39b266d6a5722a129154120b77cebd219928f4913d11b1d668c",
+    "ExecutionPolicy":  [
+                            {
+                                "Scope":  "MachinePolicy",
+                                "Policy":  "Undefined"
+                            },
+                            {
+                                "Scope":  "UserPolicy",
+                                "Policy":  "Undefined"
+                            },
+                            {
+                                "Scope":  "Process",
+                                "Policy":  "Bypass"
+                            },
+                            {
+                                "Scope":  "CurrentUser",
+                                "Policy":  "Undefined"
+                            },
+                            {
+                                "Scope":  "LocalMachine",
+                                "Policy":  "Undefined"
+                            }
+                        ],
+    "DomainAccessed":  false,
+    "EndpointNetworkAccessed":  false,
+    "InteractiveApplicationStarted":  false,
+    "CaptureRequested":  false
+}

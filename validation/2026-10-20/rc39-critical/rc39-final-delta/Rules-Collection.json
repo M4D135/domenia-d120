@@ -1,0 +1,343 @@
+{
+  "Kind": "PureRules",
+  "Host": {
+    "Platform": "Windows",
+    "PSVersion": "5.1.26100.6584",
+    "PSEdition": "Desktop"
+  },
+  "NativeWindowsPowerShell51": true,
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "Passed": 49,
+  "Failed": 0,
+  "CoveredIds": [
+    "COL-001",
+    "COL-002",
+    "COL-003",
+    "COL-004",
+    "COL-005",
+    "COL-005b",
+    "COL-005c",
+    "COL-006",
+    "COL-007",
+    "COL-008",
+    "COL-009",
+    "COL-010",
+    "COL-011",
+    "COL-012",
+    "COL-013",
+    "COL-014",
+    "COL-015",
+    "COL-016",
+    "P11",
+    "P13",
+    "P14",
+    "P15",
+    "P159",
+    "P160",
+    "P17",
+    "P18",
+    "P19",
+    "P20",
+    "P60-19"
+  ],
+  "Complete": true,
+  "Limitation": "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+  "Tests": [
+    {
+      "Id": "COL-001",
+      "Name": "La cle de perimetre separe profondeur et casse, et refuse un DN hors annuaire",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-002",
+      "Name": "Une vue lit son perimetre exact puis ses OU englobantes, jamais une passe directe parente",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-003",
+      "Name": "Un releve enregistre porte sa provenance et refuse les dates impossibles",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-004",
+      "Name": "Une actualisation n enregistre que les collectes reellement lancees",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-005",
+      "Name": "Un echec plus recent n efface ni ne rajeunit la derniere reussite",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-005b",
+      "Name": "Un releve arrete sans reussite reste exploitable et le dit (decision du 19/10)",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-005c",
+      "Name": "Liste des derniers releves par OU : date, OU, type, etat, postes, reussite et motif (decision du 19/10)",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-006",
+      "Name": "Un releve de l OU englobante date la sous-OU, jamais un autre domaine ou une autre famille",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-007",
+      "Name": "Les dates incoherentes sont signalees et jamais corrigees",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-008",
+      "Name": "Le resume des trois horloges reste muet sur ce qui n a pas ete releve",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-009",
+      "Name": "La provenance d une mesure nomme reussite, tentative, ecriture locale et definition",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-010",
+      "Name": "Une presence sans releve, non verifiee ou en echec n est jamais connue",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-011",
+      "Name": "Un inventaire garde sa valeur datee apres un echec ; un refus reste un refus",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-012",
+      "Name": "Une sonde non applicable, tronquee ou non confirmee reste distincte d une valeur",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-013",
+      "Name": "Le decompte par etat couvre toute la population sans compter un inconnu comme mesure",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-014",
+      "Name": "Deux chiffres ne se comparent que sur le meme domaine, perimetre, profondeur, types, criteres et instantane",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-015",
+      "Name": "La vue directe d une OU datee par le releve de son propre sous-arbre n est pas dite heritee",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "COL-016",
+      "Name": "Une lecture AD compte des objets AD, un releve de postes compte des postes",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P11",
+      "Name": "Profils : chaque famille a une durée, Standard reprend les durées historiques",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P11",
+      "Name": "Durées personnalisées : famille inconnue, valeur non entière ou hors bornes ignorées et signalées",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P11",
+      "Name": "Une durée personnalisée remplace celle du profil et le tableau le dit",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P11",
+      "Name": "Fraîcheur : la table du profil remplace la durée de la nature, lʼhistorique ne vieillit pas",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P11",
+      "Name": "Plan de collecte : durée retenue la plus courte du profil et du plafond, zéro force la relecture",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P159",
+      "Name": "Fenêtre : syntaxe des jours et des plages, erreurs nommées",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P159",
+      "Name": "Fenêtre : ouverte ou fermée selon le jour et lʼheure locale, plage de nuit",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P159",
+      "Name": "Fenêtre : prochain changement et texte sans promesse",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P159",
+      "Name": "Fenêtre : seules les sources de fond réseau sont retenues ; une fenêtre invalide les suspend",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P14",
+      "Name": "Concurrence : moitié moins après un délai, une place de plus après une série de réponses",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P14",
+      "Name": "Concurrence : une latence qui double ralentit, la remontée reste sous la borne choisie",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P14",
+      "Name": "Concurrence : une seule baisse par intervalle, les réponses sans valeur ne changent rien",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P14",
+      "Name": "Latence par étape : ni lʼattente en file ni un plan déjà en cache ne ralentissent un site sain",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P15",
+      "Name": "Budgets par site : un sous-réseau lent ne prend pas les places des autres",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P15",
+      "Name": "Adresses : sous-réseau présumé, adresses invalides ignorées, clé par fournisseur",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P160",
+      "Name": "Suspension : échecs répétés suspendent la source seule, puis une lecture dʼessai et une reprise progressive",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P160",
+      "Name": "Suspension : un échec pendant lʼessai suspend plus longtemps, sans dépasser la borne",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P160",
+      "Name": "Suspension : machine éteinte, droit refusé ou compte rejeté ne comptent pas contre le site",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P17",
+      "Name": "Progression : résultats validés, temps écoulé, attente réelle et absence de progrès",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P18",
+      "Name": "Classement : seul un incident transitoire est repris, borné et espacé",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P18",
+      "Name": "Classement : sans preuve que le poste répond, ni reprise ni charge comptée contre son site",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P19",
+      "Name": "Capacités : classe absente liée à la version de Windows, refus lié aux comptes, durée limitée",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P19",
+      "Name": "Capacités : plan sans les lectures impossibles, relecture forcée, mémoire semée par le dernier relevé",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P13",
+      "Name": "Regroupement WMI : console, inventaire et sondes de même classe partagent leurs lectures",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P20",
+      "Name": "Plan durable : relu à lʼidentique, compressé, sans doublon et refusé sʼil est altéré",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P20",
+      "Name": "Avancement : un poste validé nʼest jamais relu, le compteur vient des bits",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P20",
+      "Name": "Avancement : bits comptés octet par octet, bits au-delà du dernier poste ignorés",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P20",
+      "Name": "Plan durable : champs du relevé ou du périmètre explicite, GUID texte ou octets, même lecture",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P20",
+      "Name": "Reprise : proposée seulement sur le même domaine et la même base, avec le motif",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P20",
+      "Name": "Plan durable : seul un relevé de la portée des listes est une campagne, jamais le poste ouvert ni un widget",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P60-19",
+      "Name": "Estimation des sondes seules : identité obligatoire comptée, fournisseur partagé une fois",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+    "PowerShell":  "5.1.26100.6584",
+    "NoNetwork":  true,
+    "Fixture":  "Synthetic example.local data",
+    "Rendering":  "Native WPF RenderTargetBitmap, off-screen",
+    "Images":  [
+                   {
+                       "File":  "accueil.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "341A638D4184E39A7C97348B8E0985B599D2515F883E10A936AEBFF79B9DDC92"
+                   },
+                   {
+                       "File":  "sante-en-dernier.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "189DD1757B8CB1A10D36CE8D22C1C6F2E9205827963E732D996A09168C25528A"
+                   }
+               ],
+    "Checks":  [
+                   {
+                       "Name":  "Recalcul : les dates AD, ping et WMI restent inchangées ; seule la date de vue avance",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Fraîcheur : AD récente, ping récent et inventaire WMI plus ancien sont distincts sur 223 postes actifs",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil : les trois horloges sont présentées par le formateur réel",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil : les widgets du parc sont réellement dessinés depuis les données fictives",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Le bandeau affiche la progression du lot",
+                       "Passed":  true
+                   }
+               ]
+}

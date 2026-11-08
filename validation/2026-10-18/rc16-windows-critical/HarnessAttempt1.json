@@ -1,0 +1,26 @@
+[
+    {
+        "Name":  "Startup-prod",
+        "Passed":  false,
+        "ExitCode":  null,
+        "TimedOut":  false,
+        "DurationMs":  15983,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\prod\\wad\\Domenia-Start.ps1\u0027 -CheckOnly"
+    },
+    {
+        "Name":  "Launcher-prod",
+        "Passed":  false,
+        "ExitCode":  null,
+        "TimedOut":  true,
+        "DurationMs":  90016,
+        "Code":  "$p=Start-Process \u0027C:\\DomeniaLab\\d120-rc11716-critical\\prod\\Domenia.exe\u0027 -ArgumentList \u0027--check\u0027 -PassThru -Wait;exit $p.ExitCode"
+    },
+    {
+        "Name":  "Startup-dev",
+        "Passed":  false,
+        "ExitCode":  null,
+        "TimedOut":  false,
+        "DurationMs":  20820,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\Domenia-Start.ps1\u0027 -CheckOnly"
+    }
+]

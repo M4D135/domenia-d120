@@ -1,0 +1,7 @@
+v2/src/Domenia.Core/Screens/Machine/IMachineAccountReader.cs
+v2/src/Domenia.Simulation/Screens/Machine/SimulatedMachineAccountReader.cs
+v2/src/Domenia.Core/Screens/Machine/MachineAccountModels.cs
+v2/src/Domenia.Ad/AdDirectorySource.cs
+v2/src/Domenia.Ad/Ldap/AdContracts.cs
+v2/src/Domenia.Ad/Screens/AdDirectoryTreeReader.cs
+v2/src/Domenia.Core/Directory/DirectoryModels.cs

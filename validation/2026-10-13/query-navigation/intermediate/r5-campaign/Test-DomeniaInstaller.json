@@ -1,0 +1,87 @@
+{
+    "Suite":  "Test-DomeniaInstaller",
+    "Passed":  15,
+    "Failed":  0,
+    "Skipped":  0,
+    "Expected":  15,
+    "Complete":  true,
+    "NativeWindowsPowerShell51":  true,
+    "PSVersion":  "5.1.26100.6584",
+    "Checks":  [
+                   {
+                       "Name":  "D114 version complete preparee, activation, preferences et donnees conservees, retour verifie",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "D114 source corrompue refusee avant modification du code actif",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "D114 verrou exclusif interdit le lancement et la mise a jour concurrents",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "D114 interruption au milieu des copies bloque le lancement, restauration complete disponible",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "D114 copie preparee independante des modifications ulterieures de la source",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "D114 controle final couvre aussi les fichiers inchanges, conflit conserve et lancement bloque",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "FI-06 -RequireQualification sans rapport lie au hash du ZIP : refus avant toute modification",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "FI-06 rapport lie au hash du ZIP accepte, rapport d un autre ZIP refuse",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "UX-29 sans reponse de l operateur rien n est installe, code 2 transmis par l entree DEV",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "UX-29 reponse reelle de l operateur : N refuse (code 2), O installe par l entree DEV",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "UX-29 cinq sauvegardes completes gardees, preparation abandonnee retiree, RestoreLatest",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "FO-20 premiere installation PROD dans un dossier vide, raccourcis jamais crees sans reponse",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "FO-20 reponses reelles : installation O, raccourci Bureau O cree par COM, menu Demarrer N",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "FI-06 controles hors ligne du rapport : memes regles que release_guard.require_evidence",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "FI-14 plafond du runtime lu dans wad/Domenia.release.json",
+                       "Status":  "Passed",
+                       "Detail":  ""
+                   }
+               ]
+}

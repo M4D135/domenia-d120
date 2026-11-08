@@ -1,0 +1,15 @@
+{
+  "id": "TRV-082",
+  "verdict": "fait",
+  "preuves": [
+    "web/js/pages/accueil.js:612 — bouton « Ouvrir le journal » dans la carte « Session et vérifications » de l’Accueil (détails de la session, lignes 601-615) ; ligne 1318 — l’action « journal » appelle openJournal({ ctx })",
+    "web/js/pages/accueil/session-tools.js:165-175 — openJournal : fenêtre « Journal » avec onglets journal de session et journal technique, bouton « Copier le journal technique » ; ligne 192 — appel ctx.call('accueil.log.tail')",
+    "src/Domenia.App/AccueilJournalOperations.cs:24-28 — opération accueil.log.tail de classe LocalRead qui relit les dernières lignes du journal technique possédé par l’hôte ; commentaire lignes 8-11 : écart documenté — le journal est montré dans la page au lieu d’ouvrir un programme externe, lecture bornée et sans secret par construction",
+    "src/Domenia.App/AccueilHostFiles.cs:15-16 — bornes 256 Kio et 200 lignes ; ligne 44 — ouverture FileShare.ReadWrite | Delete : la lecture n’interrompt pas l’écrivain ; ligne 65 — trace en cas d’échec, sans texte du fichier",
+    "tests/Domenia.Tests/AccueilTests.cs:649-678 — file absente, lecture, troncature et trace d’illibilité de TailAsync testées ; src/Domenia.Core/Screens/Settings/TechnicalLogTail.cs:31-71 — parseur relu aussi dans tests/Domenia.Tests/TechnicalJournalTests.cs:18-20"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["TRV-081 (le journal technique lu)"],
+  "risque": "lecture"
+}

@@ -1,0 +1,35 @@
+test_array_configuration_is_refused (__main__.ClassicProductionTests.test_array_configuration_is_refused) ... ok
+test_baseline_and_factory_layout_agree (__main__.ClassicProductionTests.test_baseline_and_factory_layout_agree) ... ok
+test_case_collision_in_layout_is_refused (__main__.ClassicProductionTests.test_case_collision_in_layout_is_refused) ... ok
+test_demo_configuration_is_refused (__main__.ClassicProductionTests.test_demo_configuration_is_refused) ... ok
+test_duplicate_function_is_refused (__main__.ClassicProductionTests.test_duplicate_function_is_refused) ... ok
+test_export_name_with_internal_space_is_regenerated (__main__.ClassicProductionTests.test_export_name_with_internal_space_is_regenerated) ... ok
+test_invalid_configuration_rolls_back (__main__.ClassicProductionTests.test_invalid_configuration_rolls_back) ... ok
+test_invalid_module_json_is_refused (__main__.ClassicProductionTests.test_invalid_module_json_is_refused) ... ok
+test_invalid_script_is_refused (__main__.ClassicProductionTests.test_invalid_script_is_refused) ... ok
+test_missing_runtime_component_is_refused (__main__.ClassicProductionTests.test_missing_runtime_component_is_refused) ... ok
+test_modified_worker_function_dll_and_crlf_are_rebuilt_without_execution (__main__.ClassicProductionTests.test_modified_worker_function_dll_and_crlf_are_rebuilt_without_execution) ... ok
+test_non_ascii_powershell_requires_utf8_bom (__main__.ClassicProductionTests.test_non_ascii_powershell_requires_utf8_bom) ... ok
+test_output_existing_is_preserved (__main__.ClassicProductionTests.test_output_existing_is_preserved) ... ok
+test_output_inside_sources_is_refused (__main__.ClassicProductionTests.test_output_inside_sources_is_refused) ... ok
+test_prepared_module_plan_is_byte_identical (__main__.ClassicProductionTests.test_prepared_module_plan_is_byte_identical) ... ok
+test_ps51_non_enumerated_json_array_preserves_worker_contracts (__main__.ClassicProductionTests.test_ps51_non_enumerated_json_array_preserves_worker_contracts) ... ok
+test_runtime_assets_are_included_but_data_and_tests_are_excluded (__main__.ClassicProductionTests.test_runtime_assets_are_included_but_data_and_tests_are_excluded) ... ok
+test_signed_source_is_refused_before_rewriting (__main__.ClassicProductionTests.test_signed_source_is_refused_before_rewriting) ... ok
+test_symlink_asset_is_refused_before_traversal (__main__.ClassicProductionTests.test_symlink_asset_is_refused_before_traversal) ... ok
+test_symlink_output_parent_is_refused_before_mkdir (__main__.ClassicProductionTests.test_symlink_output_parent_is_refused_before_mkdir) ... ok
+test_undeclared_module_is_refused (__main__.ClassicProductionTests.test_undeclared_module_is_refused) ... ok
+test_unknown_migration_dependency_is_refused (__main__.ClassicProductionTests.test_unknown_migration_dependency_is_refused) ... ok
+test_windows_reserved_asset_name_is_refused (__main__.ClassicProductionTests.test_windows_reserved_asset_name_is_refused) ... ok
+test_worker_contract_duplicate_operation_still_refused (__main__.ClassicProductionTests.test_worker_contract_duplicate_operation_still_refused) ... ok
+test_worker_contract_missing_operation_still_refused (__main__.ClassicProductionTests.test_worker_contract_missing_operation_still_refused) ... ok
+test_worker_contract_rejects_nested_arrays (__main__.ClassicProductionTests.test_worker_contract_rejects_nested_arrays) ... ok
+test_worker_contract_requires_array_root (__main__.ClassicProductionTests.test_worker_contract_requires_array_root) ... ok
+test_worker_contract_unknown_operation_still_refused (__main__.ClassicProductionTests.test_worker_contract_unknown_operation_still_refused) ... ok
+test_bad_config_and_demo_variants_are_refused (__main__.FactoryConfigurationTests.test_bad_config_and_demo_variants_are_refused) ... ok
+test_dev_symlink_file_is_not_packaged (__main__.FactoryConfigurationTests.test_dev_symlink_file_is_not_packaged) ... ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 195.226s
+
+OK

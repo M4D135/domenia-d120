@@ -1,0 +1,26 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : désactiver puis réactiver la mesure d’un widget",
+  "description": "Coupe l’interrupteur « Mesure active » du widget Alertes disque, vérifie l’état du widget, puis le réactive. Les deux confirmations sont relues dans le centre de notifications (cloche), qui les garde pour la session : la vérification ne dépend pas de la durée d’affichage des bannières. En mode E2E, le choix reste en mémoire : les préférences de l’opérateur ne sont ni lues ni modifiées.",
+  "modes": ["simulation"],
+  "steps": [
+    { "do": "expect", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "property": "checked", "equals": true, "title": "La mesure d’Alertes disque est active au départ" },
+    { "do": "click", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "title": "Couper « Mesure active » sur Alertes disque" },
+    { "do": "expect", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "property": "checked", "equals": false, "title": "L’interrupteur est coupé" },
+    { "do": "expect", "contains": "Mesure désactivée", "within": "[data-widget=\"diskAlerts\"]", "title": "Le widget dit que sa mesure est désactivée" },
+    { "do": "shot", "name": "widget-desactive", "selector": "[data-widget=\"diskAlerts\"]" },
+    { "do": "click", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "title": "Réactiver « Mesure active »" },
+    { "do": "expect", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "property": "checked", "equals": true, "title": "L’interrupteur est rétabli" },
+    { "do": "click", "selector": ".sh-slot-bell .notif", "title": "Ouvrir le centre de notifications" },
+    { "do": "expect", "selector": ".sh-pop[data-pop=\"centre\"]", "title": "Le centre est ouvert" },
+    { "do": "expect", "contains": "Mesure désactivée : Alertes disque. Aucune lecture n’est faite pour ce widget, et ce choix est mémorisé.", "within": ".sh-pop[data-pop=\"centre\"]", "title": "La confirmation de la désactivation est gardée dans le centre" },
+    { "do": "expect", "contains": "Mesure réactivée : Alertes disque. Ce choix est mémorisé.", "within": ".sh-pop[data-pop=\"centre\"]", "title": "La confirmation de la réactivation est gardée dans le centre" },
+    { "do": "shot", "name": "centre-mesure", "selector": ".sh-pop[data-pop=\"centre\"]" },
+    { "do": "press", "key": "Escape", "title": "Fermer le centre" },
+    { "do": "expect", "selector": ".sh-pop[data-pop=\"centre\"]", "absent": true },
+    { "do": "expect", "contains": "Mesure désactivée", "within": "[data-widget=\"diskAlerts\"]", "absent": true, "title": "Le widget ne se dit plus désactivé (relu après la notification, donc après le nouveau rendu)" },
+    { "do": "journal", "contains": "Préférences en mémoire seulement (mode E2E)", "title": "Journal : préférences de l’opérateur non touchées" },
+    { "do": "journal", "contains": "Préférences non enregistrées", "absent": true },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

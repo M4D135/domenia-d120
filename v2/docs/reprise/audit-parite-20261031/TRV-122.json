@@ -1,0 +1,20 @@
+{
+  "id": "TRV-122",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Bridge/BridgeScheduling.cs:12 — les quatre classes exactes de l’énoncé : « public enum OperationPriority { Write, Explicit, Selection, Background } »",
+    "src/Domenia.Bridge/BridgeAdmission.cs:469-470 — garde-fou de classement : « Definition.Class is OperationClass.Write or OperationClass.LocalWrite ? OperationPriority.Write : Definition.Scheduling?.Priority is OperationPriority.Selection or OperationPriority.Background ? Definition.Scheduling.Priority : OperationPriority.Explicit » — une écriture est Write quel que soit l’indice déclaré par l’appelant",
+    "src/Domenia.Core/Execution/PhysicalWorkBudget.cs:26-31 — « Trusted server classification… no page value is accepted » et « A nested read performed by the write circuit cannot downgrade that circuit's reserved physical admission » : la classe Write ne peut être abaissée ni fournie par la page",
+    "src/Domenia.Bridge/BridgeAdmission.cs:184 — fins de tâches et promotions ordonnées « par priorité puis ordre d’arrivée » : « OrderBy(e => Aged(e) ? -1 : (int)e.Priority).ThenBy(e => e.Shared?.Sequence ?? e.Sequence) » (relance de promotion à chaque fin : Finish → RefreshAsync, :341-350)",
+    "src/Domenia.Bridge/BridgeScheduling.cs:56 — Selection:object réservé à l’objet sélectionné : « \"search.preload\" => new(OperationPriority.Selection, OperationProvider.Directory, [\"id\"], ReplacementKey: \"object\") » ; src/Domenia.Bridge/BridgeAdmission.cs:118-123 — une lecture plus récente avec la même ReplacementKey retire les anciennes : « Lecture remplacée dans la file avant envoi. »",
+    "tests/Domenia.Tests/BridgeSchedulingTests.cs:96-111 — « Explicit_then_selection_then_background_are_promoted_in_priority_and_arrival_order », y compris « ordre d’arrivée entre priorités égales » ; :218-229 — « Writes_get_one_immediate_reserved_place_and_are_never_queued_even_with_read_metadata » : une écriture annoncée Background reste refusée/immédiate (« écriture jamais différée », « écriture locale jamais en file »)",
+    "tests/Domenia.Tests/BridgeSchedulingTests.cs:204 — le rattachement par clé de remplacement est testé avec « Read(priority: OperationPriority.Selection, replacement: \"object\") »"
+  ],
+  "manque": "La moitié interface de la fonction n’est pas pilotée par les classes : la bande de progression, l’étiquette et « Annuler » sont choisis par les écrans, pas par Write/Explicit/Selection — web/js/shell/tasks.js:10,37-38 (« Tasks in progress, oldest first: { id, label, started, progress, detail, cancellable, stopping, screen } », « cancellable: typeof cancel === 'function' »), web/js/shell/tasks.js:59-61 (« Annuler » = « tasks.find(x => x.cancellable && !x.stopping) ») et web/js/app.js:869 ; aucune notion de priorité/ classe de tâche n’existe dans web/js (aucune occurrence de OperationPriority/priority dans les tâches du shell), et aucun test ne vérifie qu’une tâche de fond ne pilote ni Annuler, ni l’étiquette, ni la dernière tâche suivie — le modèle v2 (tâches déclarées par l’écran) rend l’intention vraisemblablement respectée en pratique mais ni prouvée ni testée.",
+  "effort": "S",
+  "depend": [
+    "TRV-121 (la table déclarative unique qui devrait porter la classe de planification, src/Domenia.Bridge/BridgeScheduling.cs:34-66)",
+    "TRV-123 (l’admission qui consomme ces classes, src/Domenia.Bridge/BridgeAdmission.cs:283-291)"
+  ],
+  "risque": "lecture"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "TRV-110",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Fleet/FleetModels.cs:5-15 — enum unique MeasureState { Known, Absent, NotRead, Refused, Expired, Incomplete, Error } commenté « Domenia 1 vocabulary, Domenia-Collection.Model.ps1 » ; partagé par PresenceMeasure (ligne 21), InventoryMeasure (ligne 141) et les sondes (ProbeReading) : même vocabulaire pour toutes les familles",
+    "src/Domenia.Core/Screens/Accueil/CollectionClocks.cs:421-430 — StateKey(MeasureState) → clés stables known/absent/notRead/refused/expired/incomplete/error (équivalent Get-DomeniaMeasureStateKeys)",
+    "src/Domenia.Core/Screens/Accueil/CollectionClocks.cs:432-444 — StateLabel(key,n) avec singulier/pluriel : jamais relevé(s), non lu(s), refusé(s), périmé(s), incomplet(s), en erreur (équivalent Get-DomeniaMeasureStateLabel)",
+    "src/Domenia.Core/Screens/Accueil/CollectionClocks.cs:403-416 — StatesText produit exactement « 3 jamais relevés, 2 refusés, 1 en erreur » en itérant les clés dans un ordre fixe (équivalent Format-/Measure-DomeniaMeasureStates)",
+    "src/Domenia.Core/Screens/Accueil/CollectionClocks.cs:376-384 — les postes sans mesure utilisable sont comptés par clé ; le complément (total - mesures) est compté « absent » : une absence n'est jamais absorbée dans le nombre de valeurs saines (jamais de zéro implicite)",
+    "src/Domenia.Core/Screens/Fiche/FicheCallSheet.cs:121-129,676-692 — StateLabel + Instant : known→« Mesure valide », absent→« Jamais relevé »/« jamais relevée pour ce poste », notRead→« Non lu »/« non lue », refused, expired, incomplete, défaut « En erreur » ; l'absence rend un libellé, jamais une valeur ou une date saine",
+    "src/Domenia.Core/Fleet/FleetModels.cs:23,29 — PresenceMeasure.Unread = NotRead ; HasReading exige Known avec date ET réponse : une absence ne devient ni un faux, ni une date fraîche",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:866-874 — garde-fou « point 72 » : une tentative plus récente en échec (WmiState Refused/Error au-delà de 15 min après la mesure, laterFailure) ou simplement non lue (laterNotRead) empêche d'étiqueter l'ancienne valeur WMI/présence/console comme Known fraîche",
+    "src/Domenia.Inventory/WmiWorkstationProbe.cs:181-185 et CimSession.cs:159 — Test-DomeniaMeasureRefusal : UnauthorizedAccessException / AccessDenied / authentification déjà rejetée → MeasureState.Refused (refus distingué d'une erreur ou d'une absence)",
+    "tests/Domenia.Tests/WorkstationPresenceTests.cs:379,396 — le comptage distingue l'erreur transitoire (DNS) de l'absence : « dnsAbsent=1 dnsNoAddress=1 error=1 invalidName=1 » ordonné par clé ; commentaire rappelant que 2.0.7 torturait tout en « 4 en erreur »",
+    "tests/Domenia.Tests/AccueilTests.cs:156 — famille sans mesure → état « jamais relevé » ; tests/Domenia.Tests/AdAccueilTests.cs:257-264 — un refus daté reste visible (MeasureState.Refused), pas effacé en succès"
+  ],
+  "manque": "Rien de bloquant. Vocabulaire, clés, libellés, compteurs et garde-fous présents et testés. Seule réserve cosmétique : les libellés sont au masculin (« jamais relevé », « non lu », « périmé ») là où la description emploie le féminin (« Jamais relevée », « Non lue », « Expirée ») — mêmes sept états, même sens, l'accord diffère selon qu'on qualifie « le relevé » ou « la mesure ».",
+  "effort": "S",
+  "depend": [
+    "TRV-112 (clés de présence partagées avec PresenceOutcomes dans StatesText)",
+    "TRV-109 (compteurs de campagne reprennent les états de mesure)",
+    "moteur Accueil (FleetBoardCalculator : fraîcheur et invalidation après échec)"
+  ],
+  "risque": "lecture"
+}

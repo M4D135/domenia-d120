@@ -1,0 +1,241 @@
+{
+    "Passed":  47,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "D094 Restart : recu ecrit avant l envoi",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D094 Start-UiTask refuse ComputerRestart sans -IsWrite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D094 operation inconnue sans -IsWrite non refusee par le garde recu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D095 double clic = une seule demande",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D095 demande identique incertaine refusee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D095 NotSent peut etre refaite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D095 Delivered terminal non bloquant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 ecriture annuaire sans plan refusee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 plan valide envoye une fois avec son empreinte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 cible changee pendant la confirmation refusee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 valeurs modifiees refusees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 payload sur un autre DN refuse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 destinataire change refuse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 site complet : selection changee pendant Confirm-Action",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 site complet : selection stable envoyee sur le DN du plan",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 creation d OU : branche changee refusee, branche stable acceptee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D091 confirmation affiche cible, destinataire, compte et empreinte, sans secret",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Lecture seule bloque Restart",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 attributs : relecture conforme = Verifie",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 attributs : relecture differente leve (etat inconnu par l enveloppe)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 membre de groupe : ajout constate = Verifie, echec de relecture leve",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 suppression : absence par GUID constatee = Verifie",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 suppression : refus de relecture par GUID = A verifier",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 interface : Verifie affiche (Verifie) sans boite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 interface : sans postcondition = A verifier avec verification a faire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 interface : echec etat inconnu indique la verification a faire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D093 action distante : livraison = A verifier avec verification a faire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 conditionnel accepte : une requete Delete+Add, backend Conditional",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 conflit 16 : rien d ecrase, envoi annule",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 refus 53 : rien applique, envoi annule",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 refus 50 : acces refuse reconnu, envoi annule",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 pas de reponse 81 : etat inconnu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 echec avant envoi : non envoye",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 bind refuse 49 : non envoye, identifiants classables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 sans changement conditionnel : chemin d origine",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 strategie : texte connu conditionnel, DN et brut en relecture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 plan : limites affichees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D096 bibliotheque LDAP : construction reelle sans serveur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-02 worker : attribut brut bloque refuse meme si l interface est contournee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-02 interface : meme regle, configuration de securite respectee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-12 DN hors domaine ou sous CN=Configuration refuse avant envoi, nomme par son nom",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-12 worker : DN saisi controle puis resolu par son GUID avant tout envoi",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-09 deux ecritures sur la meme cible : la seconde refusee proprement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-09 code LDAP 81 et plus : recu a verifier, jamais rejoue",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-08 panneau avant/apres sans DN ni GUID hors Details techniques, aucune fenetre d ecriture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-07 confirmation d impact en clair : ni worker, ni RPC, ni req/s",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-09 regles copiees dans le worker : fermeture complete, memes reponses",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

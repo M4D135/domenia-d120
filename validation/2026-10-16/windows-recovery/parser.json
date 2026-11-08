@@ -1,0 +1,2706 @@
+{
+    "Kind":  "NativeParser",
+    "StartedUtc":  "2026-10-16T07:13:19.8053087Z",
+    "EndedUtc":  "2026-10-16T07:13:29.6774130Z",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "Status":  "PASS",
+    "Files":  [
+                  {
+                      "File":  "Domenia.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C88496443ED583A0EBA005ED6EE1803BD3462137B472573272EA4882CD1F4010",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "INSTALLER-MISE-A-JOUR.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "0308E1FB6A87713E1C8CA1A900AF1450BD1B003A8F50B52150847751A5D0C660",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\Test-NativeParser.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "28CF29475EBA9AF6014D5C341A2D8C2B9D8189D3D40394A8E7B36E17B070A791",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\lab\\Invoke-D120Campaign.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F563CA579034347FBA07CB294783603B25CEE45899C058AC55D7F5610B1159DB",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\lab\\Invoke-DomeniaGuiJourney.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "6847F15408CCB24E89F3E403F5201856D1753D329BE8D6559D3F9F6E7222DC88",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\lab\\Invoke-LabRun.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "321877838747E264B8FB57695101C5ABA22C2B6B9A7C4090D69B5D6645100171",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\lab\\Validate-D096-Controller.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9FAE5BF26E4756418D901515DEC6762B1DFE1D5F30DB7E72480D9F9FE114C979",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\lab\\vmctl.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3DEB76B4BCA4F3DF593A4EA4728A500C031E0A5B2A02CF62699998A43D3701CC",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\programme-2026-10-13\\relais-technique\\domenia-family-projection-helpers.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "14BC27A7254568E5BF00826C0273C34D7A47850C7729C6FB66701D70284CAD2E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\programme-2026-10-13\\relais-technique\\domenia-query-library-reader.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C54785B313E4A6F212B5323A56711B9F2D87D1A78DC73F4CDCA2E010744D937E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaAdditionalUi.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "6578BC6501564BE2F3954C6ED8F64EC0066F952D80E30F1F16CD207280B04814",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaAllOffline.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "AD35890C50057C2EED99FFA8838284F91F2DD6E570AA8C3324CF8EC2ED2261E8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaQuickUi.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BA2972F9BB1E0340D30F8B038F6D5B0EF4B8D9E27FF45273655FA71921B64A47",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "engineering\\d120\\quick-ui-20261012\\Test-DomeniaProdFactory.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DF9339F689BD591249F45107D1FB102E22F76C517DF6AFCC9F2438A15B1267AE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\build_native.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "303B3B3988E758E1A5C155754B3E619224847F1B6C660DC56A7BAB410271CE00",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\build_query.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1BA38CB61C21EC0A1B74BEC122E65B8577D15EE7F7CB05CD56E784C8F1C54A3B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\Fabriquer-Prod.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "00184761AD3B28151F1CE63730485D024A020A0FA78787FD813F5DBBE2D58B94",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\Production.Source.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "947DAFD9E5ABD65E8CAF178384B4FC56A8F991BBD4C53FFB3BD41DE0B579B700",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\Signer-Distribution.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "38DAA5052C33B8551F8062BAE59868A1DE20483D53B92B778A990382ACBEE758",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\Test-DomeniaPs51Compat.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3E13CD609FF682B6B247464B58ABC619DA6B06CBA5208BCCB1FD6201A28E2197",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\Test-DomeniaSignature.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FB2C0891747F2CCB3DAC040DF97FB0BBEF44E0A9BADB9657E8E2729523ED3760",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\Test-DomeniaUiBlocking.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "2675E06FF622A4F1C1971084FDEA50947178EA60E2FCCAF313635A146793D6F1",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "tools\\Test-DomeniaUiBlockingDebt.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C8F3408442142503655863ABAADBF58E5E6F41A506EF90FA53CED172E5E28A32",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "vendor\\m4d-admin-common\\tests\\Query\\Test-Query.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "69AC5B1C0C8530D13950B6C30792CA26D831B9E30D3BC7FB1A066C6D097337EB",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\Domenia-Automate.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9A98F1BB6B6387F5AE3CFA340C494366156DE97D505C3B6B4D9A8A91C9DA49BC",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\Domenia-Core.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9FF7B9BBC6EE884204579C8F247C3622124294AC03392CFDF0C4657D44A63187",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\Domenia-Modules.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5BF704CBEEB526FC2F91D9D947F1601D95364093DA387A630195CFEFC8FC83FA",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\Domenia-Start.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "72D583EA58F7DC81AD9592ED7D0E6E3B5C270F8C1B7FBF7305DBB986BA5F78D9",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\maintenance\\Preview-DomeniaLogin.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "35DA95C54313D3C063B6E372D20961EC34D68571EF7C7E5B2B1C8A7355F5DE14",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\maintenance\\Preview-DomeniaProgress.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9AB973588C396B425DDD83AC9B3AAD94CBF0EE987009E6629DBE675C59E3DC0B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\maintenance\\Preview-DomeniaUi.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FB76FBDDF12920EFBD0A92CC265B75D95FCF2A4785DA3F139740F9E5222D2D59",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\maintenance\\Sauvegarder-Cache.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "2E4E93820A93DECB1AC7166F1AD80CD57AAA732B62E4B6C0B65D3962A55EEA6A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\maintenance\\Verifier-Paquet.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "CBD999F68B387B9263846F08E0A4F05CD495E8FEBA7AE9B3CCE1B086570B6D2C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Access.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C9EAD8CA6F384391C751180405BC8C2A810A76FDC2C203FA4FB55D19FCE8C316",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Access.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "95EEEB324E68C86580AB35CF3CE7B5DA209E3E2253D3A99035327F64E5C11B9D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Accounts.Async.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3426CAF7EB93EDCAF4DCB29A6B1B5A6002827A3C11C11066F3EBB3E2C3917440",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Accounts.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3657A3247D62018349F6D09F62B1D419BADF47032567840F33C7C3EF71B6D664",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Accounts.Store.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "83F9586009FA5286B3B6632A5C9DB6046CE10D7086BB3B26001A3D6C6D84023D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Accounts.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "EB53D11AD095A1130BC210CBF4EA01A513EF8C05FAF2CBB63739E7403120347B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Accounts.Vault.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A93068443A8D2EA368853CEE81A2C2D1E03056F7303FBFCD00EB47B5BAE6FE7F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Accounts.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B4D94A832D240D4330A4E44FB4B493DC7188313757072DD1704D9397E4464480",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-AdAudit.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DCE11ED0DBB86ED945D12F4E5947F75793C3E196522B0E11FC6C0A6AAEBE530D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-AdAudit.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BB5C0F66F0A1C3DFB88F67D80C70B4F194F31887213C9B65D8A14ED795C7EE32",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-AdAudit.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "950F9B8F1E2B2F547359BB8EFDC2BEB354F0D36C34F51008184E765B73FFC8B0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Assist.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BE9DD946560C196E8B7D8074FA3294FCAB39F37C66510750005FEC496F86267F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Assist.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "025BFBCEE03D4515C45E4F4A6AD1377157FCD816361ED01BA45D0B33639AB4C5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Assist.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DACE4243D8ADD81487346237F3DC54389F0A98568C7FCB7EE110603515E81115",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Assistance.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "44124F66ACF63C69A860F4CF60BF90D9D449782B8F842BFE5995675DB7734638",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Assistance.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "4F198EE7C8837702C40517B872B1FA2E712A2B044142F562E49BCA4F9E4CF90D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Automation.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A2638576343AF22755CE8A08483A5DF552BAE9E294BC01247C3F92D433EB3273",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Automation.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A75043F836F488269AFA4DD04265D0A51026412488248BCC374D50BD6A5EF162",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Automation.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9C19F8AD124A21F44AAB19BE8D4D4E676B6FB616E21F261DAB4AA51F3375D309",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-BoardComputer.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A05D99A7CBA01F90F7450A7F64A9129830355D6CF4AC0DED5FCC85AEB9122E05",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-BoardFleet.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "0629676793FF903B3C46A29D91FCF0253FE5FB0D03046269D48233F97E02D39A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Boards.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A9935EEAFB98CC8848481FB44DD38B92C5A7B308C73CAB365EC0013621F8CB4C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-BoardSoftware.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C01486FB60698EBA3BB6B2D54C318C01B601AC405E79A37F2424C5CAB81B53DF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Cache.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "7CF39139DEDFB96E6B7B0D2BB7982AB431A7EB3CE87F5153D77C670DC8DB0EBE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Charts.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "2A044B2251C3523786404739171748FEEF67638798EB76FE6E6646B796691273",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Collection.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5BDDCB657549D3D4C67C3184CD4C12898D47BF189D77B6BDBB196DE09C784204",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Collection.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D8651DCE7646AC215D7B12AE2D40D0501BECB9C7CF45A26B646B2771F322AD71",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Commands.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "904E3A67CDA7143A250AC874EB84A1AECB683F2132A29EC382759B254898060C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Commands.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "37587C91902CA4243F20FE88ED5E5D6D22A0D3883D66D337C4AD3BF3F1BE0334",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Common.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "055F6CD68D04AF1B30330BCF010EE289B3CB814D9DD5911F2808AA49949C84E9",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Compatibility.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "EBAFF79A931140FE7328A517DEC962C3005FB88FA14A7B69AC53C8BAEB928C3A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Compatibility.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "52551955BBE93769F74059D2D36EB0DFA543BC50FD92E3E8D007586C50146277",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Confirmation.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A4F8E6EE882E4C9419B0ECFBD99FBA7E6DA0905C419C7B54856DD81FB6DA32B6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Continuity.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "7FE19CAE7944C48A92D589D9FA566FF047285923DFD4EB80C673BFEBBEBE38B6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Continuity.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F09594B533806608369CA3449FF4AE8F78BF5CC76D20C4DD168B4488DC554F08",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-CredentialVault.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C723E37878E46642087AF17EE7AF1B347CC414211691CA41E833E26F05BA2795",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Dashboard.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C28A76D4E6A15DFE8B43AEBF587E3D9FF269D22D641DB0F53BACF2CB7CB88997",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DataPolicy.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C51B999CC5CF8FB1A8866B22AEC2ACA629D5D1B2A948A19D8364421C7841FDF3",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DataPolicy.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "85F81C5C70FEA28E80D54608555A86BD9815E483F8408540AC04AA36EA42032B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Demo.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C764732382877C91280EFB8E3FA85A51EBA0DB1035AFA2E44616AE1529D379CE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Demo.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "22F53C822A6445A79E01E68684C13C97B95AD96A9F887BAE6AC779A47D2CEB18",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Demo.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "827E84ED73F72C01AA909EA3B028941C8CB9336361EFE3FF8DDACC71295EA476",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Directory.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F87498884C6DCF66B32CEE171E0D87FDAA5D4D4061462B984EF325AC32C2CC1D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DirectorySchema.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "59CC9EEA9E04D08D05C458838A135CA7EF679C98A3408131F5A97306107BB87D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DirectorySchema.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D3B0A3CAC741013280AE649AF61934CAAE184130757346A91030D0C343424467",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DirectorySchema.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B8D8A732E6B7133B987D48775B0A9264FD4ADEC8C0865323E1B190F35BFC018A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DirectoryStore.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E5F8608847EC1E93D60D0BA8AAA414F015014C19F59277D71C5A376E7D1189D4",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DirectoryStore.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A6DF1319B8C0B5D8172859079AC5753033E273547429BA6CCD21E40FC2D0AAD6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DirectorySync.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "146E78488C0F5CBE26B9A09446E07AD6959BB76BEF3A89757C08746FB8D5694B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DirectorySync.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9F4CA08281BBEE480D049D31F960EEB213136740B4978667F3DE36259057A238",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-DirectorySync.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "72776E1FF660D68BB0F18D5BB9EE1C15F050231E6A8A47A1A1381E8D90B775DE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Dossier.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9D6D07CD0A9202D027139E022F7B34A7D05E0266401F6784570529F19EE4BCFF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Dossier.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8800353406B980A2E0D4B742B9331C1745F42378AE04D0CCF4A17E1CA2975FA0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Embedded.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "69F147045D3C4AE34D24AC8C1DA4816877645F6085A8CEBFBF514790C1849C34",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Engine.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "962E7983CEB5663FAF989E5C02695EB7310C6FE96B27BDA3C9C81083AC1996C6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Engine.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "4E1BDD50ABCBE48BA221344320685B074E8B6B7F8CABAE9568737CB547552039",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Engine.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "226A59CD6A60B6762F14FB14F5C60C0DFC01A0B6F4320421443CA5B09292263A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Experience.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "AF583BCE563116B826CAE98EDEB4AE8DB50F2107F82F05A4A0B599A6A3B25202",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Experience.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F14BA2FDC9F13635EFB6727E7D89046139CBA9DD420CAF7499EB386E857D3515",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-FirstRun.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DAD10B85C77F7A2F3409B36C5C234CCFC5D6A4E0023F93E0FDB17D57A010C5C8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Guard.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "91BD2BB94167528337AB6E7BE75172802FD908D3216257FB42FB03E574A10B34",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Guard.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "0496259A02E978EDF2D0BCEC47B03A234D36F824CD90EA4BADDCF764A4E5BD7A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-HealthRules.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "01E0AC2DB75A68037E0B9C25D5CF0E606DB6C95C8134B21D746D7C6D3A98DA00",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-HealthRules.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8157B560CA7519E4AAB54875EF34F6553C39A0A0D2C3A08358ADDC264BBD9B99",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Inline.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "EEF254BAAC9933A50426A1F8922712736BE6162FBC8AB8AEC05FFDF64D986F68",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Insight.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "6287EE0F3FE04F5D03E25E529BB1F4B056ECE8F66C2DE26872BCAA228C9DE27A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-InventoryImport.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "31ADEDC41B715CEFA2CDC9EE96BA6B0E2B664D52044FCFFF00540B200965241E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Isolation.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DDA9BE0B91370AE8C23CA130198FF17C5BB3B4A0F584C8510588029D5C9E0A33",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Live.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "80073E367626AFE9CE15B6B13732BEA3ED0A81AC565672C838DF45230C6151A0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Live.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D188769912BDCCE18F2E992A577969EBED34DE6605F0A7538FF13FF9BEF1FBD5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Lockout.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E3429EBB0D0CE0AF32FEB5EC75FE6084150E4883F68617ABF47C74B17586AE14",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Lockout.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "6DFB544F69ACCC712C80511072FD22914F8D790F6DF557BE2968CD66CB69E854",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-LogonActivity.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "606A077F1B1DFC4D348181A6DCB104B399F635E68C61D5C9A90929BEC906CD90",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-LogonActivity.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "EEA3472295145AC49B341FC04D58A387C5E49940D1A2C814E6FAF2A3B003329D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-LogonActivity.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FF35E2946025D5E5F7724CDCD6CC9DE83B208552453D5DA6CA612ACBDA43E57D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Membership.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "68DE9E7237FC406E9520C39F2349D8781F4E1B9037E72319D6FCA1F43472AB14",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Membership.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "7E165DCF873DC022D801E4B9373E9908C362A42A7941925AC361B738D3BAD8C2",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Migration.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "30715CC560E8C7AE588B37EB92E767EE039C24A22605F1D15B633BA1E2CF4218",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Migration.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F6C45A59CE28E6C0DB13CE8464BE08145D061DA66355CDCD2B2578626836719C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Observability.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A9B24C8DA53624788E202A78B70F4D83CA41F072A561FBCB92CD69D125F2D9CC",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Observability.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B808C4EE23ECDD9095A79610CA80AB0391CCFF36F85AF5E225C666525BAB3A55",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Park.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5D027C36DF41F7824A5D0796CFEFD5BD63B242B420D8A072B166F45C55965464",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Park.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A584A2655947E4562D340274F95C7E42DAE84AE7AA8C37F8BF5325B49D5ADFEF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Park.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "CD567DD76C8F0DCE170A2397490CA85EE4EDE2A05E9E06C83CD85604D01CBFBA",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-ProbeCatalog.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "816AA67769F5BC93B36E61DF626C718CC37FA83B7EA94A1E440BB7C71E1628CF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-ProbeContract.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "CFBCCB3680E645FA5759726F6E434374CC82357DD5CE4848E4CCA3D01313566E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-ProbeDetails.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5C2E1E3AA09E1B5A8ADB65563F8787B77C249AB8C43783812888BBDF4BEED7BB",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-ProbeDetails.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A2FB106408745F03D7FAE4FF1B5651FB9735334F6CDB7141D591C2A17EC47E22",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Probes.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "222C9DEEDA3DDBF3E17FF23EAAA090AE3757516781888AA9EDEAF620B263F810",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Query.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "477AD0D3C21FD18593DD39CCA90B007EB8979D62865334848174504C374527F1",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Query.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "2F1E28537E51278A89B0B00C2F9FB262A070B0BDDAFAE8BA234F309BC003A640",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Query.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "0FB4AE5376A5427BF4F9D06603ED376ADCCE0EB98CC12A49CEC49379DEACA97E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QueryDetails.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "78082FAB6DB2969B508C9C657B73D300983E068F01420470AFE9123ED6657852",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QueryLibrary.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "00F427FFE5E80773B8406DE0EC4DBBA8D8901F44145661C2B6C469AF7FD3D9B8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QueryLibrary.Store.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B4D9C99D660557D7FEA644E220D3180D6FF9B8AC7898B3B71F7AD80B53575BF3",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QuerySchema.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1C27057A71E90881B647922998F2A7560782DADE0E9BBBB1CFAA2C9A80D6F284",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QuerySchema.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "89F7B07CBFE5BE1012B4378A5826FEAE824B3422ABDA8FCA418FE4914764BDF6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QuerySchema.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1E1639EC1F38BB899B804811FB4D871D3BFEF3EDF214008E7D2B5BABD93EBF0D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QueryTargets.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B7554D84FBF9194542846039B8DC2D83D14168B60C5C63BDD8B2F131F56E2A5F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QueryTransfer.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "87DF6020459071A33A5273BB3DD80AECDB1B9CD878732C9CE0341002647431EC",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-QueryTransfer.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "433228B0988FEDE0C4C5DFB19E3108C15FA8CE15AC15D00C0152CD27FE6C1730",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Readings.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "CDDC18791213470D1C5920BAA3F7BEE95C107B0351D66C45F68FA7A51CA4AD4E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Receipts.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "04720F3E1175B1FC9C047EA1660D93915A046C2FD871E564B1743B6D0B1956A2",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Reconcile.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C07FEF638787A69B0C8A11EEE3A81ED6D5274BB1752AA1C94006397E6994A88E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Refresh.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A06DCB19575500998A48FDF8230FDC41706E468CE16BFE3781EE3BA9EC2067CF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Relations.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F14944F4BE7F3F9DCF34B53244319DECE2ECB5E9058CE7EF6400853F16651777",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Relations.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "08A9543CCB95C261A0797992EBC846E6885B1C435372BF4956D78F8817B0D666",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Release.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "6C57059576F2387A557950DB7C7937F7E0F68DE9111E4B155C0F23462B764DD8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Safety.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C1BB822EE0BAE34AC9CC1989E06487DE2DFF3615EFA1C1668BAAD3B6873D4798",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Search.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3FBC8FF3CA925AA44DCAC7F182A248B654A0EE6EE72DEFD93FCE11F30E44A99E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Search.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B11F3E8D83A0CFCFEEEE037DB2CDE5D86C268328D0A09AE088FFDEB4E6D8D1E5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-SearchWorkspace.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "31593724FE57EFD9A81F8D318AEF2CC8766B03743D9D46DC241D4AC441B487D7",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-SearchWorkspace.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B940DCEA115F0F7EF67033834E911E9F50F9AF947DEDB21E1F444CA80C38F58C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Secrets.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A17639CF24093696D3D0047DACDD55B5161FBBD5BFB9C1ABC38A28DDBB7D9FDF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Secrets.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8F5B009EEA769A9C81DC01B1EBD070F43DDA1838908CC3476F8181165ACB0F9E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Selection.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BB320F4FA43B5DF3257B86E54942D117227E8FDACC49C5B00E2DEA44FFA8CEF7",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Sessions.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BBB61DF914B7B9951BDE3ED5CE2955F9F5FB964FA08E7C903B75E8497D730F70",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Shell.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "EEC70CD9BB5738A0EB64DCA840A64CDC968544146A7E037D3CF2F68FD11CE729",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Startup.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "AB155FC22313622A6BF3696F55811A3BAB057679DA9F0220EEF1E2A83470DADB",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Storage.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C6A454E7EBF18603963C6FCB9849D3C202FEDA18433D443F82887AAA5E41D438",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Storage.Worker.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "CF43EC8D7375C99D8D759D2AD876BC59745B7C617C33ACACD7E1CDE3FB98EB34",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-StorageContext.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "473761899FFB39C50271B14C4774D933FCE708A3E34617962C81DC18C5FE8283",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-StorageLease.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5E642F436D6D04CEC87D3BBE670E7173A16DA9C3F5AF1FBF64993306A373DF88",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Store.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1CEFA3535F0D9BF5A47AF15B70833177B6B265CDAD2DE40E547CE7FB54FD72FB",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Support.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DC86FBE76C2A30663223B3AC11D29CCC38DB3F6080D2E4BE3569E25A8406B3A6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Support.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "10A1236D6AE2D8673D1E853D0FE77AFE20070BA33790A164F8E1911AD0B85316",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-UX.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "924312A31418B21EDC2846DDE6B93073BB2FB58DE44C16B75C2326569DE648FB",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-WidgetCollect.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "947BDD96F5E499407049517C3B2885CBFA77845B5071631F5721F6C66C23CA77",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Widgets.UI.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B56D5DFCA6ED7873247DACDF17B7E5EF874E6AFC1096E5384CFE13B75A7E1270",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Workstation.Model.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "2169B35F0497B23E9A638765DCD09D5E90051207615622EEAD572A3AAE3710B0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\Support\\Debloquer-Paquet.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A62BECF6CC25F85A0A21B6CE018FDC0826B43EC99D9897EB5E227967E8BA9454",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\Support\\INSTALLER-MISE-A-JOUR.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DF5CB018C3725F9868478DBC07F82B20FEFD826D9CCAC3B538D44C4449A6ABA4",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-Domenia.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FCE094E98D9D84E1038570E4A2FB68B24CB6AD330291503C84EF83EF7040FD7C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaAccountPreferences.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "0609C06F724268EEC6591F4F356020C3F461365A0923DF0359173C6158FBEEE0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaAccounts.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "285FEE1BEE25FE5AE6D788CBE926F51ECE7A7FE52479CA8570DEC6BC576C978A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaAcl.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "41E9D7A75D458486B3EEF4903278A749451BCFEFC4E6235FF64E4E927E1F9333",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaActivityLayout.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B9CE02CB1FA1AEA7C10D9EF581D2636E2019097A04CF4D5DDC5355B8139DF7C8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaAdAudit.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "38B2BA7CCC879D84D3BD577EDE61CAC9F271687E213463E5734FA08B46F7378B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaAutomation.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "6A427C4A4EDDDD843D74E851A9A9A5088165030716EC9962DE3CB69152A9BD44",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaBoardRefresh.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5EC819655694960DBC0F5C6F112BEA403BE51F71815141BC2B156F8A7BE1C25C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaBoards.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5E3595D4DC4C38E1F9D61D54B4B64A8B786A146CA9EDD1F718101E4FF6FF0610",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaCandidate.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "0E43B0AD1086EE53657BBA916AED1C353B899ECCD2F42874B276D3577FEBC7A8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaCollectCircuit.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5227853FC963178C8EA248D10C80E96EA6C0FA1CE6DDFE47105A8DCDE5514DFD",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaCollectionWiring.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A3335EB920D56ED03DB483600AD8F985EECFC2A0AAEEB67F5531FFF86D5B1712",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaCommandPalette.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "46963029FA3F800BE328D67152661EC0F1097A540CAECFAE75E498418A278A0E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaCompactUi.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "61B26AAB244C6D1258ADBC85DDCDB86C4FEA20D3389E3504B774433838B77C30",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaCredentialGuard.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D68165B194EB9B0683EBF58DDDB9DCC1E36351B2CFF45C531BE41C16859BBDCD",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaCredentialVault.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "192B3FD9CA38E36C3A447D052E694F1FD0E2BEEFC26DA7D273BE7E714333AB72",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaDashboardScale.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9DA304B5F506DFD592C8DB11742EB8F5B0F7FC735086B7D896114AD1CA1086F1",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaDashboardState.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DAA031B780BED45F7AF311545CE001E6844A5F23D44A9E79364AE51221CD3D8A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaDelivery.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "80869C24F57BF84A706D4A8C663DE2315A52DD9B2D23C9E0391A31BFC9E43705",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaDirectoryReads.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "213E8666FBF92580BD7305F7B3FCD12496D3BD1353C0405CA677FE21153F0098",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaDirectoryStatus.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E42D0057C1B89280D20BD3CE5091872548A470DB4DE7FADD767A442035F22431",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaDirectoryStore.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C6876E0C6129450BC6A259F492E4193FEC695D47B6DA4E35A1FB7DCC956DFA1A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaDnScopes.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DBAB77D1776E10551B11B36B82C2199726C2186CA83962665BD1C53184407D17",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaEmbeddedUi.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A0E3532EBA7EF83CD9A165079623B8C8515EFF46F5ECB3CF62CF9E30009241C0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaEngineLoad.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E9A04AFDE9545996FF4D2FC71552A71A17AEDEED3EFEE9DB4C31666B4630CF88",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaEngineResilience.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E469CF196F035FD162F993F190E3B63CEE6B4136713DC53A03995FFB6E573FE8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaExperience.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "ED2EF340E4A12C2A706D398684CD86593078B0B48826E05BCE2AF96EA8341591",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaFaults.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D5B1E41A274C7D6EEFF66A2A24E5E9DCF24BA48453137ED48FABA35407F3B227",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaFavouriteReveal.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1EE81BE62B101B4671CA02445581122C73E19480686A1C96F7DB7E2ADE4E57B3",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaFreshness.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8C162DEC76ABE34CC5D9F8F7EC843055D6AB86C27A845EE75807E93D6F6EAAFA",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaGeometry.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "703DA4F55E65CDEC0CC419A3C0D3CDF7C3B9F663DFDE998E302DDF60EEF47FEA",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaHealthAdvanced.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F42D2C9172DFC248B7A2EFF0C69F1189B93CB92CF949F0963087B4C55A788C8F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaHealthPolicies.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E668C3CE2216DDF56A4FBAED968046BDC342D4C956C5C18F95279CEF7A3F01C8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaHealthRules.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "4A97E55FF670540FB7125A4E8901DE79F54D0664C39BB614987E0EEA5BE78C3C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaHotspots.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8820DA76E72C35DAAB15B4887F36E727B0AD6ECDDD54EC13E284F25BDCB0FB57",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaIndexActions.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B722652DFED3DBE9E8BCE3A4E4DFD5A928C737B4E2DBB4B432B78002B010C484",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaIndexPersistence.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E2D8D681DD342BBEC6C24E99BD9216783A8AD8DE5696497902F8CFB4A3585496",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaIndexSorting.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8CBC2631C65AE1A0AEE841D9CEF548FA96B404BCE2B5E85F1A3B050073F0AFB5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaInstaller.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A3904CBE2A1BC00ADE0CFCA8C2CF49149727B2B2686F887F0732359A76E984D5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaInterface.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "6A4984FD1681AC94FEA89DA791E6BDAFA513B84661712DDEC8EA6D92A1C83768",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaInterfaceTelemetry.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D05BC2A73389D005EDD1F59F136672A24B00D5D7775EC5296A5939BF8BF821C2",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaLapsQualification.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "83C7E10D1062F0DC4F20D048700F1A376C5F95883E2B5E02E7B7899441931441",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaLastUser.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A938050408F1F2D3279BB8D1CF6311297EBECDB67478E5C2E6DC7E784D0E24DE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaLiveSearchView.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "149CA2C4A769C061C125D236CA180C56FC525B86329F56C64FDE2DB09AC1E4F9",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaLoadStability.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B2A06F1DDFDF4D0D54BA6E714A40F29DE4B2ABD4667CA518826F9FDBCB6E05F6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaLogin.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B502C2FEBBC6D0A2E06C752D4E40388284474EF434309999C17BFADCACA4A43E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaLoginForeground.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "101527F19315C9A532B0C00E77AB3F18C1CAE021DFBC64E33D11349935928D41",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaLoginVault.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9CCE585683EC9B2FC952D176F2516CC0C097683A21B78AD049E7B7C9363CA6F9",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaModules.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A5BA0389A45950F7D84178CA6F0C0E28149E5FDD7B8ED1108B78AC00CB8AA8AA",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaNative.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BDB53CE3CD01E1BFABBCBAA352C970FE316E2E1F07D281003820106B708B3D73",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaNavigation.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DD39D657608076C4485119BEDD7361B3E5B4D676DE79F575422AE99A650A0FE2",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaNetworkFaults.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D1BE2F234AC16327E234F1CAE0D17801EF28AAA08DD1321341BF2301B87A2608",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaObservationFamilies.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3B15C031DCAFD2936309D3AA55A3123AB07A9062A7CCC29F57EDD58E5C6E71D6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaObservationProjections.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3400F7E59877372B935F54EC16CD70CE3AC0BD6929BEA33C20AC302B1F880EAE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaObservationReaderBudget.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "44F0C1EB836DAE25A09CFCE07576785EB3E9A10A44EE0CB7748678DA69C65414",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaOperationTrace.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D83333BD516C42B59CBA9D9F34A398EDCF333B789930A96F5CBFCBBA95446BD5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaOuRefresh.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "27BE7B226CFA77F5ADBADDC10392F4D9DCC316A59B4258FEBABE5739AFC05A17",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaParkDetection.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "69154F188DC157E2A70D4A561EBF72C7AA499168737E5F0251C57487FFC1F775",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaPreload.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1E96A0F18CD6E886822A7AF90AF3359B79A34EC4BC4DBBBF7092D3BC997A2338",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaProbeCatalog.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C7B162257C5C94D7B72FC0D06FFE2AF88E121E10ECA470123B663F3845F143F0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaProbeDetails.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5B295283C1D2DFD5D35AE45FBA93EECBA29E69F224F618C269F984E7D49A7013",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQuery.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F963953D738002E7F9E6B2AF3A910DE1D4184FA158C8E4AD61769816F996A608",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryAdvanced.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "48FF8B6D94269E0994CC0E73489F567F34B0543F2506EFCD43A607564469E553",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryExpression.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1F92C5ADBC806E9A3A3CBCDDCDDDFEF80C6189D82E7A3493EE88A80B8585C1FE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryLibraryStore.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5A85A9CBA8B30E56B442E220140463D430C852BA515C8FD95859FA3FE78E872A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryLibraryTiming.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "6C582787EB69668D0991932742E6A28BD2F7342AB91239BF6F5CD7D1E1E71498",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryScale.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "18D5EB68C4C4477FFC7DF602E485F74E58D963026F642503A08991018BF72067",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryTargets.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "00B668F9AD0831CD71B731ABCD13EE917E907D8AD4E0465B097EADBB9D392C81",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryTemplates.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FD76FD48C85F653D3221A4B25247D22147225B44FD4369BFEE4F3B1F310E49C6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryWorkshopFeatures.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "996210697263AC005BF415F5F32DEFCEFBDA16451F425A9894186110DF8621AE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaQueryWorkshopGuide.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E2538ED854D6DC3960876ABE1839685C84C9958D0C523376B4DF07AE35BF8DD9",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaRegressions.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "675948982604EB88892CCEDFE1CC789C012DDD103AD12EBBD61ABD90875CEABD",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaRelationsAlignment.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B2C6AF13791DE5DD20A4569B5869FE30045600AE526899D986777FFDE0EE02AF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaRelease.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8A451D0B427FB04486CFCFC84794608ABA3D94E40E707B7D3E81D51E0EC721B1",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaRemote.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D01F61A819017DDF65142EA77B298C672C440E4B6D18118F3FD2ABAD5CF46849",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaRemoteStore.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D4F4757D228813EA915368200DE0FAB9AF200F980E26D15ACFB3F554F6361752",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaRules.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "CEE8A9B2E04E4109E8D905D25FA1B6EAFB7965DFFCEED8F7A68501EA902E7BA3",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaScale.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "409FF10CA39D10FD8ADCC28D98B986E83154D9FF9A16B9805294D5DCECE2EFCF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSearchCounter.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9352E1A6F20954A90131A005453A756326A52913481285F2A00285B8F27275D6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSearchPresence.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "018365DD808675802EFF0EF1B0F8029A0A2BDBF857BBFFECFB6630FB6B8678B1",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSearchProgressWiring.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "64EC175F11C954369DF1E37E4B6BAD56493841EAFB92B740D26FA2A9D158B418",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSearchQueries.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "2650E7A47FA624BEB51F31020883652D478AA7F89F6430CC8D9CCB118E735663",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSearchScope.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "AF4AA4EF5C29D915669B9E9D804221A694CCA987003F4A47330162B9EA4C183F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSearchTimeout.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5EE3CF100ABC3C9F8DA99CEF6A34CC1FF0BB9FD1D1988DA4FD725CA0B3A9E06E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSelection.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "7435A90491F543EEDB5BA9326890736D37C59983DF49F90D72515DF9FBEA284A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSelectionIdentity.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "36F6996FB246105A4BC3F9ED4523E2546EA0FBD5AFDD21F6C4654B5CDA9F80F0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSessionsStore.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "D0564E48749D1F0825846498ABF02A750392DB5A4BCA3FCAFDE24B94B9A63FE6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaStableUi.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "2640017AAE2750E29515DB82A0386D1AA6D6B73134D68CE0C0F1A62B00DFD76E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaStartupLogin.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FF6EF74281A837A8B300857880B30EC2595EB2FDDC2482E05E1D31EF3CFB0C7B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaStorageFaults.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "901E1A9EAEC20154F633CC3B6D0EC61FA4B15F51E29223BD04DDA67F2E1DAB34",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaStorageMaintenance.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A41BA01F8350A8E9DA204D034C3A24DC159DF6AD59588DDC905D463427FD5356",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaStore.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "78D7F0B0FAA5304B2EFA0F4AB7137B43949122A81192DC85B805EEFAAFFFBA4B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaStoreLoad.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "509AD06F6F7554DA7353D8AE9627061DB45A36178C3460D50B9D14C18B5C9A55",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaStoreSummaries.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A5B8261BBF56CB5F8A0683476F4F672AFEE1692EF295B54E81BFC0FE5C3BBDB1",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaStreaming.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "CD7DDD27ED3F2AA4245DDBBFE65105B7795A62616ED7ACBCD50023048E08F06D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaSupport.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "90F5C659B909BD86C51D19C9B86BE0FE99D83C64C9B4B6D90C1DC9CA5F6A7EA0",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaTheme.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E05ACB5FB0FA5235A25AF7339690B475AE9A8C3BDC7B8785E991961DB895B2BA",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaUxQualification.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "96549E484CC0DB7991919550C28C4DBA50B734DD77E39DEF7CDC587FCC7E952A",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaUxRefinements.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "7EF02FDF9572E72A2A0164B37B16C20583BFDFF770B2CC89545294B6D4ADC5C4",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaUxStateSafety.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8C19409757EBB9E4A93076AF606D9E7640A168C5EF59A6F2B09B951820A778A4",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaVaultQualification.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3E300A99A34EA92D693A968BBC679BEAD4E86A2B597D71F052E3975CE39D1733",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringAcces.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "CF510AF7803AAF2C554F4AB61B6E93FA9EF25B2630A416AB5A355402437D9EE8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringCache.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "755E62283A06D369B9EF33862E0BD4F5D75E5C601FC6D6641904B75FAB1C48B9",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringEcritures.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5C3082AD4BC9EFE77F298B56025F7D14FDB1194765A037980FD23C79C2F610C4",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringInline.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "7E3C9C4A8638BEACF97F02F393D066FF7B3430EFF554424FE6DEA68F546D8137",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringInterface.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "866CF2175DAADAFE4875370B5925365217BBA8A79021CFD972D5ECACD28F4536",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringMoteur.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A818973C1752137975455BE12BFA2105D80EF048655C7780535E55C7E597A34F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringRecherche.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "0ADBB1AD277E453C257B65DA58FC277696925282D0288D5E75D77DB4C5720E5F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringRelations.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "035351DFADE52CF921588BABFC3ACE22DEC58E15545D168EA60C70105092101F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringSuites.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1BE292798EF5B3ACB07C5B2C4BADCB0328B184E6C5FC7C52B713AEA625BBE830",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWorkerComposition.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "99DB1EAA4AF81BA968FE800D7E1794876812B9181B4F81C4B12EA8F6C0F661BE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\fixtures\\AuthProbe-R1.7.1.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BF0AB379B1404D578EA0FC81611DCDA2F89865DF52A9D0C32769579B9600167C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\fixtures\\AuthProbe-R1.7.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "3EF4646A519B361EFCBF3FB42A63ED2F9CE7ED50DFF1BADE24230C22A504D116",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\fixtures\\Domenia-AdFixtures.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FBB0D35480CE45E2A8F740710C2E30CA85D8421E5ABF1B6241BEC4BC2747D60F",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\fixtures\\Domenia-GuiJourney.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BF01B1F069AF260573CCA516149FEA0E96A2A0022DED7C72D51E74DEADEB258E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\fixtures\\Domenia-Invariants.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "A2D3481565E5ABA0A5A0906E59DE6D814B1A101C348984EDAE25E1C39287970D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\fixtures\\Domenia-LoadFixtures.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "03AB3B7429AB6CA4833FCC81D6E9EC4B7A67FE3F1442A8DFECE4B96B877D4E77",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\fixtures\\RC1.1-ModuleImports.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "7F8F402E3B28F9BDA9731A93F9208E618E041D4818C9470F974CE535BD325C77",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Access.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "4BD4EC91DD62BE4B17498D399D9F412440EFAFA7A7B4DCD4925F57F57F312AF5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Accounts.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DB0AF5ED5BD994BA7F5AE2EBC8476969B6EF94F0B04CE946530A0C57FC887102",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\AdAudit.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "4306DC6AE5EBC7CD93890140B0487984EFEA30CD9C732832E99B09D4EF0B6363",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Assist.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "85890C191CEE5FABF5B2C17CAB03B4C932083C6F0DAD71C14A2700FC574818CF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Assistance.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "78D4E9881E5D9B07FCA23C044F46A36989F8A98E972263F0252D71DABE6E2F77",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Automation.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9FA7510457E101D2A9F4439823B6D9F3A5165FAE41F99FB981E4177FD50DF521",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\BoardFleet.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "AA4FB0EC70D4FB22F7F8B12DBAC82563A924A947DFB4A8F5A98F3510A23048D1",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Boards.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "E1D3FA25C34AF7B282A5F4D9F3F6A6709462BFB72B9611CE3FB0B90D8015CED3",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\BoardSoftware.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "DE3C23FD100B1F947BA3DC9163E8749866393988C9422141E4BF30C56481BB20",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Cache.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "8458027BD52B0B761318D52C748E1269C750D38A226F15230549E2D7CAF769FB",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Collection.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "54BAAFD2DCA9B6A3B7AFE1445282BDF2BDAD0D6A2D682697A10C0316C49C071C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Commands.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5C9C0F63D6643332DA130D35B68324C853ABB045CC9F1156AF430B3FE361CA64",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Common.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "00D66C3C70192F4096290C7DDC543FF87177BB2EFD802D3A4EB7F9E2BAD23F92",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Compatibility.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "02BA94EB1C841E12798425FF975C63FC86B9CDC4367BE3EABEFC4372906A1EA8",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Contracts.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C33F9FD480A41EBDE3FEF0C4A7FBB7C228F22E8D4E78B8386584F49A2261087D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Delivery.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FA953D3CCF90CAE20DEBA4E05AF8E0F067078106D8B7A51D433154AE50CEB0DF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Directory.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "943C46A6B1DF6D3E9F39EEFE2D63361CAAB450ED84E5CE9A0E7BF0C97B6ADE3C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\DirectorySchema.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "962C95CFE36D0DC174C28FBC2BA1155DF003495D70760879A58224F011C22E1B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\DirectorySync.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "225B167880C4CF579D40B5D60EF38802B148F0CF87F9EA4C2D329115C2C8B188",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Engine.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "46FE63209E45F4464A28F578FC07440CA55B38DAF85F9BE7664A2035877E1B06",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Fixtures.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "2F19E812027C99ADBB243C851B76A5149385BF69DA3D8D7889989570D882E415",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\GuiJourney.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "C2D3BFCB8706A885562BC4F3EA7F86360728D1DFD5811E7AF380A89F091D4B64",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\HealthRules.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "1185ADF4A05BB707274573025F5B5884DF73CB41BEC2F464DE6EA3D0F5019E0B",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Insight.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "23B4CA2DE1DCE79A69DE4E8F1FFC71F3685015A631370EF5798DE404C3BFA2FF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Invariants.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "854A1967FC927EE33FB009CACD7C90261CB32C55CC1F0AF56CFB30B2713BFCF9",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\InventoryImport.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "679F17B242806C0B12085CE82EE134EB1CE17D6B3D9C34A01A442A7774702B3C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Live.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "0CAE351DD47563860BB691FE7C019AACB54AC4FB4855216206BBDDE7AA0BA8F2",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\LoadFixtures.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "04227D6B4274AEF9A093A4E79D2ADB2D6FDF8E16BA03C6D40F36386224FB6A60",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\LogonActivity.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "402B3E176D67577F694286DD6422588E934E8375F0604296C20F9DF4D68FEF81",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\NetworkFaults.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "B3AE7BDA1056AB057B450C9CE4FEAADF4BA5B69606AC9D1C9FB387F2ABD4E964",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Observability.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "27EB6EC0526630688118BC9CCDDBEB99DDC5E38FA0B7F2649364B99C6E3B0BA6",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Park.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "70FED5D3C9039FC6D2C73579D1AAAFF51E0DE95A7BD9DC9546468D39FE46FBEF",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\ProbeContract.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "02F072C9D9B9725D8B1FA5DE254F65559DA1A33B1C031D1D62F28A72B6549AC7",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Probes.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "AC1FBE359F32CB04387AAB50807E6385FFFFA9B95E152C2DF356943A0962B5B9",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Query.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "797E364D9B6A2D03799C46DB4131CFD52AC59357801B2AC7C0790FFCCD1DB6DC",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Races.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "9053AEF52AB3C679541CF1CCB8D066541DA432DE267CED5E057E3111456CBB48",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Readings.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "50709E5E332EFE3BF1D61183B7EAE8DCEF430AD4C625AD1B2BD4F840882013A3",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Relations.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BC50B573EDD9EF7676F4FC808E7DD3D1B110AE0AFFB4777992B8B1607EDCAA46",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Release.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "52CAE2EC922B32134D905B9B8B1E5BA1C3730DC57BCD02DB9AF68F639607061E",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Safety.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "47CCD849E913385B2BDDB0F7C8D2225F9036B014E96DD614C78E3F740BFBF964",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Search.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "F853ACFD9E0364412AFA7A5820C5B83CC789FB27FF4E55C2EAF27273DEECAC6D",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\SearchWorkspace.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5C1F4B44D889EC4D5EE7A179F2BD748F2422011D12C83ED8089DA892C73516FE",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Shell.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "BBB603819F3C840B1D52637AE1A16D647FCB9C9BF1A72C0A23FF8C2D53302A26",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Storage.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "FBA6A4BC6821896DB7DFE9A3D444893365B19F10FDA139A070DC1BB43FA570A5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Theme.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "25A6473EA603D239519D14481F5E34C33A31C065138F27FD73A6BF658CC59742",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\WidgetCollect.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "EE1B4124EDD16E090989A5D585529AD7C3413DE64A64E3B57BD4F165ECE3617C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Workstation.Tests.ps1",
+                      "Status":  "PASS",
+                      "SHA256":  "5AB4F537C612867ED52B0C0644E8DE3F4758B6A0C384FCD9FF46869579FECB7C",
+                      "Errors":  [
+
+                                 ]
+                  }
+              ],
+    "RegressionFixtures":  [
+                               {
+                                   "Name":  "bare-command-after-or",
+                                   "Status":  "PASS",
+                                   "Rejected":  true
+                               },
+                               {
+                                   "Name":  "parenthesized-command-after-or",
+                                   "Status":  "PASS",
+                                   "Rejected":  false
+                               },
+                               {
+                                   "Name":  "unterminated-string",
+                                   "Status":  "PASS",
+                                   "Rejected":  true
+                               },
+                               {
+                                   "Name":  "balanced-scriptblock",
+                                   "Status":  "PASS",
+                                   "Rejected":  false
+                               },
+                               {
+                                   "Name":  "worker-literal-bare-command",
+                                   "Status":  "PASS",
+                                   "Rejected":  true
+                               },
+                               {
+                                   "Name":  "worker-literal-valid",
+                                   "Status":  "PASS",
+                                   "Rejected":  false
+                               }
+                           ],
+    "WorkersRequested":  false,
+    "WorkersParsed":  0,
+    "WorkerFailures":  0,
+    "WorkerSetup":  "",
+    "Workers":  [
+
+                ],
+    "CSharpRequested":  false,
+    "CSharpCompiled":  0,
+    "CSharp":  [
+
+               ],
+    "Windows51Qualification":  true,
+    "WorkersExecuted":  false,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "Limitations":  [
+                        "Parser success does not execute the module loader, application or UI.",
+                        "PowerShell 7 parsing is not Windows PowerShell 5.1 qualification.",
+                        "Worker bodies are parsed, never executed: runtime behaviour needs the worker and qualification tests."
+                    ]
+}

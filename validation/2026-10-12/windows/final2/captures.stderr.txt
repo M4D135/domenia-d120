@@ -1,0 +1,6 @@
+Capture fixture: Base : tableau conserv‚ … 1280ž720
+At C:\DomeniaLab\codex-ui-20261012-final2\capture-guides.ps1:10 char:157
++ ... Condition}); if(-not $Condition){throw ('Capture fixture: '+$Name)} }
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Capture fixture...erv‚ … 1280ž720:String) [], RuntimeException
+    + FullyQualifiedErrorId : Capture fixture: Base : tableau conserv‚ … 1280ž720

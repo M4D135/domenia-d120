@@ -1,0 +1,26 @@
+{
+  "id": "REQ-034",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:625-627 — la révision attendue est comparée à la révision courante avant toute écriture ; RevisionChanged (ligne 548-549) refuse sans rien écrire",
+    "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:603-610 — un modèle livré (préfixe QueryTemplates) est d'abord recopié en requête personnelle : nouvel Id, suffixe, expectedRevision remis à 0, mode forcé à « update »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:58-63 — INSERT ON CONFLICT DO UPDATE ... revision=revision+1, puis relecture dans la transaction et contrôle storedRevision == previousRevision + 1, sinon transaction annulée",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:65-68 — reçu rendu seulement après commit et relecture du document ; QueryStoreWrite avec Source = « SQLite », StoreId, StoreRevision, DomainKey, DocumentSha256 ; QueryLibrary.cs:534-545 les propage au reçu affiché (« SQLite · révision du stockage N »)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:86 — « Définition de recette supérieure à 1 Mio » refusée à l'écriture ; ligne 76 bibliothèque bornée à 16 Mio, ligne 80 à 5 000 recettes",
+    "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:631 — « La bibliothèque locale contient déjà 5 000 requêtes ... Rien n'a été écrit. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.cs:40,27 — writer = SemaphoreSlim(1,1) par chemin de base, attendu par UpdateQueryLibraryCoreAsync (QueryLibrary.cs:27) : un seul enregistrement à la fois",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:32-36 — EnsureReady() (DomeniaDatabase.cs:263-266 « Initialisez et vérifiez la base avant cette écriture ») et CheckIdentity avant toute écriture, sous le même canal d'écriture unique de la base que les écritures de maintenance (DomeniaDatabase.cs:40)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:47-57 — l'original est archivé et relu (document et sha256 comparés) avant remplacement, sous quota 512 / 128 Mio",
+    "web/js/pages/requetes/save.js:202-210 — adopt() : un brouillon modifié pendant l'écriture n'est jamais écrasé (« Le brouillon a changé pendant l'enregistrement : vos dernières modifications sont gardées, non enregistrées ») ; ligne 279-281 le refus query.revisionChanged propose de relire la révision sans perdre le brouillon",
+    "web/js/pages/requetes/save.js:138-140 — boutons Enregistrer / Copier / Ajouter une carte désactivés tant que la définition n'est pas validée ; ligne 165-167 la bibliothèque est d'abord lue (requetes.library.list) et son caractère persistant annoncé",
+    "src/Domenia.Core/Screens/Requetes/QueryEngine.cs:323-324,435 — les propriétés d'une définition ne sont admises que si QueryCatalog.Find les connaît (sinon refus) : liste blanche des propriétés",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLegacy.cs:29-31 — reprise de la bibliothèque SQLite de Domenia 1 : domenia_query_recipe_revisions, domenia_query_recipe_provenance, domenia_query_recipe_dependencies, chacune bornée en volume et en lignes",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:97-114,147-155 — domenia_query_recipes est projeté (révision, dates, archive, catégorie) et verrouillé par legacy_sha256 : « Bibliothèque Domenia 1 modifiée depuis la reprise ; réconciliation explicite nécessaire, aucune version écrasée »",
+    "tests/Domenia.Tests/QueryLegacyStoreTests.cs:46-51 — révision courante originale conservée, six révisions héritées accessibles, provenance courante et historique, aucune disposition de widget inventée ; lignes 65-66 les originaux Domenia 1 restent intacts ; ligne 78 « mutation historique détectée même quand la définition courante n'a pas changé »",
+    "tests/Domenia.Tests/RequetesOperationsTests.cs:115 — « reçu relu » ; ligne 119 « révision dépassée refusée » (query.revisionChanged) ; lignes 122-127 archive, restauration et retour à une révision avec révision attendue"
+  ],
+  "manque": "Deux garde-fous annoncés ne sont pas dans le chemin d'enregistrement. (1) « refus en maintenance de la base » : QueryLibrary.MutateAsync (src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:481-517) et DomeniaDatabase.UpdateQueryLibraryCoreAsync (src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:24-72) ne consultent jamais l'état de maintenance du stockage (store.Maintenance.Locked / Recovery, utilisé lui par les écritures de stockage src/Domenia.Core/Writes/Storage/StorageWrites.cs:207,358,396) ; seule la file d'écriture unique de la base (DomeniaDatabase.cs:40) sérialise, sans refuser. (2) « boutons désactivés tant que la bibliothèque n'est pas lue et confirmée » : web/js/pages/requetes/save.js:138-140 désactive sur la seule validité de la définition ; la bibliothèque est bien lue à l'ouverture (requetes.library.list, lignes 161-167) mais aucun état « lue et confirmée » ne conditionne les boutons Enregistrer / Copier.",
+  "effort": "S",
+  "depend": ["Domenia.Store (domenia_v2_query_library et archive, src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs)", "catalogue des propriétés (src/Domenia.Core/Screens/Requetes/QueryCatalog.cs)"],
+  "risque": "ecriture-locale"
+}

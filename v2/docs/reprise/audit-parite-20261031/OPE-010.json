@@ -1,0 +1,24 @@
+{
+  "id": "OPE-010",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Operations/WriteKindRules.cs:61-84 — table des types : compensables (object.update, attribute.raw, group.member, object.groups, object.move, account.enable/disable/enabled, account.options, account.expiration) et jamais compensables (account.unlock ligne 63, password.reset et password.expire lignes 69-70, computer.rename ligne 76, ou.create ligne 77, object.delete ligne 78, actions distantes lignes 79-83)",
+    "src/Domenia.Core/Screens/Operations/WriteKindRules.cs:126-129 — tout plan portant un Reset ou un attribut secret (SecretAttributes lignes 156-161, dont unicodePwd, ms-Mcs-AdmPwd, msLAPS-Password, msFVE-RecoveryPassword) refuse la compensation",
+    "src/Domenia.Core/Screens/Operations/WriteKindRules.cs:134-137 — « Issue d'origine non vérifiée : relisez le reçu avant toute compensation » (receipt.Pending ou Verification Unknown) ; lignes 138-141 refus après revue manuelle ; lignes 142-145 rien à compenser ; lignes 146-149 « Valeur relue différente de l'opération : la compensation écraserait un autre changement »",
+    "src/Domenia.Core/Screens/Operations/WriteKindRules.cs:56 — NotCoveredText : « Ne concerne ni le code de Domenia ni ses données locales : seule la modification de l'annuaire est compensée » ; ligne 152 « Jamais automatique »",
+    "src/Domenia.Core/Screens/Operations/CompensationPlanner.cs:37-75 — l'inverse est un plan neuf reconstruit par l'exécuteur typé de chaque type servi (update, enabled, enable/disable, options, expiration, raw, move, member) ; ligne 74 « Aucun plan inverse typé ne sert cette opération »",
+    "src/Domenia.Core/Screens/Operations/CompensationPlanner.cs:86-99 — VerifyInverse : GUID relu différent, DN, contrôleur ou ensemble d'attributs différent = refus ; ligne 96-98 « L'état relu diffère de la valeur écrite, ou l'inverse n'est pas exact » (valeur non relue ou modifiée ailleurs)",
+    "src/Domenia.Core/Screens/Operations/CompensationPlanner.cs:67 — déplacement : first.BeforeValue (ancien conteneur) exigé, sinon « Ancien conteneur inconnu » ; WriteKindRules.cs:75 « Le conteneur d'origine doit encore exister »",
+    "src/Domenia.Core/Screens/Operations/CompensationPlanner.cs:77 — l'inverse repart par circuit.PlanAsync : plan, confirmation, reçu et relecture d'une écriture à part entière",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:161-170 — writeGate.WaitAsync puis inFlight = 1 autour de RunAsync : une seule écriture à la fois sur le canal unique",
+    "src/Domenia.Bridge/Operations/FicheWorkflowOperations.cs:53-61 — fiche.compensation.context : cible actuelle attendue depuis le seul reçu local ; ligne 62-69 fiche.compensation.plan (NetworkRead hors démonstration) « Prépare un inverse exact seulement si la relecture retrouve les valeurs écrites par le reçu »",
+    "web/js/pages/fiche/workflows.js:13 — la fiche ouverte avec le paramètre compenser affiche « Compensation demandée » et le bouton « Relire et préparer l'inverse… » ; ligne 50 write(S.ctx, 'fiche.compensation.plan', { id: S.params.compenser, dn }) ; ligne 53-54 la cible n'est confirmée que si verification === 'verified'",
+    "web/js/write-flow.js:212-218 — le panneau de plan appelle l'opération nommée (ici fiche.compensation.plan) et affiche le plan inverse obtenu avant toute confirmation : le pré-remplissage du plan inverse est bien à l'écran Fiche",
+    "tests/Domenia.Tests/FicheWorkflowTests.cs:27-35 — compensation = plan inverse exact, et refus (code operations.compensationChanged) quand l'état a changé entre-temps ; lignes 46-50 VerifyInverse refuse objet recréé, autre contrôleur et attribut non relu",
+    "tests/Domenia.Tests/OperationsRulesTests.cs:268-276 — « A compensation is offered only for a verified compensable write and read backwards » ; tests/Domenia.Tests/OperationsOperationsTests.cs:190 « un déverrouillage ne se compense pas »"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["circuit d'écriture et reçus (src/Domenia.Core/Writes/WriteCircuit.cs)", "exécuteurs typés des écritures servies (Domenia.Ad/Writes)"],
+  "risque": "ecriture-AD"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "TRV-226",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/web/js/write-flow.js:484 — chaque changement rendu en ligne « Élément | Avant | Après » ; :509-511 — en-tête du tableau « Changement(s) prévu(s) » avec colonnes Élément/Avant/Après",
+    "repo/v2/src/Domenia.Core/Writes/Objects/ObjectWrites.cs:213 — libellé français de l'attribut pris du catalogue (FicheSheets.FieldLabel) ; :227-229 — Responsable (manager/managedBy) : DN remplacé par le nom lisible (FicheValues.DisplayName)",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheSheet.cs:649 — libellés français du catalogue : givenName « Prénom » ; :654 — department « Service » ; et Responsable (FicheSheet.cs:562)",
+    "repo/v2/src/Domenia.Core/Writes/Accounts/AccountActivation.cs:120 — état du compte en mots : « Activé » / « Désactivé »",
+    "repo/v2/src/Domenia.Core/Writes/Objects/ObjectWrites.cs:747 — verrouillage : « Verrouillé » → « Déverrouillé » ; :743 — changement de mot de passe imposé : « Exigé » (pwdLastSet remis à zéro)",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheAttributeRules.cs:245-264 — options du compte en clair (UacFlagsLabel : « Compte désactivé », « Compte verrouillé »…, bits inconnus visibles en hexadécimal)",
+    "repo/v2/src/Domenia.Core/Writes/Objects/ObjectWrites.cs:568 — emplacement par chemin d'OU lisible (FicheValues.ReadablePath) ; :630 — ajout/retrait de membres « Membre (type) » par nom ; :683, :710 — retraits/ajouts d'objets et d'OU en mots clairs",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:149 — valeur absente affichée « (vide) » dans le texte technique",
+    "repo/v2/src/Domenia.Core/Writes/Accounts/AccountPasswordReset.cs:73 — un mot de passe n'est jamais affiché : « Mot de passe actuel (jamais lu) » → « Nouvelle valeur saisie, ni affichée ni conservée », valeurs brutes null",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:137 — le GUID n'apparaît que dans les détails techniques, jamais dans les changements en mots clairs",
+    "repo/v2/tests/Domenia.Tests/WriteCircuitTests.cs:207 — test : le texte « après » du changement est bien « Déverrouillé »"
+  ],
+  "manque": "Rien de bloquant. Les options du compte sont rendues en liste d'attributs marqués (UacFlagsLabel) plutôt que sur le format « oui/non » par option de l'énoncé ; le sens est équivalent et les bits inconnus restent visibles.",
+  "effort": "S",
+  "depend": ["TRV-227"],
+  "risque": "lecture"
+}

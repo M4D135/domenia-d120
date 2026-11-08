@@ -1,0 +1,14 @@
+{
+  "id": "TRV-033",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:31-50 — CheckModules : force GetExportedTypes, BaseType, GetInterfaces et les signatures de méthodes pour chaque assemblage (commentaire ligne 36 : « a partially loadable assembly makes this check fail »), puis Discover et contrôle IsValidScreen ; « Modules absents ou contrat d'écran invalide » lève (ligne 47)",
+    "repo/v2/src/Domenia.App/Program.cs:63-68 — CheckModules n'est appelé que sur le chemin --check-only, avant le retour, et rend « Modules chargés : … »",
+    "repo/v2/src/Domenia.Bridge/OperationModules.cs:82-92 — CreateRegistry vérifie que chaque opération déclarée porte le préfixe de son écran (contrôle d'export au niveau opération)",
+    "repo/v2/tests/Domenia.Tests/StartupPreflightTests.cs:10-30 — CheckModules/DiagnoseAsync : aucun succès fabriqué sur un ensemble vide ou annulé"
+  ],
+  "manque": "Les codes et contrôles propres à D1 n'existent pas : rg ne trouve aucun DOMENIA_MODULE_MISSING, DOMENIA_MODULE_PARSE (avec ligne), DOMENIA_MODULE_EXPORT ni DOMENIA_MODULE_ORIGIN dans src. Le modèle C# compile à la construction, donc il n'y a ni analyse syntaxique préalable à réutiliser par l'import, ni vérification qu'une fonction déclarée « vient exactement de son fichier ». Le contrôle de charge approfondi (CheckModules, StartupPreflight.cs:31-50) n'est branché que sur --check-only (Program.cs:65) : le chemin de démarrage normal (Composition.cs:64,81,84) appelle directement Discover/CreateRegistry sans ce pré-contrôle. Le garde-fou « une fonction plus ancienne d'une portée parente ne peut pas masquer un oubli d'import » n'a aucun équivalent explicite.",
+  "effort": "M",
+  "depend": ["TRV-032 (le plan de modules fermé et ordonné est le support naturel d'un pré-contrôle d'exports)"],
+  "risque": "lecture"
+}

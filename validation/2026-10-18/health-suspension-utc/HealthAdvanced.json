@@ -1,0 +1,90 @@
+{
+  "Suite": "HealthAdvanced",
+  "Passed": true,
+  "Total": 16,
+  "Failed": 0,
+  "WpfExecuted": false,
+  "NetworkUsed": false,
+  "Checks": [
+    {
+      "Name": "Parent dashboard assesses each computer with its own inherited OU thresholds",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Password threshold uses actual date, not the parent SQL bucket",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "A descendant can enable a rule disabled at domain level",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Suspension preserves evidence, excludes rule visibly and expires on next calculation",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Suspension validates UTC expiry, reason, uniqueness and domain inheritance",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "UTC suspension expiries survive typed values, JSON roundtrips and display cultures",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Suspension expiry validation still rejects dates without explicit UTC identity",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Comparisons separate population coverage and policy changes from observed state",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "All cross-table cells keep exact unique GUIDs and include unread dimensions",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 85: model x BIOS cross table reads the dated BIOS probe and keeps unread workstations apart",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 75: per-OU explanation lists masked workstations without scoring them",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 78: a daily comparison names a coverage improvement, not a fleet change",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "RC14 Point 78: the policy fingerprint ignores expired suspensions, stays honest across formats and keeps active edits visible",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 79: every fleet cross table opens as a matrix whose totals match its workstations",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Points 75 to 79: the dashboard dialogs call the tested rules",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "New GUI modules and worker body parse, keyboard and canonical hooks remain present",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

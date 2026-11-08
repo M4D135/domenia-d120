@@ -1,0 +1,19 @@
+{
+    "Name":  "Test-DomeniaSearchCounter",
+    "PID":  4704,
+    "RunnerPID":  1092,
+    "StartedUTC":  "2026-10-13T16:00:47.0716119Z",
+    "Executable":  "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaSearchCounter.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaSearchCounter.json"
+                  ],
+    "ScriptSha256":  "893795e5527c0ead0e2e46a1da499277a556d40cf621855dfe18e6f447fcb065",
+    "TimeoutSeconds":  120
+}

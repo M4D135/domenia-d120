@@ -1,0 +1,20 @@
+[
+    {
+        "File":  "desktop-run.ps1",
+        "Errors":  [
+
+                   ]
+    },
+    {
+        "File":  "native-acceptance-vm.ps1",
+        "Errors":  [
+
+                   ]
+    },
+    {
+        "File":  "web-tests-vm.ps1",
+        "Errors":  [
+
+                   ]
+    }
+]

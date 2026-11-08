@@ -1,0 +1,5 @@
+5 reussi(s), 1 en echec. Rapport : C:\DomeniaLab\RC35-qualification\rc39-final-close\WiringRecherche.json
+  ECHEC D028 LblLiveState porte le libelle de la regle : Ecriture non lancee ou non comptee : The term 'Get-DomeniaQueryLibraryDefinitionValidationCode' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again. @ at Expect, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 23
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 834
+at Case, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 26
+at <ScriptBlock>, C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaWiringRecherche.ps1: line 809

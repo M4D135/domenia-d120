@@ -1,0 +1,48 @@
+{
+    "Suite":  "StoragePreferences",
+    "PowerShell":  "5.1.26100.6584",
+    "Passed":  9,
+    "Failed":  0,
+    "DiskRoundtrip":  true,
+    "ProductionPreferencesTouched":  false,
+    "CoreSha256":  "D0F72C209121A26CBFF14EAE9B35F371AEC1F534B0AF81CAD77CCFE468D61874",
+    "ModelSha256":  "88877B3908B9CC0453A3EBF3C6FE35E0112FFFF0EA646B31E5E0DF2D93E6AFB4",
+    "Results":  [
+                    {
+                        "Name":  "Enabled automatic policy and retention settings survive two disk reloads",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Restored database choice is available before startup opens any local store",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Disabled policy remains explicit after reload",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Last success and verified receipt survive reload independently for each store",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "A chosen dashboard OU is a scoped setting and survives reload",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Unknown keys, invalid store names and non-string values remain rejected",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Complete snapshot restores layouts and query choices without restoring old paths or identities",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Preference write failure rolls back current layouts and leaves the active database choice intact",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Extra preference size and count limits remain enforced",
+                        "Passed":  true
+                    }
+                ]
+}

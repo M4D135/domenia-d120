@@ -1,0 +1,345 @@
+{
+  "Status": "PASS",
+  "New": [],
+  "Fixed": [],
+  "Counts": {
+    "Quotes": 52,
+    "Retired": 0,
+    "HelpOrphans": 0,
+    "Guides": 0,
+    "Figures": 0
+  },
+  "GuideQuotes": 1410,
+  "HelpEntries": 813,
+  "Captures": {
+    "ProvenanceManifestSHA256": "26E8264719535A8E87A7FCA5B09C106168EDF4150E14AE815E905C5606BB6811",
+    "CurrentManifestSHA256": "94784A8D28502CB9DB3503F6962F9D6F6F05E0304DA6DABF1930602095C12C3B",
+    "Current": false,
+    "Basis": "VerifiedRuntime",
+    "ProvenanceRuntimeManifestSHA256": "94C361C5B5FE05FA07B083B14F5C34FBDD4079F43D01791C4373C4165DEF41D0",
+    "CurrentRuntimeManifestSHA256": "90C251CBDD2B8B94198AEE911FF4D2FEC911314D736084F69D4C731677C260F5"
+  },
+  "CapturesNote": "Captures non liées au runtime courant : les refaire avec guides/captures/capture-guides.ps1 avant une livraison.",
+  "Gaps": {
+    "Quotes": [
+      {
+        "Guide": "administrateur.md",
+        "Line": 67,
+        "Quote": "Dans « Postes",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 131,
+        "Quote": "OU Postes, sous-OU",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 131,
+        "Quote": "recherche « PC",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 206,
+        "Quote": "Jean Dupont → GG-Lyon → GG-Compta",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 235,
+        "Quote": "Camille Martin · console observée le 08/10 à 08:15",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 260,
+        "Quote": "Intervention autorisée 4:59 · Retirer",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 260,
+        "Quote": "Aller à Assistance poste > Intervenir",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 286,
+        "Quote": "Disque C (C$) de",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 286,
+        "Quote": "ouvert avec",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 305,
+        "Quote": "Opérations poste : DOMAINE\\adm-poste (compte poste saisi, en mémoire seulement).",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 305,
+        "Quote": "Opérations poste : session Windows (DOMAINE\\technicien).",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 382,
+        "Quote": "couverture 90 % (18 évalué(s) sur 20)",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 501,
+        "Quote": "Postes actifs : ping N/M (du… au…) · inventaire WMI N/M (du… au…)",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 651,
+        "Quote": "Enregistrement de la disposition",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 664,
+        "Quote": "Absent du dernier relevé du …",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 685,
+        "Quote": "Lu sur le poste",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 710,
+        "Quote": "Grille",
+        "Current": [
+          "En-tete de grille"
+        ]
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 719,
+        "Quote": "catalogue seulement",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 719,
+        "Quote": "Affichage initial",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1004,
+        "Quote": "quʼest-ce qui a changé sur ce poste",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1071,
+        "Quote": "2026-10-08T07:15:00.0000000Z",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1071,
+        "Quote": "2026-10-08 09:15:00",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1090,
+        "Quote": "Continuer en tant que DOMAINE\\nom",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1096,
+        "Quote": "Continuer en tant que DOMAINE\\nom",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1104,
+        "Quote": "Identifiant ou mot de passe refusé. Vérifiez la saisie avant un nouvel essai.",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1106,
+        "Quote": "Compte verrouillé. Demandez son déverrouillage puis réessayez.",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1107,
+        "Quote": "Compte désactivé. Demandez sa réactivation puis réessayez.",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1108,
+        "Quote": "Mot de passe expiré. Changez-le (Ctrl+Alt+Suppr, Modifier un mot de passe) puis réessayez.",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1115,
+        "Quote": "Erreur interne pendant la connexion. Elle ne prouve pas un mauvais mot de passe. …",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1149,
+        "Quote": "Essentiel | Expert",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1168,
+        "Quote": "Écriture active · 15 min",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1202,
+        "Quote": "Domenia · Connexion · diagnostic",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1429,
+        "Quote": "Continuer en tant que DOMAINE\\nom",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1576,
+        "Quote": "Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1663,
+        "Quote": "sauvegardée à lʼinstant",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1667,
+        "Quote": "sauvegardée il y a …",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1690,
+        "Quote": "Actualisation non lancée : lʼOU, la base ou la session a changé pendant la sauvegarde ; aucune lecture AD. Cliquez à nouveau pour lʼOU affichée.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 10,
+        "Quote": "Continuer en tant que DOMAINE\\votre-compte",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 28,
+        "Quote": "Dans « Postes",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 29,
+        "Quote": "Chercher aussi les noms qui contiennent « compta",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 31,
+        "Quote": "Camille Martin · Observé",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 103,
+        "Quote": "compta*",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 124,
+        "Quote": "Camille Martin · console observée le 08/10 à 08:15",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 128,
+        "Quote": "Poste · nom",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 201,
+        "Quote": "2 points à vérifier · 1 information",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 280,
+        "Quote": "Relevé impossible : 812 postes affichés : plafond 500. Filtrez la liste.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 281,
+        "Quote": "Relevé impossible : Recherche globale sans terme…",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 282,
+        "Quote": "Relevé impossible : Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 283,
+        "Quote": "Relevé impossible : Attendez la confirmation des enregistrements locaux avant un nouveau relevé.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 284,
+        "Quote": "Relevé impossible : Aucune base autonome active.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 597,
+        "Quote": "Essentiel | Expert",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 604,
+        "Quote": "Écriture active · 12 min",
+        "Current": []
+      }
+    ],
+    "Retired": [],
+    "HelpOrphans": [],
+    "Guides": [],
+    "Figures": []
+  }
+}

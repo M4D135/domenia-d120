@@ -1,0 +1,17 @@
+{
+  "id": "TRV-029",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/Program.cs:152 — --check-only / -CheckOnly reconnu ; ligne 161 : refusé s'il n'est pas seul sur la ligne de commande",
+    "repo/v2/src/Domenia.App/Program.cs:54 — CheckPackage exécute le contrôle d'intégrité complet (PackageIntegrity) avant le diagnostic",
+    "repo/v2/src/Domenia.App/Program.cs:62-67 — OperationModules.LoadDomeniaAssemblies puis StartupPreflight.CheckModules, message « Modules chargés : … Aucun accès AD, aucune fenêtre ou minuterie applicative. », retour 0",
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:31-50 — CheckModules charge réellement les assemblages, force GetExportedTypes/BaseType/Interfaces/Signatures et OperationModules.Discover dans une portée locale jetable ; CreateOperations/handlers volontairement non appelés (ligne 48)",
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:15 — contrat : aucun profil, navigateur, authentification, fournisseur ni minuterie applicative",
+    "repo/v2/src/Domenia.App/Program.cs:74 — échec du contrôle local : message + code de sortie 1, « Aucun accès AD. »",
+    "repo/v2/tests/Domenia.Tests/StartupPreflightTests.cs:23-28 — DiagnoseAsync sur assemblages valides/vides/annulés : jamais de succès fabriqué"
+  ],
+  "manque": "Le format de résultat D1 n'est pas rendu : pas de ligne « Runtime <build> : n fichiers vérifiés en x ms (plafond) » (le compte d'intégrité est écrit séparément, Program.cs:179-181) et surtout le nombre de fichiers aux fins de ligne différentes (CRLF/LF) n'est nulle part compté — la tolérance CRLF elle-même manque (voir TRV-025). Le garde-fou « code de sortie 0 ou 1 » est dépassé : un refus d'intégrité sort avec 2 (Program.cs:55). Aucune test dédié au chemin --check-only de Program (les tests ne couvrent que les arguments --selftest, StartupPreflightTests.cs:33, et CheckModules indirectement). Le paramètre -Diagnostic de D1 (déclaré inutilisé) est remplacé par --selftest réellement implémenté (StartupPreflight.cs:52).",
+  "effort": "S",
+  "depend": ["TRV-025 (comptage CRLF/LF à implémenter d'abord)"],
+  "risque": "lecture"
+}

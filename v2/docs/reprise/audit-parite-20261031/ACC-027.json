@@ -1,0 +1,23 @@
+{
+  "id": "ACC-027",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/HealthPolicy.cs:109 — MaxCustomRules = 32 ; la validation refuse tout dépassement (ligne 234) et toute règle hors bornes (lignes 242-249)",
+    "src/Domenia.Core/Screens/Accueil/HealthPolicy.cs:243 — mesure « Query » acceptée seulement avec opérateur « Matches » et liaison HealthQueryRules.Valid, sinon « Règle personnalisée invalide » (ligne 249)",
+    "src/Domenia.Core/Screens/Accueil/HealthQueryRules.cs:42 — Freeze refuse une requête archivée, d'une autre révision que celle affichée, ou ne portant pas sur les postes (ligne 46)",
+    "src/Domenia.Core/Screens/Accueil/HealthQueryRules.cs:30 — Valid recompile la définition et exige id 32 hex + empreinte SHA-256 + empreinte et id concordants avec le calcul (lignes 36-37)",
+    "src/Domenia.Core/Screens/Accueil/HealthQueryRules.cs:51 — Evaluate lit uniquement l'instantané (dataset + bibliothèque) : aucune collecte lancée ; requête absente ou archivée → aucun état, donc inconnu (ligne 56) ; révision figée re-vérifiée par empreinte (ligne 60)",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:98 — QueryState renvoie MatchState.Unknown par défaut, d'où les trois états correspond / ne correspond pas / inconnu",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:494 — une règle Query ne signale un poste que sur MatchState.Match ; les inconnus sortent du score sain (ligne 892) et restent cliquables (ligne 1048)",
+    "src/Domenia.Bridge/Operations/AccueilOperations.cs:132 — opération « accueil.health.query » en OperationClass.LocalRead qui fige la révision demandée",
+    "web/js/pages/accueil/health.js:238 — le panneau alertes fige la requête choisie (accueil.health.query) puis ajoute la règle measure Query ; limite des 32 rappelée ligne 205",
+    "tests/Domenia.Tests/HealthQueryTests.cs:31 — test des trois états (Match / NoMatch / Unknown), empreinte altérée refusée (ligne 23), requête archivée ne transformant aucun poste en sain (ligne 48)",
+    "tests/Domenia.Tests/HealthQueryTests.cs:55 — aller-retour des préférences conservant la définition et la révision exactes, lien de dépendance libéré au retrait, refus d'une requête archivée confirmée",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:493 — le switch des mesures personnalisées ne couvre que DiskFree et UptimeDays : « MemoryUsed » n'est jamais comparé à son seuil sur l'accueil",
+    "src/Domenia.Core/Screens/Poste/PosteBoardBuilder.cs:826 — la mesure « MemoryUsed » n'est évaluée que sur la fiche poste (resources.Memory?.Percent), pas sur le tableau du parc"
+  ],
+  "manque": "Alerte personnalisée « Mémoire utilisée (%) » jamais évaluée sur l'accueil : FleetBoardCalculator.cs:493 ne compare pas MemoryUsed, la ligne 892 classe toute règle MemoryUsed comme non évaluée et la ligne 993 (dictionnaire « measures ») ne connaît que DiskFree et UptimeDays, donc le seuil saisi dans l'interface (web/js/pages/accueil/health.js:19) ne peut jamais déclencher de point d'attention ni afficher de dénominateur. Aucun test ne couvre les règles personnalisées sur mesures (DiskFree, UptimeDays, MemoryUsed) côté accueil : les deux seules occurrences de CustomHealthRule dans tests/ (HealthQueryTests.cs:35 et :60) portent sur la mesure Query.",
+  "effort": "M",
+  "depend": ["ACC-048", "atelier de requêtes (bibliothèque « Mes requêtes »)"],
+  "risque": "ecriture-locale"
+}

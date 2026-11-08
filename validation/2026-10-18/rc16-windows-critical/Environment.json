@@ -1,0 +1,30 @@
+{
+    "DateUtc":  "2026-10-18T07:36:10.1872407Z",
+    "Computer":  "W11-01",
+    "PSVersion":  "5.1.26100.6584",
+    "PSEdition":  "Desktop",
+    "Is64Bit":  true,
+    "Apartment":  "STA",
+    "SessionId":  0,
+    "FreeGB":  43,
+    "SourceCommit":  "1a8cd5a2875dbec1488bf31ab77d715d53918f5a",
+    "Packs":  [
+                  {
+                      "Edition":  "prod",
+                      "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.16-D120",
+                      "ArchiveSha256":  "fdfd170c74823f318731e581fec7504dd47a0363933d10aa5fc0366361e95f2a",
+                      "ManifestFilesVerified":  172,
+                      "RuntimeFiles":  172
+                  },
+                  {
+                      "Edition":  "dev",
+                      "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.16-D120",
+                      "ArchiveSha256":  "1c0c97ce8f51c5ebfff005277c6a26d72824efc46d360727358b6df920662f64",
+                      "ManifestFilesVerified":  642,
+                      "RuntimeFiles":  172
+                  }
+              ],
+    "IdenticalRuntime":  true,
+    "LiveAD":  false,
+    "Scope":  "Four critical areas only; selected deterministic fixtures and native SQLite/WPF. Not full acceptance."
+}

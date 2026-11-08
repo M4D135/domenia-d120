@@ -1,0 +1,19 @@
+{
+  "id": "TRV-163",
+  "verdict": "fait-sans-test",
+  "preuves": [
+    "repo/v2/web/js/kit/tabs.js:1-2,16 — « panels rendered on first display only (heavy tabs cost nothing until opened: Domenia 1, TRV-163) » ; render appelé une seule fois, à la première ouverture",
+    "repo/v2/web/js/pages/fiche.js:83-87 — withTab : « tabs render on their first opening », monté dans S.mounted à l'ouverture seulement",
+    "repo/v2/web/js/pages/fiche/attributes.js:132-150 — la lecture fiche.attributes part au montage de l'onglet (donc à sa première visibilité), pas à l'affichage de la fiche",
+    "repo/v2/web/js/pages/fiche/rights.js:47-64,92 — la liste d'accès (fiche.rights) ne part que sur geste explicite (« Estimation non demandée ») ; refresh() remet data à null (périmé) sans relire",
+    "repo/v2/web/js/pages/fiche.js:242-243 — changement de signature de l'objet (écriture, relecture) : refresh des onglets montés ; fiche.js:69 — « Relire » ne forget que le cache de cet objet",
+    "repo/v2/web/js/shell/window-activity.js:5-16 — visibilitychange + focus + état natif adoptés ; pulse.setState({ visible: host.visible && !document.hidden })",
+    "repo/v2/web/js/shell/pulse.js:5-6 — allowed() : aucune lecture périodique quand visible=false ou (background et !active||writing) ; :43-51 — rattrapage unique à la ré-affichage",
+    "repo/v2/src/Domenia.App/MainForm.Activity.cs:13 — WindowActivityState(Visible && WindowState != Minimized) ; MainForm.cs:91-94 — PublishWindowActivity sur Activated/Deactivate/Resize/VisibleChanged",
+    "repo/v2/src/Domenia.Bridge/Operations/FicheOperations.cs:401,545 — opérations fiche.attributes (LocalRead) et fiche.rights (NetworkRead) distinctes de fiche.read"
+  ],
+  "manque": "Pas de test dédié au rendu différé des onglets : aucun fichier de tests n'importe createTabs (rg createTabs repo/v2/tests = rien) ; le cas « onglet lourd non calculé tant qu'il n'est pas visible, recalculé une fois au retour » n'est pas prouvé par un test. Les volets visibles/active du pulse sont en revanche testés (repo/v2/tests/web/page-pulse.test.mjs:29-52).",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "TRV-035",
+  "verdict": "a-faire",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryEngine.cs:9 — QueryEngine est une classe C# statique compilée du projet (namespace Domenia.Core.Queries) : code source interne, pas une bibliothèque commune externe épinglée",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryModels.cs:242,263 — le versionnage est celui du format de recette (Domenia 1 « Domenia.Query/1 » et « /2 », Domenia 2 « Domenia.Query/3 », FormatV1 = \"Domenia.Query/1\") : ce n'est pas un manifeste de provenance (ni dépôt amont, ni commit, ni version 0.1.1-domenia.1)",
+    "find repo/v2 : aucun fichier « Domenia-CommonLibrary.json » ni « M4D.Admin.Common.Query.dll » ; vendor/ ne contient que des paquets NuGet (webview2, system.codedom, system.directoryservices, system.management)",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:88-105 — la seule revérification d'empreinte au chargement est le manifeste général du paquet (SHA-256 de chaque composant), pas un enregistrement de provenance par bibliothèque"
+  ],
+  "manque": "Tout ce que décrit la fonction est absent. Il n'existe aucun Domenia-CommonLibrary.json déclarant la provenance du moteur de requêtes partagé QueryEngine : ni le dépôt amont m4d-admin-common, ni le commit, ni la version 0.1.1-domenia.1, ni le SHA-256 de la source et de la DLL, ni l'indicateur de modification locale par rapport à l'amont, ni RuntimeDownload=false. Aucune M4D.Admin.Common.Query.dll n'est livrée ni revérifiée au chargement en tant que bibliothèque commune distincte (le moteur est du code source interne à Domenia.Core). Le garde-fou « hash de la DLL revérifié au chargement » n'existe que de façon générique via le manifeste du paquet (PackageIntegrity), jamais rattaché à une provenance déclarée de la bibliothèque commune.",
+  "effort": "M",
+  "depend": ["TRV-034 (épinglage SHA-256 de la bibliothèque commune au chargement)"],
+  "risque": "lecture"
+}

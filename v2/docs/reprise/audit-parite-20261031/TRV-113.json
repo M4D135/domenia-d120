@@ -1,0 +1,21 @@
+{
+  "id": "TRV-113",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Bridge/Operations/PosteOperations.cs:158-162 — opération poste.running → session.Running() : « Relevés en cours dans la session, tous postes : la page nomme ceux d'un autre poste » = état de la portée Poste",
+    "src/Domenia.Bridge/Operations/PosteOperations.cs:164-175 — poste.collect.stop arrête un relevé de la portée Poste par kind (inventory/diagnostic/probes/detection) : arrêt propre à la portée Poste",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:159 + :178-183 — desk.RunsAsync (portée Liste) et operations.survey.stop (StopBatch) : état + arrêt propres à la portée Liste, distincts de ceux de la portée Poste",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:95-98 operations.task.stop, :164 survey.resume, :187 survey.forget, :193 survey.postpone — cycle de vie indépendant du relevé de liste ; src/Domenia.Bridge/Operations/PosteOperations.cs:149 « arrêtable, résultat partiel à l'arrêt » pour le relevé de poste",
+    "web/js/pages/poste.js:111-126 — state.running + refreshRunning() alimenté par ctx.call('poste.running'), isRunning(kind) et stop(kind) ; abonnement pulse dédié web/js/pages/poste.js: const poll = ctx.pulse.every('running', 1500, …, { background: true }) = minuteur d'état propre à la portée Poste",
+    "web/js/pages/rechercher.js — abonnements pulse séparés 'search.list-check' et 'search.reconcile' + runState(done/total) et arrêt du relevé : minuteur/état/arrêt propres à la portée Liste ; web/js/app.js const stop = every('page.<id>.<name>', …) retourne un stop par abonnement → minuteurs indépendants par écran/portée",
+    "web/js/shell/pulse.js:1-33 — planificateur « protégé » : une seule horloge, now()=performance.now() monotone, jamais de chevauchement d'un même abonné (busy), échecs bornés à 3, rattrapage unique au retour visible (l.46-49) ; tests/web/shell/pulse.test.mjs:21-30 — deux abonnés ('slow','fast') avancent indépendamment, l'un lent ne bloque pas l'autre"
+  ],
+  "manque": "Deux points du contrat non établis ou en tension, vérifiés : (1) garde-fou « un relevé d'une portée ne bloque jamais l'autre » — l'indépendance est prouvée au niveau des minuteurs (abonnements pulse distincts, stop par abonnement) et des routes (poste.collect.stop vs operations.survey.stop), mais pas au niveau de l'ordonnancement des lectures : les deux portées partagent le même pool de workers CIM (src/Domenia.Inventory/WmiReadWorkers.cs:8, SemaphoreSlim 6) et l'admission du pont (BridgeAdmission), sans slot réservé par portée ; une rafale de lectures « Liste » peut monopoliser les 6 places et faire attendre un relevé « Poste » (refus machine.busy). (2) garde-fou « minuteur protégé qui tourne aussi fenêtre réduite » — le planificateur est bien protégé (horloge monotone sans dérive, rattrapage à la réaffichation, pas de relance réseau à l'activation) mais il NE tourne pas quand la fenêtre est réduite/masquée : allowed exige state.visible et le test web/js/shell/pulse.test.mjs:40-52 « masqué dort » confirme qu'en visible:false tout abonnement est mis en veille, et les abonnements background (dont le suivi poste 'running') exigent en plus active et se suspendent pendant writing (web/js/shell/window-activity.js:7 visible dérivé de document.hidden + état hôte). Le relevé lui-même continue côté moteur (suivi dans la session), mais le minuteur d'affichage ne bat pas en fenêtre réduite. À clarifier : le geste hôte « fenêtre réduite » envoie-t-il visible:false (veille) ou seulement active:false (les abonnements non-background continueraient).",
+  "effort": "M",
+  "depend": [
+    "TRV-109 (état/progression des campagnes partagé)",
+    "Rechercher survey (portée Liste) et PosteSession/collect (portée Poste)",
+    "pool WmiReadWorkers + BridgeAdmission (pour garantir la non-interférence entre portées)"
+  ],
+  "risque": "reseau"
+}

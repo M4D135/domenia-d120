@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : indicateurs et vue d’ensemble alignée",
+  "description": "Ouvre la console de PC-PAR-0001 : le bandeau montre disque système, mémoire, démarrage et échéance LAPS (sans répéter l’en-tête) ; un clic sur l’échéance LAPS mène aux secrets ; la protection d’un poste ne se dit jamais saine sur ce qui n’est pas lu.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001",
+  "steps": [
+    { "do": "expect", "selector": ".ps-kpis .ps-kpi", "count": 4, "title": "Quatre indicateurs" },
+    { "do": "expect", "contains": "Points d’attention", "within": "[data-slot=health]", "title": "Points d’attention, le score reste dans l’en-tête" },
+    { "do": "expect", "contains": "État de la protection", "title": "Liste de protection présente" },
+    { "do": "shot", "name": "vue-ensemble" },
+    { "do": "click", "selector": ".ps-kpi[data-go=secrets]", "title": "Échéance LAPS" },
+    { "do": "expect", "selector": "[data-slot=laps]", "title": "La vue Secrets est ouverte" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

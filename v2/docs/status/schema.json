@@ -1,0 +1,24 @@
+{
+  "fait": [
+    "MAC-002",
+    "SCH-007",
+    "SCH-008"
+  ],
+  "ameliore": [
+    "SCH-001",
+    "SCH-002",
+    "SCH-003",
+    "SCH-004",
+    "SCH-005",
+    "SCH-006",
+    "MAC-001",
+    "MAC-003"
+  ],
+  "partiel": [],
+  "notes": [
+    "Relève OpenCode (22/10/2026) : tour 1 du critique traité par c592077, vérifié ; compilation Debug et Release 0 erreur, 0 avertissement.",
+    "Ajouts de la relève : transitions limitées à transform et opacity (schema.css, machine.css), conformément au kit.",
+    "À l’intégration : poser mountMachineAccount (web/js/pages/machine/panel.js) dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir (MAC-002).",
+    "Intégration (22/10) : pastille « Compte poste » dans l’en-tête du Poste et phrase dans les outils d’Intervenir (MAC-002)."
+  ]
+}

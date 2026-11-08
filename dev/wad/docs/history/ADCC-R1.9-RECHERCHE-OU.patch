@@ -1,0 +1,673 @@
+--- dev/wad/ADCC-Core.ps1
++++ ADCC/wad/ADCC-Core.ps1
+@@ -3605,8 +3605,8 @@
+       </Setter>
+     </Style>
+   <Style TargetType="ComboBoxItem"><Setter Property="Padding" Value="9,6"/><Setter Property="Background" Value="{DynamicResource BgInput}"/><Setter Property="Foreground" Value="{DynamicResource TextColor}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem"><Border x:Name="UxComboItem" CornerRadius="5" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"><ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"/></Border><ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="UxComboItem" Property="Background" Value="{DynamicResource RowSelBg}"/><Setter Property="Foreground" Value="{DynamicResource RowSelFg}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style><Style TargetType="ToolTip"><Setter Property="MaxWidth" Value="410"/><Setter Property="Background" Value="#243248"/><Setter Property="Foreground" Value="#FFFFFF"/><Setter Property="BorderBrush" Value="#52627B"/><Setter Property="Padding" Value="12,10"/><Setter Property="FontSize" Value="12"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="9" Padding="{TemplateBinding Padding}"><ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"><ContentPresenter.Resources><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="MaxWidth" Value="378"/><Setter Property="Foreground" Value="#FFFFFF"/></Style></ContentPresenter.Resources></ContentPresenter></Border></ControlTemplate></Setter.Value></Setter><Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="430"/></DataTemplate></Setter.Value></Setter></Style><Style x:Key="UxWorkspaceHost" TargetType="TabControl"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="KeyboardNavigation.TabNavigation" Value="Continue"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl"><ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Margin="{TemplateBinding Padding}" SnapsToDevicePixels="True"/></ControlTemplate></Setter.Value></Setter></Style><Style x:Key="UxNavButton" TargetType="Button" BasedOn="{StaticResource BaseButton}"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Margin" Value="0,2"/><Setter Property="Padding" Value="12,11"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="MinHeight" Value="44"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="UxNavBorder" CornerRadius="10" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="0" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="UxNavBorder" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger><Trigger Property="Tag" Value="Active"><Setter TargetName="UxNavBorder" Property="Background" Value="{DynamicResource RowSelBg}"/><Setter Property="Foreground" Value="{DynamicResource AccentText}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="UxNavBorder" Property="BorderThickness" Value="2"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style><Style x:Key="UxEmptyResults" TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Setter Property="IsHitTestVisible" Value="False"/><Setter Property="Background" Value="{DynamicResource BgCard}"/><Setter Property="CornerRadius" Value="12"/><Setter Property="Margin" Value="1,37,1,1"/><Style.Triggers><DataTrigger Binding="{Binding Items.Count, ElementName=DgObjects}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style><Style TargetType="Expander"><Setter Property="Foreground" Value="{DynamicResource TextColor}"/><Setter Property="Background" Value="Transparent"/></Style><Style TargetType="ListBox"><Setter Property="Foreground" Value="{DynamicResource TextColor}"/><Setter Property="Background" Value="Transparent"/></Style><Style TargetType="GroupBox"><Setter Property="Foreground" Value="{DynamicResource TextColor}"/><Setter Property="Background" Value="Transparent"/></Style><Style TargetType="MenuItem"><Setter Property="ToolTipService.ShowOnDisabled" Value="True"/><Setter Property="ToolTip" Value="Action du menu. Vérifiez la sélection avant toute modification."/></Style></Window.Resources>
+-  <Grid><ScrollViewer x:Name="RootScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{DynamicResource WindowBg}"><Grid MinWidth="940" MinHeight="600" Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"><Grid.ColumnDefinitions><ColumnDefinition Width="204"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border x:Name="UxSidebar" Grid.Column="0" Background="{DynamicResource UxSidebar}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,1,0" Padding="14"><DockPanel LastChildFill="True"><StackPanel DockPanel.Dock="Top" Margin="10,14,0,22"><TextBlock FontSize="27" FontWeight="Bold"><Run Text="AD"/><Run Text="⚡CC" Foreground="{DynamicResource AccentText}"/></TextBlock><TextBlock Text="Votre console d’assistance" FontSize="11" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,0"/></StackPanel><StackPanel DockPanel.Dock="Bottom" Margin="8,16,0,6"><TextBlock Text="ADCC 1.0 · R1.7" Foreground="{DynamicResource MutedColor}" FontSize="11"/><TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"/></StackPanel><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="UxNavigation"><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Accueil." Uid="TabDashboard" x:Name="BtnUxNavHome" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accueil" AutomationProperties.HelpText="Ouvrir : Accueil."><StackPanel Orientation="Horizontal"><Path Data="M2,11 L12,3 22,11 M5,10 L5,22 10,22 10,15 15,15 15,22 20,22 20,10" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Accueil" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Rechercher." Uid="WsSearch" x:Name="BtnUxNavSearch" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Ouvrir : Rechercher."><StackPanel Orientation="Horizontal"><Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Rechercher" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Annuaire." Uid="TabDirectory" x:Name="BtnUxNavDirectory" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuaire" AutomationProperties.HelpText="Ouvrir : Annuaire."><StackPanel Orientation="Horizontal"><Path Data="M2,6 L10,6 12,9 23,9 23,22 2,22 Z M2,6 L2,3 10,3 13,6 22,6 22,9" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Annuaire" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Fiche." Uid="WsObject" x:Name="BtnUxNavObject" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiche" AutomationProperties.HelpText="Ouvrir : Fiche."><StackPanel Orientation="Horizontal"><Path Data="M17,7 A5,5 0 1 1 7,7 A5,5 0 1 1 17,7 M3,23 C3,13 21,13 21,23" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Fiche" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Relations." Uid="TabRelations" x:Name="BtnUxNavRelations" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relations" AutomationProperties.HelpText="Ouvrir : Relations."><StackPanel Orientation="Horizontal"><Path Data="M10,8 L14,4 C19,-1 27,7 21,12 L16,17 M14,16 L10,21 C5,26 -3,18 3,12 L8,7 M8,16 L16,8" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Relations" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Assistance poste." Uid="WsComputer" x:Name="BtnUxNavComputer" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Assistance poste" AutomationProperties.HelpText="Ouvrir : Assistance poste."><StackPanel Orientation="Horizontal"><Path Data="M2,3 L23,3 23,18 2,18 Z M12,18 L12,23 M7,23 L18,23" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Assistance poste" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Atelier support." Uid="TabSupport" x:Name="BtnUxNavSupport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Atelier support" AutomationProperties.HelpText="Ouvrir : Atelier support."><StackPanel Orientation="Horizontal"><Path Data="M4,7 L20,7 20,23 4,23 Z M8,7 L8,3 16,3 16,7 M8,12 L16,12 M8,16 L16,16" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Atelier support" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Comptes." Uid="TabAccounts" x:Name="BtnUxNavAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Ouvrir : Comptes."><StackPanel Orientation="Horizontal"><Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Comptes" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Outils." Uid="TabApplicationTools" x:Name="BtnUxNavTools" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils" AutomationProperties.HelpText="Ouvrir : Outils."><StackPanel Orientation="Horizontal"><Path Data="M4,3 L9,8 7,12 3,10 Q1,18 10,18 L18,25 23,20 16,13 Q17,4 9,3" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Outils" VerticalAlignment="Center"/></StackPanel></Button></StackPanel></ScrollViewer></DockPanel></Border><Grid Grid.Column="1" Margin="18,12,16,12"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="230"/><RowDefinition Height="8"/><RowDefinition x:Name="UxLogRow" Height="142" MinHeight="42"/></Grid.RowDefinitions><Grid x:Name="UxHeader" Grid.Row="0" Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid Margin="0,0,12,0" MaxWidth="680" HorizontalAlignment="Stretch"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid><TextBox x:Name="TxtGlobalSearch" ToolTip="Saisissez un nom, un identifiant, une adresse mail, un UPN ou un nom de poste. Entrée lance la recherche AD. Ctrl+F place le curseur ici." Margin="0" MinHeight="40" Padding="12,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Saisissez un nom, un identifiant, une adresse mail, un UPN ou un nom de poste. Entrée lance la recherche AD. Ctrl+F place le curseur ici."/>
+-                  <TextBlock Text="Rechercher une personne, un poste…" Margin="13,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" IsHitTestVisible="False" x:Name="UxSearchPlaceholder"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtGlobalSearch}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid><Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Lance la recherche avec les filtres choisis. Les éventuels contrôles de présence utilisent la configuration existante de l’application." Grid.Column="1" Height="40" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans AD" AutomationProperties.HelpText="Lance la recherche avec les filtres choisis. Les éventuels contrôles de présence utilisent la configuration existante de l’application."/>
++  <Grid><ScrollViewer x:Name="RootScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{DynamicResource WindowBg}"><Grid MinWidth="940" MinHeight="600" Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"><Grid.ColumnDefinitions><ColumnDefinition Width="204"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border x:Name="UxSidebar" Grid.Column="0" Background="{DynamicResource UxSidebar}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,1,0" Padding="14"><DockPanel LastChildFill="True"><StackPanel DockPanel.Dock="Top" Margin="10,14,0,22"><TextBlock FontSize="27" FontWeight="Bold"><Run Text="AD"/><Run Text="⚡CC" Foreground="{DynamicResource AccentText}"/></TextBlock><TextBlock Text="Votre console d’assistance" FontSize="11" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,0"/></StackPanel><StackPanel DockPanel.Dock="Bottom" Margin="8,16,0,6"><TextBlock Text="ADCC 1.0 · R1.9" Foreground="{DynamicResource MutedColor}" FontSize="11"/><TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"/></StackPanel><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="UxNavigation"><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Accueil." Uid="TabDashboard" x:Name="BtnUxNavHome" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accueil" AutomationProperties.HelpText="Ouvrir : Accueil."><StackPanel Orientation="Horizontal"><Path Data="M2,11 L12,3 22,11 M5,10 L5,22 10,22 10,15 15,15 15,22 20,22 20,10" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Accueil" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Rechercher." Uid="WsSearch" x:Name="BtnUxNavSearch" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Ouvrir : Rechercher."><StackPanel Orientation="Horizontal"><Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Rechercher" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Fiche." Uid="WsObject" x:Name="BtnUxNavObject" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiche" AutomationProperties.HelpText="Ouvrir : Fiche."><StackPanel Orientation="Horizontal"><Path Data="M17,7 A5,5 0 1 1 7,7 A5,5 0 1 1 17,7 M3,23 C3,13 21,13 21,23" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Fiche" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Relations." Uid="TabRelations" x:Name="BtnUxNavRelations" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relations" AutomationProperties.HelpText="Ouvrir : Relations."><StackPanel Orientation="Horizontal"><Path Data="M10,8 L14,4 C19,-1 27,7 21,12 L16,17 M14,16 L10,21 C5,26 -3,18 3,12 L8,7 M8,16 L16,8" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Relations" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Assistance poste." Uid="WsComputer" x:Name="BtnUxNavComputer" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Assistance poste" AutomationProperties.HelpText="Ouvrir : Assistance poste."><StackPanel Orientation="Horizontal"><Path Data="M2,3 L23,3 23,18 2,18 Z M12,18 L12,23 M7,23 L18,23" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Assistance poste" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Atelier support." Uid="TabSupport" x:Name="BtnUxNavSupport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Atelier support" AutomationProperties.HelpText="Ouvrir : Atelier support."><StackPanel Orientation="Horizontal"><Path Data="M4,7 L20,7 20,23 4,23 Z M8,7 L8,3 16,3 16,7 M8,12 L16,12 M8,16 L16,16" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Atelier support" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Comptes." Uid="TabAccounts" x:Name="BtnUxNavAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Ouvrir : Comptes."><StackPanel Orientation="Horizontal"><Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Comptes" VerticalAlignment="Center"/></StackPanel></Button><Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Outils." Uid="TabApplicationTools" x:Name="BtnUxNavTools" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils" AutomationProperties.HelpText="Ouvrir : Outils."><StackPanel Orientation="Horizontal"><Path Data="M4,3 L9,8 7,12 3,10 Q1,18 10,18 L18,25 23,20 16,13 Q17,4 9,3" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False"/><TextBlock Text="Outils" VerticalAlignment="Center"/></StackPanel></Button></StackPanel></ScrollViewer></DockPanel></Border><Grid Grid.Column="1" Margin="18,12,16,12"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="230"/><RowDefinition Height="8"/><RowDefinition x:Name="UxLogRow" Height="142" MinHeight="42"/></Grid.RowDefinitions><Grid x:Name="UxHeader" Grid.Row="0" Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid Margin="0,0,12,0" MaxWidth="680" HorizontalAlignment="Stretch"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid><TextBox x:Name="TxtGlobalSearch" ToolTip="Saisissez un nom, un identifiant, une adresse mail ou un nom de poste. Entrée recherche dans l’OU sélectionnée ; vide, elle affiche son contenu limité." Margin="0" MinHeight="40" Padding="12,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Saisissez un nom, un identifiant, une adresse mail ou un nom de poste. Entrée recherche dans l’OU sélectionnée ; vide, elle affiche son contenu limité."/>
++                  <TextBlock Text="Rechercher une personne, un poste…" Margin="13,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" IsHitTestVisible="False" x:Name="UxSearchPlaceholder"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtGlobalSearch}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid><Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Recherche dans le périmètre affiché. Sans texte, affiche son contenu dans la limite demandée." Grid.Column="1" Height="40" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans l’OU sélectionnée" AutomationProperties.HelpText="Recherche dans le périmètre affiché. Sans texte, affiche son contenu dans la limite demandée."/>
+                   </Grid><StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button x:Name="BtnCommandPalette" Content="Ctrl + K" Width="78" Height="40" MinWidth="78" Margin="0,0,6,0" ToolTip="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K." VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Palette de commandes" AutomationProperties.HelpText="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K."/><Button x:Name="BtnThemeToggle" Width="42" Height="40" MinWidth="42" Padding="0" Margin="0,0,6,0" IsEnabled="True" IsHitTestVisible="True" Focusable="True" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="Bascule entre le thème clair et le thème sombre. Le choix est enregistré par le mécanisme existant." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Apparence" AutomationProperties.HelpText="Bascule entre le thème clair et le thème sombre. Le choix est enregistré par le mécanisme existant.">
+             <Grid Width="32" Height="30" Background="Transparent">
+               <Ellipse x:Name="ThemeIconCircle" Fill="Transparent" Stroke="Transparent" StrokeThickness="0"/>
+@@ -3631,7 +3631,7 @@
+           <Button x:Name="BtnCancelTask" ToolTip="Interrompt l operation en cours." Content="Annuler" Visibility="Collapsed" Margin="0,4,10,0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler" AutomationProperties.HelpText="Interrompt l operation en cours."/>
+           <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/></WrapPanel></Grid><Grid x:Name="UxContentGrid" Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition x:Name="UxHelpColumn" Width="290"/></Grid.ColumnDefinitions><TabControl x:Name="WorkspaceTabs" ToolTip="Choisissez une rubrique dans la barre latérale." Style="{StaticResource UxWorkspaceHost}" Grid.Column="0" Margin="0,0,12,0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisissez une rubrique dans la barre latérale" AutomationProperties.HelpText="Choisissez une rubrique dans la barre latérale.">
+ <TabItem x:Name="TabDashboard" ToolTip="Connexion en cours, droits du compte et operations en cours." Header="Accueil" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accueil" AutomationProperties.HelpText="Connexion en cours, droits du compte et operations en cours.">
+-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="2,2,10,8"><Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="24"><StackPanel><TextBlock Text="Que souhaitez-vous faire ?" FontSize="26" FontWeight="SemiBold" Margin="0,0,0,7"/><TextBlock Text="Retrouvez une personne ou un poste, consultez sa fiche, puis préparez votre intervention." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="14"/></StackPanel></Border><UniformGrid Columns="2" Margin="0,0,0,6"><Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="WsSearch" ToolTip="Nom, identifiant, adresse mail ou poste" x:Name="BtnUxHomeSearch" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Nom, identifiant, adresse mail ou poste"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/><StackPanel Grid.Column="1"><TextBlock Text="Rechercher" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Nom, identifiant, adresse mail ou poste" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid></Button><Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabDirectory" ToolTip="OU et conteneurs du domaine" x:Name="BtnUxHomeDirectory" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Parcourir l’annuaire" AutomationProperties.HelpText="OU et conteneurs du domaine"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="M2,6 L10,6 12,9 23,9 23,22 2,22 Z M2,6 L2,3 10,3 13,6 22,6 22,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/><StackPanel Grid.Column="1"><TextBlock Text="Parcourir l’annuaire" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="OU et conteneurs du domaine" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid></Button><Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabSupport" ToolTip="Comparer des fiches et rédiger un ticket" x:Name="BtnUxHomeSupport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Préparer un dossier" AutomationProperties.HelpText="Comparer des fiches et rédiger un ticket"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="M4,7 L20,7 20,23 4,23 Z M8,7 L8,3 16,3 16,7 M8,12 L16,12 M8,16 L16,16" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/><StackPanel Grid.Column="1"><TextBlock Text="Préparer un dossier" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Comparer des fiches et rédiger un ticket" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid></Button><Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabAccounts" ToolTip="Annuaire, accès aux postes et secrets" x:Name="BtnUxHomeAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Gérer les comptes" AutomationProperties.HelpText="Annuaire, accès aux postes et secrets"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/><StackPanel Grid.Column="1"><TextBlock Text="Gérer les comptes" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Annuaire, accès aux postes et secrets" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid></Button></UniformGrid><Border Style="{StaticResource Card}" Margin="0,0,0,14" Background="{DynamicResource InfoBg}"><StackPanel><TextBlock Text="La consultation est protégée par défaut" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/><TextBlock Text="Le mode Essentiel simplifie les vues. La case Lecture seule contrôle les modifications : ce sont deux réglages indépendants." TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0"/></StackPanel></Border><Expander Header="Détails de la session et outils de vérification" IsExpanded="False" ToolTip="Affiche les informations techniques déjà chargées, sans lancer de scan." x:Name="UxSessionDetails" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Détails de la session et outils de vérification" AutomationProperties.HelpText="Affiche les informations techniques déjà chargées, sans lancer de scan."><Border Style="{StaticResource Card}" Margin="0,10,0,0"><StackPanel><WrapPanel>
++            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="2,2,10,8"><Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="24"><StackPanel><TextBlock Text="Que souhaitez-vous faire ?" FontSize="26" FontWeight="SemiBold" Margin="0,0,0,7"/><TextBlock Text="Retrouvez une personne ou un poste, consultez sa fiche, puis préparez votre intervention." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="14"/></StackPanel></Border><UniformGrid Columns="2" Margin="0,0,0,6"><Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="WsSearch" ToolTip="Nom, identifiant, adresse mail ou poste" x:Name="BtnUxHomeSearch" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Nom, identifiant, adresse mail ou poste"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/><StackPanel Grid.Column="1"><TextBlock Text="Rechercher" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Nom, identifiant, adresse mail ou poste" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid></Button><Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="WsSearch" ToolTip="OU et conteneurs du domaine" x:Name="BtnUxHomeDirectory" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Parcourir l’annuaire" AutomationProperties.HelpText="OU et conteneurs du domaine"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="M2,6 L10,6 12,9 23,9 23,22 2,22 Z M2,6 L2,3 10,3 13,6 22,6 22,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/><StackPanel Grid.Column="1"><TextBlock Text="Choisir une OU" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="OU et conteneurs du domaine" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid></Button><Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabSupport" ToolTip="Comparer des fiches et rédiger un ticket" x:Name="BtnUxHomeSupport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Préparer un dossier" AutomationProperties.HelpText="Comparer des fiches et rédiger un ticket"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="M4,7 L20,7 20,23 4,23 Z M8,7 L8,3 16,3 16,7 M8,12 L16,12 M8,16 L16,16" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/><StackPanel Grid.Column="1"><TextBlock Text="Préparer un dossier" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Comparer des fiches et rédiger un ticket" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid></Button><Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabAccounts" ToolTip="Annuaire, accès aux postes et secrets" x:Name="BtnUxHomeAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Gérer les comptes" AutomationProperties.HelpText="Annuaire, accès aux postes et secrets"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/><StackPanel Grid.Column="1"><TextBlock Text="Gérer les comptes" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Annuaire, accès aux postes et secrets" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Grid></Button></UniformGrid><Border Style="{StaticResource Card}" Margin="0,0,0,14" Background="{DynamicResource InfoBg}"><StackPanel><TextBlock Text="La consultation est protégée par défaut" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/><TextBlock Text="Le mode Essentiel simplifie les vues. La case Lecture seule contrôle les modifications : ce sont deux réglages indépendants." TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0"/></StackPanel></Border><Expander Header="Détails de la session et outils de vérification" IsExpanded="False" ToolTip="Affiche les informations techniques déjà chargées, sans lancer de scan." x:Name="UxSessionDetails" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Détails de la session et outils de vérification" AutomationProperties.HelpText="Affiche les informations techniques déjà chargées, sans lancer de scan."><Border Style="{StaticResource Card}" Margin="0,10,0,0"><StackPanel><WrapPanel>
+                     <Button x:Name="BtnDashRoot" Content="Racine du domaine" ToolTip="Revient a la racine du domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Racine du domaine" AutomationProperties.HelpText="Revient a la racine du domaine."/>
+                     <Button x:Name="BtnDashCopy" Content="Copier" ToolTip="Copie le contenu du tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie le contenu du tableau de bord."/>
+                     <Button x:Name="BtnDashSelfCheck" Content="Verifier l application" ToolTip="Verifie que l application fonctionne correctement. Aucune ecriture dans Active Directory." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Verifier l application" AutomationProperties.HelpText="Verifie que l application fonctionne correctement. Aucune ecriture dans Active Directory."/>
+@@ -3661,25 +3661,26 @@
+                     </Grid>
+                   </StackPanel>
+                 </StackPanel></Border></Expander></StackPanel></ScrollViewer></TabItem>
+-<TabItem Header="Annuaire" ToolTip="Parcourez les OU et les conteneurs. Cliquez une branche pour charger son contenu avec les mécanismes habituels d’ADCC." x:Name="TabDirectory" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuaire" AutomationProperties.HelpText="Parcourez les OU et les conteneurs. Cliquez une branche pour charger son contenu avec les mécanismes habituels d’ADCC."><Border Style="{StaticResource Card}" Margin="2,2,6,0" Padding="18">
++<TabItem x:Name="WsSearch" ToolTip="Choisissez une OU à gauche pour filtrer la recherche. Les résultats sont affichés à droite." Header="Rechercher" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans l’annuaire" AutomationProperties.HelpText="Choisissez une OU à gauche pour filtrer la recherche. Les résultats sont affichés à droite.">
++            <Grid Margin="2,2,6,0" x:Name="SearchBrowserLayout"><Grid.ColumnDefinitions><ColumnDefinition Width="250" MinWidth="210" MaxWidth="380"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*" MinWidth="320"/></Grid.ColumnDefinitions><Border Style="{StaticResource Card}" Margin="0" Padding="12" Grid.Column="0" x:Name="SearchOuPanel">
+         <DockPanel LastChildFill="True">
+           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+             <Grid Margin="0,0,0,2">
+               <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+-              <TextBlock Grid.Column="0" Text="Navigation" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center"/>
+-              <Button Grid.Column="1" x:Name="BtnTreeRefresh" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="8,0,0,0" ToolTip="Recharger uniquement l arborescence Active Directory." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Navigation" AutomationProperties.HelpText="Recharger uniquement l arborescence Active Directory."><TextBlock Text="↻" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Button>
++              <TextBlock Grid.Column="0" Text="Filtrer par OU" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
++              <Button Grid.Column="1" x:Name="BtnTreeRefresh" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="8,0,0,0" ToolTip="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser l’arbre" AutomationProperties.HelpText="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés."><TextBlock Text="↻" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Button>
+             </Grid>
+-            <TextBlock Text="Parcours le domaine comme un explorateur : developpe une branche puis clique pour afficher son contenu." Foreground="{DynamicResource MutedColor}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,8"/>
+-            <TextBox x:Name="TxtBranchDn" IsReadOnly="True" Background="{DynamicResource BgReadonly}" TextWrapping="Wrap" Height="54" VerticalScrollBarVisibility="Auto" ToolTip="Chemin complet de la branche affichee." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Parcours le domaine comme un explorateur : developpe une branche puis clique pour afficher son contenu" AutomationProperties.HelpText="Chemin complet de la branche affichee."/>
++            <TextBlock Text="Cliquez une OU : la recherche à droite se limite à cette branche." Foreground="{DynamicResource MutedColor}" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,8"/>
++            <Button Content="Tout le domaine" Margin="0,4,0,8" x:Name="BtnSearchAllDomain" ToolTip="Retire le filtre OU, inclut toutes les sous-OU et relance la recherche sans effacer le texte saisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout le domaine" AutomationProperties.HelpText="Retire le filtre OU, inclut toutes les sous-OU et relance la recherche sans effacer le texte saisi."/><CheckBox x:Name="ChkSubtree" IsChecked="True" ToolTip="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inclure les sous-OU" AutomationProperties.HelpText="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." Content="Inclure les sous-OU" Margin="0,2,0,8"/>
++                <TextBox x:Name="TxtBranchDn" IsReadOnly="True" Background="{DynamicResource BgReadonly}" TextWrapping="Wrap" Height="54" VerticalScrollBarVisibility="Auto" ToolTip="Chemin LDAP complet de la branche sélectionnée. Cette racine est utilisée par la requête AD, pas seulement pour masquer des lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="OU utilisée pour la recherche" AutomationProperties.HelpText="Chemin LDAP complet de la branche sélectionnée. Cette racine est utilisée par la requête AD, pas seulement pour masquer des lignes."/>
+             <TextBlock x:Name="LblTreeStatus" Text="Arbre pret." Foreground="{DynamicResource MutedColor}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+           </StackPanel>
+-          <TreeView x:Name="TvDirectory" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Unites d organisation et conteneurs du domaine. Deplie une branche pour voir son contenu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Unites d organisation et conteneurs du domaine" AutomationProperties.HelpText="Unites d organisation et conteneurs du domaine. Deplie une branche pour voir son contenu."/>
++          <TreeView x:Name="TvDirectory" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Développez une branche pour voir ses sous-OU. Sélectionnez-la pour filtrer les résultats à droite, en conservant le texte saisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arbre des OU et conteneurs" AutomationProperties.HelpText="Développez une branche pour voir ses sous-OU. Sélectionnez-la pour filtrer les résultats à droite, en conservant le texte saisi."/>
+         </DockPanel>
+       </Border>
+-      </TabItem><TabItem x:Name="WsSearch" ToolTip="Chercher un utilisateur ou un poste dans tout le domaine." Header="Rechercher" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Chercher un utilisateur ou un poste dans tout le domaine.">
+-            <Grid Margin="2,2,6,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16"><StackPanel><TextBlock Text="Affiner la recherche" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><WrapPanel><StackPanel Width="155" Margin="0,0,12,8"><TextBlock Text="Type d’objet" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/><ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Filtre facultatif. Par defaut, la recherche porte toujours sur les utilisateurs et les postes." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Filtre facultatif. Par defaut, la recherche porte toujours sur les utilisateurs et les postes.">
++      <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" Cursor="SizeWE" x:Name="SearchOuSplitter" ToolTip="Faites glisser pour ajuster la largeur de l’arbre et des résultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Largeur de l’arbre des OU" AutomationProperties.HelpText="Faites glisser pour ajuster la largeur de l’arbre et des résultats."/><Grid Margin="0" Grid.Column="2"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16"><StackPanel><TextBlock Text="Affiner la recherche" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="Wrap" Margin="0,0,0,10" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope"/><WrapPanel><StackPanel Width="155" Margin="0,0,12,8"><TextBlock Text="Type d’objet" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/><ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs.">
+                     <ComboBoxItem Content="Tous"/><ComboBoxItem Content="Utilisateurs"/><ComboBoxItem Content="Machines"/>
+-                  </ComboBox>
++                  <ComboBoxItem Content="Groupes"/><ComboBoxItem Content="OU et conteneurs"/></ComboBox>
+                   </StackPanel><StackPanel Width="140" Margin="0,0,12,8"><TextBlock Text="Présence réseau" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/><ComboBox x:Name="CmbPresenceFilter" Margin="0" SelectedIndex="0" ToolTip="N affiche que les postes en ligne, hors ligne, ou tous." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence réseau" AutomationProperties.HelpText="N affiche que les postes en ligne, hors ligne, ou tous.">
+                     <ComboBoxItem Content="Tous"/>
+                     <ComboBoxItem Content="En ligne"/>
+@@ -3687,14 +3688,13 @@
+                     <ComboBoxItem Content="Inconnu"/>
+                   </ComboBox>
+                   </StackPanel><StackPanel Width="135" Margin="0,0,12,8"><TextBlock Text="Maximum de résultats" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/><TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de resultats affiches." Margin="0" MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Maximum de résultats" AutomationProperties.HelpText="Nombre maximum de resultats affiches."/>
+-                  </StackPanel><WrapPanel Margin="0,24,0,8"><Button x:Name="BtnGlobalClear" Content="Effacer" Margin="0,0,8,0" ToolTip="Efface la recherche et les resultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer" AutomationProperties.HelpText="Efface la recherche et les resultats."/>
++                  </StackPanel><WrapPanel Margin="0,24,0,8"><Button x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Relance la lecture AD avec le texte, le type et le filtre OU actuels." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Relance la lecture AD avec le texte, le type et le filtre OU actuels." Margin="0,0,8,0"/>
++                <Button x:Name="BtnGlobalClear" Content="Effacer" Margin="0,0,8,0" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée. Tout le domaine retire le filtre OU." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée. Tout le domaine retire le filtre OU."/>
+                   <Button x:Name="BtnExportResults" Content="Exporter CSV" Margin="0" ToolTip="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
+                   </WrapPanel></WrapPanel><Grid Grid.Row="1" Visibility="Collapsed" Height="0" Width="0">
+                 <TextBox x:Name="TxtBranchSearch" Text="" ToolTip="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Saisissez ou consultez cette information" AutomationProperties.HelpText="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification."/>
+                 <ComboBox x:Name="CmbObjectFilter" SelectedIndex="0" ToolTip="Choisissez une option dans la liste déroulante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisissez une option dans la liste déroulante" AutomationProperties.HelpText="Choisissez une option dans la liste déroulante."><ComboBoxItem Content="Tous"/><ComboBoxItem Content="Utilisateurs"/><ComboBoxItem Content="Machines"/><ComboBoxItem Content="Groupes"/><ComboBoxItem Content="OU et conteneurs"/></ComboBox>
+                 <TextBox x:Name="TxtBranchLimit" Text="100" ToolTip="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Saisissez ou consultez cette information" AutomationProperties.HelpText="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification."/>
+-                <CheckBox x:Name="ChkSubtree" IsChecked="False" ToolTip="Cochez ou décochez pour modifier cette option." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Cochez ou décochez pour modifier cette option" AutomationProperties.HelpText="Cochez ou décochez pour modifier cette option."/>
+-                <Button x:Name="BtnLoadBranch" Content="Afficher" ToolTip="Lance l’action indiquée sur le bouton." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher" AutomationProperties.HelpText="Lance l’action indiquée sur le bouton."/>
+                 <Button x:Name="BtnClearBranch" Content="Vider" ToolTip="Lance l’action indiquée sur le bouton." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider" AutomationProperties.HelpText="Lance l’action indiquée sur le bouton."/>
+               </Grid>
+             </StackPanel></Border><Border Style="{StaticResource Card}" Grid.Row="1" Padding="12"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><DockPanel Margin="0,0,0,8"><TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right"/>
+@@ -3729,7 +3729,7 @@
+                 <DataGridTextColumn Header="Chemin complet" Binding="{Binding DN}" Width="520"/>
+               </DataGrid.Columns>
+             </DataGrid>
+-          <Border Style="{StaticResource UxEmptyResults}" x:Name="UxSearchEmpty"><StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360"><Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="38" Height="38" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,0,15" IsHitTestVisible="False" HorizontalAlignment="Center"/><TextBlock Text="Aucun résultat affiché" FontSize="19" FontWeight="SemiBold" TextAlignment="Center"/><TextBlock Text="Saisissez un nom dans la barre de recherche en haut, puis appuyez sur Entrée. Une liste vide n’indique pas à elle seule une absence dans AD." TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0"/></StackPanel></Border></Grid></Grid></Border></Grid></TabItem>
++          <Border Style="{StaticResource UxEmptyResults}" x:Name="UxSearchEmpty"><StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360"><Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="38" Height="38" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,0,15" IsHitTestVisible="False" HorizontalAlignment="Center"/><TextBlock Text="Aucun résultat affiché" FontSize="19" FontWeight="SemiBold" TextAlignment="Center"/><TextBlock Text="Sélectionnez une OU à gauche ou saisissez un nom en haut. Les filtres OU, type et sous-OU se combinent. Une liste vide ne prouve pas une absence dans AD." TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0"/></StackPanel></Border></Grid></Grid></Border></Grid></Grid></TabItem>
+           <TabItem x:Name="WsObject" Header="Fiche" ToolTip="Fiche complete de l objet selectionne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiche" AutomationProperties.HelpText="Fiche complete de l objet selectionne.">
+             <TabControl x:Name="DetailTabs" Margin="0,4,0,0" ToolTip="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues de la fiche" AutomationProperties.HelpText="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques.">
+ <TabItem x:Name="TabGeneric" ToolTip="Type, nom, identifiant, dates de creation et emplacement." Header="Resume" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resume" AutomationProperties.HelpText="Type, nom, identifiant, dates de creation et emplacement.">
+@@ -5158,22 +5158,102 @@
+ 
+ function Set-SelectedBranch {
+     param($Node)
++    if ($null -eq $Node -or $null -eq $Node.Tag -or [string]::IsNullOrWhiteSpace([string]$Node.Tag.DN)) { return }
+     $script:SelectedBranchDn = [string]$Node.Tag.DN
+-    $script:Ctrl["TxtBranchDn"].Text = $script:SelectedBranchDn
++    Update-AdccSearchScopeUi
+     Update-Dashboard
+-    if ($script:SuppressBranchAutoLoad) {
+-        Set-Status "Arbre pret. Deplie une branche ou utilise la recherche globale."
+-        return
+-    }
+-    Set-Status "Branche selectionnee : $($Node.Tag.Name). Chargement du contenu..."
+-    if ([bool](Get-CfgValue "Browser" "AutoLoadBranchOnSelect" $true)) {
+-        Load-BranchObjects
+-    }
+-    else {
+-        $script:BranchObjects = @()
+-        $script:Ctrl["DgObjects"].ItemsSource = $null
+-        $script:Ctrl["LblBranchCount"].Text = "Clique Charger"
+-    }
++    if ($script:SuppressBranchAutoLoad) { return }
++    Invoke-AdccSearchFilterChanged
++}
++
++function Get-AdccSearchScope {
++    # L'OU est la racine LDAP de la requete, pas un filtre sur une grille tronquee.
++    $domainDn = ([string]$script:Conn.BaseDn).Trim()
++    if ([string]::IsNullOrWhiteSpace($domainDn)) { throw 'Recherche impossible : aucune base AD de session.' }
++    $baseDn = ([string]$script:SelectedBranchDn).Trim()
++    if ([string]::IsNullOrWhiteSpace($baseDn)) { $baseDn = $domainDn }
++    $subtree = Get-AdccControl -Name 'ChkSubtree'
++    $includeChildren = ($null -eq $subtree -or [bool]$subtree.IsChecked)
++    [pscustomobject]@{
++        BaseDn = $baseDn
++        Scope = $(if ($includeChildren) { 'Subtree' } else { 'OneLevel' })
++        IsDomain = [string]::Equals($baseDn,$domainDn,[StringComparison]::OrdinalIgnoreCase)
++    }
++}
++
++function Update-AdccSearchScopeUi {
++    if ([string]::IsNullOrWhiteSpace([string]$script:Conn.BaseDn)) { return }
++    $scope = Get-AdccSearchScope
++    [void](Set-AdccControlText -Name 'TxtBranchDn' -Text ([string]$scope.BaseDn))
++    $label = if ($scope.IsDomain) { 'Tout le domaine' } else { [string]$scope.BaseDn }
++    $depth = if ($scope.Scope -eq 'Subtree') { 'Sous-OU incluses' } else { 'Enfants directs uniquement' }
++    $summary = Get-AdccControl -Name 'LblSearchScope'
++    if ($null -ne $summary) {
++        $summary.Text = "Dans : $label  |  $depth"
++        $summary.ToolTip = "Racine LDAP : $($scope.BaseDn)`r`n$depth"
++    }
++}
++
++function Invalidate-AdccSearchResults {
++    # Toute modification de perimetre invalide aussi les retours deja en vol.
++    $script:GlobalSearchGeneration = [int]$script:GlobalSearchGeneration + 1
++    try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
++    if ($null -ne $script:AsyncJobs) {
++        foreach ($id in @($script:AsyncJobs.Keys)) {
++            $job = $script:AsyncJobs[$id]
++            if ($null -ne $job -and [string]$job.ReplaceKey -in @('global','branch') -and -not [bool]$job.IsWrite) {
++                Request-UiTaskStop -Id $id -Silent -Force -Superseded
++            }
++        }
++    }
++    Stop-AdccSelectionOpenTimer
++    $script:PendingObjectSelection = $null
++    $script:BranchObjects = @()
++    $script:BranchCountLabel = 'Filtres modifies : recherche a effectuer'
++    $wasSuppressed = [bool]$script:SuppressGridSelectionEvents
++    $script:SuppressGridSelectionEvents = $true
++    try { [void](Set-AdccItemsSource -Name 'DgObjects' -Rows @()) }
++    finally { $script:SuppressGridSelectionEvents = $wasSuppressed }
++    [void](Set-AdccControlText -Name 'LblBranchCount' -Text $script:BranchCountLabel)
++}
++
++function Test-AdccSearchStateCurrent {
++    param($State)
++    if ($null -eq $State) { return $false }
++    if ([int]$State.Generation -ne [int]$script:GlobalSearchGeneration) { return $false }
++    $scope = Get-AdccSearchScope
++    if (-not [string]::Equals([string]$State.BaseDn,[string]$scope.BaseDn,[StringComparison]::OrdinalIgnoreCase)) { return $false }
++    if ([string]$State.Scope -ne [string]$scope.Scope) { return $false }
++    if ([string]$State.TypeFilter -ne [string](Get-GlobalSelectedTypeFilter)) { return $false }
++    $box = Get-AdccControl -Name 'TxtGlobalSearch'
++    if ($null -ne $box -and ([string]$box.Text).Trim() -ne [string]$State.Search) { return $false }
++    return $true
++}
++
++function Invoke-AdccSearchFilterChanged {
++    if ($script:RestoringSettings -or $script:SuppressBranchAutoLoad -or -not $script:Conn.Connected) { return }
++    if ([string]::IsNullOrWhiteSpace([string]$script:SelectedBranchDn)) { return }
++    Invalidate-AdccSearchResults
++    Update-AdccSearchScopeUi
++    Select-AdccWorkspace -Workspace 'WsSearch'
++    Invoke-GlobalSearch -AllowEmpty -SilentError
++}
++
++function Reset-AdccSearchScope {
++    param([switch]$NoSearch)
++    if ([string]::IsNullOrWhiteSpace([string]$script:Conn.BaseDn)) { return }
++    $previousSuppression = [bool]$script:SuppressBranchAutoLoad
++    $script:SuppressBranchAutoLoad = $true
++    try {
++        $script:SelectedBranchDn = [string]$script:Conn.BaseDn
++        $check = Get-AdccControl -Name 'ChkSubtree'
++        if ($null -ne $check) { $check.IsChecked = $true }
++        $tree = Get-AdccControl -Name 'TvDirectory'
++        if ($null -ne $tree -and $tree.Items.Count -gt 0) { $tree.Items[0].IsSelected = $true }
++        Update-AdccSearchScopeUi
++    }
++    finally { $script:SuppressBranchAutoLoad = $previousSuppression }
++    if (-not $NoSearch) { Invoke-AdccSearchFilterChanged }
+ }
+ 
+ function Get-SelectedObjectFilter {
+@@ -5233,17 +5313,10 @@
+ 
+ 
+ function Get-GlobalSelectedTypeFilter {
+-    try {
+-        $item = $script:Ctrl["CmbGlobalType"].SelectedItem
+-        $label = "Tous"
+-        if ($item -and $item.Content) { $label = [string]$item.Content }
+-        switch ($label) {
+-            "Utilisateurs" { return "(&(objectCategory=person)(objectClass=user))" }
+-            "Machines" { return "(objectCategory=computer)" }
+-            default { return "(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))" }
+-        }
+-    }
+-    catch { return "(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))" }
++    $label = 'Tous'
++    $control = Get-AdccControl -Name 'CmbGlobalType'
++    if ($null -ne $control -and $null -ne $control.SelectedItem) { $label = [string]$control.SelectedItem.Content }
++    return (Get-TypeLdapFilter -Type $label)
+ }
+ 
+ function Get-ObjectsStatsText {
+@@ -5270,13 +5343,7 @@
+ 
+ 
+ function Go-RootBranch {
+-    try {
+-        $script:SelectedBranchDn = $script:Conn.BaseDn
+-        $script:Ctrl["TxtBranchDn"].Text = $script:SelectedBranchDn
+-        Set-Status "Racine AD selectionnee. Utilise la recherche globale ou deploie une OU."
+-        Update-Dashboard
+-    }
+-    catch { }
++    Reset-AdccSearchScope
+ }
+ 
+ 
+@@ -7677,6 +7744,7 @@
+         [string]$Inner = "",
+         [string]$Tab = ""
+     )
++    if ($Workspace -eq 'TabDirectory') { $Workspace = 'WsSearch' }
+     try {
+         $ws = Get-AdccControl -Name "WorkspaceTabs"
+         $target = Get-AdccControl -Name $Workspace
+@@ -7856,19 +7924,22 @@
+ }
+ 
+ function Get-BranchQueryData {
+-    $typeFilter = Get-TypeLdapFilter (Get-SelectedObjectFilter)
+-    $searchFilter = Get-SearchLdapFilter $script:Ctrl["TxtBranchSearch"].Text
++    # Compatibilite des appels internes : les controles visibles font autorite.
++    $scope = Get-AdccSearchScope
++    $typeFilter = Get-GlobalSelectedTypeFilter
++    $searchFilter = Get-SearchLdapFilter ([string](Get-AdccControl -Name 'TxtGlobalSearch').Text)
+     $filter = if ([string]::IsNullOrWhiteSpace($searchFilter)) { $typeFilter } else { "(&$typeFilter$searchFilter)" }
+-    $scope = if ($script:Ctrl["ChkSubtree"].IsChecked) { "Subtree" } else { "OneLevel" }
+-    $limit = 100; try { $limit = [int]$script:Ctrl["TxtBranchLimit"].Text } catch { }
+-    if ($limit -le 0) { $limit = [int](Get-CfgValue "Browser" "DefaultLimit" 100) }
+-    [pscustomobject]@{ BaseDn=[string]$script:SelectedBranchDn; Filter=$filter; Scope=$scope; Limit=$limit }
++    $limit = 100
++    try { $limit = [int](Get-AdccControl -Name 'TxtGlobalLimit').Text } catch { }
++    if ($limit -le 0) { $limit = 100 }; $limit = [Math]::Min(500,$limit)
++    [pscustomobject]@{BaseDn=$scope.BaseDn;Scope=$scope.Scope;Filter=$filter;Limit=$limit}
+ }
+ 
+ 
+ 
+ function Complete-AdccBranchObjectsUi {
+     param($Result,$State)
++    if (-not (Test-AdccSearchStateCurrent -State $State)) { return }
+     $effective = Get-AdccEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
+     if ($null -eq $effective) { throw "Resultat de branche vide ou invalide." }
+     $rows = @($effective.Rows)
+@@ -7879,31 +7950,16 @@
+ 
+ function Fail-AdccBranchObjectsUi {
+     param($Message,$State)
++    if (-not (Test-AdccSearchStateCurrent -State $State)) { return }
+     $detail = ([string]$Message).Trim()
+     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
+     Set-Status "Erreur branche : $detail" "ERROR"
+ }
+ 
+ function Load-BranchObjects {
+-    try {
+-        if ([string]::IsNullOrWhiteSpace($script:SelectedBranchDn)) { $script:SelectedBranchDn = $script:Conn.BaseDn }
+-        $q = Get-BranchQueryData
+-        $cacheKey = "branch|$($q.BaseDn)|$($q.Filter)|$($q.Scope)|$($q.Limit)"
+-        $cached = Get-VisitCacheValue $cacheKey
+-        if ($null -ne $cached) {
+-            Show-ObjectRows -Rows $cached -Label "$(@($cached).Count) objet(s)  cache"
+-            Set-Status "Branche affichee depuis le cache de visite. Actualisation AD en arriere-plan..."
+-        }
+-        $props = @("name","distinguishedName","objectClass","objectCategory","sAMAccountName","userPrincipalName","mail","dNSHostName","description","displayName","whenChanged","userAccountControl","lockoutTime","operatingSystem","lastLogonTimestamp")
+-        $code = @'
+-$s = New-WSearcher $Context ([string]$Payload.BaseDn) ([string]$Payload.Filter) @($Payload.Properties) ([string]$Payload.Scope) ([int]$Payload.Limit)
+-$rows = New-Object Collections.ArrayList
+-foreach ($r in @($s.FindAll())) { [void]$rows.Add((New-WBranchRow $r)) }
+-[pscustomobject]@{ Rows=@($rows); BaseDn=[string]$Payload.BaseDn }
+-'@
+-        Start-UiTask -Name "Contenu de branche" -OperationId "BranchObjects" -Code $code -Payload ([pscustomobject]@{ BaseDn=$q.BaseDn; Filter=$q.Filter; Scope=$q.Scope; Limit=$q.Limit; Properties=$props }) -CallbackState ([pscustomobject]@{ CacheKey=$cacheKey; BaseDn=$q.BaseDn }) -ReplaceKey "branch" -DisableControls @("BtnLoadBranch","BtnTreeRefresh") -TimeoutSeconds ([int](Get-CfgValue "Async" "SearchTimeoutSeconds" 45)) -StatusText "Chargement de la branche en arriere-plan..." -SuccessHandler "Complete-AdccBranchObjectsUi" -ErrorHandler "Fail-AdccBranchObjectsUi" | Out-Null
+-    }
+-    catch { Set-Status "Erreur branche : $($_.Exception.Message)" "ERROR" }
++    # Anciennes actions de branche : un seul moteur et une seule generation.
++    Update-AdccSearchScopeUi
++    Invoke-GlobalSearch -AllowEmpty -SilentError -PreserveSelection
+ }
+ 
+ function Complete-AdccGlobalSearchUi {
+@@ -7918,6 +7974,8 @@
+         return
+     }
+ 
++    if (-not (Test-AdccSearchStateCurrent -State $State)) { return }
++
+     $query = ""
+     try { $query = [string]$State.Search } catch { }
+     try {
+@@ -7932,7 +7990,12 @@
+     $effective = Get-AdccEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
+     if ($null -eq $effective) { throw "Resultat de recherche vide ou invalide." }
+ 
++    if (-not [string]::Equals([string]$effective.BaseDn,[string]$State.BaseDn,[StringComparison]::OrdinalIgnoreCase) -or [string]$effective.Scope -ne [string]$State.Scope) {
++        throw 'Resultat rejete : le perimetre retourne ne correspond pas a la requete.'
++    }
+     $rows = @($effective.Rows)
++    $resultLabel = "$($rows.Count) resultat(s)"
++    if ([bool]$effective.LimitReached) { $resultLabel += ' | limite atteinte, affinez la recherche' }
+     $rawCount = 0
+     $durationMs = 0
+     $serverUsed = ""
+@@ -7962,7 +8025,7 @@
+         # Repasser par Reset-AdccSelectionBoundViews ici coutait jusqu'a ~1 s
+         # meme pour zero resultat. On ne fait que vider la grille.
+         $script:BranchObjects = @()
+-        $script:BranchCountLabel = "0 resultat(s) global"
++        $script:BranchCountLabel = "0 resultat(s) dans ce perimetre"
+         $script:SuppressGridSelectionEvents = $true
+         try {
+             [void](Set-AdccItemsSource -Name "DgObjects" -Rows @())
+@@ -7970,11 +8033,11 @@
+             if ($null -ne $grid0) { $grid0.SelectedItem = $null; $grid0.SelectedIndex = -1 }
+         }
+         finally { $script:SuppressGridSelectionEvents = $false }
+-        [void](Set-AdccControlText -Name "LblBranchCount" -Text "0 resultat(s) global")
++        [void](Set-AdccControlText -Name "LblBranchCount" -Text "0 resultat(s) dans ce perimetre")
+         Request-AdccDashboardRefresh
+     }
+     else {
+-        Show-ObjectRows -Rows $rows -Label "$($rows.Count) resultat(s) global" -NoAutoOpen
++        Show-ObjectRows -Rows $rows -Label $resultLabel -NoAutoOpen -PreserveSelectionDn ([string]$State.PreserveSelectionDn)
+     }
+     $renderWatch.Stop()
+     if ($renderWatch.ElapsedMilliseconds -gt 250) {
+@@ -7995,7 +8058,7 @@
+         }
+         catch { }
+         $filterNote = if ($typeLabel -eq "Tous") { "" } else { " Filtre actif : $typeLabel." }
+-        Set-Status "Aucun resultat pour '$query'.$filterNote" "WARN"
++        Set-Status "Aucun resultat dans $($State.BaseDn) pour '$query'.$filterNote" "WARN"
+     }
+     else {
+         Set-Status "Recherche terminee : $($rows.Count) resultat(s) en $durationMs ms sur $serverLabel."
+@@ -8014,6 +8077,8 @@
+         Add-AdccUiLog -Area "Recherche" -Level "DEBUG" -Text "Erreur d'une recherche obsolete ignoree."
+         return
+     }
++
++    if (-not (Test-AdccSearchStateCurrent -State $State)) { return }
+ 
+     $detail = ([string]$Message).Trim()
+     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
+@@ -8032,7 +8097,7 @@
+ 
+         foreach ($id in @($script:AsyncJobs.Keys)) {
+             $job = $script:AsyncJobs[$id]
+-            if ($null -ne $job -and [string]$job.ReplaceKey -eq "global" -and -not [bool]$job.IsWrite) {
++            if ($null -ne $job -and [string]$job.ReplaceKey -in @("global","branch") -and -not [bool]$job.IsWrite) {
+                 Request-UiTaskStop -Id $id -Silent -Force -Superseded
+             }
+         }
+@@ -8046,7 +8111,9 @@
+         [void](Set-AdccControlText -Name "LblBranchCount" -Text "0 resultat")
+         Reset-AdccSelectionBoundViews
+         Request-AdccDashboardRefresh
+-        Set-Status "Recherche effacee."
++        Update-AdccSearchScopeUi
++        Select-AdccWorkspace -Workspace 'WsSearch'
++        Set-Status "Recherche effacee. Le filtre OU est conserve."
+     }
+     catch {
+         Write-AppLog "Effacement de la recherche impossible : $($_.Exception.ToString())" "ERROR"
+@@ -8055,18 +8122,30 @@
+ }
+ 
+ function Invoke-GlobalSearch {
+-    param([switch]$SilentError)
++    param([switch]$SilentError,[switch]$AllowEmpty,[switch]$PreserveSelection)
+ 
+     try {
+         $searchBox = Get-AdccControl -Name "TxtGlobalSearch"
+         if ($null -eq $searchBox) { throw "Champ de recherche introuvable." }
+ 
+         $textValue = ([string]$searchBox.Text).Trim()
++        $scope = Get-AdccSearchScope
++        $isBrowse = [string]::IsNullOrWhiteSpace($textValue)
+         $minChars = [Math]::Max(1,[int](Get-CfgValue "Browser" "GlobalSearchMinChars" 2))
+-        if ($textValue.Length -lt $minChars -and $textValue -ne "*") {
++        if (-not $isBrowse -and $textValue.Length -lt $minChars -and $textValue -ne "*") {
+             Set-Status "Saisis au moins $minChars caracteres, ou * pour un apercu." "WARN"
+             return
+         }
++
++        $preserveDn = ''
++        if ($PreserveSelection) {
++            $selectedGrid = Get-AdccControl -Name 'DgObjects'
++            if ($null -ne $selectedGrid -and $null -ne $selectedGrid.SelectedItem) { $preserveDn = [string]$selectedGrid.SelectedItem.DN }
++        }
++        Invalidate-AdccSearchResults
++        $generation = [int]$script:GlobalSearchGeneration
++        Update-AdccSearchScopeUi
++        if (-not $PreserveSelection) { Select-AdccWorkspace -Workspace 'WsSearch' }
+ 
+         $limit = [int](Get-CfgValue "Browser" "GlobalSearchLimit" 100)
+         try { $limit = [int]((Get-AdccControl -Name "TxtGlobalLimit").Text) } catch { }
+@@ -8078,6 +8157,7 @@
+         # resultats mais ne choisit jamais une ligne a la place de l'operateur,
+         # meme lorsqu'il n'y a qu'un seul resultat. Cette purge est faite sous
+         # garde pour ne pas declencher un SelectionChanged intermediaire.
++        if (-not $PreserveSelection) {
+         $searchGrid = Get-AdccControl -Name "DgObjects"
+         $script:SuppressGridSelectionEvents = $true
+         try {
+@@ -8096,6 +8176,8 @@
+             Reset-AdccSelectionBoundViews
+         }
+ 
++        }
++
+         $typeFilter = Get-GlobalSelectedTypeFilter
+         $prefixFilter = ""
+         $fastFilter = ""
+@@ -8103,7 +8185,7 @@
+         $anrFilter = ""
+         $broadFilter = ""
+ 
+-        if ($textValue -eq "*") {
++        if ($isBrowse -or $textValue -eq "*") {
+             $broadFilter = $typeFilter
+         }
+         elseif ($textValue.Contains("*")) {
+@@ -8196,15 +8278,17 @@
+         # atteinte, delta pas encore applique). On affiche donc ses lignes tout
+         # de suite comme apercu, puis LDAP verifie systematiquement et remplace
+         # l'affichage. Cela garantit qu'un cache incomplet ne masque pas l'AD.
+-        if ($textValue -ne "*" -and -not $textValue.Contains("*") -and (Get-AdccDatabaseObjectCount) -gt 0) {
++        if (-not $isBrowse -and $scope.IsDomain -and $scope.Scope -eq "Subtree" -and $textValue -ne "*" -and -not $textValue.Contains("*") -and (Get-AdccDatabaseObjectCount) -gt 0) {
+             try {
+                 $localRows = @(Find-AdccIndexMatches -Term $textValue -Limit $limit)
+                 $typeLabel = "Tous"
+                 try { $typeLabel = [string](Get-AdccControl -Name "CmbGlobalType").SelectedItem.Content } catch { }
+                 if ($typeLabel -eq "Utilisateurs") { $localRows = @($localRows | Where-Object { [string]$_.Type -eq "Utilisateur" }) }
+                 elseif ($typeLabel -eq "Machines") { $localRows = @($localRows | Where-Object { [string]$_.Type -eq "Machine" }) }
++                elseif ($typeLabel -eq "Groupes") { $localRows = @($localRows | Where-Object { [string]$_.Type -eq "Groupe" }) }
++                elseif ($typeLabel -eq "OU et conteneurs") { $localRows = @($localRows | Where-Object { [string]$_.Type -in @("OU","Conteneur") }) }
+                 if ($localRows.Count -gt 0) {
+-                    Show-ObjectRows -Rows $localRows -Label "$($localRows.Count) resultat(s)  ADCC.db · verification AD..." -SkipPresenceScan -NoAutoOpen
++                    Show-ObjectRows -Rows $localRows -Label "$($localRows.Count) resultat(s)  ADCC.db · verification AD..." -SkipPresenceScan -NoAutoOpen -PreserveSelectionDn $preserveDn
+                     $fresh = ""
+                     try { $fresh = [string]$script:IndexInfo.Date } catch { }
+                     Set-Status "Apercu local : $($localRows.Count) resultat(s). Verification Active Directory en arriere-plan..."
+@@ -8218,11 +8302,11 @@
+         }
+ 
+         $serverKey = ([string]$script:Conn.Server).ToLowerInvariant()
+-        $baseKey = ([string]$script:Conn.BaseDn).ToLowerInvariant()
+-        $cacheKey = "global-v26|$serverKey|$baseKey|$typeFilter|$textValue|$limit"
++        $baseKey = ([string]$scope.BaseDn).ToLowerInvariant()
++        $cacheKey = "scoped-v19|$serverKey|$baseKey|$($scope.Scope)|$typeFilter|$textValue|$limit"
+         $cached = Get-VisitCacheValue $cacheKey
+         if ($null -ne $cached -and @($cached).Count -gt 0) {
+-            Show-ObjectRows -Rows $cached -Label "$(@($cached).Count) resultat(s)  cache" -SkipPresenceScan -NoAutoOpen
++            Show-ObjectRows -Rows $cached -Label "$(@($cached).Count) resultat(s)  cache" -SkipPresenceScan -NoAutoOpen -PreserveSelectionDn $preserveDn
+             Set-Status "Resultats du cache affiches. Verification Active Directory en arriere-plan..."
+         }
+ 
+@@ -8235,7 +8319,8 @@
+ 
+         $code = @'
+ $watch = [System.Diagnostics.Stopwatch]::StartNew()
+-if ([string]::IsNullOrWhiteSpace([string]$Context.BaseDn)) { throw "Recherche impossible : Base DN vide." }
++if ([string]::IsNullOrWhiteSpace([string]$Payload.BaseDn)) { throw "Recherche impossible : Base DN vide." }
++if ([string]$Payload.Scope -notin @("Subtree","OneLevel")) { throw "Portee de recherche invalide." }
+ 
+ $filters = New-Object Collections.ArrayList
+ $seenFilter = @{}
+@@ -8282,7 +8367,7 @@
+         $filterRaw = 0
+         $filterAdded = 0
+         try {
+-            $searcher = New-WSearcher $ctx ([string]$Context.BaseDn) $filterText @($Payload.Properties) "Subtree" ([int]$Payload.Limit)
++            $searcher = New-WSearcher $ctx ([string]$Payload.BaseDn) $filterText @($Payload.Properties) ([string]$Payload.Scope) ([int]$Payload.Limit)
+             $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds([Math]::Max(3,[int]$Payload.ServerTimeLimitSeconds))
+             $searcher.ClientTimeout = [TimeSpan]::FromSeconds([Math]::Max(5,[int]$Payload.ClientTimeoutSeconds))
+             $collection = $searcher.FindAll()
+@@ -8293,7 +8378,7 @@
+                 $rawCount++
+                 $filterRaw++
+                 $row = New-WBranchRow $result
+-                if ([string]$row.Type -notin @("Utilisateur","Machine")) { continue }
++                if ([string]$row.Type -notin @("Utilisateur","Machine","Groupe","OU","Conteneur")) { continue }
+ 
+                 $dn = ([string]$row.DN).Trim()
+                 $key = if ([string]::IsNullOrWhiteSpace($dn)) {
+@@ -8341,14 +8426,16 @@
+     RawCount=[int]$rawCount
+     DurationMs=[long]$watch.ElapsedMilliseconds
+     Server=[string]$serverUsed
+-    BaseDn=[string]$Context.BaseDn
++    BaseDn=[string]$Payload.BaseDn
++    Scope=[string]$Payload.Scope
++    LimitReached=[bool]$limitReached
+     Filters=@($diagnostics)
+ }
+ '@
+ 
+-        $script:GlobalSearchGeneration++
+-        $generation = [int]$script:GlobalSearchGeneration
+         $payload = [pscustomobject]@{
++            BaseDn = [string]$scope.BaseDn
++            Scope = [string]$scope.Scope
+             PrefixFilter = $prefixFilter
+             FastFilter = $fastFilter
+             ExactFilter = $exactFilter
+@@ -8360,6 +8447,11 @@
+             ClientTimeoutSeconds = [Math]::Max(5,[Math]::Min(25,[int](Get-CfgValue "Browser" "SearchClientTimeoutSeconds" 12)))
+         }
+         $callbackState = [pscustomobject]@{
++            BaseDn = [string]$scope.BaseDn
++            Scope = [string]$scope.Scope
++            TypeFilter = $typeFilter
++            Limit = $limit
++            PreserveSelectionDn = $preserveDn
+             CacheKey = $cacheKey
+             Search = $textValue
+             RequestedAt = Get-Date
+@@ -8367,8 +8459,11 @@
+             Generation = $generation
+         }
+ 
+-        Add-AdccUiLog -Area "Recherche" -Level "INFO" -Text "Recherche '$textValue' demandee, limite $limit."
+-        Start-UiTask -Name "Recherche globale" -OperationId "GlobalSearch" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "global" -DisableControls @("BtnGlobalSearch") -TimeoutSeconds ([Math]::Max(15,[int](Get-CfgValue "Async" "SearchTimeoutSeconds" 45))) -StatusText "Recherche Active Directory en arriere-plan..." -SuccessHandler "Complete-AdccGlobalSearchUi" -ErrorHandler "Fail-AdccGlobalSearchUi" | Out-Null
++        Add-AdccUiLog -Area "Recherche" -Level "INFO" -Text "Recherche '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit."
++        if ($generation -ne [int]$script:GlobalSearchGeneration) { return }
++        if (-not $PreserveSelection) { Select-AdccWorkspace -Workspace 'WsSearch' }
++        [void](Set-AdccControlText -Name 'LblBranchCount' -Text 'Recherche en cours...')
++        Start-UiTask -Name "Recherche dans l annuaire" -OperationId "GlobalSearch" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "global" -DisableControls @("BtnGlobalSearch") -TimeoutSeconds ([Math]::Max(15,[int](Get-CfgValue "Async" "SearchTimeoutSeconds" 45))) -StatusText "Recherche Active Directory en arriere-plan..." -SuccessHandler "Complete-AdccGlobalSearchUi" -ErrorHandler "Fail-AdccGlobalSearchUi" | Out-Null
+     }
+     catch {
+         [void](Show-AdccOperationError -Operation "Preparation de la recherche Active Directory" -ErrorRecordOrException $_ -NoPopup:$SilentError)
+@@ -17202,9 +17297,12 @@
+         $Rows,
+         [string]$Label,
+         [switch]$SkipPresenceScan,
+-        [switch]$NoAutoOpen
++        [switch]$NoAutoOpen,
++        [AllowEmptyString()][string]$PreserveSelectionDn = ""
+     )
+ 
++    $previousWorkspace = ''
++    try { $previousWorkspace = [string](Get-AdccControl -Name 'WorkspaceTabs').SelectedItem.Name } catch { }
+     $rawRows = @()
+     if ($null -ne $Rows) { $rawRows = @($Rows) }
+     try {
+@@ -17243,7 +17341,7 @@
+     # Une recherche depuis la base autonome peut etre selectionnee pendant que la
+     # validation AD est encore en vol. Quand cette validation revient, elle doit
+     # remplacer les lignes SANS deselectionner l'objet deja ouvert.
+-    $preserveDn = ""
++    $preserveDn = [string]$PreserveSelectionDn
+     try {
+         $selectedBefore = Get-AdccSelectedGridRow
+         if ($null -ne $selectedBefore) { $preserveDn = ([string]$selectedBefore.DN).Trim() }
+@@ -17327,6 +17425,9 @@
+         Write-AppLog "Restauration de selection apres mise a jour des resultats impossible : $($_.Exception.Message)" "WARN"
+     }
+ 
++    if ($NoAutoOpen -and -not [string]::IsNullOrWhiteSpace($previousWorkspace)) {
++        Select-AdccWorkspace -Workspace $previousWorkspace
++    }
+     Request-AdccDashboardRefresh
+ 
+     if (-not $SkipPresenceScan) {
+@@ -18205,8 +18306,12 @@
+     }
+ 
+     $script:Ctrl["BtnTreeRefresh"].Add_Click({ Load-TreeRoot -ForceRefresh })
++    $script:Ctrl["BtnSearchAllDomain"].Add_Click({ Reset-AdccSearchScope })
++    $script:Ctrl["ChkSubtree"].Add_Checked({ Invoke-AdccSearchFilterChanged })
++    $script:Ctrl["ChkSubtree"].Add_Unchecked({ Invoke-AdccSearchFilterChanged })
++    $script:Ctrl["CmbGlobalType"].Add_SelectionChanged({ Invoke-AdccSearchFilterChanged })
+     $script:Ctrl["BtnLoadBranch"].Add_Click({ Load-BranchObjects })
+-    $script:Ctrl["BtnClearBranch"].Add_Click({ $script:BranchObjects = @(); $script:Ctrl["DgObjects"].ItemsSource = $null; $script:Ctrl["LblBranchCount"].Text = "0 objet"; Update-Dashboard })
++    $script:Ctrl["BtnClearBranch"].Add_Click({ Clear-AdccGlobalSearch })
+     $script:Ctrl["BtnGlobalSearch"].Add_Click({
+         try { Invoke-GlobalSearch }
+         catch {
+@@ -18516,7 +18621,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.22-R1.8-UXPOLISH"
++$script:MasterBuild = "2026.09.30-R1.9-OUSEARCH"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -19635,8 +19740,7 @@
+     return [ordered]@{
+         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
+         TreeChildren          = "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
+-        BranchObjects         = "F95F9FD614A85999B442E28D15B0869A349695A28ADC618DA9A4017DC95ECD2C"
+-        GlobalSearch          = "2DC4D0B42024D9C7BC4CE33721FC18A6085BFB9DAD3CDE0B33AE19A069CE568C"
++        GlobalSearch          = "4D6EFFC55E44BBE6944A21E26CC9FE82FBEF946FD164F1D976D9B0A280F69401"
+         PermissionAnalysis    = "664513B3CF363C35CA895100374950039EAE9B69DD288AD5AE53F862EC10A340"
+         SelfCheck             = "65D11DDC4A935412B4341BE401FE6739C7D65F3E72DDF8A33ACE2FBBB27A71C4"
+         ReadBitLocker         = "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485"
+@@ -19750,7 +19854,7 @@
+     Write-StartupTrace -Stage "Moteur multithread" -Status "START"
+     try {
+         $registry = Get-AdccWorkerOperationHashes
+-        if ($registry.Count -ne 46) { throw "Registre worker incomplet : $($registry.Count)/46 operation(s)." }
++        if ($registry.Count -ne 45) { throw "Registre worker incomplet : $($registry.Count)/45 operation(s)." }
+         foreach ($operationId in $registry.Keys) {
+             if ([string]$registry[$operationId] -notmatch '^[A-F0-9]{64}$') { throw "Hash worker invalide pour $operationId." }
+         }
+@@ -19770,7 +19874,7 @@
+         $script:AsyncTimer = $timer
+         $script:AsyncTimer.Start()
+         $sw.Stop()
+-        Write-StartupTrace -Stage "Moteur multithread" -Status "OK" -DurationMs $sw.ElapsedMilliseconds -Detail "Moteur ferme pret ; 46 operations hash-pinnees, un runspace MTA dedie par tache."
++        Write-StartupTrace -Stage "Moteur multithread" -Status "OK" -DurationMs $sw.ElapsedMilliseconds -Detail "Moteur ferme pret ; 45 operations hash-pinnees, un runspace MTA dedie par tache."
+     }
+     catch {
+         $sw.Stop()
+@@ -21143,7 +21247,7 @@
+     if ($null -eq $Payload) { $Payload = [pscustomobject]@{} }
+     $correlation = [guid]::NewGuid().ToString("N")
+     if ($null -eq $Payload.PSObject.Properties["CorrelationId"]) { $Payload | Add-Member -NotePropertyName CorrelationId -NotePropertyValue $correlation }
+-    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot") | Select-Object -Unique)
++    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
+     if ($TimeoutSeconds -le 0) { $TimeoutSeconds = [int](Get-CfgValue "Async" "WriteSoftTimeoutSeconds" 90) }
+     $hard = [int](Get-CfgValue "Async" "WriteHardTimeoutSeconds" 300)
+     Write-AppLog "[$correlation] DEBUT $Name sur $([string]$Payload.DN)" "INFO"
+@@ -22064,7 +22168,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:AdccBuild = "ADCC 1.0 R1.8 UX POLISH"
++$script:AdccBuild = "ADCC 1.0 R1.9 RECHERCHE OU"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -23081,7 +23185,7 @@
+     try {
+         Initialize-AsyncEngine
+         $engineReady = [bool]$script:AsyncEngineReady
+-        Add-SelfTestResult -Name 'Moteur worker ferme' -Success $engineReady -Detail $(if($engineReady){'Registre de 46 operations hash-pinnees pret.'}else{'Moteur absent.'})
++        Add-SelfTestResult -Name 'Moteur worker ferme' -Success $engineReady -Detail $(if($engineReady){'Registre de 45 operations hash-pinnees pret.'}else{'Moteur absent.'})
+ 
+         if ($engineReady) {
+             $tamperRejected = $false

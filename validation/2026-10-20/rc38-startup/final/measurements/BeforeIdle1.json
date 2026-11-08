@@ -1,0 +1,52 @@
+{
+    "Label":  "BeforeIdle1",
+    "Passed":  true,
+    "Utc":  "2026-10-20T18:22:10.7106564Z",
+    "PS":  "5.1.26100.6584",
+    "Idle":  [
+                 {
+                     "Utc":  "2026-10-20T18:22:18.2548928Z",
+                     "CpuPercent":  [
+                                        100,
+                                        21.71,
+                                        13.28
+                                    ],
+                     "FreeMB":  2361
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:22:23.1498311Z",
+                     "CpuPercent":  [
+                                        23.44,
+                                        30.47,
+                                        21.88
+                                    ],
+                     "FreeMB":  2361
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:22:28.4681368Z",
+                     "CpuPercent":  [
+                                        10.85,
+                                        11.72,
+                                        15.62
+                                    ],
+                     "FreeMB":  2361
+                 }
+             ],
+    "Timings":  {
+                    "MainVisibleMs":  137764,
+                    "LoginVisibleMs":  32139
+                },
+    "CoreSHA256":  "6E30C54F77AA2A936924CD9FC5FAC23B9E84A7003E96F7F24FC59CFC37299458",
+    "LaunchUtc":  "2026-10-20T18:22:28.7241294Z",
+    "LauncherId":  4872,
+    "AppId":  1584,
+    "MainTitle":  "Accueil · Aucune sélection — Domenia",
+    "AppCpuSeconds":  101.0625,
+    "Endpoint":  "Application initialization OK and native main window visible; dashboard UI Automation traversal excluded",
+    "SessionLocked":  false,
+    "LoggedSeconds":  {
+                          "Apres login":  85.526,
+                          "Login/WINDOW_READY":  28.198
+                      },
+    "ClosedNormally":  true
+}

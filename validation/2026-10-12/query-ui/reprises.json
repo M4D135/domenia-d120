@@ -1,0 +1,55 @@
+{
+  "Scope": "Windows PowerShell 5.1, true WPF, synthetic directory/observations; no real AD or endpoint transport qualification",
+  "IntermediateEvidence": "Original reports remain outside Git in the Windows lab C:\\DomeniaLab\\codex-ux-20261012-r4/r5/r7, the relay vmstage folders and local /tmp/ux-r4, /tmp/ux-r5, /tmp/ux-r7. Failed intermediates are not final qualification evidence.",
+  "Reprises": [
+    {
+      "Area": "Boards CollectFleet",
+      "Cause": "Runtime action incorrectly depended on the current workshop recipe. An AD-only recipe prevented inventory collection.",
+      "Correction": "Independent inventory action plus explicit OU/current scope/subtree/epoch/no stale or pending snapshot/nonempty targets guards.",
+      "FinalRegression": "Test-DomeniaBoards 41 cases including AD-only recipe and unsafe/missing-epoch contexts."
+    },
+    {
+      "Area": "Query and historical Search fixtures",
+      "Cause": "Isolated fixtures did not import new QueryTargets.UI and Test-DomeniaSearchQueryRow dependencies. Errors were caught in the historical-list fallback.",
+      "Correction": "Import actual product helpers; preserve strict count, identity and history assertions.",
+      "Evidence": "Query 238 assertions local; historical-list diagnostic 43/43 on Windows after only the missing real helper import."
+    },
+    {
+      "Area": "Capture OU dialog",
+      "Cause": "Unqualified harness Width was dynamically shadowed by the dialog width=Auto variable.",
+      "Correction": "Script-qualified harness dimensions; product unchanged."
+    },
+    {
+      "Area": "Workshop at 1280x720",
+      "Cause": "Real WPF layout exposed only one complete table row (59px visible of100px grid); 1080p had17 rows.",
+      "Correction": "Root compacted redundant header and filter controls before R7.",
+      "FinalRegression": "Native viewport PNGs and measurements at1280x720 and1920x1080; failed checks remain explicit."
+    },
+    {
+      "Area": "First DNS probe",
+      "Cause": "Intended first-value selection was incorrectly flagged truncated for multiple DNS servers, excluding otherwise valid data.",
+      "Correction": "Serialize first instance/first array value for First; retain selected-text length guard and All truncation; complete Count unaffected.",
+      "Evidence": "EngineResilience40/40 local before Windows final."
+    },
+    {
+      "Area": "R7 Boards probe argument fixture",
+      "Cause": "The mock materialized an absent Probes argument as @($null), which has Count=1; the product correctly omitted Probes.",
+      "Correction": "Record PSBoundParameters.ContainsKey(Probes) and require the argument to be absent, retaining the two explicit active targets and Inventory assertions.",
+      "Evidence": "Derived Windows Boards41/41 PASS; then independently confirmed by the final R8 archive campaign,23/23 suites PASS plus WiringRecherche43/43, no timeouts and RuntimeChanged empty."
+    },
+    {
+      "Area": "R7 catalogue documentary fixture",
+      "Cause": "Search text disque did not contain the actual field name Espace libre C: relevé (%).",
+      "Correction": "Use search text espace libre and select the actual diskFreePercent field; no product change.",
+      "Evidence": "33 captures generated, 28/28 checks, all image hashes verified; 31 documentary views and two viewport diagnostics."
+    }
+  ],
+  "FinalCampaign": {
+    "Status": "PASS",
+    "Proof": "r8/qualification.json",
+    "SuitesPassed": 23,
+    "SuitesFailed": 0,
+    "WiringRecherchePassed": 43,
+    "RuntimeChanged": []
+  }
+}

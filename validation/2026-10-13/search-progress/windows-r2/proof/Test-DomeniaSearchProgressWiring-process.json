@@ -1,0 +1,37 @@
+{
+    "Name":  "Test-DomeniaSearchProgressWiring",
+    "Edition":  "dev",
+    "RelativeScript":  "wad\\tests\\Test-DomeniaSearchProgressWiring.ps1",
+    "ScriptSha256":  "28514bce44ec1069e1eb8f1c0b8a644844dce648d7d3ac43eaabc39018b53221",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaSearchProgressWiring.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaSearchProgressWiring.json"
+                  ],
+    "StartedUTC":  "2026-10-13T16:00:20.6699350Z",
+    "EndedUTC":  "2026-10-13T16:00:31.4668540Z",
+    "Milliseconds":  12099,
+    "TimeoutSeconds":  240,
+    "RunnerPID":  1092,
+    "ChildPID":  1108,
+    "ExitCode":  0,
+    "TimedOut":  false,
+    "KillAttempted":  false,
+    "ChildTerminated":  true,
+    "Error":  "",
+    "Stdout":  "Test-DomeniaSearchProgressWiring.stdout.txt",
+    "Stderr":  "Test-DomeniaSearchProgressWiring.stderr.txt",
+    "JsonReport":  "Test-DomeniaSearchProgressWiring.json",
+    "ReportVerdict":  {
+                          "Valid":  true,
+                          "Reason":  "JSON verdict passed",
+                          "Cases":  23,
+                          "Sha256":  "55a3bdaef3716ba07123622a26400098a40623861b985f8f0c240f56e28c5dc3"
+                      },
+    "Passed":  true
+}

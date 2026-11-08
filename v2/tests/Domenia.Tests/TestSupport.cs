@@ -1,0 +1,342 @@
+using System.Collections.Immutable;
+using System.Security.AccessControl;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Domenia.Bridge;
+using Domenia.Core;
+using Domenia.Simulation;
+
+namespace Domenia.Tests;
+
+/// <summary>Clock with a fixed instant and time zone; real timers (so simulated waits stay cancellable).</summary>
+internal sealed class FixedTimeProvider(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
+{
+    private readonly Lock gate = new();
+    private DateTimeOffset current = now;
+
+    public override TimeZoneInfo LocalTimeZone => zone;
+
+    public override DateTimeOffset GetUtcNow()
+    {
+        lock (gate)
+        {
+            return current;
+        }
+    }
+
+    public void Advance(TimeSpan by)
+    {
+        lock (gate)
+        {
+            current += by;
+        }
+    }
+}
+
+internal static class TestClock
+{
+    /// <summary>Wednesday 21 October 2026, 18:26 in Paris.</summary>
+    public static DateTimeOffset Reference { get; } = new(2026, 10, 21, 16, 26, 0, TimeSpan.Zero);
+
+    public static TimeZoneInfo Paris { get; } = FindParis();
+
+    public static FixedTimeProvider Fixed(DateTimeOffset? now = null) => new(now ?? Reference, Paris);
+
+    private static TimeZoneInfo FindParis()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
+        }
+    }
+}
+
+/// <summary>Small hand-written directories for the pure calculation tests.</summary>
+internal static class Fixtures
+{
+    public const string Root = "DC=test,DC=local";
+    public const string Postes = "OU=Postes,DC=test,DC=local";
+    public const string People = "OU=Utilisateurs,DC=test,DC=local";
+
+    public static DateTimeOffset Now => TestClock.Reference;
+
+    public static DomainInfo Domain { get; } = new(
+        "test.local",
+        "TEST",
+        Root,
+        "S-1-5-21-1-2-3",
+        [new DomainController("DC1.test.local", "Paris")],
+        new DomainPasswordPolicy(TimeSpan.FromDays(90), 12, 24, 5, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30)),
+        ["CN=Users," + Root, "CN=Computers," + Root]);
+
+    public static Guid IdOf(string name) => new(SHA256.HashData(Encoding.UTF8.GetBytes(name)).AsSpan(0, 16));
+
+    public static long Ft(DateTimeOffset at) => AdValues.ToFileTime(at);
+
+    /// <summary>Active user, password set 10 days ago (expires in 80 days), logged on yesterday.</summary>
+    public static DirectoryUser User(string name)
+    {
+        var passwordSet = Now - TimeSpan.FromDays(10);
+        return new DirectoryUser(
+            IdOf(name), "S-1-5-21-1-2-3-" + (IdOf(name).GetHashCode() & 0xFFFF).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            $"CN={name},{People}", name, name.ToLowerInvariant(), null, name, null, null, null, null, null, null, null, null, null, null,
+            AdValues.NormalAccount, 0, 0, 0, Ft(passwordSet), Ft(passwordSet + TimeSpan.FromDays(90)), Ft(Now - TimeSpan.FromDays(1)), AdValues.Never,
+            Now - TimeSpan.FromDays(400), Now - TimeSpan.FromDays(1), 1000, null, 513, []);
+    }
+
+    /// <summary>Enabled workstation under OU=Postes, logged on yesterday, machine password changed 5 days ago.</summary>
+    public static DirectoryComputer Computer(string name, string parentDn = Postes) => new(
+        IdOf(name), "S-1-5-21-1-2-3-9", $"CN={name},{parentDn}", name, name.ToLowerInvariant() + ".test.local", name + "$", null, null, null,
+        "Windows 11 Entreprise", "10.0 (26100)", AdValues.WorkstationTrustAccount, Ft(Now - TimeSpan.FromDays(1)), Ft(Now - TimeSpan.FromDays(5)),
+        Now - TimeSpan.FromDays(300), Now - TimeSpan.FromDays(5), 2000, LapsKind.None, null, 515, []);
+
+    public static PresenceMeasure Presence(bool answered, TimeSpan age, DateTimeOffset? lastOnline = null) =>
+        new(MeasureState.Known, answered, Now - age, answered ? Now - age : lastOnline);
+
+    public static InventoryMeasure Disk(long size, long free, TimeSpan age, TimeSpan? bootAge = null) =>
+        new(MeasureState.Known, Now - age, size, free, Now - (bootAge ?? TimeSpan.FromDays(2)), "Modèle", 16L << 30, "Microsoft Windows 11 Entreprise", "26100");
+
+    public static WorkstationObservation Observe(DirectoryComputer computer, PresenceMeasure? presence = null, InventoryMeasure? inventory = null) =>
+        new(computer.ObjectGuid, presence ?? PresenceMeasure.Unread, inventory ?? InventoryMeasure.Unread);
+
+    public static DirectorySnapshot Snapshot(IEnumerable<DirectoryUser>? users = null, IEnumerable<DirectoryComputer>? computers = null, DateTimeOffset? readAt = null) =>
+        new(Domain, readAt ?? Now - TimeSpan.FromMinutes(10), true, [], [.. users ?? []], [.. computers ?? []], []);
+
+    public static DashboardInput Input(
+        DirectorySnapshot snapshot,
+        IEnumerable<WorkstationObservation>? observations = null,
+        IEnumerable<DailyFigures>? history = null,
+        IEnumerable<JournalEntry>? journal = null,
+        IEnumerable<string>? disabled = null,
+        DateTimeOffset? now = null)
+    {
+        var entries = ImmutableArray.CreateRange(journal ?? []);
+        var state = new DirectoryState(snapshot, new FleetObservations(now ?? Now, [.. observations ?? []]), [.. history ?? []], entries);
+        return new DashboardInput(state, new ScopeSelection(Postes, "Postes", true), DashboardPolicy.Default,
+            new HashSet<string>(disabled ?? [], StringComparer.Ordinal), entries, now ?? Now, TestClock.Paris, DirectorySourceKind.ActiveDirectory);
+    }
+
+    public static DashboardWidget Widget(string id, DashboardInput input) => DashboardCalculator.ComputeWidget(id, input);
+
+    public static KpiData Kpi(DashboardWidget widget) => (KpiData)widget.Data!;
+
+    public static int Part(ImmutableArray<BreakdownItem> breakdown, string key) => breakdown.Single(b => b.Key == key).Value;
+}
+
+/// <summary>Source whose local read captures the state, then waits to be released (interleaving tests).</summary>
+internal sealed class GatedReadSource(IDirectorySource inner) : IDirectorySource
+{
+    public TaskCompletionSource ReadCaptured { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public DirectorySourceKind Kind => inner.Kind;
+
+    public Task<SessionSnapshot> GetSessionAsync(CancellationToken cancellationToken) => inner.GetSessionAsync(cancellationToken);
+
+    public async Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken)
+    {
+        var state = await inner.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
+        ReadCaptured.TrySetResult();
+        await Release.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return state;
+    }
+
+    public Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken) => inner.RefreshAsync(family, scope, cancellationToken);
+}
+
+/// <summary>Technical journal that keeps every line, to check what is traced (and what never is).</summary>
+internal sealed class RecordingJournal : ITechnicalJournal
+{
+    private readonly List<string> lines = [];
+
+    public IReadOnlyList<string> Lines
+    {
+        get
+        {
+            lock (lines)
+            {
+                return [.. lines];
+            }
+        }
+    }
+
+    public void Trace(string message) => Add("TRACE " + message);
+    public void Info(string message) => Add("INFO " + message);
+
+    public void Warning(string message) => Add("ATTENTION " + message);
+
+    public void Error(string message, Exception exception) => Add("ERREUR " + message + " " + exception.GetType().Name);
+
+    private void Add(string line)
+    {
+        lock (lines)
+        {
+            lines.Add(line);
+        }
+    }
+}
+
+/// <summary>Preferences whose writes always fail like a full or read-only disk.</summary>
+internal sealed class FailingPreferenceStore : IPreferenceStore
+{
+    private readonly MemoryPreferenceStore memory = new();
+
+    public bool Persistent => true;
+
+    public bool TryGet(string key, out JsonElement value) => memory.TryGet(key, out value);
+
+    public async Task SetAsync(string key, JsonElement? value, CancellationToken cancellationToken)
+    {
+        await memory.SetAsync(key, value, cancellationToken).ConfigureAwait(false);
+        throw new IOException("Disque plein (test).");
+    }
+}
+
+/// <summary>Temporary folder deleted at the end of a test.</summary>
+internal sealed class TemporaryFolder : IDisposable
+{
+    public TemporaryFolder()
+    {
+        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "domenia-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path);
+        // Le magasin utilisateur protege (UserLocalStorageProtection) refuse toute ACE heritee d'un tiers :
+        // sans cette protection a la racine du dossier d'essai, le dossier herite de la politique du dossier
+        // temporaire (ou de celle d'un precedent essai) et les essais de synchronisation refusent d'ecrire
+        // (« Droits prives du stockage utilisateur non confirmes »). On pose ici la meme politique privee que
+        // le produit : protection hermetique et trois seuls ayants droit (compte courant, SYSTEM, Admins).
+        // Les essais qui etudient expressement la politique heritee du Temp Windows (SharedParkPublicationAclTests,
+        // « useDefaultParent ») ne passent pas par ce constructeur et gardent la politique reellement heritee.
+        var security = new DirectorySecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent())
+        {
+            foreach (var sid in new[] { identity.User!,
+                new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.LocalSystemSid, null),
+                new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null) }
+                .DistinctBy(p => p.Value))
+            {
+                security.AddAccessRule(new FileSystemAccessRule(sid, FileSystemRights.FullControl,
+                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+            }
+        }
+        new DirectoryInfo(Path).SetAccessControl(security);
+    }
+
+    public string Path { get; }
+
+    public string File(string name) => System.IO.Path.Combine(Path, name);
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(Path, recursive: true);
+        }
+        catch (IOException)
+        {
+            // A file still open by a failed test: left in the temporary folder.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Same: never hides the result of the test itself.
+        }
+    }
+}
+
+/// <summary>
+/// Real bridge over a simulated source without latency, composed like the application: engine context, screen readers
+/// and operation modules found by reflection on Domenia.Simulation and Domenia.Bridge.
+/// </summary>
+internal sealed class SimulatedBridge
+{
+    private readonly List<BridgeResponse> sent = [];
+    private int counter;
+
+    /// <param name="readers">More assemblies whose screen readers join those of the simulation (a scripted secure window of the
+    /// fiche, for instance); none by default.</param>
+    public SimulatedBridge(SimulationLatency latency = SimulationLatency.None, FixedTimeProvider? clock = null, IPreferenceStore? preferences = null, IReceiptStore? receipts = null,
+        IEnumerable<System.Reflection.Assembly>? readers = null, bool reservedDomain = false, IEnumerable<IOperationModule>? modules = null, RuntimeConfiguration? configuration = null)
+    {
+        Clock = clock ?? TestClock.Fixed();
+        Source = new SimulatedDirectorySource(SimulationOptions.Default with { Latency = latency, UseReservedDomain = reservedDomain }, Clock);
+        Preferences = preferences ?? new MemoryPreferenceStore();
+        Receipts = receipts ?? new MemoryReceiptStore();
+        Log = new RecordingJournal();
+        Context = new EngineContext(reservedDomain ? DemoSessionArguments.Decision() : Decision, Source, Preferences, Clock, Log, ScreenReaders.Discover(Source, [typeof(SimulatedDirectorySource).Assembly, .. readers ?? []]),
+            writers: WriteExecutors.Discover(Source, [typeof(SimulatedDirectorySource).Assembly]), receipts: Receipts, configuration: configuration);
+        Service = DashboardService.From(Context);
+        Registry = OperationModules.CreateRegistry(Context, modules ?? OperationModules.Discover([typeof(DashboardOperations).Assembly]));
+        Dispatcher = new BridgeDispatcher(Registry, Publish, AdmissionGuards.ReadOnlySimulation);
+    }
+
+    /// <summary>Simulation started with --simulation.</summary>
+    public static ModeDecision Decision { get; } = ModeResolver.Resolve(["--simulation"], null, () => new DomainJoinInfo(DomainJoinState.Unknown, null));
+
+    public FixedTimeProvider Clock { get; }
+
+    public SimulatedDirectorySource Source { get; }
+
+    /// <summary>Write receipts of the bridge (memory unless a store is given).</summary>
+    public IReceiptStore Receipts { get; }
+
+    /// <summary>Events pushed to the page (« write.execute:stage »…), in order.</summary>
+    public IReadOnlyList<BridgeResponse> Events
+    {
+        get
+        {
+            lock (sent)
+            {
+                return [.. sent.Where(r => r.Kind == "event")];
+            }
+        }
+    }
+
+    public IPreferenceStore Preferences { get; }
+
+    public RecordingJournal Log { get; }
+
+    public EngineContext Context { get; }
+
+    public OperationRegistry Registry { get; }
+
+    public DashboardService Service { get; }
+
+    public BridgeDispatcher Dispatcher { get; }
+
+    public async Task<BridgeResponse> CallAsync(string operation, string arguments = "{}", CancellationToken cancellationToken = default)
+    {
+        var id = "t" + Interlocked.Increment(ref counter).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        await Dispatcher.HandleAsync("{\"id\":\"" + id + "\",\"op\":\"" + operation + "\",\"args\":" + arguments + "}", cancellationToken).ConfigureAwait(false);
+        lock (sent)
+        {
+            return sent.Last(r => r.Id == id);
+        }
+    }
+
+    /// <summary>Data of a result, serialized with the contract options and read back.</summary>
+    /// <summary>JSON text of a value with its accents as they are (the bridge escapes them: « é » is written \u00E9).</summary>
+    public static string Text(JsonElement value) => JsonSerializer.Serialize(value, ReadableJson);
+
+    private static readonly JsonSerializerOptions ReadableJson = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    public static JsonElement Json(BridgeResponse response)
+    {
+        Check.Equal("result", response.Kind, "réponse attendue : " + (response.Error?.Code ?? ""));
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(response.Data, BridgeJson.Options));
+        return document.RootElement.Clone();
+    }
+
+    private void Publish(BridgeResponse response)
+    {
+        lock (sent)
+        {
+            sent.Add(response);
+        }
+    }
+}

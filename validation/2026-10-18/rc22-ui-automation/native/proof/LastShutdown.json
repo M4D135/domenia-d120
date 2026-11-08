@@ -1,0 +1,9 @@
+﻿{
+    "User":  null,
+    "DateUtc":  "2026-10-18T12:50:39.9865921Z",
+    "Shutdown":  {
+                     "TimeUtc":  "2026-10-18T12:45:38.4420503Z",
+                     "Provider":  "User32",
+                     "Message":  "The process C:\\WINDOWS\\system32\\wlms\\wlms.exe (FILPRO-W11B) has initiated the shutdown of computer FILPRO-W11B on behalf of user NT AUTHORITY\\SYSTEM for the following reason: Other (Planned)\r\n Reason Code: 0x80000000\r\n Shutdown Type: shutdown\r\n Comment: The license period for this installation of Windows has expired. The operating system is shutting down.\r\n"
+                 }
+}

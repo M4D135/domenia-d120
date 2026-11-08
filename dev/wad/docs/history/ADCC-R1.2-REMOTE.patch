@@ -1,0 +1,480 @@
+--- R1.1/wad/ADCC-Core.ps1
++++ R1.2/wad/ADCC-Core.ps1
+@@ -6914,43 +6914,41 @@
+ }
+ function Get-WRemoteAdminCredential {
+     param($Context)
+-    # Un compte distant dedie est prioritaire. A defaut, repli sur le compte
+-    # AD courant, ce qui permet de travailler sans reconfigurer chaque poste.
+-    try {
+-        if ($null -ne $script:RemoteAdminCredential) { return $script:RemoteAdminCredential }
+-    }
+-    catch { }
+-    try {
+-        if ($null -ne $Context.RemoteAdminCredential) {
+-            $user = ([string]$Context.RemoteAdminUser).Trim()
+-            if ([string]::IsNullOrWhiteSpace($user)) {
+-                $user = ([string]$Context.RemoteAdminCredential.UserName).Trim()
+-            }
+-            if (-not [string]::IsNullOrWhiteSpace($user) -and [string]$Context.RemoteAdminCredential.UserName -ine $user) {
+-                return New-Object System.Management.Automation.PSCredential -ArgumentList @($user,$Context.RemoteAdminCredential.Password)
+-            }
+-            return $Context.RemoteAdminCredential
+-        }
+-    }
+-    catch { }
++    if ($null -ne $Context.RemoteAdminCredential) {
++        $user = ([string]$Context.RemoteAdminUser).Trim()
++        if ([string]::IsNullOrWhiteSpace($user)) { $user = [string]$Context.RemoteAdminCredential.UserName }
++        if ([string]$Context.RemoteAdminCredential.UserName -ine $user) {
++            return New-Object System.Management.Automation.PSCredential -ArgumentList @($user,$Context.RemoteAdminCredential.Password)
++        }
++        return $Context.RemoteAdminCredential
++    }
++    if ($null -ne $script:RemoteAdminCredential) { return $script:RemoteAdminCredential }
++    if ([bool]$Context.UseCredential -and $null -ne $Context.Credential) { return (Get-WAdCredential $Context) }
+     return $null
+ }
+ function Get-WMachineCredential {
+     param($Context)
+-    # Credential machine explicite > compte poste dedie > compte AD courant.
++    # Le meme choix est utilise pour CIM, PsExec, ADMIN$ et schtasks.
+     if ($null -ne $Context.MachineCredential) { return $Context.MachineCredential }
+-    if ($null -ne $script:RemoteAdminCredential) { return $script:RemoteAdminCredential }
+     return (Get-WRemoteAdminCredential $Context)
+ }
+ function New-WAdccCimSession {
+     param($Context,[string]$Computer,$Credential,[int]$TimeoutSeconds=20)
+-    if([string]::IsNullOrWhiteSpace($Computer)){throw "Nom de machine vide pour la session CIM."}
+-    $last="";$protocols=@("Dcom","Wsman")
+-    foreach($protocol in $protocols){
+-        if($protocol -eq "Wsman" -and -not [bool]$Context.UseWinRM){continue}
+-        try{$option=New-CimSessionOption -Protocol $protocol -ErrorAction Stop;$params=@{ComputerName=$Computer;SessionOption=$option;ErrorAction="Stop"};if($null-ne$Credential){$params["Credential"]=$Credential};$cmd=Get-Command New-CimSession -ErrorAction Stop;if($cmd.Parameters.ContainsKey("OperationTimeoutSec")){$params["OperationTimeoutSec"]=[Math]::Max(2,$TimeoutSeconds)};return New-CimSession @params}catch{$last=[string]$_.Exception.Message}
+-    }
+-    throw "Aucune session CIM ouverte sur $Computer. $last"
++    if ([string]::IsNullOrWhiteSpace($Computer)) { throw 'Nom de machine vide pour la session CIM.' }
++    $failures = New-Object 'System.Collections.Generic.List[string]'
++    foreach ($protocol in @('Dcom','Wsman')) {
++        if ($protocol -eq 'Wsman' -and -not [bool]$Context.UseWinRM) { continue }
++        try {
++            $option = New-CimSessionOption -Protocol $protocol -ErrorAction Stop
++            $parameters = @{ComputerName=$Computer;SessionOption=$option;ErrorAction='Stop'}
++            if ($null -ne $Credential) { $parameters['Credential']=$Credential }
++            $command = Get-Command New-CimSession -ErrorAction Stop
++            if ($command.Parameters.ContainsKey('OperationTimeoutSec')) { $parameters['OperationTimeoutSec']=[Math]::Max(2,$TimeoutSeconds) }
++            return New-CimSession @parameters
++        }
++        catch { $failures.Add(($protocol+' : '+[string]$_.Exception.Message)) }
++    }
++    throw ('Aucune session CIM ouverte sur '+$Computer+'. '+($failures.ToArray() -join ' | '))
+ }
+ 
+ function Remove-WAdccCimSession {
+@@ -7037,8 +7035,41 @@
+     }
+     return $null
+ }
++function Get-WRemoteComputerName {
++    param([string]$Computer)
++    $name = ([string]$Computer).Trim()
++    # Une seule cible. Refuser les jokers, listes, chemins et options natives.
++    if ($name -notmatch '\A[A-Za-z0-9][A-Za-z0-9_.-]{0,252}\z') {
++        throw 'Nom de poste distant invalide : fournir un nom DNS, NetBIOS ou une adresse IPv4 unique.'
++    }
++    return $name
++}
++function Format-WRemoteFailureDetail {
++    param([string]$Text,[int]$MaxLength=700)
++    $detail = ([regex]::Replace(([string]$Text),'\s+',' ')).Trim()
++    if ([string]::IsNullOrWhiteSpace($detail)) { return 'aucun detail retourne' }
++    if ($detail -match '(?i)SYSINTERNALS SOFTWARE LICENSE TERMS|BY USING THE SOFTWARE, YOU ACCEPT THESE TERMS') {
++        return 'PsExec a renvoye sa licence au lieu du resultat distant. Verifier la ligne de commande, les options -accepteula/-nobanner et le binaire lance ; ce retour ne prouve pas un refus de droits sur la cible.'
++    }
++    $limit = [Math]::Max(80,$MaxLength)
++    if ($detail.Length -gt $limit) { return ($detail.Substring(0,$limit)+' [...]') }
++    return $detail
++}
++function Get-WProbeAttemptSummary {
++    param([object[]]$Attempts)
++    $parts = New-Object 'System.Collections.Generic.List[string]'
++    foreach ($attempt in @($Attempts)) {
++        if ([string]$attempt.Status -in @('INFO','OK')) { continue }
++        $detail = Format-WRemoteFailureDetail -Text ([string]$attempt.Detail) -MaxLength 220
++        $parts.Add(('{0} [{1}] : {2}' -f [string]$attempt.Method,[string]$attempt.Status,$detail))
++        if ($parts.Count -ge 6) { break }
++    }
++    if ($parts.Count -eq 0) { return 'Aucun resultat classique exploitable.' }
++    return ($parts.ToArray() -join ' | ')
++}
+ function Invoke-WRemotePsExecScript {
+     param($Context,[string]$Computer,[string]$ScriptText,$InputObject,[int]$TimeoutSeconds=45)
++    $Computer=Get-WRemoteComputerName -Computer $Computer
+     $exe=Get-WPsExecPath $Context
+     if([string]::IsNullOrWhiteSpace([string]$exe)){throw 'PsExec.exe absent du dossier ADCC.'}
+     if([string]::IsNullOrWhiteSpace($Computer)){throw 'Nom de poste vide pour PsExec.'}
+@@ -7070,23 +7101,25 @@
+ "@
+     $encodedCommand=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($runner))
+     $svc='ADCCPX_'+[guid]::NewGuid().ToString('N').Substring(0,8)
+-    $args=@('\\'+$Computer,'-accepteula','-nobanner','-n',[string][Math]::Min(20,[Math]::Max(5,[int][Math]::Ceiling($TimeoutSeconds/3.0))),'-r',$svc)
+-
+-    $remoteCred=Get-WRemoteAdminCredential $Context
+-    if($null -eq $remoteCred){$remoteCred=Get-WMachineCredential $Context}
+-    if($null -ne $remoteCred){
+-        $args+=@('-u',[string]$remoteCred.UserName,'-p',[string]$remoteCred.GetNetworkCredential().Password)
+-    }
+-    $args+=@('-s',(Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'),'-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',$encodedCommand)
+-
++    # Ne pas ecrire @('\\'+$Computer,...) : la virgule est prioritaire sur +
++    # et regroupe alors la cible et les options dans un seul argument.
++    $target='\\'+$Computer
++    [string[]]$processArguments=@($target,'-accepteula','-nobanner','-n',[string][Math]::Min(20,[Math]::Max(5,[int][Math]::Ceiling($TimeoutSeconds/3.0))),'-r',$svc)
++    $remoteCred=Get-WMachineCredential $Context
++    if ($null -ne $remoteCred) {
++        $processArguments+=@('-u',[string]$remoteCred.UserName,'-p',[string]$remoteCred.GetNetworkCredential().Password)
++    }
++    $processArguments+=@('-s',(Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'),'-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',$encodedCommand)
++    if ($processArguments[0] -cne $target -or $processArguments[1] -cne '-accepteula' -or $processArguments[2] -cne '-nobanner') {
++        throw 'Arguments PsExec invalides : execution annulee avant tout acces distant.'
++    }
+     $watch=[Diagnostics.Stopwatch]::StartNew()
+-    $r=Invoke-WQuietProcess $exe $args $TimeoutSeconds
+-    $watch.Stop()
++    try { $r=Invoke-WQuietProcess -FilePath $exe -Arguments $processArguments -TimeoutSeconds $TimeoutSeconds }
++    finally { $watch.Stop(); $processArguments=$null; $remoteCred=$null }
+     $output=[string]$r.Output
+     $m=[regex]::Match($output,'__ADCC_PSEXEC_BEGIN__(?<b64>[A-Za-z0-9+/=]+)__ADCC_PSEXEC_END__',[Text.RegularExpressions.RegexOptions]::Singleline)
+     if(-not$m.Success){
+-        $detail=$output
+-        if($detail.Length -gt 900){$detail=$detail.Substring(0,900)}
++        $detail=Format-WRemoteFailureDetail -Text $output -MaxLength 700
+         throw ('PsExec KO code '+[string]$r.ExitCode+' : '+$detail)
+     }
+     try{
+@@ -7096,6 +7129,7 @@
+     if($null-ne$obj -and $null-ne$obj.PSObject.Properties['__adccError']){
+         throw ('Script distant PsExec : '+[string]$obj.__adccError)
+     }
++    if ([int]$r.ExitCode -ne 0) { throw ('PsExec : resultat recu mais code de sortie non nul ('+[string]$r.ExitCode+').') }
+     if($null-eq$obj){$obj=[pscustomobject]@{Value=$null}}
+     $sent=[Text.Encoding]::UTF8.GetByteCount($runner)+[Text.Encoding]::UTF8.GetByteCount($payloadJson)
+     $received=[Text.Encoding]::UTF8.GetByteCount($json)
+@@ -7107,29 +7141,18 @@
+ }
+ function Invoke-WSchtasksRemote {
+     param($Context,[string]$Computer,[string[]]$Arguments,[int]$TimeoutSeconds=30)
++    $Computer=Get-WRemoteComputerName -Computer $Computer
+     $exe=Join-Path $env:SystemRoot 'System32\schtasks.exe'
+-    $remoteCred=Get-WRemoteAdminCredential $Context
+-    if($null -ne $remoteCred){
+-        $base=@('/s',$Computer,'/u',[string]$remoteCred.UserName,'/p',[string]$remoteCred.GetNetworkCredential().Password)+$Arguments
+-        $r=Invoke-WQuietProcess $exe $base $TimeoutSeconds
+-        if($r.ExitCode -eq 0){return $r}
+-        $machine=$Context.MachineCredential
+-        if($null -ne $machine -and [string]$machine.UserName -ine [string]$remoteCred.UserName){
+-            $base=@('/s',$Computer,'/u',[string]$machine.UserName,'/p',[string]$machine.GetNetworkCredential().Password)+$Arguments
+-            $r2=Invoke-WQuietProcess $exe $base $TimeoutSeconds
+-            if($r2.ExitCode -eq 0){return $r2}
+-        }
+-        return $r
+-    }
+-    $base=@('/s',$Computer)+$Arguments
+-    $r=Invoke-WQuietProcess $exe $base $TimeoutSeconds
+-    if($r.ExitCode -eq 0){return $r}
+-    $machine=$Context.MachineCredential
+-    if($null -ne $machine){
+-        $base=@('/s',$Computer,'/u',[string]$machine.UserName,'/p',[string]$machine.GetNetworkCredential().Password)+$Arguments
+-        $r=Invoke-WQuietProcess $exe $base $TimeoutSeconds
+-    }
+-    return $r
++    $remoteCred=Get-WMachineCredential $Context
++    [string[]]$processArguments=@('/s',$Computer)
++    try {
++        if ($null -ne $remoteCred) {
++            $processArguments+=@('/u',[string]$remoteCred.UserName,'/p',[string]$remoteCred.GetNetworkCredential().Password)
++        }
++        $processArguments+=@($Arguments)
++        return (Invoke-WQuietProcess -FilePath $exe -Arguments $processArguments -TimeoutSeconds $TimeoutSeconds)
++    }
++    finally { $processArguments=$null; $remoteCred=$null }
+ }
+ function Get-WSchtasksHint {
+     param([int]$Code)
+@@ -7148,24 +7171,22 @@
+ }
+ function New-WAdminShareDrive {
+     param($Context,[string]$Computer)
++    $Computer=Get-WRemoteComputerName -Computer $Computer
+     $name='A'+[guid]::NewGuid().ToString('N').Substring(0,7)
+     $root='\\'+$Computer+'\ADMIN$'
+-    $errors=New-Object System.Collections.ArrayList
+-    $remoteCred=Get-WRemoteAdminCredential $Context
+-    if($null-ne$remoteCred){
+-        try{return (New-PSDrive -Name $name -PSProvider FileSystem -Root $root -Credential $remoteCred -Scope Script -ErrorAction Stop)}
+-        catch{[void]$errors.Add(('Compte ADCC '+[string]$remoteCred.UserName+' : '+[string]$_.Exception.Message))}
+-    }
+-    $machine=$Context.MachineCredential
+-    if($null-ne$machine -and ($null-eq$remoteCred -or [string]$machine.UserName -ine [string]$remoteCred.UserName)){
+-        try{return (New-PSDrive -Name $name -PSProvider FileSystem -Root $root -Credential $machine -Scope Script -ErrorAction Stop)}
+-        catch{[void]$errors.Add(('Compte poste '+[string]$machine.UserName+' : '+[string]$_.Exception.Message))}
+-    }
+-    try{return (New-PSDrive -Name $name -PSProvider FileSystem -Root $root -Scope Script -ErrorAction Stop)}
+-    catch{[void]$errors.Add(('Compte Windows courant : '+[string]$_.Exception.Message))}
+-    $detail=(@($errors)-join ' | ')
+-    if([string]::IsNullOrWhiteSpace($detail)){$detail='aucun detail'}
+-    throw ('ADMIN$ inaccessible sur '+$Computer+'. '+$detail)
++    $credential=Get-WMachineCredential $Context
++    $identity='session Windows courante'
++    $parameters=@{Name=$name;PSProvider='FileSystem';Root=$root;Scope='Script';ErrorAction='Stop'}
++    if ($null -ne $credential) {
++        $parameters['Credential']=$credential
++        $identity=[string]$credential.UserName
++    }
++    try { return (New-PSDrive @parameters) }
++    catch {
++        $detail=Format-WRemoteFailureDetail -Text ([string]$_.Exception.Message) -MaxLength 450
++        throw ('ADMIN$ inaccessible sur '+$Computer+' avec '+$identity+' : '+$detail+'. Aucun autre compte n a ete substitue automatiquement.')
++    }
++    finally { $credential=$null; $parameters.Remove('Credential') }
+ }
+ function Remove-WAdminShareDrive {
+     param($Drive)
+@@ -7202,6 +7223,7 @@
+ }
+ function Invoke-WRemoteScheduledTaskScript {
+     param($Context,[string]$Computer,[string]$ScriptText,$InputObject,[int]$TimeoutSeconds=75)
++    $Computer=Get-WRemoteComputerName -Computer $Computer
+     if(-not[bool]$Context.UseTaskFallback){throw 'Fallback tache planifiee desactive.'}
+     $TimeoutSeconds=[Math]::Max(15,[int]$TimeoutSeconds)
+     $taskWatch=[Diagnostics.Stopwatch]::StartNew()
+@@ -7218,7 +7240,7 @@
+     $bytesSent=0
+     $bytesReceived=0
+     $stage='initialisation'
+-    $uncPrefix=''
++    $drivePrefix=''
+     try{
+         $stage='acces ADMIN$ / staging'
+         $drive=New-WAdminShareDrive $Context $Computer
+@@ -7227,7 +7249,8 @@
+         if([string]::IsNullOrWhiteSpace($adminRoot) -or $adminRoot -ine $expected){
+             throw ("Racine ADMIN$ incoherente : attendu '$expected', obtenu '$adminRoot'.")
+         }
+-        $uncPrefix=$adminRoot+'\Temp\'+$base
++        # Utiliser le PSDrive authentifie, pas un nouvel acces .NET au chemin UNC.
++        $drivePrefix=([string]$drive.Name)+':\Temp\'+$base
+         $inJson=$InputObject|ConvertTo-Json -Depth 8 -Compress
+         $wrapper=@"
+ `$ErrorActionPreference='Stop'
+@@ -7237,18 +7260,19 @@
+   `$result = & {
+ $ScriptText
+   }
+-  `$result | ConvertTo-Json -Depth 10 -Compress | Set-Content -LiteralPath '$remoteOut' -Encoding UTF8 -Force
++  `$result | ConvertTo-Json -Depth 10 -Compress | Set-Content -LiteralPath '$remoteOut.tmp' -Encoding UTF8 -Force
++  Move-Item -LiteralPath '$remoteOut.tmp' -Destination '$remoteOut' -Force
+ } catch {
+-  [pscustomobject]@{__adccError=`$_.Exception.Message;__adccDetail=`$_.Exception.ToString()} | ConvertTo-Json -Compress | Set-Content -LiteralPath '$remoteOut' -Encoding UTF8 -Force
++  [pscustomobject]@{__adccError=`$_.Exception.Message;__adccDetail=`$_.Exception.ToString()} | ConvertTo-Json -Compress | Set-Content -LiteralPath '$remoteOut.tmp' -Encoding UTF8 -Force
++  Move-Item -LiteralPath '$remoteOut.tmp' -Destination '$remoteOut' -Force
+ } finally {
+   try { Remove-Item -LiteralPath '$remoteIn' -Force -ErrorAction SilentlyContinue } catch {}
+   try { Start-Process -FilePath (Join-Path `$env:SystemRoot 'System32\schtasks.exe') -ArgumentList @('/delete','/tn','$task','/f') -WindowStyle Hidden } catch {}
+ }
+ "@
+-        $utf8Bom=[Text.UTF8Encoding]::new($true)
+-        [IO.File]::WriteAllText(($uncPrefix+'.ps1'),$wrapper,$utf8Bom)
+-        [IO.File]::WriteAllText(($uncPrefix+'.json'),$inJson,$utf8Bom)
+-        if(-not[IO.File]::Exists($uncPrefix+'.ps1') -or -not[IO.File]::Exists($uncPrefix+'.json')){
++        Set-Content -LiteralPath ($drivePrefix+'.ps1') -Value $wrapper -Encoding UTF8 -NoNewline -Force -ErrorAction Stop
++        Set-Content -LiteralPath ($drivePrefix+'.json') -Value $inJson -Encoding UTF8 -NoNewline -Force -ErrorAction Stop
++        if (-not (Test-Path -LiteralPath ($drivePrefix+'.ps1') -PathType Leaf) -or -not (Test-Path -LiteralPath ($drivePrefix+'.json') -PathType Leaf)) {
+             throw 'Copie du payload fallback impossible dans ADMIN$\Temp.'
+         }
+         $bytesSent=[Text.Encoding]::UTF8.GetByteCount($wrapper)+[Text.Encoding]::UTF8.GetByteCount($inJson)
+@@ -7266,14 +7290,14 @@
+         $stage='attente resultat'
+         $remaining=[Math]::Max(3,$TimeoutSeconds-[int][Math]::Ceiling($taskWatch.Elapsed.TotalSeconds))
+         $deadline=(Get-Date).AddSeconds($remaining)
+-        $outPath=$uncPrefix+'.out.json'
++        $outPath=$drivePrefix+'.out.json'
+         while((Get-Date)-lt$deadline){
+-            if([IO.File]::Exists($outPath)){
+-                $json=[IO.File]::ReadAllText($outPath,[Text.Encoding]::UTF8)
++            if(Test-Path -LiteralPath $outPath -PathType Leaf){
++                $json=Get-Content -LiteralPath $outPath -Raw -Encoding UTF8 -ErrorAction Stop
+                 $bytesReceived=[Text.Encoding]::UTF8.GetByteCount($json)
+                 $obj=$json|ConvertFrom-Json
+                 if($null-ne$obj.PSObject.Properties['__adccError']){throw ([string]$obj.__adccError)}
+-                try{[IO.File]::Delete($outPath)}catch{}
++                try{Remove-Item -LiteralPath $outPath -Force -ErrorAction Stop}catch{}
+                 Add-Member -InputObject $obj -NotePropertyName AdccTransport -NotePropertyValue 'ScheduledTask' -Force
+                 Add-Member -InputObject $obj -NotePropertyName AdccBytesSent -NotePropertyValue $bytesSent -Force
+                 Add-Member -InputObject $obj -NotePropertyName AdccBytesReceived -NotePropertyValue $bytesReceived -Force
+@@ -7286,8 +7310,8 @@
+         throw ('fallback 2 tache planifiee ['+$stage+'] : '+$_.Exception.Message)
+     }finally{
+         if($created){try{[void](Invoke-WSchtasksRemote $Context $Computer @('/delete','/tn',$task,'/f') 8)}catch{}}
+-        if(-not[string]::IsNullOrWhiteSpace($uncPrefix)){
+-            foreach($suffix in @('.ps1','.json','.out.json')){try{[IO.File]::Delete($uncPrefix+$suffix)}catch{}}
++        if(-not[string]::IsNullOrWhiteSpace($drivePrefix)){
++            foreach($suffix in @('.ps1','.json','.out.json','.out.json.tmp')){try{Remove-Item -LiteralPath ($drivePrefix+$suffix) -Force -ErrorAction SilentlyContinue}catch{}}
+         }
+         Remove-WAdminShareDrive $drive
+         Remove-Item -LiteralPath $localXml -Force -ErrorAction SilentlyContinue
+@@ -7470,16 +7494,27 @@
+     return $u
+ }
+ function Test-WUserInAd {
+-    param($Context,[string]$User)
+-    if ([string]::IsNullOrWhiteSpace($User)) { return $false }
+-    $searcher = $null; $root = $null
+-    try {
+-        $escaped = Escape-WLdap $User
+-        $searcher = New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$escaped))" @('distinguishedName') 'Subtree' 1
+-        $root = $searcher.SearchRoot
+-        return ($null -ne $searcher.FindOne())
+-    } catch { return $false }
+-    finally { if ($null -ne $searcher) { $searcher.Dispose() }; if ($null -ne $root) { $root.Dispose() } }
++    param($Context,[string]$User,[switch]$Detailed)
++    $searcher=$null; $root=$null
++    $result=[pscustomobject]@{Verified=$false;LookupSucceeded=$false;Error=''}
++    try {
++        if ([string]::IsNullOrWhiteSpace($User)) { $result.LookupSucceeded=$true }
++        else {
++            $escaped=Escape-WLdap $User
++            $searcher=New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$escaped))" @('distinguishedName') 'Subtree' 1
++            $root=$searcher.SearchRoot
++            $result.Verified=($null -ne $searcher.FindOne())
++            $result.LookupSucceeded=$true
++        }
++    }
++    catch { $result.Error=[string]$_.Exception.Message }
++    finally {
++        # Un incident de liberation ne doit pas annuler un resultat deja obtenu.
++        if ($null -ne $searcher) { try { $searcher.Dispose() } catch {} }
++        if ($null -ne $root) { try { $root.Dispose() } catch {} }
++    }
++    if ($Detailed) { return $result }
++    return [bool]$result.Verified
+ }
+ '@
+ 
+@@ -15124,6 +15159,12 @@
+         $effective = Get-AdccEffectiveWorkerResult -Result $Result -RequiredProperties @("Computer","Success","Attempts")
+         if ($null -eq $effective) { throw "Le worker n'a retourne aucun resultat de detection exploitable." }
+         [void](Set-AdccItemsSource -Name "DgLinkAttempts" -Rows @($effective.Attempts))
++        foreach ($attempt in @($effective.Attempts)) {
++            if ([string]$attempt.Status -eq 'OK') { continue }
++            $attemptDetail=([regex]::Replace(([string]$attempt.Detail),'\s+',' ')).Trim()
++            if ($attemptDetail.Length -gt 1600) { $attemptDetail=$attemptDetail.Substring(0,1600)+' [...]' }
++            Add-AdccUiLog -Area 'Association' -Level $(if([string]$attempt.Status -in @('KO','VALIDATION AD KO')){'WARN'}else{'INFO'}) -Text ("{0} | {1} [{2}] | {3}" -f $computer,[string]$attempt.Method,[string]$attempt.Status,$attemptDetail)
++        }
+ 
+         $minimumConfidence = 60
+         try { $minimumConfidence = [Math]::Max(0,[Math]::Min(100,[int](Get-CfgValue "UserMachineLink" "MinimumConfidence" 60))) } catch { }
+@@ -15156,15 +15197,12 @@
+                     $message = "Utilisateur conserve depuis le cache : $($cached.UserLogin). Confirmation distante indisponible, aucune donnee locale perdue."
+                     [void](Set-AdccControlText -Name "LblLinkProbeStatus" -Text $message)
+                     Set-Status $message "WARN"
+-                    Write-AppLog ("Resolver distant non disponible pour {0}; association locale conservee : {1}. Detail : {2}" -f $computer,[string]$cached.UserLogin,[string]$effective.Details) "WARN"
++
+                 }
+                 else {
+-                    $detail = ([string]$effective.Details).Trim()
+-                    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Methodes classiques et fallback distant indisponibles." }
+-                    $message = "Utilisateur non determine pour $computer : $detail"
++                    $message = "Utilisateur non determine pour $computer. Voir les tentatives et le journal Association pour le compte utilise et l'erreur de chaque transport."
+                     [void](Set-AdccControlText -Name "LblLinkProbeStatus" -Text $message)
+                     Set-Status $message "WARN"
+-                    Write-AppLog $message "WARN"
+                 }
+             }
+             else {
+@@ -15272,7 +15310,12 @@
+     param([string]$Method,[string]$Raw,[int]$Score,[string]$Detail,[int]$Ms)
+     $u = Normalize-WUser $Raw
+     if ([string]::IsNullOrWhiteSpace($u)) { Add-Attempt $Method "VIDE" "" 0 $Ms $Detail; return $null }
+-    $verified = Test-WUserInAd $Context $u
++    $validation = Test-WUserInAd $Context $u -Detailed
++    if (-not [bool]$validation.LookupSucceeded) {
++        Add-Attempt $Method 'VALIDATION AD KO' $u 0 $Ms ('Candidat lu, verification LDAP impossible : '+[string]$validation.Error)
++        return $null
++    }
++    $verified = [bool]$validation.Verified
+     Add-Attempt $Method $(if($verified){"OK"}else{"HORS AD"}) $u $Score $Ms $Detail
+     if ($verified) {
+         return [pscustomobject]@{ Computer=[string]$Payload.Computer; UserLogin=$u; Source=$Method; Confidence=$Score; VerifiedInAD=$true; Details=$Detail; Attempts=@($attempts); Success=$true }
+@@ -15282,6 +15325,9 @@
+ $computer = [string]$Payload.Computer
+ $cred = Get-WMachineCredential $Context
+ $taskFallbackError = ""
++$machineIdentity=if($null -ne $cred){[string]$cred.UserName}else{[string]$Context.ProcessIdentity}
++$adIdentity=if([bool]$Context.UseCredential){[string]$Context.BindUser}else{[string]$Context.ProcessIdentity}
++Add-Attempt 'Comptes effectifs' 'INFO' '' 0 0 ('Lecture AD='+$adIdentity+' ; acces poste='+$machineIdentity+'. Aucun mot de passe journalise.')
+ 
+ # RESOLVER RAPIDE : on cherche d'abord les sources peu couteuses et tres
+ # discriminantes. Une preuve valide arrete immediatement le pipeline.
+@@ -15302,6 +15348,7 @@
+ 
+ # 2. WinRM uniquement si le transport est vraisemblablement disponible.
+ # Cela evite un appel long sur les postes dont 5985/5986 sont fermes.
++if ([bool]$Context.UseWinRM) {
+ try {
+     Test-ProbeBudget
+     $open5985=$false;$open5986=$false
+@@ -15318,6 +15365,7 @@
+             [pscustomobject]@{Current=[string]$cs.UserName;Explorer=@($owners);Last=[string]$last}
+         }}
+         if($null -ne $cred){$params["Credential"]=$cred;$params["Authentication"]="Default"}
++        if (-not $open5985 -and $open5986) { $params['UseSSL']=$true }
+         $r=Invoke-Command @params;$sw.Stop()
+         foreach($candidate in @([string]$r.Current)+@($r.Explorer)+@([string]$r.Last)){
+             $hit=Return-Candidate "WinRM session" $candidate 100 "ComputerSystem / explorer / LogonUI" ([int]$sw.ElapsedMilliseconds)
+@@ -15325,6 +15373,7 @@
+         }
+     } else { Add-Attempt "WinRM session" "NON DISPONIBLE" "" 0 0 "5985/5986 fermes ou filtres." }
+ } catch { Add-Attempt "WinRM session" "KO" "" 0 0 $_.Exception.Message }
++} else { Add-Attempt 'WinRM session' 'DESACTIVE' '' 0 0 'WinRM desactive dans la configuration ; aucune sonde de port.' }
+ 
+ # 3. Registre distant seulement si explicitement autorise.
+ if ([bool]$Payload.AllowUnboundedFallbacks -and [bool]$Payload.UseRemoteRegistry) {
+@@ -15361,7 +15410,8 @@
+ try {
+     $sw=[Diagnostics.Stopwatch]::StartNew()
+     $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("JGM9TmV3LU9iamVjdCBDb2xsZWN0aW9ucy5BcnJheUxpc3QKZnVuY3Rpb24gQShbc3RyaW5nXSRSYXcsW3N0cmluZ10kU291cmNlLFtpbnRdJFNjb3JlLFtzdHJpbmddJERldGFpbCl7aWYoLW5vdFtzdHJpbmddOjpJc051bGxPcldoaXRlU3BhY2UoJFJhdykpe1t2b2lkXSRjLkFkZChbcHNjdXN0b21vYmplY3RdQHtSYXc9JFJhdztTb3VyY2U9JFNvdXJjZTtTY29yZT0kU2NvcmU7RGV0YWlsPSREZXRhaWx9KX19CnRyeXskdj0oR2V0LUl0ZW1Qcm9wZXJ0eSAnSEtMTTpcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cQXV0aGVudGljYXRpb25cTG9nb25VSScgLUVycm9yQWN0aW9uIFN0b3ApLkxhc3RMb2dnZWRPblNBTVVzZXI7QSAoW3N0cmluZ10kdikgJ1RhY2hlIGxvY2FsZSBMb2dvblVJJyA5MSAnTGFzdExvZ2dlZE9uU0FNVXNlcid9Y2F0Y2h7fQp0cnl7JHE9JiAoSm9pbi1QYXRoICRlbnY6U3lzdGVtUm9vdCAnU3lzdGVtMzJccXVzZXIuZXhlJykgMj4kbnVsbDtmb3JlYWNoKCRsaW5lIGluIEAoJHF8U2VsZWN0LU9iamVjdCAtU2tpcCAxKSl7aWYoJGxpbmUgLW1hdGNoICdeXHMqPj9ccyooW15cc10rKVxzKycpe0EgJG1hdGNoZXNbMV0gJ1RhY2hlIGxvY2FsZSBRVVNFUicgOTYgKFtzdHJpbmddJGxpbmUuVHJpbSgpKX19fWNhdGNoe30KdHJ5eyRjcz1HZXQtQ2ltSW5zdGFuY2UgV2luMzJfQ29tcHV0ZXJTeXN0ZW0gLUVycm9yQWN0aW9uIFN0b3A7QSAoW3N0cmluZ10kY3MuVXNlck5hbWUpICdUYWNoZSBsb2NhbGUgQ29tcHV0ZXJTeXN0ZW0nIDk4ICdXaW4zMl9Db21wdXRlclN5c3RlbS5Vc2VyTmFtZSBsb2NhbCd9Y2F0Y2h7fQp0cnl7JHA9QChHZXQtQ2ltSW5zdGFuY2UgV2luMzJfVXNlclByb2ZpbGUgLUVycm9yQWN0aW9uIFN0b3B8V2hlcmUtT2JqZWN0ey1ub3QkXy5TcGVjaWFsLWFuZCRfLkxvY2FsUGF0aH18U29ydC1PYmplY3QgTGFzdFVzZVRpbWUgLURlc2NlbmRpbmd8U2VsZWN0LU9iamVjdCAtRmlyc3QgNSk7Zm9yZWFjaCgkeCBpbiAkcCl7QSAoU3BsaXQtUGF0aCAoW3N0cmluZ10keC5Mb2NhbFBhdGgpIC1MZWFmKSAnVGFjaGUgbG9jYWxlIHByb2ZpbCByZWNlbnQnIDcyICgnTGFzdFVzZT0nK1tzdHJpbmddJHguTGFzdFVzZVRpbWUpfX1jYXRjaHt9Cltwc2N1c3RvbW9iamVjdF1Ae0NhbmRpZGF0ZXM9QCgkYyl9"))
+-    $fb=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([Math]::Min($taskFallbackTimeoutSeconds,[int]$Context.TaskFallbackTimeoutSeconds)) 'Toutes les methodes classiques de detection ont echoue ou sont restees vides.'
++    $classicDetail=Get-WProbeAttemptSummary -Attempts @($attempts)
++    $fb=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([Math]::Min($taskFallbackTimeoutSeconds,[int]$Context.TaskFallbackTimeoutSeconds)) $classicDetail
+     $sw.Stop()
+     $fallbackLabel=if([string]$fb.AdccTransport -eq 'PsExec'){'PsExec'}else{'Tache planifiee'}
+     foreach($candidate in @($fb.Candidates)) {
+@@ -18094,7 +18144,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.21-R1.1-THEME"
++$script:MasterBuild = "2026.09.21-R1.2-REMOTE"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -19231,7 +19281,7 @@
+         UserComputerProbe     = "2494489F82A7982DACBFF4A982B872FF2D82879FDC6A33557C524598085A2622"
+         ComputerInventory     = "7BED026657CCD23F29190269B2471AF16CFFC800054D16C308CD576FBBE00B2D"
+         ComputerDiagnostics   = "6C085DBC70F8DDB545571667DEE245DC87289494CD1E5A1C1EBBF9EAAA2CC257"
+-        ComputerLastUser      = "AE844EDDAFF4769096A79452786BBD2BC69E6875F00553FE51D59336365F4411"
++        ComputerLastUser      = "F96046909357C9DB9804DA24DA78A049B26ABBEA159B7D1A40FB7FC5BFA960B4"
+         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
+         ComputerPing          = "BE1A5B70CCA9477571D839A85A1330334210DA891C53DBA257814486369F5887"
+         ComputerGpUpdate      = "95A3CCDFB28C9CF810848E79126A936655B82216971653E45B8CD0E6065301F8"
+@@ -19772,7 +19822,9 @@
+     $remoteOperations = @("ComputerDiagnostics","ComputerLastUser","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
+     $machineCredentialOperations = @("ComputerDiagnostics","ComputerInventory","SoftwareInventory","ParkSweep","WmiNamespaces","WmiClasses","WmiQuery","ComputerLastUser","ComputerGpUpdate","ComputerRestart","UserComputerProbe","RimotteRun")
+     $nonDirectoryOperations = @("CmdletHelp","CmdletInventory","EngineSelfTest") + $remoteOperations
+-    $needsDirectoryCredential = ($nonDirectoryOperations -notcontains $OperationId)
++    # ComputerLastUser valide les candidats dans LDAP : ce n est pas une
++    # operation exclusivement distante, contrairement au ping/inventaire.
++    $needsDirectoryCredential = ($OperationId -eq 'ComputerLastUser' -or $nonDirectoryOperations -notcontains $OperationId)
+     if ($needsDirectoryCredential -and [bool]$script:DirectoryCredentialFaulted) {
+         $fault = [string]$script:DirectoryCredentialFaultMessage
+         if ([string]::IsNullOrWhiteSpace($fault)) { $fault = "authentification AD rejetee" }

@@ -1,0 +1,66 @@
+{
+    "PowerShell":  "5.1.26100.6584",
+    "Apartment":  "STA",
+    "Synthetic":  true,
+    "ADAccessed":  false,
+    "Passed":  11,
+    "Failed":  0,
+    "Assertions":  100,
+    "Results":  [
+                    {
+                        "Name":  "The query editor occupies its own workspace, outside the dashboard",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Returning to the already selected workshop refreshes only its current Fleet scope label",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Catalog is exhaustive, locally searchable and prepares a field without changing a recipe",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Ready library filters models and saved recipes locally and loads only after Use",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Search selector unifies LDAP and local recipes without implicit execution",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Selected computer preview and widget use the shared workshop through actual buttons",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Zoom has bounded persistent steps and controls outside the transformed shell",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Tools use separate tabs and whole-domain shortcut buttons are absent",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "OU tree loads direct branches, filters with context, restores navigation and verifies GUID",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Freshness uses successful covering OU and excludes child, sibling, malformed and partial sync",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Workshop refresh invalidates prepared records and receives a fresh local snapshot",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

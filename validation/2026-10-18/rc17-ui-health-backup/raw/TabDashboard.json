@@ -1,0 +1,310 @@
+[
+    {
+        "Id":  "RootScroll",
+        "Name":  "",
+        "Type":  "ControlType.Pane",
+        "Enabled":  true,
+        "Bounds":  "63;0;1584;886"
+    },
+    {
+        "Id":  "TabAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "73;645;183;44"
+    },
+    {
+        "Id":  "UxNavLabelAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "113;659;51;17"
+    },
+    {
+        "Id":  "TabApplicationTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "73;693;183;44"
+    },
+    {
+        "Id":  "UxNavLabelTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "113;707;33;17"
+    },
+    {
+        "Id":  "LstUiProfile",
+        "Name":  "Niveau de détail",
+        "Type":  "ControlType.List",
+        "Enabled":  true,
+        "Bounds":  "75;749;179;32"
+    },
+    {
+        "Id":  "LstUiProfileTech",
+        "Name":  "Profil Essentiel",
+        "Type":  "ControlType.ListItem",
+        "Enabled":  true,
+        "Bounds":  "78;752;86;26"
+    },
+    {
+        "Id":  "LstUiProfileExpert",
+        "Name":  "Profil Expert",
+        "Type":  "ControlType.ListItem",
+        "Enabled":  true,
+        "Bounds":  "164;752;86;26"
+    },
+    {
+        "Id":  "BtnUxNavAccount",
+        "Name":  "Compte connecté",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "73;789;183;45"
+    },
+    {
+        "Id":  "LblUxNavAccount",
+        "Name":  "CNAMTS\\Administrateur",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "83;795;163;16"
+    },
+    {
+        "Id":  "LblUxNavDomain",
+        "Name":  "cnamts.local",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "83;813;163;15"
+    },
+    {
+        "Id":  "BtnUxSidebarToggle",
+        "Name":  "Réduire le menu : conserver uniquement les icônes.",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "77;842;32;32"
+    },
+    {
+        "Id":  "TabDashboard",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "73;90;183;44"
+    },
+    {
+        "Id":  "UxNavLabelHome",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "113;104;42;17"
+    },
+    {
+        "Id":  "WsSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "73;138;183;44"
+    },
+    {
+        "Id":  "UxNavLabelSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "113;152;64;17"
+    },
+    {
+        "Id":  "WsObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "73;186;183;44"
+    },
+    {
+        "Id":  "UxNavLabelObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "113;200;30;17"
+    },
+    {
+        "Id":  "WsComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "73;234;183;44"
+    },
+    {
+        "Id":  "UxNavLabelComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "113;248;31;17"
+    },
+    {
+        "Id":  "TabRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "73;282;183;44"
+    },
+    {
+        "Id":  "UxNavLabelRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "113;296;119;17"
+    },
+    {
+        "Id":  "BtnNavBack",
+        "Name":  "Précédent",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "287;112;28;28"
+    },
+    {
+        "Id":  "BtnNavForward",
+        "Name":  "Suivant",
+        "Type":  "ControlType.Button",
+        "Enabled":  false,
+        "Bounds":  "317;112;28;28"
+    },
+    {
+        "Id":  "LblUxPageTitle",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "353;112;71;29"
+    },
+    {
+        "Id":  "LblUxDomain",
+        "Name":  "Connecté à cnamts.local",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "444;119;117;15"
+    },
+    {
+        "Id":  "ChkReadOnlyMode",
+        "Name":  "Protection des modifications",
+        "Type":  "ControlType.CheckBox",
+        "Enabled":  true,
+        "Bounds":  "1425;109;206;34"
+    },
+    {
+        "Id":  "WorkspaceTabs",
+        "Name":  "Choisissez une rubrique dans la barre latérale",
+        "Type":  "ControlType.Tab",
+        "Enabled":  true,
+        "Bounds":  "285;160;1346;664"
+    },
+    {
+        "Id":  "LblUiLogLast",
+        "Name":  "Dernier message du journal",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "417;843;1163;17"
+    },
+    {
+        "Id":  "BtnUxLogToggle",
+        "Name":  "Déplier le journal",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1596;838;26;28"
+    },
+    {
+        "Id":  "BtnGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1346;12;95;42"
+    },
+    {
+        "Id":  "LstSearchBarScope",
+        "Name":  "Où chercher",
+        "Type":  "ControlType.List",
+        "Enabled":  true,
+        "Bounds":  "287;60;162;32"
+    },
+    {
+        "Id":  "ItmSearchBarScopeOu",
+        "Name":  "Dans lʼOU choisie",
+        "Type":  "ControlType.ListItem",
+        "Enabled":  false,
+        "Bounds":  "342;63;104;26"
+    },
+    {
+        "Id":  "LblSearchBarScopeOu",
+        "Name":  "OU de la recherche",
+        "Type":  "ControlType.Text",
+        "Enabled":  false,
+        "Bounds":  "348;68;92;16"
+    },
+    {
+        "Id":  "LstSearchBarType",
+        "Name":  "Type cherché",
+        "Type":  "ControlType.List",
+        "Enabled":  true,
+        "Bounds":  "457;60;211;32"
+    },
+    {
+        "Id":  "TxtGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true,
+        "Bounds":  "285;12;1053;42"
+    },
+    {
+        "Id":  "BtnCommandPalette",
+        "Name":  "Palette de commandes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1282;20;50;26"
+    },
+    {
+        "Id":  "BtnAccessRecovery",
+        "Name":  "Accès",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1453;13;40;40"
+    },
+    {
+        "Id":  "BtnSuiteActivity",
+        "Name":  "Opérations",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1499;13;40;40"
+    },
+    {
+        "Id":  "BtnThemeToggle",
+        "Name":  "Passer au thème sombre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1545;13;40;40"
+    },
+    {
+        "Id":  "BtnUxHelpToggle",
+        "Name":  "Afficher lʼaide",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1591;13;40;40"
+    },
+    {
+        "Id":  "BtnUiZoomOut",
+        "Name":  "Réduire le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1511;890;30;28"
+    },
+    {
+        "Id":  "BtnUiZoomReset",
+        "Name":  "Réinitialiser le zoom à 100 %",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1545;890;58;28"
+    },
+    {
+        "Id":  "BtnUiZoomIn",
+        "Name":  "Agrandir le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1607;890;30;28"
+    }
+]

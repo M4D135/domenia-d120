@@ -1,0 +1,13 @@
+{
+    "Kind":  "ControlledGuestControlSessionLifetime",
+    "NoRegistryOrSecurityChanges":  true,
+    "StartUtc":  "2026-10-13T01:13:26.7296084Z",
+    "SessionId":  26,
+    "WaitResult":  1,
+    "OpenedUtc":  "2026-10-13T01:13:26.9294800Z",
+    "Status":  100,
+    "ClosedUtc":  "2026-10-13T01:13:35.0083664Z"
+}
+
+
+SSH exit 0

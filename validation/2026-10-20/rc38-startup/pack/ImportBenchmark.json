@@ -1,0 +1,33 @@
+﻿{
+    "Passed":  true,
+    "PS":  "5.1.26100.6584",
+    "Runs":  [
+                 {
+                     "Variant":  "Before",
+                     "Milliseconds":  7887,
+                     "Modules":  130,
+                     "Functions":  3059
+                 },
+                 {
+                     "Variant":  "After",
+                     "Milliseconds":  141,
+                     "Modules":  130,
+                     "Functions":  3059
+                 },
+                 {
+                     "Variant":  "After",
+                     "Milliseconds":  114,
+                     "Modules":  130,
+                     "Functions":  3059
+                 },
+                 {
+                     "Variant":  "Before",
+                     "Milliseconds":  7238,
+                     "Modules":  130,
+                     "Functions":  3059
+                 }
+             ],
+    "SourceSHA256":  "EC9758C0494B86093602EB317DFA4C72389D5909CB9981F6675619F888E6404F",
+    "BaselineCommit":  "08545267fcbd6c512b3702f75a672286fccd7649",
+    "IdenticalValidationOutput":  true
+}

@@ -1,0 +1,18 @@
+{
+  "id": "RCH-045",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/pages/rechercher/side.js:560 — applyExpanded(list, selectDn) : ligne 564 une branche de l'étape déjà lue (pathOf non vide et reads = 'ok') est dépliée, ligne 565 sinon comptée comme manquante, ligne 567 les branches lues depuis l'étape sont repliées (sauf racine), ligne 568 l'OU de l'étape est sélectionnée, ligne 569 le compte des branches non lues ou disparues est renvoyé",
+    "web/js/pages/rechercher.js:432 — un pas de l'historique appelle side.applyExpanded(place.tree, place.ou ?? req.dn) ; ligne 437 l'annonce dit « liste de l'historique, non relue » et compte « N branche(s) de l'arbre non lue(s) ou disparue(s) »",
+    "web/js/pages/rechercher/side.js:555 — expandedSnapshot : seules les branches réellement lues (reads = 'ok') sont mémorisées dans l'étape ; web/js/pages/rechercher.js:231 chaque étape enregistre ce snapshot et l'OU choisi",
+    "web/js/kit/tree.js:236 — expand(id) ; ligne 241 : la lecture n'est déclenchée que si !e.loaded — rouvrir une branche déjà lue ne lit rien",
+    "web/js/pages/rechercher/history.js:5 — 40 places, jamais la même deux fois ; ligne 38 step() ne déclenche aucune lecture par lui-même",
+    "src/Domenia.Ad/AdDirectorySource.cs:20 — MaxObjectsPerKind = 100_000, appliqué à la lecture de l'arbre (src/Domenia.Ad/Screens/AdDirectoryTreeReader.cs:79, SizeLimit = 100 000 + 1) : l'index d'arbre reste borné à 100 000 nœuds",
+    "web/js/kit/tree.js:503 — API publique du kit : reload, expand, collapse, select, reveal, getSelected, pathOf, setFilter, size, focus, destroy — aucun accès à l'état déplié d'un nœud ni rappel d'ouverture/fermeture",
+    "tests/web/rechercher.test.mjs:71 — « History: 40 places, no duplicate, exact steps » : l'historique est testé, mais aucun test ne couvre la réouverture et le repli des branches (aucun test de applyExpanded/expandedSnapshot dans tests/web)"
+  ],
+  "manque": "Le kit ne publie pas l'état déplié d'une branche déjà lue (web/js/kit/tree.js:503, ni isExpanded ni rappel d'ouverture/fermeture) : applyExpanded (web/js/pages/rechercher/side.js:564) redéplie toute branche présente dans l'étape, donc une branche lue puis repliée par l'opérateur avant l'étape est rouverte au lieu de rester repliée. Le repli « celles ouvertes depuis » n'est donc exact que pour les branches jamais dépliées depuis. Aucun test de la réouverture du tree d'une étape (seule l'historique de liste est testée, tests/web/rechercher.test.mjs:71).",
+  "effort": "M",
+  "depend": ["kit tree (web/js/kit/tree.js : état déplié + rappel d'ouverture/fermeture)", "RCH-043/RCH-044 (historique de navigation, restauration de la liste)"],
+  "risque": "lecture"
+}

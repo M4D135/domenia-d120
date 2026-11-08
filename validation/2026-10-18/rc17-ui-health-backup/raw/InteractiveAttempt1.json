@@ -1,0 +1,11 @@
+{
+    "Build":  "RC1.17.17",
+    "Passed":  false,
+    "SessionId":  1,
+    "WindowsLoginInvoked":  false,
+    "Steps":  [
+
+              ],
+    "AppId":  3464,
+    "Error":  "Cannot overwrite variable HOME because it is read-only or constant."
+}

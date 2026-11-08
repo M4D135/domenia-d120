@@ -1,0 +1,23 @@
+{
+    "Suite":  "StorageMaintenance",
+    "Platform":  "Microsoft Windows NT 10.0.26200.0",
+    "PowerShell":  "5.1.26100.6584",
+    "Cases":  [
+                  {
+                      "Name":  "RC13: confirmation reports the actual identity and revision, without writing",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "RC13: asynchronous switch waits for receipt confirmation and rejects stale or changed copies",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Total":  2,
+    "Passed":  2,
+    "Failed":  0,
+    "Assertions":  27,
+    "NoNetwork":  true,
+    "Scope":  "Temporary SQLite databases; no Active Directory or real-user data."
+}

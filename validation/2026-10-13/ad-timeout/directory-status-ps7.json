@@ -1,0 +1,85 @@
+{
+  "Kind": "DirectoryStatusRegression",
+  "PSVersion": "7.4.20",
+  "Platform": "Unix",
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "ProductionTaskCallbackExecuted": true,
+  "UI": "Inert ports only",
+  "Passed": 14,
+  "Failed": 0,
+  "Assertions": 58,
+  "Tests": [
+    {
+      "Name": "Initialization has independent offline and timeout state",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "A GlobalSearch deadline warns without declaring the directory offline",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "An explicit structured Timeout error follows the same deadline path",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Repeated deadlines refresh their own timestamp without repeating UI transition",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "A successful AD read clears the warning and retains historical timestamps",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "An unavailable server remains an outage and uses the offline badge",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "A later deadline cannot remove protection established by an outage",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "A new network failure after a deadline keeps the outage policy and clears Slow",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Other providers cannot create or clear AD warning and outage states",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Cancelled jobs cannot create or clear the warning",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Demo jobs cannot create or clear the real directory warning",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Old session outcomes cannot create or clear current directory status",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Access refusals and unknown failures neither prove a network outage nor clear a deadline",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Demo presentation wins over both network and deadline badges",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

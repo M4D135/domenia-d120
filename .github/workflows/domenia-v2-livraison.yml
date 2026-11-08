@@ -1,0 +1,140 @@
+name: Domenia v2 — préparation de la livraison manuelle
+
+on:
+  push:
+    branches: ['codex/v2-finalisation-20261025', 'codex/v2-correctifs-recette-20261026', 'codex/v2-correctifs-collecte-login-20261026']
+    paths:
+      - '.github/workflows/domenia-v2-livraison.yml'
+      - 'v2/src/**'
+      - 'v2/web/**'
+      - 'v2/tools/**'
+      - 'v2/tests/**'
+      - 'v2/docs/RECETTE-MANUELLE-V*.md'
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Runner hébergé par GitHub pour la qualification Windows'
+        required: false
+        default: 'windows-2025'
+        type: choice
+        options: ['windows-2025']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: domenia-v2-livraison-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  packages:
+    name: Windows x64 · packs autonomes et contrôles critiques
+    runs-on: ${{ inputs.runner || 'windows-2025' }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Récupérer les octets exacts du commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        env:
+          # Preserve committed bytes, including formats without a gitattributes rule.
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+        with:
+          persist-credentials: false
+
+      - name: Vérifier la syntaxe des scripts avec PowerShell Windows
+        run: |
+          foreach ($name in @('ci-windows.ps1', 'ci-test-profile.ps1', 'release-manual-ci.ps1', 'release-packages-vm.ps1', 'release-contract.ps1', 'private-dotnet-runtime.ps1', 'private-webview-runtime.ps1', 'check-private-webview-policy.ps1', 'release-ci-process.ps1', 'measure-package-startup.ps1', 'test-light-login.ps1')) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path "$env:GITHUB_WORKSPACE/v2/tools" $name), [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count) { throw ($name + ': ' + (($parseErrors | ForEach-Object { $_.ToString() }) -join "`n")) }
+          }
+          & ./v2/tools/check-private-webview-policy.ps1
+
+      - name: Compiler et exécuter les seules sélections critiques
+        run: |
+          . ./v2/tools/ci-test-profile.ps1
+          Invoke-DomeniaTestProfile c {
+            & ./v2/tools/ci-windows.ps1 -Critical -FinalValidation
+            if ($LASTEXITCODE) { throw "Contrôles critiques en échec : $LASTEXITCODE" }
+          }
+
+      - name: Vérifier aussi la suite C# complète pour la révision du moteur
+        run: |
+          . ./v2/tools/ci-test-profile.ps1
+          Invoke-DomeniaTestProfile f {
+            $runner = './v2/tests/Domenia.Tests/bin/x64/Release/net10.0-windows/win-x64/Domenia.Tests.exe'
+            $previousPreference = $ErrorActionPreference
+            try {
+              $ErrorActionPreference = 'Continue'
+              & $runner 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath './artifacts/domenia-v2-ci/logs/full-csharp.log'
+              $fullExitCode = $LASTEXITCODE
+            } finally { $ErrorActionPreference = $previousPreference }
+            if ($null -eq $fullExitCode -or $fullExitCode -ne 0) { throw "Suite C# complète en échec : $fullExitCode" }
+          }
+
+      - name: Préparer le pack PROD-LIGHT et vérifier son archive exacte
+        run: |
+          & ./v2/tools/release-manual-ci.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Vérifier les livrables de qualification avant conservation
+        run: |
+          $files = @(Get-ChildItem -LiteralPath 'artifacts/domenia-v2-delivery/publish' -File -ErrorAction Stop)
+          if (@($files | Where-Object { $_.Extension -ieq '.zip' }).Count -ne 1) { throw 'Un seul ZIP, PROD-LIGHT, est attendu.' }
+          foreach ($pattern in @('SHA256SUMS.txt', '*_PROD-LIGHT_Windows-x64.zip', 'source-commit.json')) {
+            if (@($files | Where-Object { $_.Name -like $pattern }).Count -ne 1) {
+              throw "Livrable attendu absent ou ambigu : $pattern"
+            }
+          }
+
+      - name: Conserver les paquets qualifiés pour revue avant publication
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: domenia-v2-delivery-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/domenia-v2-delivery/publish/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Conserver les preuves et les échecs sans les profils de navigateur
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: domenia-v2-delivery-proofs-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/domenia-v2-ci/logs/
+            artifacts/domenia-v2-delivery/logs/*.log
+            artifacts/domenia-v2-delivery/logs/*.json
+            artifacts/domenia-v2-delivery/logs/web/**/report.*
+            artifacts/domenia-v2-delivery/logs/web/**/page.png
+            artifacts/domenia-v2-delivery/logs/web/**/visual-*.png
+            artifacts/domenia-v2-delivery/logs/web/**/visual-*.json
+            artifacts/domenia-v2-delivery/logs/web/**/failure.txt
+            artifacts/domenia-v2-delivery/logs/web-preflight/**/report.*
+            artifacts/domenia-v2-delivery/logs/web-preflight/**/page.png
+            artifacts/domenia-v2-delivery/logs/web-preflight/**/visual-*.png
+            artifacts/domenia-v2-delivery/logs/web-preflight/**/visual-*.json
+            artifacts/domenia-v2-delivery/logs/web-preflight/**/failure.txt
+            artifacts/domenia-v2-delivery/logs/ui-light/**
+            artifacts/domenia-v2-delivery/logs/ui-simulation/**
+            !artifacts/domenia-v2-delivery/logs/**/profile/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Indiquer la portée du passage
+        if: always()
+        run: |
+          @'
+          ## Domenia v2 — livraison avec recette manuelle
+          Les décisions de David des 25 et 26 octobre 2026 autorisent la livraison manuelle et ses packs correctifs sans recette préalable des deux VM.
+          - SDK, Python, .NET et WebView2 déjà présents ; seuls NuGet versionnés, aucun téléchargement de dépendance.
+          - Seul PROD-LIGHT est livré (décision du 8 novembre 2026) : il inclut .NET et utilise le WebView2 Evergreen préinstallé, sinon le pack WebView2 du Socle extrait dans son dossier wad. Les contrôles navigateur utilisent l’Evergreen du runner.
+          - Les résultats exacts de compilation, tests critiques, démarrage, WebView et simulation figurent dans les preuves.
+          - Ce passage CI ne teste pas le domaine réel ni les postes VM ; les recettes séparées restent liées à leurs commits et paquets exacts. La recette utilisateur reste distincte.
+          - Ce workflow prépare des artefacts à examiner ; il ne crée aucune release GitHub.
+          '@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8

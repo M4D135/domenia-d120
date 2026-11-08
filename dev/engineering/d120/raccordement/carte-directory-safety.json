@@ -1,0 +1,313 @@
+{
+ "area": "Annuaire (D061-D070) et sécurité des écritures (D091-D100) — plan de raccordement vérifié par lecture du code (aucun fichier modifié, aucun test lancé dans cette session)",
+ "sites": [
+  {
+   "ids": "D061",
+   "function": "Fill-UserObject (+ Show-AdObjectResult, nouvelle vue Domenia-Directory.xaml)",
+   "location": "wad/Domenia-Core.ps1:6955-7011 ; appel en 21121 depuis Show-AdObjectResult (21072), $script:SelectedObject posé en 21093 ; XAML TabUser 4621 (Grid 4 colonnes, TxtUserState 4677)",
+   "current": "Remplit ~20 TextBox éditables (les mêmes que Save-UserProfile 21789 relit) + TxtUserState = Get-UacStatusLabel $uac $lockout (Get-DeProp $entry 'msDS-User-Account-Control-Computed' $null) (6972) et TxtUserUac brut (6976). Aucune synthèse, aucune source/date/limite affichée.",
+   "change": "Fin de Fill-UserObject (après 7010) : $facts = Get-DomeniaUserSupportSummary -Properties $Entry.Properties -Reader ([string]$script:Conn.BindUser) -Source (Cache local si $script:ShowingCachedObject sinon Lecture AD) -ReadUtc ([datetime]$script:SelectedObject.LoadedAt).ToUniversalTime() ; Set-DomeniaItemsSource 'DgUserSummary' $facts. Vue = UserControl Domenia-Directory.xaml chargé par Initialize-DomeniaDirectoryUi (copie de Initialize-DomeniaSupportUi, Domenia-Support.UI.ps1:234-258, contrôle d'unicité des noms) dans un hôte DirectorySummaryHost placé en DockPanel.Dock=Top autour du Grid de TabUser (ne pas décaler les Grid.Row existants). Clear-ObjectDetails (6802) vide la grille. Pas d'interrupteur (ajout, pas remplacement).",
+   "risks": "Fill-UserObject sert aussi à l'affichage du cache (21049) : Source/Date doivent le dire. Get-MainXaml modifié : relancer Test-DomeniaCandidate (WPF principal), Test-DomeniaInterface, Test-DomeniaEmbeddedUi, audit_ui ; tools/preload-baseline.json + audit_preload ('Every original core function retained'). Directory.Model dépend de Common.Model et de Search.Model (Split-DomeniaDn, appelé par Get-DomeniaCnFromDn) : ordre/Requires dans Domenia-Modules.ps1. Garder Get-UacStatusLabel pour TxtUserState (testé par Test-DomeniaCandidate l.45-48).",
+   "proof_test": "Test-DomeniaWiring.ps1 « D061 synthèse liée à Fill-UserObject » : Fill-UserObject extrait par AST, vrai Get-MainXaml + Domenia-Directory.xaml, Common/Search/Directory.Model dot-sourcés ; entrée fixture SANS msDS-User-Account-Control-Computed ; attendu : DgUserSummary contient 'Etat du compte' avec Limite 'Etat calcule du controleur non lu…'. Échoue si l'appel est retiré (grille vide)."
+  },
+  {
+   "ids": "D064",
+   "function": "Fill-UserObject / Fill-ComputerObject / Fill-GroupObject (LblMemberOf, LstMemberOf)",
+   "location": "Core 7008-7010, 7095-7097, 7133-7134 ; marqueurs produits par Get-WAllProperties 8129-8154 ($h['__memberOfComplete'], $h['__memberOfNote'], l.8153) ; primaryGroupID lu (8996) mais non affiché",
+   "current": "$script:Ctrl['LblMemberOf'].Text = \"$(...Items.Count) groupe(s)\" sans lire __memberOfComplete ; Fill-GroupObject lit __memberComplete pour les membres (7132) mais pas __memberOfComplete. Aucun groupe principal.",
+   "change": "Factoriser Update-DomeniaMemberOfView -Entry (Directory.UI) appelée par les 3 Fill-* : si -not [bool](Get-DeProp $Entry '__memberOfComplete' $false) → suffixe '(lecture partielle : ' + __memberOfNote + ')' ; pour Utilisateur/Machine ligne marquée 'Groupe principal : ' + (Get-DomeniaPrimaryGroupSid -UserSid (objectSid) -PrimaryGroupId (primaryGroupID)) (nom résolu à la demande par GroupPathRead).",
+   "risks": "LstMemberOf alimenté en Items (user/machine) et en ItemsSource (groupe) ; Clear-ObjectDetails 6812 remet ItemsSource=$null : garder un seul mode. Le menu contextuel de LstMemberOf (rechercher/copier) doit ignorer la ligne 'Groupe principal'. Domenia-Support.Model.ps1:59 traite déjà __memberOfComplete : rester cohérent.",
+   "proof_test": "« D064 appartenances tronquées » : Fill-UserObject avec memberOf=@('CN=G1,…') et __memberOfComplete=@($false), __memberOfNote=@('Resultat tronque a 50000 valeurs.') → LblMemberOf.Text -match 'partielle'. Échoue aujourd'hui (texte '1 groupe(s)')."
+  },
+  {
+   "ids": "D064, D065",
+   "function": "Nouvelle opération GroupPathRead : Get-DomeniaGroupPathWorkerCode (wad/modules/Domenia-Directory.Worker.ps1) + Start-/Complete-/Fail-DomeniaGroupPathRead (Domenia-Directory.UI.ps1), bouton dans TabMemberOf",
+   "location": "XAML TabMemberOf Core 4899-4906 ; modèle à copier : Domenia-Sessions.UI.ps1 l.1-40",
+   "current": "Aucun test d'appartenance imbriquée, aucun chemin ; TabMemberOf = liste brute des DN directs.",
+   "change": "Payload {UserDn, UserGuid, TargetGroupDn, MaxDepth<=16, MaxNodes<=2000, Mode='Path'|'GroupInfo'}. Worker : (1) test serveur base=UserDn, scope Base, filtre (memberOf:1.2.840.113556.1.4.1941:=<TargetGroupDn échappé par Escape-WLdap>) → ServerAnswer $true/$false, $null si erreur ; (2) BFS borné des arêtes memberOf (lecture base de chaque groupe) → Edges + Truncated ; (3) primaryGroupToken du groupe cible comparé à primaryGroupID ; (4) Mode GroupInfo : objectSid/adminCount/name pour <=200 DN (sert D065). UI : $path = Find-DomeniaMembershipPath -Edges $r.Edges -Start $userDn -Target $groupDn -MaxDepth 16 -MaxNodes 2000 ; $answer = Resolve-DomeniaMembershipAnswer -ServerAnswer $r.ServerAnswer -LocalPath $path -ListTruncated ([bool]$r.Truncated). CallbackState {Epoch, DN, Generation} et garde d'obsolescence comme Complete-DomeniaSessionsRead (Sessions.UI:26-28).",
+   "risks": "Nouvelle opération épinglée (voir site registre). Les règles *.Model ne sont pas dans le runspace : décision côté UI uniquement. Matching rule in chain toujours en scope Base sur l'objet (sinon coûteux). Groupes d'autres domaines (FSP) non couverts : la règle le dit.",
+   "proof_test": "« D064 chemin tronqué = Indéterminé » : Complete-DomeniaGroupPathRead avec {ServerAnswer=$null; Edges=@{…}; Truncated=$true} → libellé -match 'Indetermine'. Épinglage prouvé par Test-DomeniaCandidate « Worker exact : GroupPathRead » (boucle operation-contracts.json l.79-90)."
+  },
+  {
+   "ids": "D062",
+   "function": "Nouvelle opération PasswordPolicyRead + correction de Get-DomeniaDomainWorkerCode (section 'Strategies affinees')",
+   "location": "Core 11763-11782 (politique de domaine) et 11784-11800 (PSO) dans Get-DomeniaDomainWorkerCode (11635) ; Get-DomeniaSafeObjectPropertyNames 8988-9003 (ni msDS-ResultantPSO ni msDS-UserPasswordExpiryTimeComputed)",
+   "current": "Aucune lecture de la politique effective. DomainOverview écrit 'Aucun objet Password Settings defini' dès que 0 PSO est visible (11799), y compris quand le conteneur n'est pas lisible par le compte.",
+   "change": "Worker PasswordPolicyRead (copier les deux sections citées) : sur l'utilisateur userAccountControl, msDS-User-Account-Control-Computed, pwdLastSet, msDS-UserPasswordExpiryTimeComputed, msDS-ResultantPSO ; ResultantPSO non vide → lecture du PSO (msDS-*) = 'Applies' ; vide → 'None' seulement si au moins un PSO du Password Settings Container est lisible par ce compte, sinon 'Unreadable' ; politique de domaine lue à part. UI : Resolve-DomeniaPasswordPolicy -User $r.User -ResultantPsoState $r.ResultantPsoState -Pso $r.Pso -DomainPolicy $r.DomainPolicy -Reader $r.Reader → faits dans un cadre à la demande (TabUserAdmin). Corriger 11799 en « Aucun PSO visible avec ce compte (absence non prouvée) », statut INCONNU.",
+   "risks": "ACL par défaut du conteneur PSO restreinte : la plupart des techniciens obtiendront 'Inconnue' (voulu par D062). Modifier DomainOverview change son SHA (F91B6442…) → ré-épinglage listé. Lecture explicite uniquement (jamais à l'ouverture de fiche).",
+   "proof_test": "« D062 politique illisible reste inconnue » : Complete-DomeniaPasswordPolicyRead avec {ResultantPsoState='Unreadable'; DomainPolicy=@{maxPwdAge=-36288000000000}} → fait 'Strategie applicable'='Inconnue' et aucun fait 'Duree de validite'. Échoue si le handler passe 'None' ou affiche la politique de domaine comme applicable."
+  },
+  {
+   "ids": "D063",
+   "function": "Nouvelle opération LockoutDiagnosis + deux boutons explicites (sans/avec journal)",
+   "location": "Affichage actuel : Fill-UserObject 6972 ; Unlock-UserAccount 21864-21880",
+   "current": "Seul l'état Get-UacStatusLabel est montré ; aucun badPwdCount/badPasswordTime, aucun 4740. Rien n'est lancé à l'affichage (conforme au critère, à préserver).",
+   "change": "Payload {UserDn, Sam, ReadEvents, MaxEvents<=200, WindowHours<=72}. Worker : PDC = fSMORoleOwner de la tête de domaine (comme la section 'Roles FSMO' de DomainOverview) ; $ctx=$Context.PSObject.Copy(); $ctx.Server=$pdc (modèle Receipts.Worker:100) ; lit lockoutTime, badPwdCount, badPasswordTime, userAccountControl, msDS-User-Account-Control-Computed ; si ReadEvents : Get-WinEvent -ComputerName $pdc -FilterXPath (EventID 4740, timediff borné, TargetUserName = sAMAccountName validé) -MaxEvents $n (+ -Credential si contexte explicite) → EventReadState Read/Refused/Unavailable. UI : Get-DomeniaLockoutDiagnosis -User $r.User -Dc $r.Dc -Events $r.Events -EventReadState $r.EventReadState -LockoutDuration $duree -PolicyKnown $connue -Reader $r.Reader.",
+   "risks": "Lecture du journal Security du DC = RPC EventLog, pas LDAP : Get-DomeniaOperationProvider (Engine.Model:267) la classe 'Directory' par défaut ; droits Event Log Readers souvent absents → 'Refused' (jamais un verdict). Injection XPath : n'accepter qu'un sAMAccountName validé par regex. Aucune action Unlock déclenchée.",
+   "proof_test": "« D063 aucun diagnostic au simple affichage » : Start-UiTask doublé qui enregistre les OperationId ; Show-AdObjectResult sur un utilisateur verrouillé → aucune entrée 'LockoutDiagnosis' ; Invoke (ButtonAutomationPeer) sur BtnLockoutDiagnose → une entrée avec Payload.ReadEvents=$false."
+  },
+  {
+   "ids": "D065",
+   "function": "Nouvelle Show-DomeniaUserComparison (Directory.UI) ; lecture du 2e utilisateur par l'opération OpenAdObject existante + GroupPathRead Mode=GroupInfo",
+   "location": "Littéral OpenAdObject : Open-AdObject 21055-21059",
+   "current": "Aucune comparaison.",
+   "change": "Compare-DomeniaUserAccess -Left @{Attributes=$A.Properties;Groups=$gA} -Right @{Attributes=$B.Properties;Groups=$gB} (Groups = {Dn,Name,Sid,AdminCount}) ; rendu lecture seule (CanApply=$false), aucune commande d'application.",
+   "risks": "Open-AdObject remplace $script:SelectedObject : la lecture de B doit appeler Start-UiTask -OperationId OpenAdObject avec un handler dédié et le littéral identique (extraire Get-DomeniaOpenObjectWorkerCode garde le même hash mais change File/Function dans operation-contracts.json). Sans GroupInfo, le privilège n'est détecté que par le nom.",
+   "proof_test": "« D065 comparaison sans écriture » : deux fixtures → ligne 'Domain Admins' Privilegie=$true et Alerte non vide ; aucun contrôle Btn*Apply*/Copy* dans Domenia-Directory.xaml ; aucun Start-UiTask -IsWrite enregistré."
+  },
+  {
+   "ids": "D066",
+   "function": "AddOrRemoveObjectGroup / AddOrRemoveGroupMember + XAML de TabUserAdmin",
+   "location": "Core 22057-22082 (corps 22065-22079), 22084-22107 (corps 22092-22104), câblage 18637-18638, 18651-18652, 18654-18655 ; XAML 4844-4846",
+   "current": "Un groupe par action, texte libre résolu dans le worker (Resolve-WGroupDn 21712 : ambiguïté → refus avant envoi), pré-lecture serveur Test-WDirectMembership (20840) → no-op si déjà conforme, vérification directe après écriture (22076-22077). Aucune liste complète réécrite (member/memberOf bloqués, RawAttributeBlockList 18892).",
+   "change": "Liste « à ajouter / à retirer » → $delta = New-DomeniaGroupDelta -CurrentGroups @(LstMemberOf) -Add $add -Remove $remove -MemberDn $dn ; Notes/Effects intégrés au plan D091 ; chaque Operation exécutée comme une étape WriteObjectGroup (corps et hash inchangés, GroupValue = DN) via le pilote D099 ; fin : Test-DomeniaGroupDeltaPostcondition -Delta $delta -Observed $obs ($obs[groupDn] = résultat vérifié, $null si incertain). Interrupteur proposé Features.GroupDelta (remplace le parcours à 1 groupe).",
+   "risks": "Chaque étape attend ReceiptReady (mis à $false en 21567/21635, rafraîchi au plus tôt ~15 s après, Guard.UI:18/177). Groupe principal invisible pour Test-WDirectMembership : 'non membre direct' trompeur et ajout au groupe principal → erreur après envoi = ETAT INCONNU. Résoudre les groupes en GUID avant le plan : Show-DomeniaInlinePicker n'accepte que Machine/Utilisateur/OU (Embedded.UI:268) et EmbeddedDirectoryLookup refuse 'Groupe' → ré-épinglage si on l'ajoute.",
+   "proof_test": "« D066 delta seul » : +G1 +G2 −G3 → exactement 3 Start-UiTask OperationId=WriteObjectGroup (GroupValue respectifs), 0 WriteAttributes sur 'member' ; Observed {G1:$true,G2:$null,G3:$false} → Overall 'A verifier'."
+  },
+  {
+   "ids": "D067",
+   "function": "Start-PermissionAnalysis + Build-DomeniaTreeContextMenu + TabPermissions",
+   "location": "Core 9926-10080 (littéral 9932-10037, Start-UiTask 10039, OnSuccess 10040-10069) ; menu arbre 12430 ; Ensure-DomeniaPermissions 15172 ; XAML 4934-4961 ; clic 18801",
+   "current": "Le worker agrège des capacités par masque et ne renvoie aucune ACE. « Analyser les droits sur cette branche » (12430) appelle Start-PermissionAnalysis qui lit $script:SelectedObject.DN (9929-9930), pas $script:SelectedBranchDn.",
+   "change": "Étendre le littéral : Aces bornés (<=400) {IdentityReference, AccessControlType, ActiveDirectoryRights, ObjectType, InheritedObjectType, IsInherited, InheritanceType} + Protected=$security.AreAccessRulesProtected. OnSuccess : ConvertTo-DomeniaAceView -Aces $result.Aces -GuidNames $script:DomeniaWellKnownRightGuids → DgAceView (Statut 'ACE observee'), distinct de DgPermissions. Ajouter -Dn à Start-PermissionAnalysis ; le menu passe $script:SelectedBranchDn avec un CallbackState non lié à la fiche (les gardes 10041/10072 rejetteraient sinon le résultat).",
+   "risks": "Empreinte PermissionAnalysis (664513B3…) change → ré-épinglage listé. Traduction SID→nom = appels supplémentaires (borner). Apply-CurrentPermissionUi dépend de Capabilities : format inchangé.",
+   "proof_test": "« D067 ACE héritée distinguée » : OnSuccess avec Aces=@({IsInherited=$true;InheritanceType='Descendents';…}) → ligne Origine 'Heritee d un conteneur parent', Statut 'ACE observee'. « D067 menu branche » : SelectedObject=U, SelectedBranchDn=OU X → Payload.DN -eq X (échoue aujourd'hui)."
+  },
+  {
+   "ids": "D068",
+   "function": "Nouvelle vue Parcours (Directory.UI) exécutée par le pilote D099 et les fonctions d'écriture existantes",
+   "location": "Issue d'écriture : Complete-DomeniaWriteTaskUi 21565-21631, Fail-DomeniaWriteTaskUi 21633-21665",
+   "current": "Aucun parcours.",
+   "change": "New-DomeniaLifecyclePlan -Kind Arrivee|ChangementService|Suspension -User $identite -Template $modele ; chaque étape issue de Get-DomeniaLifecycleNextStep devient un plan D091 avec sa propre confirmation si Sensitive ; l'issue revient par le crochet commun (site D093) → Set-DomeniaLifecycleStep -Plan $p -StepId $id -Outcome Verified|Failed|Uncertain (ETAT INCONNU → Uncertain → Blocked).",
+   "risks": "Plan en mémoire seulement : pour reprendre une issue incertaine après redémarrage, écrire LifecycleId/StepId dans le reçu. Delete/migration jamais proposés (règle).",
+   "proof_test": "« D068 étape incertaine bloque la suite » : étape 1 DisableAccount → Fail-DomeniaWriteTaskUi('ETAT INCONNU…') → Get-DomeniaLifecycleNextStep renvoie $null et aucun Start-UiTask pour l'étape 2."
+  },
+  {
+   "ids": "D069",
+   "function": "Nouvelle opération AdConsistencyScan + entrée dans Get-DomeniaOperationImpactEstimate",
+   "location": "Get-DomeniaOperationImpactEstimate 19821 ; Confirm-DomeniaOperationImpact 19865",
+   "current": "Aucun scan d'incohérences.",
+   "change": "Payload {BaseDn = $script:SelectedBranchDn choisi, Subtree, MaxObjects<=5000}. Worker : recherche paginée person/computer/group, attributs objectGUID,name,objectClass,mail,userPrincipalName,employeeID,description,department,manager,userAccountControl,lastLogonTimestamp,pwdLastSet,distinguishedName → lignes {Guid,Name,Type,Mail,Upn,EmployeeId,Description,Department,ManagerDn,Disabled,LastLogonUtc,PwdLastSet} + KnownDns + Truncated. Démarrage seulement après Confirm-DomeniaOperationImpact -Estimate (Get-DomeniaOperationImpactEstimate -Operation 'AdConsistencyScan' -ItemCount …). UI : Find-DomeniaDirectoryInconsistencies -Objects $r.Rows -KnownDns $r.KnownDns -StaleDays 180 -Truncated ([bool]$r.Truncated).",
+   "risks": "La règle (Directory.Model:477) lit Department avec défaut 'x' : si le worker n'émet pas Department, le constat 'Service et description absents' ne sort jamais (contrat de forme à tester). Règle 4 de CLAUDE.md : geste explicite. Non partageable (absente de Get-DomeniaTaskDedupKey, correct).",
+   "proof_test": "« D069 scan après confirmation du coût » : Confirm-DomeniaOperationImpact doublé → $false ⇒ 0 Start-UiTask, $true ⇒ 1 ; résultat Truncated → toutes les lignes Limite -match 'partiellement' ; aucune action de suppression dans la vue."
+  },
+  {
+   "ids": "D070",
+   "function": "Nouvelle opération DcCompareRead",
+   "location": "Copie de contexte par DC : modèle Receipts.Worker:100",
+   "current": "Aucune comparaison entre contrôleurs.",
+   "change": "Payload {Guid, Dcs (<=5, choisis explicitement), Attributes (liste blanche non sensible)}. Worker : pour chaque DC $ctx.Server=$dc, base <GUID=…>, attributs + msDS-ReplAttributeMetaData en valeurs brutes → {Dc,Reachable,Error,Attributes,MetadataRaw}. UI : ConvertFrom-DomeniaReplMetadata -Values $r.MetadataRaw puis Compare-DomeniaDcReadings -Readings $lectures -Attributes $attrs.",
+   "risks": "Le XML est analysé côté UI (règle pure, XmlResolver=$null déjà posé). Get-DomeniaAccessScope (Access.UI:18) → 'AD:DcCompareRead'. Ne jamais comparer d'USN.",
+   "proof_test": "« D070 différences datées par DC » : deux lectures fixtures → ligne Identique=$false avec ParControleur contenant '[v…, origine …]' ; Note mentionne les USN locaux ; aucune colonne USN comparée."
+  },
+  {
+   "ids": "D091",
+   "function": "Les 13 fonctions d'écriture + Start-DomeniaWriteTask + Start-UiTask",
+   "location": "Start-DomeniaAttributeWrite 21742, Set-AccountDisabled 21833, Unlock-UserAccount 21864, Reset-UserPassword 21882, Apply-UserAccountOptions 21928, Set-UserExpiration 21971, Expire-UserPasswordNow 22010, Move-SelectedObject 22029, AddOrRemoveObjectGroup 22057, AddOrRemoveGroupMember 22084, Rename-ComputerObject 22109, Create-OuUnderSelected 22131, Delete-SelectedObject 22190 (+ Save-DomeniaUserContact 7039, Set-OrClearRawAttribute 22169) ; Start-DomeniaWriteTask 21667-21709 ; contexte réel construit en Start-UiTask 20359",
+   "current": "Confirmation en texte libre ; Safety (Get-DomeniaSafetyDescriptor 20888) capturé tantôt avant (21753, 21837), tantôt après la confirmation (22064, 21890, 21951 alors que TargetUac vient de 21944, avant). AddOrRemoveObjectGroup confirme \"$verb :`r`n$value ?\" sans nommer l'objet modifié (22063). Unlock-UserAccount n'a aucune confirmation. Seule garde de cible : Assert-WObjectFresh côté worker (20812-20821).",
+   "change": "(1) Charger le type au premier besoin : if($null -eq ('Domenia.InterventionPlan' -as [type])){Add-Type -Path (Join-Path $script:RootDir 'modules/Domenia-Identity.Types.cs')} (New-DomeniaSelectionIdentity l'exige déjà, Engine.Model:99). (2) Avant toute confirmation : $id = New-DomeniaSelectionIdentity -Row {Guid=Safety.Guid;Type;DN;Name;Sid} -Domain $script:Conn.BaseDn -Reader $compte -Epoch $script:SessionEpoch -Generation $script:SelectedObjectGeneration ; $plan = New-DomeniaInterventionPlan -Operation $OperationId -Target $id -Server $script:Conn.Server -Account $compte -Changes … -Effects … où $compte = (Get-DomeniaRetryCredential $OperationId).UserName sinon $script:Conn.BindUser (Set-DomeniaRetryWorkerContext, Access.UI:31-41, peut changer le compte d'une écriture). Le texte de confirmation est rendu depuis le plan. (3) Start-DomeniaWriteTask -Plan : juste avant Start-UiTask, Test-DomeniaPlanStillValid -Plan $plan contre identité et changements recalculés ; invalide → statut « Plan invalidé », aucun envoi. (4) Payload += PlanId, PlanFingerprint, Targets (GUID touchés). Factoriser en Invoke-DomeniaPlannedWrite (nouveau Domenia-Safety.UI.ps1).",
+   "risks": "Ajouter des champs au Payload ne change aucun hash ; mais ajouter un here-string (même @\"…\"@) avant le littéral worker d'une fonction d'écriture décale LiteralIndex (update_worker_contracts.py et Test-DomeniaCandidate « Worker exact » comptent les deux formes). audit_preload épingle Start-DomeniaWriteTask (« Unchanged critical function ») → mettre à jour tools/preload-baseline.json. Create-OuUnderSelected n'a pas de SelectedObject (cible = branche) : identité du parent à lire. Objets sans GUID refusés (voulu).",
+   "proof_test": "« D091 cible changée pendant la confirmation » : AddOrRemoveObjectGroup et Start-DomeniaWriteTask réels ; Confirm-Action doublé qui remplace $script:SelectedObject (autre GUID, génération+1) puis renvoie $true ; Start-UiTask compté → attendu 0 appel et statut 'Plan invalidé'. Aujourd'hui : 1 appel, sur le nouvel objet."
+  },
+  {
+   "ids": "D092",
+   "function": "New-DomeniaWorkerRunspace (variante -DryRun) + Start-DomeniaWriteTask -Simulate + bouton « Vérifier sans appliquer » dans la confirmation",
+   "location": "Core 20103-20196 ; remplacement du marqueur 20122 ; enveloppe 20123-20151",
+   "current": "Aucune simulation. Dans les 13 corps, le marqueur $DomeniaWriteDispatched=$true précède toujours l'appel fournisseur (ADSI : propriétés en cache non committées ; module : avant la cmdlet) — vérifié corps par corps.",
+   "change": "New-DomeniaWorkerRunspace -IsWrite -DryRun : hash du corps vérifié (inchangé) puis marqueur remplacé par throw [Management.Automation.RuntimeException]::new('DOMENIA_DRYRUN_STOP') dans une enveloppe SANS writer.lock ni reçu, qui n'attrape que ce message et renvoie {Simulated=$true; Verified=$false; Message='Lectures préalables réussies ; aucun envoi.'} ; un résultat no-op du corps est renvoyé tel quel. Start-DomeniaWriteTask -Simulate : Start-UiTask sans -IsWrite/-NonCancellable, ReplaceKey 'write-simulation', pas d'ActiveWriteTaskId. Get-DomeniaDryRunPolicy -OperationId refuse WriteResetPassword (SecureString) et les opérations distantes à tâche planifiée.",
+   "risks": "Test-DomeniaCandidate « Encadrement durable des ecritures » prend $l[0] et $l[1] des here-strings de New-DomeniaWorkerRunspace (exige >=4) : ajouter les nouvelles APRÈS les quatre existantes. Le marqueur doit rester textuellement identique dans tous les corps. Get-WWriteBackend importe le module AD (lecture seule).",
+   "proof_test": "« D092 simulation sans fournisseur d'écriture » : corps WriteObjectGroup exécuté via -DryRun dans un runspace dont WorkerCommon est remplacé par des doubles (Assert-WObjectFresh/Resolve-WGroupDn/Test-WDirectMembership → fixtures ; Add-ADGroupMember et New-WEntry → throw 'APPEL INTERDIT'), ReceiptRoot temporaire → résultat Simulated, aucun *.json créé, aucun 'APPEL INTERDIT'."
+  },
+  {
+   "ids": "D093",
+   "function": "Complete-DomeniaWriteTaskUi, Fail-DomeniaWriteTaskUi, New-WReceipt, Verify de Get-DomeniaReceiptWorkerCode, corps WriteResetPassword et WriteCreateOu",
+   "location": "Core 21565-21631, 21633-21665 ; Domenia-Receipts.Worker.ps1:54-71 (New-WReceipt), 68 (CanVerify), 99-109 (Verify) ; corps Reset 21894-21922, CreateOu 22139-22163",
+   "current": "Verdict binaire Verified. WriteResetPassword renvoie Verified=$true sur le seul $after.Exists (21919-21921), sans relire pwdLastSet. WriteCreateOu ADSI renvoie Verified=$true tout en disant que la protection n'est pas posée (22162). Seul WriteAttributes est vérifiable a posteriori (68, 99) ; les autres reçus exigent une revue externe (109).",
+   "change": "(1) Crochet commun Invoke-DomeniaWriteOutcome -State -Result -Outcome appelé en 21579-21587, 21589-21610, 21613-21629 et 21646-21664 : $rule = Get-DomeniaPostconditionRule -OperationId $State.OperationId -Plan $State.Plan ; $pc = Resolve-DomeniaPostcondition -Rule $rule -Result $effective -ErrorText $Message → Verifie/Partiel/A verifier + preuve (statut, journal, reçu). Ce crochet sert aussi D068, D095, D099, D100. (2) La règle est transmise en données dans Payload.Rule (genres Attribute, Membership, Location, UacBit, LargeIntZero, Exists, Absent) ; New-WReceipt la recopie, CanVerify = présence de Rule. (3) Verify du ReceiptStore généralisé à ces genres avec les helpers existants (Test-WDirectMembership, Get-WObjectSnapshot, Get-WAttributeFirst). (4) Corps : Reset relit pwdLastSet avant/après et exige after>before (ou 0 si MustChange) sinon Partial ; CreateOu ADSI → Partial=$true ; Delete vérifie l'absence par GUID et non par DN.",
+   "risks": "Ré-épinglage de WriteResetPassword, WriteCreateOu, WriteDeleteObject et ReceiptStore. New-WReceipt est dans WorkerCommon (non épinglé par le registre, haché par le manifeste ; Test-DomeniaAcl n'utilise que Get-WReceiptRoot). Reçus RC1.10.7 existants sans Rule → rester en revue externe. Format=1 conservé, champs optionnels, <=64 Ko (Write-WReceipt:39).",
+   "proof_test": "« D093 reset non prouvé = À vérifier » : Complete-DomeniaWriteTaskUi avec un résultat WriteResetPassword {Verified=$true; Before.PwdLastSet=X; After.PwdLastSet=X} → statut 'A verifier', pas 'SUCCES'. « D093 vérification d'un reçu d'appartenance » : worker ReceiptStore Verify sur un reçu Membership avec Test-WDirectMembership doublé → Stage 'Verified' (aujourd'hui : exception 'verification externe explicite')."
+  },
+  {
+   "ids": "D094",
+   "function": "Invoke-ComputerTool, Start-DomeniaRimotteRun, Start-UiTask, Start-DomeniaWriteTask (ValidatePattern)",
+   "location": "Core 16379-16420 (GpUpdate 16402-16409, Restart 16410-16417), 16329-16334 (Rimotte), Start-UiTask 20285 (avant New-DomeniaWorkerRunspace 20355), ValidatePattern '^Write[A-Za-z0-9]{2,59}$' 21670",
+   "current": "ComputerGpUpdate, ComputerRestart et RimotteRun passent par Start-UiTask sans -IsWrite : ni reçu, ni verrou. Restart n'est pas -NonCancellable : à 35 s, Request-UiTaskStop -Force (20520) et message « Timeout » alors que l'ordre peut être parti. Après un échec de Restart-Computer, repli tâche planifiée shutdown /r (16414) même si l'échec est ambigu ; GPUpdate idem (Invoke-Command puis Invoke-WRemoteTaskScript).",
+   "change": "Start-UiTask : $req = Get-DomeniaReceiptRequirement -OperationId $OperationId ; if($req.Required -and -not $IsWrite){throw 'Reçu durable requis'} (échec fermé). Corps distants : $DomeniaWriteDispatched=$true juste avant Invoke-Command / Restart-Computer / Invoke-WRemoteTaskScript ; repli tâche planifiée seulement sur non-connexion certaine (avant envoi) ; Restart renvoie Delivered=$true ('Demande envoyée') avec une étape de reçu terminale non bloquante 'Delivered'. Canal : Start-DomeniaRemoteMutationTask (ou ValidatePattern élargi aux opérations déclarées par la règle) avec CorrelationId 32 hex (Write-WReceipt l'exige, Receipts.Worker:34) et cible = nom de poste.",
+   "risks": "3 ré-épinglages (95A3CCDF…, DE999A34…, 43673563…). L'enveloppe actuelle classe 'Unknown' tout résultat sans Verified (20141-20142) : sans étape 'Delivered' et verrou par cible (D097), chaque GPUpdate bloquerait toutes les écritures AD. Ne pas renommer ces OperationId : listés en dur dans Get-DomeniaAccessScope (Access.UI:17), Get-WorkerContext (20686-20688) et Complete-UiTasks (20591).",
+   "proof_test": "« D094 reçu écrit avant l'envoi distant » : corps ComputerRestart exécuté dans l'enveloppe d'écriture, ReceiptRoot temporaire, Restart-Computer doublé qui lit le dossier au moment de l'appel → Stage 'Sent' présent ; Start-UiTask -OperationId ComputerRestart sans -IsWrite → exception. Aujourd'hui : aucun fichier, aucune exception."
+  },
+  {
+   "ids": "D095",
+   "function": "Assert-DomeniaCapability, Start-DomeniaWriteTask, enveloppe d'écriture de New-DomeniaWorkerRunspace, New-WReceipt",
+   "location": "Core 21480-21494 (21483-21484), 21683 (CorrelationId), 21706 (ActiveWriteTaskId) ; enveloppe 20124-20150 (scan des reçus 20130-20136, catch 20144-20149) ; Guard.UI:186",
+   "current": "Double-clic : le 1er clic pose ActiveWriteTaskId et Set-ControlsBusy désactive le bouton (et la confirmation intégrée désactive la page, Embedded.UI:142-144) ; un 2e Start-DomeniaWriteTask lèverait 'Une ecriture est deja en cours'. L'enveloppe refuse tout envoi si un reçu non terminal du domaine existe (20135). Pas de clé d'idempotence (CorrelationId neuf à chaque appel). Au démarrage, Initialize-DomeniaGuard ne fait que lister (aucun rejeu).",
+   "change": "UI, avant Assert-DomeniaCapability : Test-DomeniaWriteAdmission -Fingerprint $plan.Fingerprint -Submitted $script:SubmittedPlans -Receipts $script:ReceiptRows -Active $script:AsyncJobs → refus 'Demande identique déjà envoyée' ; enregistrer l'empreinte. Worker : boucle 20130-20136 refuse un reçu de même PlanFingerprint non 'NotSent'/'Rejected' ; New-WReceipt écrit PlanFingerprint. Catch 20144-20149 : refus définitif du DC (LDAP 19/20/21/32/34/50/53/68, HRESULT 0x80070005/0x8007202F) pour une opération déclarée « requête unique » → relecture de précondition puis stage terminal 'Rejected' au lieu de 'Unknown'.",
+   "risks": "L'enveloppe est le chemin de toutes les écritures (testée par Test-DomeniaCandidate « Encadrement durable » et les audits). ReceiptStore doit renvoyer PlanFingerprint dans Rows (Receipts.Worker:113) → ré-épinglage. Ajouter 'Rejected' partout où les étapes terminales sont listées (Receipts.Worker:95 et 115, enveloppe 20135, Guard.UI:46). Opérations multi-étapes (Reset + Unlock + MustChange) exclues de 'Rejected'.",
+   "proof_test": "« D095 double Exécuter = une demande » : vrai XAML, vrai câblage (18637), Confirm-Action doublé → $true ; deux [Windows.Automation.Peers.ButtonAutomationPeer]::new($btn).GetPattern('Invoke').Invoke() (le 2e peut lever ElementNotEnabledException), puis complétion simulée, bouton réactivé, 3e Invoke avec le même plan → Start-UiTask compté 1 fois. « D095 redémarrage » : dossier de reçus avec un reçu 'Sent' → Initialize-DomeniaGuard + tick → 0 Start-UiTask -IsWrite."
+  },
+  {
+   "ids": "D096",
+   "function": "Corps WriteAttributes et WriteAccountOptions, Assert-WObjectFresh, nouveau helper WorkerCommon",
+   "location": "Core 21757-21785 (Set-ADObject -Replace 21762-21769, ADSI 21771-21774) ; 21952-21966 (ADSI 21961) ; Assert-WObjectFresh 20812-20821 (USN 20817, whenChanged 20818) ; Get-DomeniaOriginalValue 20925-20929",
+   "current": "Précondition = égalité uSNChanged/whenChanged lue sur Context.Server, puis écriture non conditionnelle : fenêtre de course entre relecture et écriture. WriteAccountOptions ADSI écrit l'UAC entier calculé depuis la valeur lue à l'ouverture (TargetUac, 21944). Get-DomeniaOriginalValue ne prend que la 1re valeur : l'éditeur brut sur un attribut multivalué remplacerait toutes les valeurs.",
+   "change": "UI : pour chaque changement, Get-DomeniaAtomicStrategy -Attribute $c.Name (mono-valué texte → 'ConditionalReplace', sinon 'ReadVerify' ou refus) → Payload.Changes[i].Strategy. WorkerCommon += Invoke-WConditionalReplace : S.DS.Protocols LdapConnection sur Context.Server, ModifyRequest avec Delete(ancienne valeur) + Add(nouvelle) dans la même requête (Clear = Delete(ancienne) ; ancienne vide = Add) ; DirectoryOperationException NoSuchAttribute/AttributeOrValueExists → 'Précondition changée, rien appliqué' avec $DomeniaWriteDispatched=$false. userAccountControl traité de même (valeur entière exacte). Interrupteur proposé Features.ConditionalWrites.",
+   "risks": "Nouveau transport d'écriture (Negotiate avec le credential explicite ; un LdapConnection existe déjà au login, 17079). Ré-épinglage WriteAttributes et WriteAccountOptions. ADWS (backend Module) n'offre pas de remplacement conditionnel : forcer LDAP pour ces changements. Si Context.Server n'est pas un DC nommé (repli sur le nom de domaine, 17015/17132), l'USN n'est pas comparable : exiger un DC nommé dans le plan.",
+   "proof_test": "Sans domaine : « D096 remplacement conditionnel demandé » : corps WriteAttributes avec Invoke-WConditionalReplace doublé qui enregistre (Name, Old, New) ; description 'a'→'b' → un appel Old='a' New='b' ; doublon levant NoSuchAttribute → reçu 'NotSent'/'Rejected', pas 'Unknown'. Labo domaine (à faire, non exécuté) : OU de test, description modifiée par un autre outil entre ouverture et enregistrement → refus sans écrasement."
+  },
+  {
+   "ids": "D097",
+   "function": "Test-DomeniaAccessBusyWrite et ses appelants ; Apply-CurrentPermissionUi ; Update-DomeniaSecretActionUi ; Assert-DomeniaCapability ; Assert-WriteAllowed ; Start-DomeniaWriteTask ; enveloppe",
+   "location": "Domenia-Access.UI.ps1:53-55 ; Core 21366, 21205, 21483-21484, 16139, 21685, 20135 ; appelants : Core 7499, 9453, 9854, 9870, 18079, 21011 ; Selection.UI:109, 185 ; Relations.UI:41, 88, 153, 173, 243, 285, 312, 361 ; Live.UI:301, 417, 522, 602-619 ; Continuity.UI:107, 143, 169 ; Reconcile.UI:45 ; comptes : Access.UI:27, 205, 223, 254, 267, 276, Accounts.Async:5, 40, Guard.UI:102, 130, relogin 18340",
+   "current": "return ([bool]$script:ActiveWriteTaskId -or $script:WriteState -in @('Running','Unknown','UnknownPending')) bloque lectures, recherche, sélection, Relations, Live et comptes. Start-DomeniaWriteTask désactive aussi TvDirectory, DgObjects, TxtGlobalSearch… (21685). Couche durable : un reçu non terminal du domaine bloque toute écriture (16139 côté UI, 20135 côté worker, inter-processus).",
+   "change": "Test-DomeniaAccessBusyWrite [-TargetKey <guid|dn>] [-Class Read|Write|Edit|Credential] : si Get-DomeniaFeatureFlag ScopedLocks → Test-DomeniaOperationAllowed -Class $Class -TargetKey $TargetKey -Locks (jobs IsWrite en cours + reçus non terminaux avec leurs Targets) ; sans paramètre → comportement global actuel. Reclasser : lectures (Open-AdObject avec la clé du DN demandé, recherche, sélection, Live, Relations en lecture) → Read ; écritures/édition → Write avec la cible ; comptes et relogin → Credential (reste global). Apply-CurrentPermissionUi : $writeActive pour la cible de la fiche ; Assert-WriteAllowed : bloquer si un reçu pendant touche la cible du plan ; Start-DomeniaWriteTask : ne plus ajouter les contrôles de lecture sous ScopedLocks ; enveloppe : comparer $pending.Targets aux Targets du Payload (reçu sans Targets = global).",
+   "risks": "Les opérations d'appartenance touchent deux objets : le reçu ne porte que Safety.ExpectedDn (le membre pour WriteObjectGroup) et UnknownWriteTargetDn dépend de l'ordre DN/ParentDn/GroupDn/ObjectDn (21692-21696) → clé = {GUID membre, GUID groupe}, sinon une écriture incompatible sur le groupe passerait. Features.* illisible tant que New-DefaultConfig n'a pas de section Features (voir défauts). audit_preload exige la chaîne 'Test-DomeniaAccessBusyWrite' dans Queue-DomeniaSelectedObjectOpen : garder le nom. Test-DomeniaSelection:28, Test-DomeniaPreload:45 et la suite LastUser doublent la fonction sans paramètre : signature rétro-compatible obligatoire.",
+   "proof_test": "« D097 écriture incertaine sur A, lecture de B » : ScopedLocks activé, WriteState='Unknown', reçu pendant Targets=@(guidA) ; Open-AdObject -Dn B → Start-UiTask OpenAdObject appelé ; Assert-DomeniaCapability sur A → exception ; Start-DomeniaAccountRelogin → refus. Échoue aujourd'hui (retour silencieux en 21011)."
+  },
+  {
+   "ids": "D098",
+   "function": "Start-DomeniaAccountRelogin, gestionnaires Closing/Closed, Get-DomeniaRetryCredential, Dispose-AsyncEngine",
+   "location": "Core 18333-18343, 22546-22553, 22554-22565, 20614-20658 (détachement 20641-20643) ; Access.UI:27",
+   "current": "Relogin refusé si une tâche existe ou WriteState Running/Unknown. Fermeture refusée seulement si un job IsWrite vit ; les actions distantes en vol (non IsWrite) sont détachées en silence et Flush-DomeniaIndex dans Closed avale ses erreurs. L'expiration d'un compte de reprise est différée tant qu'une écriture est active (Access.UI:27).",
+   "change": "$fin = Get-DomeniaSessionEndPlan -Reason Relogin|Close|Expiry -ActiveWrites … -RemoteActions … -PendingSaves ($script:IndexDirty, $script:Persistence.Pending.Count) -PendingReceipts $script:ReceiptPending ; afficher $fin.Text en 18337/18341 et 22551 (jamais « annulé ») ; expirer les comptes pour les nouveaux appels même pendant une écriture (retirer -and -not (Test-DomeniaAccessBusyWrite) en Access.UI:27 ; le worker en vol garde son contexte, capturé en 20359) ; à la fermeture, lister les actions distantes en vol comme « demande possiblement envoyée ».",
+   "risks": "La vérification des reçus utilise le compte annuaire (Get-WorkerContext 20698) : après expiration, elle redemandera un compte. Test-DomeniaRelease « Action ecriture jamais rejouee par le login » est en échec de ligne de base (harnais : Get-DomeniaSelectedMachineName introuvable).",
+   "proof_test": "« D098 fermeture pendant une action distante » : job ComputerRestart en vol (IsWrite après D094) → Closing : e.Cancel=$true, message contient 'envoy' et ne contient pas 'annul' ; relogin avec IndexDirty=$true → message 'sauvegarde en attente'."
+  },
+  {
+   "ids": "D099",
+   "function": "Complete-DomeniaReceiptRefresh (pilote), Invoke-DomeniaWritePostAction, menu Modifier de DgObjects",
+   "location": "Domenia-Guard.UI.ps1:21-35 ; Core 21496-21563, 12370-12391",
+   "current": "Aucun lot ; une écriture à la fois ; ReceiptReady=$false après chaque écriture (21567/21635) jusqu'au prochain rafraîchissement des reçus.",
+   "change": "Entrée « Préparer un lot… » (n'exécute rien) sur DgObjects.SelectedItems → New-DomeniaBatchPlan -Items (aperçu par objet = plan D091 après lecture fraîche) -StopPolicy … ; Step-DomeniaBatch appelé seulement depuis Complete-DomeniaReceiptRefresh quand Pending -eq 0 et ReceiptReady, l'issue de chaque étape venant du crochet D093 ; Get-DomeniaBatchReport à la fin.",
+   "risks": "Get-DomeniaSafetyDescriptor dépend de $script:SelectedObject (20888-20910) : chaque élément porte son propre Safety, lu il y a moins de MaxObjectAgeMinutes (20895). Une étape incertaine arrête le lot (voulu). Latence ~15 s par étape.",
+   "proof_test": "« D099 échec intermédiaire » : lot de 3 ajouts, étape 2 → Fail-DomeniaWriteTaskUi('ETAT INCONNU…') ; rapport 1 vérifié / 1 à vérifier / 1 non lancé, global différent de 'Réussi' ; Start-UiTask compté 2 fois."
+  },
+  {
+   "ids": "D100",
+   "function": "Invoke-DomeniaReceiptChoice, XAML des reçus, lignes du ReceiptStore",
+   "location": "Domenia-Guard.UI.ps1:42-57 ; Core 5673-5679 (DgGuardReceipts, BtnGuardReceiptVerify/Review) ; Receipts.Worker:113",
+   "current": "Actions Vérifier / Revue externe seulement ; aucune compensation ; les reçus ne gardent pas les valeurs avant.",
+   "change": "Bouton « Proposer une compensation » → Get-DomeniaCompensation -Receipt $ligne -Rule $ligne.Rule (jamais pour WriteResetPassword, WriteDeleteObject, WriteExpirePassword, WriteUnlock) ; si proposée : NOUVEAU plan D091 inverse après relecture de précondition, confirmation normale, aucun envoi automatique. Le texte distingue retour arrière du paquet, du cache SQLite et d'une modification AD.",
+   "risks": "Stocker des valeurs avant (attributs non sensibles, bornés) dans le dossier des reçus (DACL privée existante, Receipts.Worker:14-17) : données personnelles. Ré-épinglage ReceiptStore.",
+   "proof_test": "« D100 pas de compensation pour un mot de passe » : reçu WriteResetPassword Verified → bouton grisé avec motif ; reçu WriteObjectGroup Verified → clic → Confirm-Action appelé avec le plan inverse, Start-UiTask non appelé si Confirm renvoie $false."
+  },
+  {
+   "ids": "D062, D063, D064, D069, D070 (opérations à épingler)",
+   "function": "Get-DomeniaWorkerOperationHashes, Assert-DomeniaWorkerRegistry, tools/operation-contracts.json, tools/update_worker_contracts.py, Domenia-Modules.ps1",
+   "location": "Core 19993-20054 (registre), 20056-20080 (empreinte 20061) ; tools/operation-contracts.json (57 entrées) ; tools/update_worker_contracts.py ; build_packages.py:43-45",
+   "current": "57 opérations. update_worker_contracts.py exige set(registre)==set(contrats) sinon 'Operation list differs' ; hash = SHA-256 du littéral entre @'\\n et \\n'@ (sa regex compte aussi les @\"…\"@) ; --apply réécrit les hashes et $expectedFingerprint. build_packages.py échoue si un hash diffère.",
+   "change": "Modèle à copier : SessionsList (Domenia-Sessions.UI.ps1 : Get-DomeniaSessionsWorkerCode l.1-14 avec return @'…'@, Start l.21-25 avec CallbackState {Epoch,DN,Generation}, Complete l.26-33 avec garde d'obsolescence et Get-DomeniaEffectiveWorkerResult, Fail l.34). Étapes : (1) Get-DomeniaPasswordPolicyWorkerCode, Get-DomeniaLockoutWorkerCode, Get-DomeniaGroupPathWorkerCode, Get-DomeniaConsistencyScanWorkerCode, Get-DomeniaDcCompareWorkerCode dans wad/modules/Domenia-Directory.Worker.ps1 (UTF-8 BOM, LF, guillemets simples, un littéral par fonction) ; (2) déclarer fichier + fonctions dans Get-DomeniaRuntimeModulePlan ; (3) PasswordPolicyRead = \"0000…0000\" (64 hex) etc. dans Get-DomeniaWorkerOperationHashes ; (4) 5 objets {Operation, File, Function, LiteralIndex:0, Sha256} dans operation-contracts.json ; (5) relire puis python tools/update_worker_contracts.py puis --apply (sur Mac/Linux) ; (6) Start-UiTask avec SuccessHandler/ErrorHandler nommés ; (7) Get-WorkerContext : rien à classer (directory par défaut) ; Get-DomeniaOperationImpactEstimate : ajouter AdConsistencyScan et DcCompareRead.",
+   "risks": "Test-Domenia « Registre ferme : 47 corps » ne cherche les littéraux que dans le cœur et Live.Model (137-150). Comptes figés : 48 (Test-DomeniaRelease:67, Test-DomeniaStreaming:81), 57 (Test-DomeniaStartupLogin:67 et cas « 57 entrees »), 55 (audit_startup_login.py:34), 48 (audit_release.py:37). Manifestes réécrits par le build (REPRISE §8). Lister toutes les opérations ré-épinglées dans les notes RC1.11.0.",
+   "proof_test": "Test-DomeniaCandidate « Worker exact : <op> » (boucle operation-contracts.json l.79-90) pour chacune des 5 ; puis les cas de registre de Test-DomeniaStartupLogin une fois son harnais corrigé. Échoue si la fonction ou l'entrée de registre est retirée."
+  }
+ ],
+ "defects": [
+  {
+   "test": "Nouveau « D064 appartenances tronquées » (Test-DomeniaWiring.ps1) : Fill-UserObject avec __memberOfComplete=@($false)",
+   "classification": "Défaut réel, contraire au critère d'acceptation D064",
+   "cause": "Fill-UserObject (7008-7010) et Fill-ComputerObject (7095-7097) affichent 'N groupe(s)' sans lire __memberOfComplete/__memberOfNote, pourtant produits par Get-WAllProperties (8153) ; Fill-GroupObject (7133-7134) ne le lit pas non plus pour memberOf (il le fait pour member en 7132).",
+   "fix": "Lire le marqueur comme en 7132 et afficher la limite (site D064)."
+  },
+  {
+   "test": "Nouveau « D062 PSO illisible » sur le résultat de DomainOverview",
+   "classification": "Défaut réel : un refus de lecture devient une affirmation d'absence (D062, principe D101)",
+   "cause": "Core 11799 : if ($found -eq 0) { Add-Row 'Strategies affinees' 'Etat' 'Aucun objet Password Settings defini' }, alors que le conteneur PSO est restreint par défaut.",
+   "fix": "Texte 'Aucun PSO visible avec ce compte (absence non prouvée)' et statut INCONNU ; ré-épingler DomainOverview."
+  },
+  {
+   "test": "Nouveau « D067 menu branche cible la branche »",
+   "classification": "Défaut réel : mauvaise cible",
+   "cause": "Le menu de l'arbre (12430) appelle Start-PermissionAnalysis, qui lit $script:SelectedObject.DN (9929-9930) au lieu de $script:SelectedBranchDn : il analyse l'objet de la fiche ou ne fait rien.",
+   "fix": "Paramètre -Dn et état de rappel propre à la branche (site D067)."
+  },
+  {
+   "test": "Nouveau « D093 reset non prouvé = À vérifier »",
+   "classification": "Défaut réel : verdict 'vérifié' sans preuve",
+   "cause": "Corps WriteResetPassword : le seul contrôle après envoi est if(-not [bool]$after.Exists){throw …} puis Verified=$true (21919-21921) ; pwdLastSet n'est jamais relu.",
+   "fix": "Relire pwdLastSet avant et après ; sinon Partial. Ré-épinglage."
+  },
+  {
+   "test": "Nouveau « D093 OU créée en ADSI = Partiel »",
+   "classification": "Défaut mineur : reçu 'Verified' pour une exigence non appliquée",
+   "cause": "Corps WriteCreateOu (22162) : en backend ADSI, la protection contre la suppression n'est pas posée mais le résultat reste Verified=$true sans Partial, donc reçu 'Verified' (enveloppe 20142).",
+   "fix": "Partial=$true en ADSI (ou poser l'ACE de protection). Ré-épinglage."
+  },
+  {
+   "test": "Nouveau « refus définitif après envoi » : corps WriteAttributes avec Set-ADObject doublé levant UnauthorizedAccessException",
+   "classification": "Comportement trop prudent qui fige l'application (D093/D097)",
+   "cause": "Le marqueur est posé avant l'appel fournisseur ; tout refus du DC (accès, contrainte, DN invalide pour 'manager' saisi en texte libre, 21804) sort par 20148 'ETAT INCONNU', reçu 'Unknown' → ReceiptPending>0 → Assert-WriteAllowed (16139) bloque toutes les écritures jusqu'à revue manuelle (seul WriteAttributes est vérifiable, Receipts.Worker:99-109).",
+   "fix": "Classer les refus définitifs des opérations à requête unique, relire la précondition, étape terminale 'Rejected' (site D095)."
+  },
+  {
+   "test": "Nouveau « après ETAT INCONNU la fiche peut être relue »",
+   "classification": "Incohérence entre message et comportement",
+   "cause": "Complete-DomeniaWriteTaskUi (21582) demande de « recharger l'objet », mais Open-AdObject (21011), le bouton Réessayer (Selection.UI:109) et la sélection (9870) refusent tant que WriteState='Unknown' ; seul Complete-DomeniaReceiptRefresh remet Idle (Guard.UI:30-32).",
+   "fix": "Verrou par cible (D097) et texte orienté vers Outils > Fiabilité > reçus."
+  },
+  {
+   "test": "Nouveau « D094 reçu distant » et « timeout de redémarrage »",
+   "classification": "Écart de sécurité (D094/D095)",
+   "cause": "Invoke-ComputerTool (16402-16417) et Start-DomeniaRimotteRun (16333) lancent des mutations distantes sans -IsWrite ni reçu ; Restart n'est pas NonCancellable (à 35 s : Request-UiTaskStop -Force en 20520, message « Timeout ») ; repli tâche planifiée après un échec possiblement post-envoi (16406, 16414) → double GPUpdate ou double redémarrage possibles.",
+   "fix": "Voir site D094."
+  },
+  {
+   "test": "Nouveau « Features lisible depuis la configuration » : Domenia.config.json {\"Features\":{\"ScopedLocks\":false}} puis Get-DomeniaFeatureFlag ScopedLocks",
+   "classification": "Piège de raccordement (décision F5)",
+   "cause": "Load-AppConfig (989-993) recopie une section absente des défauts comme PSCustomObject ; Get-CfgValue (1037) appelle .Contains dessus → exception avalée → valeur par défaut. New-DefaultConfig (18896-19086) n'a pas de section Features : aucun interrupteur ne peut être désactivé par configuration.",
+   "fix": "Ajouter Features = [ordered]@{ScopedLocks=$true; …} dans New-DefaultConfig."
+  },
+  {
+   "test": "Test-DomeniaStartupLogin : « La verification du registre complet accepte la livraison », « L ordre de declaration ne change pas le controle », « Le corps de chaque operation correspond a son empreinte » (échecs de la ligne de base)",
+   "classification": "Défaut de harnais propre à 5.1, pas une désynchronisation",
+   "cause": "l.62 : $expected=@(Get-Content … -Raw|ConvertFrom-Json). Sous 5.1, ConvertFrom-Json émet le tableau JSON comme un seul objet : $expected.Count=1 et $item.File est un Object[] (erreur ChildPath). Le cas « mêmes operations » passe grâce à l'énumération des membres.",
+   "fix": "$expected=@((Get-Content … -Raw|ConvertFrom-Json)) ou affectation intermédiaire ; puis remettre à jour le compte 57."
+  },
+  {
+   "test": "Test-Domenia « Registre ferme : 47 corps et rejet d un corps modifie » (échec de ligne de base)",
+   "classification": "Suite désynchronisée, et angle mort pour les nouvelles opérations",
+   "cause": "Compte figé à 47 et recherche des littéraux limitée au cœur et à Live.Model (137-150), alors que 13 opérations vivent dans d'autres modules ; les 5 nouvelles (Directory.Worker) ne seraient jamais trouvées.",
+   "fix": "Itérer operation-contracts.json comme Test-DomeniaCandidate (79-90)."
+  },
+  {
+   "test": "Nouveau « D091 la confirmation nomme la cible »",
+   "classification": "Écart D091",
+   "cause": "AddOrRemoveObjectGroup confirme \"$verb :`r`n$value ?\" (22063) sans nommer l'objet modifié ; Unlock-UserAccount (21864-21879) n'a aucune confirmation ; Safety est capturé après la confirmation dans 9 fonctions sur 13.",
+   "fix": "Plan construit avant la confirmation et texte rendu depuis le plan (site D091)."
+  },
+  {
+   "test": "Nouveau « reçu d'un no-op » : corps renvoyant Backend='None'",
+   "classification": "Inexactitude mineure du reçu",
+   "cause": "L'enveloppe (20141-20142) marque 'Verified' tout résultat Verified, y compris 'Aucune écriture AD' où $DomeniaWriteDispatched est resté faux.",
+   "fix": "Si le marqueur n'a pas été franchi : étape 'NotSent' (aucun changement)."
+  },
+  {
+   "test": "Nouveau « éditeur brut sur attribut multivalué »",
+   "classification": "Risque latent (éditeur désactivé par défaut, Security.AllowRawAttributeWrite)",
+   "cause": "Get-DomeniaOriginalValue (20925-20929) ne montre que la 1re valeur ; les corps WriteAttributes remplacent toutes les valeurs (21761, 21772).",
+   "fix": "Get-DomeniaAtomicStrategy refuse les attributs multivalués ou en liste blanche mono-valuée."
+  },
+  {
+   "test": "Lancer python tools/update_worker_contracts.py --apply sous Windows puis rechercher des CRLF dans Domenia-Core.ps1",
+   "classification": "Outil : convention LF menacée",
+   "cause": "Path.write_text sans newline='\\n' convertit en CRLF sous Windows (core et operation-contracts.json).",
+   "fix": "write_bytes ou newline='\\n' ; d'ici là, n'appliquer que depuis Mac/Linux."
+  }
+ ],
+ "discrepancies_with_reprise": [
+  "Numéros de ligne de REPRISE vérifiés exacts pour ce périmètre : Fill-UserObject 6955, Start-PermissionAnalysis 9926, Start-DomeniaWriteTask 21667, AddOrRemoveObjectGroup 22057, Get-WorkerContext 20679, $script:WorkerCommon 7895 (compléments en 20773, 21711 et 23675), Start-UiTask 20285, Request-UiTaskStop 20385, Complete-UiTasks 20467, Dispose-AsyncEngine 20614, journal « prêt » 21477, $script:MasterBuild 18867, $script:DomeniaBuild 22607.",
+  "§3 « 57 opérations » : confirmé (registre 19995-20053 et operation-contracts.json : 57 entrées).",
+  "§4.4 classe Test-DomeniaStartupLogin (3 échecs) parmi les suites désynchronisées ; la cause réelle est le comportement de ConvertFrom-Json sous 5.1 (tableau émis comme un seul objet) en l.62 du harnais.",
+  "§7.1 D097 : « Test-DomeniaAccessBusyWrite bloque tout » est exact, mais deux autres couches globales ne sont pas citées : Assert-WriteAllowed (16139, ReceiptPending>0) et l'enveloppe worker (20135 : tout reçu non terminal du domaine, durable et inter-processus). Start-DomeniaWriteTask désactive aussi les contrôles de lecture (21685).",
+  "F5 et §7.3 supposent les Features.* lisibles via Get-DomeniaFeatureFlag : impossible tant que New-DefaultConfig (18896) n'a pas de section Features (Get-CfgValue lève sur un PSCustomObject et renvoie le défaut).",
+  "§7.3 Annuaire liste 5 nouvelles opérations, mais D067 a besoin des ACE (ré-épinglage de PermissionAnalysis ou opération dédiée) et D065 du SID/adminCount des groupes (non couvert ; proposé en mode GroupInfo de GroupPathRead). Liste des interrupteurs à compléter : Features.GroupDelta et Features.ConditionalWrites proposés.",
+  "D063 : les événements 4740 se lisent par RPC EventLog sur le PDC, pas en LDAP ; la classification par défaut 'Directory' (Get-DomeniaOperationProvider) ne le reflète pas.",
+  "D066 : le critère « pas de réécriture d'une ancienne liste » est déjà tenu (écritures unitaires avec pré-lecture serveur Test-WDirectMembership ; member/memberOf bloqués dans RawAttributeBlockList 18892). Reste l'interface de delta et la table de postconditions.",
+  "D094 : en plus de l'absence de reçu, ValidatePattern '^Write…' de Start-DomeniaWriteTask (21670) empêche de réutiliser le canal d'écriture pour ComputerGpUpdate/ComputerRestart/RimotteRun, et l'enveloppe actuelle classerait 'Unknown' tout résultat distant sans Verified (20141-20142).",
+  "D091 : l'empreinte de Domenia.InterventionPlan (ComputeFingerprint) couvre opération, clé domaine|GUID, type, serveur, compte et changements, mais pas Effects, Simulation ni USN/whenChanged attendus : c'est une clé d'intention (idempotence D095), pas une précondition (qui reste Assert-WObjectFresh). Le compte doit tenir compte du compte de reprise par opération (Get-DomeniaRetryCredential / Set-DomeniaRetryWorkerContext).",
+  "§6 ne dit pas que les règles *.Model sont absentes des runspaces worker : seuls $script:WorkerCommon et Get-DomeniaStructuredError y sont injectés (20161-20169). Toute décision D061-D070/D091-D100 se prend côté UI, ou passe en données dans le Payload ou le reçu.",
+  "PLAN-EXECUTION-D120.md prévoit wad/tests/Test-DomeniaWiring.ps1 pour les tests d'intégration ; REPRISE ne le nomme pas (les tests de preuve proposés y sont rangés).",
+  "§7.4 « mettre à jour preload-baseline » est à préciser : audit_preload épingle Start-DomeniaWriteTask (« Unchanged critical function »), exige la chaîne 'Test-DomeniaAccessBusyWrite' dans Queue-DomeniaSelectedObjectOpen et compare l'ensemble des fonctions du cœur (toute fonction ajoutée au cœur casse l'audit).",
+  "Cohérent avec REPRISE : Get-DomeniaTaskDedupKey (Engine.Model:175) liste déjà PasswordPolicyRead, LockoutDiagnosis, GroupPathRead et DcCompareRead comme partageables, et pas AdConsistencyScan.",
+  "Les signatures de Domenia-Safety.Model.ps1 (en cours d'écriture ailleurs) sont inconnues ici : les appels proposés (paramètres -Plan, -Rule, -Fingerprint, -Locks…) sont à confirmer contre l'implémentation réelle."
+ ],
+ "design_notes": "Aucun fichier n'a été modifié et aucun test n'a été lancé dans cette session : tout ce qui suit vient de la lecture du code et des rapports r3-baseline. La confiance est élevée pour les numéros de ligne et le comportement cité, modérée pour les choix de conception proposés.\n\n1) Chemin d'écriture actuel et points d'insertion, dans l'ordre :\n- Clic (câblage 18624-18659) → fonction d'écriture : saisies, confirmation intégrée (Show-DomeniaEmbeddedWindow, qui désactive la page, Embedded.UI:142-144), Safety (20888), Payload.\n- Insérer ici, avant la confirmation : D091 (construction du plan) et D096 (stratégie par changement).\n- Start-DomeniaWriteTask (21667) : Assert-DomeniaCapability → Assert-WriteAllowed.\n- Insérer ici : D095 (Test-DomeniaWriteAdmission), D097 (Test-DomeniaOperationAllowed), D091 (Test-DomeniaPlanStillValid) et le choix simulation D092.\n- Start-UiTask (20285) : admission, puis Get-WorkerContext au moment réel (20359).\n- Insérer ici : D094 (Get-DomeniaReceiptRequirement, échec fermé) et la comparaison compte/serveur du plan avec le contexte réel.\n- New-DomeniaWorkerRunspace -IsWrite (20120-20151) : writer.lock, scan des reçus, New-WReceipt, marqueur → 'Sent', Verified → 'Verified', sinon 'Unknown'.\n- Insérer ici : D095 (empreinte, étape 'Rejected'), D097 (Targets), D093 (Rule dans le reçu) ; variante D092 sans verrou ni reçu.\n- Corps (Assert-WObjectFresh → pré-lecture idempotente → envoi → post-lecture).\n- Insérer ici : D093 (preuves) et D096 (Invoke-WConditionalReplace).\n- Complete/Fail-DomeniaWriteTaskUi (21565/21633).\n- Insérer ici un crochet unique Invoke-DomeniaWriteOutcome, utilisé par D093, D095, D068, D099 et D100.\n- Enfin Complete-DomeniaReceiptRefresh (Guard.UI:21) : pilote de lot D099 et levée d'incertitude.\n\n2) Frontière modèle/worker : les règles ne tournent jamais dans le runspace. Ce qui doit être décidé côté worker (règle de postcondition, cibles verrouillées, empreinte) voyage en données dans le Payload, puis dans le reçu.\n\n3) Format des reçus : garder Format=1 et ajouter des champs optionnels (PlanFingerprint, Targets, Rule, Before borné, LifecycleId/StepId). Un reçu sans Targets, comme ceux écrits par RC1.10.7 lors d'une mise à jour, doit rester un verrou global (échec fermé). Ajouter l'étape terminale 'Rejected', et 'Delivered' pour les actions distantes sans preuve d'effet, partout où les étapes terminales sont énumérées.\n\n4) Clés de verrou : GUID de chaque objet touché. Pour une appartenance, le membre ET le groupe. Il faut donc résoudre le groupe en GUID avant le plan, ce que le sélecteur intégré ne sait pas faire aujourd'hui pour le type Groupe.\n\n5) Nouveaux fichiers proposés, à déclarer dans Domenia-Modules.ps1 avec Phase/Requires (Common → Search → Directory) :\n- Domenia-Safety.UI.ps1 (Invoke-DomeniaPlannedWrite, Invoke-DomeniaWriteOutcome) ;\n- Domenia-Directory.UI.ps1 ;\n- Domenia-Directory.Worker.ps1 (5 lectures épinglées) ;\n- Domenia-Directory.xaml (synthèse D061, cadres à la demande, ACE D067).\nLes boutons de lecture (BtnLockoutDiagnose…) n'entrent pas dans Get-WriteControlMap (21167) et s'ajoutent à Assert-DomeniaReadWriteControlClassification (21299). Les boutons d'écriture nouveaux (delta, lot, compensation) y entrent.\n\n6) Ré-épinglages prévisibles, à lister dans les notes RC1.11.0 :\n- 5 opérations nouvelles ;\n- PermissionAnalysis (D067), DomainOverview (D062) ;\n- WriteAttributes et WriteAccountOptions (D096) ;\n- WriteResetPassword, WriteCreateOu et WriteDeleteObject (D093) ;\n- ReceiptStore (D093, D095, D100) ;\n- ComputerGpUpdate, ComputerRestart et RimotteRun (D094) ;\n- EmbeddedDirectoryLookup si le type Groupe est ajouté.\nLe registre passerait de 57 à 62 entrées et l'empreinte de 20061 changerait.\n\n7) Ordre recommandé :\n- P0 : D093 (crochet d'issue et preuves), puis D091, D095, D094 et D096. D094 doit arriver avec l'étape 'Delivered', sinon chaque GPUpdate fige toutes les écritures.\n- P1 : D097 (après l'ajout de Features dans New-DefaultConfig), D098, D100, D092 ; côté annuaire D061, D064, D062, D063, D066.\n- P2 : D099, D065, D067, D068, D069, D070.\n\n8) Ce qui demande un domaine de labo (CNAMTS-DC01, OU de test dédiée, utilisateur prévenu) : remplacement conditionnel LDAP (D096), lecture 4740 sur le PDC (D063), PSO illisible ou lisible (D062), matching rule in chain (D064). Tout le reste se prouve hors domaine avec le vrai XAML, les vrais gestionnaires extraits par AST et des doubles de fournisseur, dans Test-DomeniaWiring.ps1.\n\n9) Hors périmètre mais touchant les écritures : Start-UiTask lève une exception quand les lectures saturent le moteur (20339-20345). Une écriture peut donc être refusée à cause de lectures, tant que D015 (Test-DomeniaTaskAdmission, +1 place pour Write) n'est pas raccordé."
+}

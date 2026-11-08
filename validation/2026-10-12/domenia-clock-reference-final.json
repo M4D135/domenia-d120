@@ -1,0 +1,27 @@
+{
+  "Kind": "PureRules",
+  "Host": {
+    "PSEdition": "Core",
+    "PSVersion": "7.4.20",
+    "Platform": "NonWindows"
+  },
+  "NativeWindowsPowerShell51": false,
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "Passed": 1,
+  "Failed": 0,
+  "CoveredIds": [
+    "BRD-020"
+  ],
+  "Complete": true,
+  "Limitation": "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+  "Tests": [
+    {
+      "Id": "BRD-020",
+      "Name": "CO-09 : horloge comparee au controleur, libelles du compte machine",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

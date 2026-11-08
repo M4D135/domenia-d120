@@ -1,0 +1,706 @@
+{
+  "Build": "2026.09.21-R1.7-SIDEBAR",
+  "Passed": 94,
+  "Failed": 0,
+  "NativePowerShellExecuted": false,
+  "WpfExecuted": false,
+  "ActiveDirectoryExecuted": false,
+  "MainWindowControls": 403,
+  "OriginalWindowControlsPreserved": 363,
+  "NamedMainInteractiveHelpCount": 345,
+  "HelpCatalogueCount": 403,
+  "UnchangedCoreFunctions": 553,
+  "ChangedCoreFunctions": [
+    "Get-AdccFriendlyControlLabel",
+    "Get-AdccDefaultToolTip",
+    "Set-AdccContextHint",
+    "Enable-AdccUxHints",
+    "Apply-AdccUiProfile",
+    "Apply-AdccTheme",
+    "Get-MainXaml",
+    "Assert-AdccXamlPreflight",
+    "ConvertFrom-AdccXaml",
+    "Apply-AutoTooltips",
+    "Select-AdccWorkspace",
+    "Set-VisibleTabsForType",
+    "Apply-CurrentPermissionUi"
+  ],
+  "NewUiFunctions": 16,
+  "NativeScenariosProvidedNotExecuted": 25,
+  "Contrasts": [
+    {
+      "Theme": "Dark",
+      "Foreground": "TextColor",
+      "Background": "BgCard",
+      "Contrast": 13.95
+    },
+    {
+      "Theme": "Dark",
+      "Foreground": "MutedColor",
+      "Background": "BgCard",
+      "Contrast": 9.66
+    },
+    {
+      "Theme": "Dark",
+      "Foreground": "TextColor",
+      "Background": "BgInput",
+      "Contrast": 12.58
+    },
+    {
+      "Theme": "Dark",
+      "Foreground": "BtnFg",
+      "Background": "BtnBg",
+      "Contrast": 11.58
+    },
+    {
+      "Theme": "Dark",
+      "Foreground": "RowSelFg",
+      "Background": "RowSelBg",
+      "Contrast": 8.64
+    },
+    {
+      "Theme": "Dark",
+      "Foreground": "AccentText",
+      "Background": "AccentSoft",
+      "Contrast": 6.1
+    },
+    {
+      "Theme": "Dark",
+      "Foreground": "InfoFg",
+      "Background": "InfoBg",
+      "Contrast": 9.7
+    },
+    {
+      "Theme": "Dark",
+      "Foreground": "#FFFFFF",
+      "Background": "AccentColor",
+      "Contrast": 5.67
+    },
+    {
+      "Theme": "Dark",
+      "Foreground": "#FFFFFF",
+      "Background": "DangerColor",
+      "Contrast": 6.24
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "TextColor",
+      "Background": "BgCard",
+      "Contrast": 15.56
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "MutedColor",
+      "Background": "BgCard",
+      "Contrast": 6.19
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "TextColor",
+      "Background": "BgInput",
+      "Contrast": 15.56
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "BtnFg",
+      "Background": "BtnBg",
+      "Contrast": 12.21
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "RowSelFg",
+      "Background": "RowSelBg",
+      "Contrast": 9.57
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "AccentText",
+      "Background": "AccentSoft",
+      "Contrast": 5.55
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "InfoFg",
+      "Background": "InfoBg",
+      "Contrast": 7.63
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "#FFFFFF",
+      "Background": "AccentColor",
+      "Contrast": 4.98
+    },
+    {
+      "Theme": "Light",
+      "Foreground": "#FFFFFF",
+      "Background": "DangerColor",
+      "Contrast": 6.03
+    }
+  ],
+  "Checks": [
+    {
+      "Name": "566 existing top-level functions retained",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Only the 13 reviewed UI functions changed",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "['Get-AdccFriendlyControlLabel', 'Get-AdccDefaultToolTip', 'Set-AdccContextHint', 'Enable-AdccUxHints', 'Apply-AdccUiProfile', 'Apply-AdccTheme', 'Get-MainXaml', 'Assert-AdccXamlPreflight', 'ConvertFrom-AdccXaml', 'Apply-AutoTooltips', 'Select-AdccWorkspace', 'Set-VisibleTabsForType', 'Apply-CurrentPermissionUi']"
+    },
+    {
+      "Name": "553 other core functions exact-match R1.6",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Code outside functions unchanged except fixed module import/build",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Remote worker common body exact-match",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "No duplicate top-level functions in core/new UI module",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: ADCC.exe",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: ADCC.ico",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: wad/ActiveDirectoryPowerShellResources.dll",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: wad/PsExec.exe",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: wad/ADCC.ico",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: wad/modules/ADCC-Support.UI.ps1",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: wad/modules/ADCC-Support.xaml",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved bytes: wad/modules/ADCC-Support.Model.ps1",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "All 363 original window-scope controls retain name/type",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Main XAML has valid separate template namescopes",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Audit allows PART names reused in separate templates",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Audit still rejects duplicate controls in same scope",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Core native preflight mirrors namescope separation",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "All main static resource names resolve in literal resources",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "[]"
+    },
+    {
+      "Name": "Header search is the original TxtGlobalSearch control",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Sidebar contains nine allowlisted destinations",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "All sidebar/home/step routes exist",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Annuaire remains present as its own workspace",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Original top-level TabControl is retained behind sidebar",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Real active nav state is synchronized with selection",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unknown navigation commands rejected",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unavailable navigation target never forcibly enabled",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Context type and detail profile are intersected",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Type refresh reapplies UI profile",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Hidden detail selection falls back to visible tab",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Profile changes never toggle readonly",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Permission engine unchanged after removing help-only hook",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Help catalogue has no duplicate/empty entries",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "All named main interactive controls have static descriptions",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "All named main interactive controls have accessible names/help",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Help enabled even on disabled main controls",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Help never reads runtime Text/Password/Content/selection/DataContext",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Core friendly-label helper no longer reflects input data",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Context title variable is separate from Title parameter",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Per-control help registration is idempotent",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Help has keyboard-focus and tooltip-open handlers",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Child focus cannot replace specific help with parent help",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Login help cannot publish input context to another window",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "No per-control MouseLeave clears the help pane",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Window and support controls registered before use",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh base description restored before each permission reason",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "No AD, remote executor, credential API or executable launch in UI module",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "UI module imported before application configuration",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "No external XAML image assets/fonts referenced",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Rounded input template preserves PART_ContentHost",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "ComboBox preserves popup part and two-way open state",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Nav/buttons have visible keyboard focus styles",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Small windows can hide the right panel without reserving 290 px",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Help overlay has opaque theme background",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Journal reduce/expand does not clear or stop logs",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Theme resource hook runs without touching theme storage",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged startup/theme function: Load-AdccTheme",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged startup/theme function: Save-AdccTheme",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged startup/theme function: Get-AdccStoredTheme",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged startup/theme function: Get-AdccBootThemePalette",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged startup/theme function: Get-AdccStandardLoginXaml",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged startup/theme function: Get-AdccDebugLoginXaml",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged startup/theme function: Get-AdccStartupXaml",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Both actual theme palettes extracted",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark TextColor/BgCard",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "13.953842429888592"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark MutedColor/BgCard",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "9.659182479733722"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark TextColor/BgInput",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "12.584248943676537"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark BtnFg/BtnBg",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "11.577760257518488"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark RowSelFg/RowSelBg",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "8.637492881445839"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark AccentText/AccentSoft",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "6.101635488585339"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark InfoFg/InfoBg",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "9.70209646043524"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark #FFFFFF/AccentColor",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "5.66675728339198"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Dark #FFFFFF/DangerColor",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "6.238074083135882"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light TextColor/BgCard",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "15.556939961116552"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light MutedColor/BgCard",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "6.191306512105368"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light TextColor/BgInput",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "15.556939961116552"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light BtnFg/BtnBg",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "12.214163588020856"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light RowSelFg/RowSelBg",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "9.566171034886388"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light AccentText/AccentSoft",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "5.553466393128587"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light InfoFg/InfoBg",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "7.6324250999280965"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light #FFFFFF/AccentColor",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "4.978552060225156"
+    },
+    {
+      "Name": "Contrast >=4.5:1 Light #FFFFFF/DangerColor",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": "6.029453197796354"
+    },
+    {
+      "Name": "Offline preview extracts only fixed UI functions",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Offline preview does not dot-source or invoke the whole core",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Offline preview is explicitly marked as demo data",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Offline preview disables business-action buttons",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Offline native tests include a secret sentinel",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "25 native WPF scenarios are provided (not run on Linux)",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Installer runs native WPF test before code backup/copy",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Installer requires nonempty successful native report",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "Edited PowerShell files have BOM for Windows PowerShell 5.1",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    },
+    {
+      "Name": "All delivered scripts pass approximate lexical/bracket checks",
+      "Status": "PASS",
+      "Kind": "Source/XML/LocalPython",
+      "Detail": ""
+    }
+  ]
+}

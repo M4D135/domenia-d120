@@ -1,0 +1,78 @@
+{
+  "Schema": "DomeniaCompatibilityMatrix/1",
+  "ReviewedOn": "2026-10-15",
+  "Source": "Environnements réellement exécutés par les campagnes du dépôt (dossier validation). Qualifie exige un rapport Windows PowerShell 5.1 lié au SHA-256 du ZIP livré (release_guard.py --require-windows) ; aucun environnement ne lʼa encore.",
+  "Statuses": {
+    "Qualifie": "Qualifié : rapport Windows PowerShell 5.1 lié au ZIP de cette livraison.",
+    "Teste": "Testé en labo : campagnes exécutées, qualification de la livraison non faite.",
+    "Attendu": "Prévu par la conception, jamais exécuté.",
+    "NonPrisEnCharge": "Non pris en charge : Domenia refuse ou ne fonctionne pas dans cet environnement."
+  },
+  "Dimensions": [
+    {
+      "Id": "Windows",
+      "Label": "Windows",
+      "Observed": true,
+      "Entries": [
+        { "Id": "win11-25h2", "Label": "Windows 11 25H2 (build 26200)", "Match": { "Product": "Client", "MinBuild": 26200, "MaxBuild": 26299 }, "Status": "Teste", "Evidence": [ { "Kind": "Rapport", "Ref": "validation/2026-10-13/query-navigation/intermediate/r5-campaign/vm-health-native-load.json" } ], "Note": "Machine CNAMTS-W11-01 du labo cnamts.local, campagnes du 12 et du 13 octobre 2026." },
+        { "Id": "win11-24h2", "Label": "Windows 11 24H2 (build 26100)", "Match": { "Product": "Client", "MinBuild": 26100, "MaxBuild": 26199 }, "Status": "Attendu", "Evidence": [], "Note": "Même PowerShell 5.1.26100 que le labo, jamais exécuté sur cette version de Windows." },
+        { "Id": "win11-older", "Label": "Windows 11 23H2 ou antérieur (builds 22000 à 26099)", "Match": { "Product": "Client", "MinBuild": 22000, "MaxBuild": 26099 }, "Status": "Attendu", "Evidence": [], "Note": "Jamais exécuté." },
+        { "Id": "win10-22h2", "Label": "Windows 10 22H2 (build 19045)", "Match": { "Product": "Client", "MinBuild": 19045, "MaxBuild": 19045 }, "Status": "Attendu", "Evidence": [], "Note": "Dernière version de Windows 10 ; jamais exécuté." },
+        { "Id": "win10-older", "Label": "Windows 10 avant 22H2", "Match": { "Product": "Client", "MinBuild": 10240, "MaxBuild": 19044 }, "Status": "NonPrisEnCharge", "Evidence": [], "Note": "Versions sans support Microsoft : non prises en charge par Domenia." },
+        { "Id": "client-legacy", "Label": "Windows 8.1 ou antérieur", "Match": { "Product": "Client", "MinBuild": 0, "MaxBuild": 10239 }, "Status": "NonPrisEnCharge", "Evidence": [], "Note": "Hors support Microsoft." },
+        { "Id": "server-2016-plus", "Label": "Windows Server 2016 ou ultérieur", "Match": { "Product": "Server", "MinBuild": 14393, "MaxBuild": 99999 }, "Status": "Attendu", "Evidence": [], "Note": "Poste dʼadministration sur serveur : jamais exécuté." },
+        { "Id": "server-legacy", "Label": "Windows Server 2012 R2 ou antérieur", "Match": { "Product": "Server", "MinBuild": 0, "MaxBuild": 14392 }, "Status": "NonPrisEnCharge", "Evidence": [], "Note": "Hors support Microsoft." }
+      ]
+    },
+    {
+      "Id": "PowerShell",
+      "Label": "PowerShell",
+      "Observed": true,
+      "Entries": [
+        { "Id": "ps51-x64", "Label": "Windows PowerShell 5.1 64 bits", "Match": { "Edition": "Desktop", "MinVersion": "5.1", "MaxVersion": "5.1.65535.65535", "Bitness": 64 }, "Status": "Teste", "Evidence": [ { "Kind": "Rapport", "Ref": "dev/engineering/d120/lab/baseline-5.1-r1-summary.json" } ], "Note": "PowerShell 5.1.26100 du labo." },
+        { "Id": "ps51-x86", "Label": "Windows PowerShell 5.1 32 bits", "Match": { "Edition": "Desktop", "MinVersion": "5.1", "MaxVersion": "5.1.65535.65535", "Bitness": 32 }, "Status": "NonPrisEnCharge", "Evidence": [], "Note": "Le lanceur et les suites exigent un processus 64 bits." },
+        { "Id": "ps-desktop-older", "Label": "Windows PowerShell avant 5.1", "Match": { "Edition": "Desktop", "MinVersion": "0.0", "MaxVersion": "5.0.65535.65535" }, "Status": "NonPrisEnCharge", "Evidence": [], "Note": "Domenia exige PowerShell 5.1." },
+        { "Id": "ps-core", "Label": "PowerShell 7 (édition Core)", "Match": { "Edition": "Core" }, "Status": "NonPrisEnCharge", "Evidence": [], "Note": "Cible unique : Windows PowerShell 5.1 et WPF." }
+      ]
+    },
+    {
+      "Id": "DotNet",
+      "Label": ".NET Framework",
+      "Observed": true,
+      "Entries": [
+        { "Id": "net481", "Label": ".NET Framework 4.8.1", "Match": { "MinRelease": 533320, "MaxRelease": 9999999 }, "Status": "Attendu", "Evidence": [], "Note": "Version livrée avec Windows 11 ; les campagnes nʼont pas relevé la clé Release." },
+        { "Id": "net48", "Label": ".NET Framework 4.8", "Match": { "MinRelease": 528040, "MaxRelease": 533319 }, "Status": "Attendu", "Evidence": [], "Note": "Jamais exécuté." },
+        { "Id": "net472", "Label": ".NET Framework 4.7.2", "Match": { "MinRelease": 461808, "MaxRelease": 528039 }, "Status": "Attendu", "Evidence": [], "Note": "Version minimale des bibliothèques compilées (net472) ; jamais exécuté." },
+        { "Id": "net-older", "Label": ".NET Framework avant 4.7.2", "Match": { "MinRelease": 0, "MaxRelease": 461807 }, "Status": "NonPrisEnCharge", "Evidence": [], "Note": "Les bibliothèques de Domenia ciblent .NET Framework 4.7.2." }
+      ]
+    },
+    {
+      "Id": "Sqlite",
+      "Label": "SQLite de Windows (winsqlite3.dll)",
+      "Observed": true,
+      "Entries": [
+        { "Id": "winsqlite-present", "Label": "winsqlite3.dll fourni par Windows", "Match": { "Present": true }, "Status": "Teste", "Evidence": [ { "Kind": "Rapport", "Ref": "validation/2026-10-13/central-store" } ], "Note": "Base locale exercée par les campagnes du labo." },
+        { "Id": "winsqlite-absent", "Label": "winsqlite3.dll absent", "Match": { "Present": false }, "Status": "NonPrisEnCharge", "Evidence": [], "Note": "Sans winsqlite3.dll, la base locale est indisponible." }
+      ]
+    },
+    {
+      "Id": "Directory",
+      "Label": "Annuaire (LDAP, System.DirectoryServices)",
+      "Observed": false,
+      "Entries": [
+        { "Id": "ad-lab", "Label": "Active Directory du labo cnamts.local (CNAMTS-DC01)", "Match": {}, "Status": "Teste", "Evidence": [ { "Kind": "Rapport", "Ref": "validation/2026-10-13/ad-timeout" } ], "Note": "Version de Windows Server et niveau fonctionnel du domaine non relevés par les campagnes." },
+        { "Id": "ad-other", "Label": "Autres domaines Active Directory", "Match": {}, "Status": "Attendu", "Evidence": [], "Note": "Lecture LDAP standard ; jamais exécuté hors du labo." }
+      ]
+    },
+    {
+      "Id": "Cim",
+      "Label": "Postes interrogés (CIM/WMI, WTS)",
+      "Observed": false,
+      "Entries": [
+        { "Id": "cim-win11-dcom", "Label": "Windows 11 par CIM sur DCOM", "Match": {}, "Status": "Teste", "Evidence": [ { "Kind": "Rapport", "Ref": "validation/2026-10-12/windows" } ], "Note": "Postes du labo cnamts.local." },
+        { "Id": "cim-wsman", "Label": "CIM sur WS-Management (WinRM)", "Match": {}, "Status": "Attendu", "Evidence": [], "Note": "Domenia ne modifie jamais la configuration WinRM ; jamais exécuté." },
+        { "Id": "cim-win10", "Label": "Windows 10 interrogé à distance", "Match": {}, "Status": "Attendu", "Evidence": [], "Note": "Jamais exécuté." }
+      ]
+    }
+  ]
+}

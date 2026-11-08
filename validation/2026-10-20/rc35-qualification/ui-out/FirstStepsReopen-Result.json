@@ -1,0 +1,80 @@
+{
+    "Build":  "RC1.17.36",
+    "Stage":  "FirstStepsReopen",
+    "Passed":  true,
+    "StartedUtc":  "2026-10-20T13:33:54.5320204Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-20T13:33:59.1120046Z",
+                      "Text":  "Authenticated main window reached; continuing the same process after the bounded driver timeout"
+                  },
+                  {
+                      "Utc":  "2026-10-20T13:34:05.3149099Z",
+                      "Text":  "Restored database selected on restart, marker verified and corrupt original preserved"
+                  },
+                  {
+                      "Utc":  "2026-10-20T13:34:22.6011861Z",
+                      "Text":  "OU accepted through picker; step 2 checked immediately, index still empty and step 3 pending"
+                  },
+                  {
+                      "Utc":  "2026-10-20T13:35:34.6747743Z",
+                      "Text":  "Real AD read of Domain Controllers persisted one DC and complete coverage; step 3 checked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T13:35:53.7706110Z",
+                      "Text":  "First dashboard opened after its local calculation; completion persisted and app closed"
+                  }
+              ],
+    "AppId":  6384,
+    "InitialAttempt":  {
+                           "Build":  "RC1.17.36",
+                           "Stage":  "FirstStepsReopen",
+                           "Passed":  false,
+                           "StartedUtc":  "2026-10-20T13:25:43.9599033Z",
+                           "Session":  1,
+                           "PSVersion":  "5.1.26100.6584",
+                           "Steps":  [
+                                         {
+                                             "Utc":  "2026-10-20T13:28:47.1305620Z",
+                                             "Text":  "Windows account login invoked"
+                                         }
+                                     ],
+                           "AppId":  6384,
+                           "ProdZipSha256":  "9CD534219157085A9A5E7258686DF486AB7ACA4390CF52BA515977B948383D74",
+                           "CoreSha256":  "F0B8C45EF332CC2ABD67A60E2492EC5DCBE40661B00311CC11B8A17C14BF3D4D",
+                           "Error":  "Main window not reached in 300 seconds",
+                           "Stack":  "at Start-App, C:\\DomeniaLab\\RC35-qualification\\Check-FirstStepsReopen.ps1: line 48\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\Check-FirstStepsReopen.ps1: line 84",
+                           "FinishedUtc":  "2026-10-20T13:32:07.9382569Z"
+                       },
+    "ProdZipSha256":  "9CD534219157085A9A5E7258686DF486AB7ACA4390CF52BA515977B948383D74",
+    "CoreSha256":  "F0B8C45EF332CC2ABD67A60E2492EC5DCBE40661B00311CC11B8A17C14BF3D4D",
+    "ReopenedStorageLocation":  "Fichier de la base : C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261020-140219.db",
+    "RestoredDatabaseReopened":  true,
+    "Coverage":  [
+                     {
+                         "scope":  "attempt:ou:ou=domain controllers,dc=cnamts,dc=local",
+                         "details":  "complete;depth=Subtree",
+                         "last_sync":  "2026-10-20T13:34:47.4940345Z",
+                         "item_count":  1
+                     },
+                     {
+                         "scope":  "ou:ou=domain controllers,dc=cnamts,dc=local",
+                         "details":  "inv=d3322c7a-bdea-4fb6-9a0c-09f8441790d3;depth=Subtree;absent=1",
+                         "last_sync":  "2026-10-20T13:34:47.4940345Z",
+                         "item_count":  1
+                     }
+                 ],
+    "DirectoryRows":  [
+                          {
+                              "name":  "DC01",
+                              "object_guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3",
+                              "distinguished_name":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local"
+                          }
+                      ],
+    "BeforeDashboard":  "Ouvrir le tableau de bord : le calcul part à ce clic, depuis la base locale, puis la vue sʼaffiche.",
+    "DashboardText":  "Dates des mesures et du calcul",
+    "ScopeText":  "Périmètre et fraîcheur AD",
+    "FinishedUtc":  "2026-10-20T13:35:53.7783735Z"
+}

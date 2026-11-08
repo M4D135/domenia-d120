@@ -1,0 +1,315 @@
+{
+ "area": "COMPTES, DROITS ET SECRETS (D051-D060) — plan de raccordement de Domenia-Access.Model.ps1 (29 fonctions, non chargé aujourd'hui) dans Access.UI, Guard.Model/UI, Sessions.UI, Accounts.Async et Domenia-Core.ps1. Lecture seule. Aucune exécution PowerShell (pas de pwsh sur le Mac) : les motifs regex cités comme « simulés » ont été rejoués en Python, ce qui reproduit bien le moteur .NET sur des motifs aussi simples (confiance modérée à élevée). Les numéros de ligne sont les numéros réels, vérifiés le 2026-10-02.",
+ "sites": [
+  {
+   "ids": "D051-D060 (socle)",
+   "function": "Get-DomeniaRuntimeModulePlan (déclaration du module)",
+   "location": "dev/wad/Domenia-Modules.ps1:6-327 (Access.UI l.215-229, Guard.Model l.252-258, Sessions.UI l.282-290)",
+   "current": "Domenia-Access.Model.ps1 n'est pas déclaré : aucune de ses 29 fonctions (l.7-369) n'est chargée. Chaque entrée du plan ne contient que File, DotSource et Functions : ni Phase ni Requires.",
+   "change": "Ajouter [pscustomobject]@{File='Domenia-Access.Model.ps1';DotSource=$true;Functions=@(<les 29 noms>)}. Déclarer avant ou avec lui les modules dont il dépend à l'appel : Domenia-Common.Model.ps1 (Get-DomeniaMember, ConvertTo-DomeniaUtcDate, New-DomeniaFact), Domenia-Engine.Model.ps1 (Get-DomeniaOperationProvider, appelé par Get-DomeniaOperationResource) et Domenia-Relations.Model.ps1 (ConvertTo-DomeniaAccountIdentity). Si le champ Requires est introduit (REPRISE §7.3) : Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Guard.Model.ps1').",
+   "risks": "tools/audit_preload.py l.74-82 ('Closed exports match' et 'Module names are unique') bloque build_packages.py si la liste n'est pas exacte. Aucune collision de nom n'existe : le cœur et les 33 modules ont été vérifiés, les seuls doublons sont les helpers SQLite et des fonctions internes aux here-strings des workers. Sans Engine.Model et Relations.Model déclarés, Get-DomeniaCredentialScope et Test-DomeniaCredentialContext lèvent CommandNotFound au premier appel, pas au chargement. Le build réécrit package-manifest et prod-manifest, que Domenia-Start vérifie.",
+   "proof_test": "Nouvelle suite wad/tests/Test-DomeniaAccessWiring.ps1 (5.1 STA, lancée automatiquement par Invoke-LabRun) : dot-source du vrai Domenia-Modules.ps1, puis Expect ((Get-Item Function:\\Get-DomeniaErrorDecision).ScriptBlock.File -like '*Domenia-Access.Model.ps1') et une entrée Validated pour ce fichier dans $script:DomeniaRuntimeImports. Le test échoue si la déclaration est retirée. Côté build : audit_preload 'Closed exports match: Domenia-Access.Model.ps1'."
+  },
+  {
+   "ids": "D052",
+   "function": "Get-DomeniaStructuredError (+ injection worker)",
+   "location": "dev/wad/modules/Domenia-Guard.Model.ps1:2-32 ; injection Domenia-Core.ps1:20161 ($errorContract dans New-DomeniaWorkerRunspace) ; enveloppe catch Core:20162-20167 ; appel dans le corps épinglé GlobalSearch Core:9724-9725 ; lecture UI Complete-UiTasks Core:20537-20543",
+   "current": "Le jeton est cherché en début de texte seulement : `if($text -match '^\\[DOMENIA:([A-Za-z]+);([0-9]+);(0x[0-9A-Fa-f]{8})\\]')`. Le repli texte ne connaît ni 'user name or password is incorrect' ni 'droit de dechiffrement'. La fonction est recopiée telle quelle dans chaque runspace par `(Get-Command Get-DomeniaStructuredError -CommandType Function).Definition`. Complete-UiTasks ne conserve que `$_.Exception.Message` de `$job.PowerShell.EndInvoke(...)`.",
+   "change": "Garder la fonction autonome : elle est recopiée seule dans le runspace, elle ne peut donc appeler ni Get-DomeniaMember ni Access.Model. (1) Chercher le jeton n'importe où dans le texte (retirer le '^'). (2) Ajouter au repli texte LogonFailure 'user name or password is incorrect|nom d.utilisateur ou (le )?mot de passe est incorrect' et au repli AccessDenied 'droit de d[eé]chiffrement'. (3) Dans Complete-UiTasks, conserver $errorException=$_.Exception et classer depuis l'objet (Get-DomeniaStructuredError $errorException -Phase $job.OperationId) : la boucle InnerException remonte jusqu'au Win32Exception d'origine. Les champs de sortie restent identiques.",
+   "risks": "L'empreinte d'opération ne couvre que $Code. Modifier cette fonction change donc le comportement du worker GlobalSearch (Core:9725 `if($accessError.Kind -in @('LogonFailure','AccountLocked','AccountUnavailable')){throw}`) et de tous les workers sans ré-épinglage : à lister dans les notes de version. Neuf cas réussis de Test-DomeniaCandidate (l.54-61, l.110-111) et les règles D052 (Access.Tests.ps1 l.23-46) figent Kind et CanOfferCredential : ne pas changer leur vocabulaire.",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Code natif transporte par EndInvoke' : runspace construit par la vraie New-DomeniaWorkerRunspace, avec Assert-DomeniaWorkerOperationCode doublé pour accepter le corps de test `throw [ComponentModel.Win32Exception]::new(1909)`. BeginInvoke/EndInvoke dans le même try/catch que Core:20536-20543, puis Expect ((Get-DomeniaStructuredError $err).Kind -eq 'AccountLocked'). Si l'enveloppe MethodInvocationException masque le jeton, ce cas échoue avant correction (non vérifié sous 5.1). Second cas 'Fonction injectee autonome' : InitialSessionState ne contenant que $errorContract, appel avec Win32Exception(5), attendu 'AccessDenied'."
+  },
+  {
+   "ids": "D052",
+   "function": "Get-DomeniaAccessFailureKind",
+   "location": "dev/wad/modules/Domenia-Access.UI.ps1:4-9 ; appelants Access.UI:59, :299, Core:10396 (Fail-DomeniaSecretLoadUi), Core:1674-1675 (Set-Status WARN/ERROR), Core:1955-1956 (Show-ErrorBox -Interactive)",
+   "current": "`$r=Get-DomeniaStructuredError $ErrorValue; if($r.CanOfferCredential){return $r.Kind}; return ''`. La fonction est appliquée à TOUT texte d'état WARN/ERROR et à toute boîte d'erreur.",
+   "change": "`$d=Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $ErrorValue) -Text ([string]$ErrorValue)` ; retourner 'LogonFailure' si $d.Category -eq 'CredentialsRejected', 'AccessDenied' si Category -in 'AccessDenied','DecryptionDenied', sinon ''. Le vocabulaire Kind reste celui qu'attendent les appelants. Préalable : corriger Get-DomeniaErrorDecision (voir le défaut sur le repli 'decrypt').",
+   "risks": "Sans le correctif préalable, le message exact du worker ReadLaps 'Module Windows LAPS absent. Aucun decryptage possible…' (Core:10461) devient DecryptionDenied (simulé). Il remonte par Show-DomeniaOperationError puis Show-ErrorBox -Interactive et ouvrirait une proposition « Autre compte » pour un module absent. Cas figés : Test-DomeniaRelease l.80-85 (en échec de harnais aujourd'hui).",
+   "proof_test": "Test-DomeniaRelease l.85 'Refus de dechiffrement LAPS reconnu', une fois le harnais réparé. Avec le code actuel, 'Le compte ne dispose pas du droit de dechiffrement LAPS.' est classé Unknown et la fonction rend '' (simulé). Une fois branchée, elle rend 'AccessDenied'. Nouveau cas : Get-DomeniaAccessFailureKind '<message exact de Core:10461>' -eq ''."
+  },
+  {
+   "ids": "D052",
+   "function": "ConvertTo-DomeniaErrorInfo",
+   "location": "Domenia-Core.ps1:1965-1999 ; appelants Show-DomeniaOperationError Core:2001-2011 (42 appels) et Fail-DomeniaWriteTaskUi Core:21645 (verrouille une capacité si Kind vaut 'AccessDenied')",
+   "current": "Classement texte seulement. `acc[ee]s.*refus` (Core:1976) : la classe [ee] ne reconnaît pas 'è', donc 'Accès refusé' sans HRESULT n'est pas classé AccessDenied. LogonFailure est testé avant Timeout avec le motif 'identifiant' : un délai dont le message contient 'identifiant' devient LogonFailure (simulé), ce que D052 interdit. Le jeton [DOMENIA:] est ignoré.",
+   "change": "Calculer d'abord $d=Get-DomeniaErrorDecision (Get-DomeniaStructuredError $ErrorRecordOrException -Phase $Operation) ([string]$message). Kind : AccessDenied (AccessDenied et DecryptionDenied), LogonFailure (CredentialsRejected), AccountState, Timeout, ServerUnavailable (Network), Prerequisite, Uncertain. Si Category vaut 'Unknown', garder la chaîne actuelle pour ObjectNotFound, ConstraintViolation et AlreadyExists. Friendly = Operation + Explanation + NextAction.",
+   "risks": "Fail-DomeniaWriteTaskUi verrouille une capacité sur AccessDenied ; la ligne de journal de Show-DomeniaOperationError garde son format. Aucune suite actuelle n'extrait cette fonction.",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Erreur structuree unique' : (ConvertTo-DomeniaErrorInfo 'Accès refusé' 'Lecture').Kind -eq 'AccessDenied' et (ConvertTo-DomeniaErrorInfo 'Timeout : identifiant du poste non resolu' 'Lecture').Kind -eq 'Timeout'. Les deux échouent avec le code actuel (simulé)."
+  },
+  {
+   "ids": "D052",
+   "function": "Complete-UiTasks (disjoncteur d'authentification)",
+   "location": "Domenia-Core.ps1:20586-20600 (fonction 20467-20601)",
+   "current": "`$credentialRejected = ($errorMessage -match \"(?i)(nom d.utilisateur ou le mot de passe est incorrect|user name or password is incorrect|logon failure|identifiant ou mot de passe|credentials?.*(invalid|incorrect)|compte.*verrouill|account.*locked)\")` ; `$separate=($job.OperationId -in @('ReadLaps','ReadBitLocker') -or ...)` (l.20592) ; liste $nonDirectory codée en dur.",
+   "change": "Garder la regex et l'unir à la décision du modèle, sans la remplacer : `$decision=Get-DomeniaErrorDecision (Get-DomeniaStructuredError $errorException -Phase ([string]$job.OperationId)) $errorMessage` ; `$credentialRejected = $credentialRejected -or $decision.Category -in @('CredentialsRejected','AccountState')`. Pour $separate : `(Get-DomeniaOperationResource ([string]$job.OperationId)) -in @('Laps','BitLocker')`, ce qui couvre aussi ReadBitLockerKey.",
+   "risks": "Get-DomeniaErrorDecision n'a aucun repli texte vers CredentialsRejected : 'The user name or password is incorrect.' y devient Unknown. Remplacer la regex affaiblirait la protection contre le verrouillage de compte. Ne pas remplacer $nonDirectory par Get-DomeniaOperationProvider (classements différents, voir le site Get-WorkerContext).",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Rejet par code seul declenche le disjoncteur' : extraire Complete-UiTasks et doubler Update-TaskUi, Set-ControlsBusy, Write-AppLog et Invoke-DomeniaJobErrorUi. Injecter un job TreeChildren dont le vrai PowerShell a exécuté `throw '[DOMENIA:LogonFailure;1326;0x8007052E] erreur'`, appeler Complete-UiTasks puis Expect $script:DirectoryCredentialFaulted. Aujourd'hui la regex ne reconnaît ni 'LogonFailure' (sans espace) ni le code : le test échoue si le branchement est retiré."
+  },
+  {
+   "ids": "D053",
+   "function": "Request-DomeniaAccessRecovery (+ état dans Initialize-DomeniaAccess)",
+   "location": "dev/wad/modules/Domenia-Access.UI.ps1:56-97 ; création de l'état l.245, purge d'epoch l.264, fermeture l.281-283",
+   "current": "Une entrée Pending par clé `$scope+'|'+$DN` (l.88-94), plafond de 16 (l.91), table Prompted par clé (l.92). Vingt refus interactifs sur vingt DN donnent seize entrées interactives, que le minuteur (l.276-279) ouvre l'une après l'autre.",
+   "change": "Ajouter AccessState.Coalescer=(New-DomeniaDenialCoalescer 60), recréé à l.264 et vidé à la fermeture. Après le calcul de $scope (l.87) : `$c=Add-DomeniaAccessDenial -Coalescer $script:AccessState.Coalescer -Scope $scope -Category $category -Background (-not $record.Interactive)`, puis `if(-not $c.Prompt){$record.Interactive=$false}`. Garder Pending, le plafond de 16 et Prompted : le coalesceur rouvre après 60 s, alors que Prompted empêche la relance automatique pendant toute la session.",
+   "risks": "Invoke-DomeniaJobErrorUi (Core:20268) puis Fail-DomeniaSecretLoadUi (Core:10402) appellent tous deux Request-… pour le même échec LAPS : le compteur est incrémenté deux fois. Set-Status et Show-ErrorBox passent aussi par ici. Cas figés : Test-DomeniaRelease l.110-114 (une entrée, 16 cibles, Kind 'Unconfirmed').",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Vingt refus, une demande' : vingt appels Request-DomeniaAccessRecovery -OperationId 'ReadLaps' -DN ('CN=PC'+$i+',…') -ErrorValue 'Acces refuse' -Interactive, puis Expect (@($script:AccessState.Pending.Values|?{$_.Interactive}).Count -eq 1). Aujourd'hui le résultat est 16 : le test échoue sans le branchement."
+  },
+  {
+   "ids": "D051, D053",
+   "function": "Invoke-DomeniaAccessRecovery",
+   "location": "dev/wad/modules/Domenia-Access.UI.ps1:200-242",
+   "current": "Les annulations (l.211 `if(-not (Confirm-Action ...)){return}`, l.222 `if($null -eq $credential){return}`) ne laissent aucune trace. Stockage l.224-227 : clé 'RemoteLocal|HOST' pour un compte local, sinon $Record.Scope, avec `Expires=[datetime]::UtcNow.AddMinutes(30)`. Relance l.237 limitée à `@('ReadLaps','ReadBitLocker')` avec `-RetryAttempt 1`. Aucun contrôle de la forme du compte.",
+   "change": "Aux l.211 et 222 : Complete-DomeniaAccessPrompt -Outcome Cancelled. Après la l.222 : `$ctx=Test-DomeniaCredentialContext -Scope (Get-DomeniaCredentialScope $Record.OperationId $target) -UserName $credential.UserName -Target $target` ; si $ctx.Valid est faux, afficher $ctx.Reason et sortir sans rien mémoriser. À la l.227 : bail (site des baux). Après le stockage : Complete-DomeniaAccessPrompt -Outcome Accepted et `$plan=Get-DomeniaReauthPlan -Category <catégorie> -IsWrite $Record.IsWrite -Attempt 0`. À la l.237 : `$plan.RetryOnce -and (Get-DomeniaOperationResource $Record.OperationId) -in @('Laps','BitLocker')`. Ne pas étendre la relance aux autres lectures sans décision.",
+   "risks": "Le Kind 'Unconfirmed' (chemin -Possible, valeur LAPS absente) n'a pas de catégorie dans le modèle : Get-DomeniaReauthPlan('Unknown') renvoie OfferAccount=$false. La portée 'Directory' déclenche Start-DomeniaAccountRelogin (l.212-215) : n'y jamais passer la portée 'Directory' du modèle. Cas figés : Test-DomeniaRelease l.115-121.",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Compte local refuse pour LAPS sans etre memorise' : double de Show-DomeniaAlternateCredential renvoyant PSCredential('.\\admin',…) pour un Record ReadLaps, puis Expect (Credentials.Count -eq 0 -and RetryCalls.Count -eq 0). Aujourd'hui le compte est mémorisé sous 'ReadLaps' et la lecture relancée. Cas 'Annuler gele la ressource' : Confirm-Action=$false, puis Request -Interactive sur un autre DN de la même portée ; attendu : aucune entrée interactive."
+  },
+  {
+   "ids": "D051",
+   "function": "Show-DomeniaAlternateCredential",
+   "location": "dev/wad/modules/Domenia-Access.UI.ps1:115-199 (bloc $connect l.156-170) ; seul appelant Access.UI:221",
+   "current": "La validation part sans contrôle de forme : `if($remoteValidation){Start-DomeniaRemoteCredentialSession …} else {New-DomeniaAccountAuthRequest …; Start-DomeniaLoginAuthRunspace …}`. Un compte local saisi pour LAPS part en bind AD ; 'PC-02\\admin' saisi pour PC-01 part en CIM vers PC-01.",
+   "change": "Ajouter un paramètre [string]$OperationId. En tête de $connect : `$chk=Test-DomeniaCredentialContext -Scope (Get-DomeniaCredentialScope $OperationId $Target) -UserName $ui.User.Text.Trim() -Target $Target` ; si $chk.Valid est faux, `$ui.Status.Text=$chk.Reason;return`. Aucun appel réseau dans ce cas.",
+   "risks": "Get-DomeniaCredentialScope garde le FQDN ('Remote:pc-01.example.local' diffère de 'Remote:pc-01'), alors que l'UI indexe les comptes locaux par nom court (Access.UI:225, Sessions.UI:69, Live.UI:16) : normaliser d'abord le modèle. Le double de test Test-DomeniaRelease l.35 est à étendre.",
+   "proof_test": "Cas WPF dans Test-DomeniaAccessWiring (même procédé que Test-DomeniaRelease l.154) : Target 'PC-01', OperationId 'LiveConsole', saisie 'PC-02\\admin' avec un mot de passe factice, clic sur Connect. Expect Status.Text -match 'autre poste' et 0 appel au double Start-DomeniaRemoteCredentialSession ; aujourd'hui 1 appel."
+  },
+  {
+   "ids": "D051",
+   "function": "Get-DomeniaAccessScope (et listes LAPS/BitLocker dupliquées)",
+   "location": "dev/wad/modules/Domenia-Access.UI.ps1:10-20 ; listes dupliquées Access.UI:16, 67, 231, 237, 289 ; Core:10338, 10345, 10401, 10409, 20592, 20692, 20700",
+   "current": "`if($OperationId -in @('ReadLaps','ReadBitLocker')){return $OperationId}` ; toute autre opération AD donne 'AD:'+$OperationId. La portée 'Directory' est réservée au canal AD suspendu (l.87) et déclenche un relogin complet (l.212).",
+   "change": "Garder la clé de l'UI (granularité 'AD:<op>' et 'Remote'). Remplacer les listes LAPS/BitLocker par le modèle : `$res=Get-DomeniaOperationResource $OperationId` ; 'Laps' donne 'ReadLaps', 'BitLocker' donne 'ReadBitLocker'. ReadBitLockerKey partage ainsi la portée et le compte de ReadBitLocker. Même remplacement aux autres emplacements listés.",
+   "risks": "Ne PAS substituer Get-DomeniaCredentialScope à Get-DomeniaAccessScope : le modèle replie toutes les opérations AD sur 'Directory', si bien que chaque refus AD lancerait Start-DomeniaAccountRelogin, et la clé 'AD:WriteRename' attendue par Test-DomeniaRelease l.119 disparaîtrait. Écarts entre modèle et UI : UserComputerProbe ('Remote' contre 'AD:UserComputerProbe'), ComputerPing ('Network' contre 'AD:ComputerPing'), RemoteCredentialCheck (classé 'Directory' par le modèle alors que c'est un contrôle CIM).",
+   "proof_test": "Test-DomeniaAccessWiring : Expect ((Get-DomeniaAccessScope 'ReadBitLockerKey') -eq (Get-DomeniaAccessScope 'ReadBitLocker')) ; aujourd'hui la fonction rend 'AD:ReadBitLockerKey'. Garde-fou : (Get-DomeniaAccessScope 'WriteRename') -eq 'AD:WriteRename'."
+  },
+  {
+   "ids": "D054",
+   "function": "Get-DomeniaRetryCredential / Set-DomeniaRetryWorkerContext / Set-DomeniaTargetCredentialContext / minuteur d'accès",
+   "location": "dev/wad/modules/Domenia-Access.UI.ps1:21-30, 31-41, 226-227, 247-259 (Oublier), 260-274 (minuteur) ; dev/wad/modules/Domenia-Sessions.UI.ps1:64-76 (lecture d'Expires l.72)",
+   "current": "Expiration absolue de 30 min (l.227). L.27 : `if($script:AccessState.Expires.ContainsKey($scope) -and $script:AccessState.Expires[$scope] -le [datetime]::UtcNow -and -not (Test-DomeniaAccessBusyWrite)){…Remove…}`. Pendant une écriture active ou incertaine, un compte EXPIRÉ est donc encore rendu pour un nouvel appel. Sessions.UI:72 relit Expires pour les clés 'RemoteLocal|HOST'.",
+   "change": "Remplacer Expires par Leases. À la l.227 : `New-DomeniaCredentialLease -Scope $credentialKey -Account $credential.UserName -Mode Inactivity -InactivityMinutes ([int](Get-CfgValue 'Security' 'AlternateCredentialIdleMinutes' 30)) -Epoch ([long]$script:SessionEpoch) -NowUtc (Get-DomeniaAccessNow)`. En lecture (l.27, Sessions.UI:72) : Test-DomeniaCredentialLease -ForNewCall $true, sans exception pour une écriture en cours (un job déjà parti garde sa copie, cf. commentaire l.271). Use-DomeniaCredentialLease uniquement au départ d'un worker : Set-DomeniaRetryWorkerContext (l.33) et Set-DomeniaTargetCredentialContext. Oublier (l.255) et purge d'epoch (l.264) : Clear-DomeniaCredentialLease. Ajouter une horloge substituable (Get-DomeniaAccessNow) déclarée dans le chargeur, et la clé Security.AlternateCredentialIdleMinutes dans New-DefaultConfig (Core:18984).",
+   "risks": "Get-DomeniaRetryCredential sert aussi de lecture passive à des minuteurs (Live.UI:6 et 12 dans Get-DomeniaLiveIdentitySignal, Selection.UI:10, Relations.UI:51-52, Continuity.UI:203, Core:20592, 20682, 20764). Y appeler Use- rendrait le bail éternel. Garder le MÊME objet PSCredential : les signatures d'identité utilisent RuntimeHelpers.GetHashCode et un nouvel objet purgerait les caches de sélection et de recherche. Le fixture de Test-DomeniaRelease (Reset-Fixture l.48-56) ne contient ni Expires ni Leases.",
+   "proof_test": "Test-DomeniaAccessWiring avec horloge doublée. (1) 'Delai glissant' : stockage à T0, Set-DomeniaRetryWorkerContext à T0+25, puis à T0+50 [object]::ReferenceEquals((Get-DomeniaRetryCredential 'ReadLaps'),$cred) ; aujourd'hui $null (expiration absolue). (2) 'Expire meme pendant une ecriture' : WriteState='Unknown', T0+31 sans usage, attendu $null ; aujourd'hui le compte est rendu. (3) 'Lecture passive ne prolonge pas' : 30 appels de Get-DomeniaLiveIdentitySignal entre T0+1 et T0+29, puis $null à T0+31."
+  },
+  {
+   "ids": "D054, D051",
+   "function": "Comptes de l'onglet Comptes ($script:MachineCredential, $script:RemoteAdminCredential, $script:SecretsCredential)",
+   "location": "Domenia-Core.ps1:7789-7793, 10591-10607 (Set-MachineCredentialFromUi / Clear-MachineCredential), 18311-18326 (Clear-DomeniaSecondaryCredential), 18392-18395 (relogin), 23772-23774 ; dev/wad/modules/Domenia-Accounts.Async.ps1:41-48 ; Get-WorkerContext Core:20700-20701, 20730-20733",
+   "current": "Ces comptes vivent toute la session, sans délai d'inactivité. Un relogin dans le même domaine les conserve (Core:18392, purge seulement si BaseDn change). Un seul compte 'Secrets' sert à la fois LAPS et BitLocker (Accounts.Async:44, Core:20700).",
+   "change": "Poser un bail 'Session' (New-DomeniaCredentialLease -Mode Session -Epoch $script:SessionEpoch) à l'activation (Accounts.Async:43-44, Core:10597). Le tester dans Get-WorkerContext avant usage, et appeler Clear-DomeniaCredentialLease dans Clear-DomeniaSecondaryCredential et Clear-MachineCredential. Pour D051 : soit séparer Secrets en LAPS et BitLocker (Set-DomeniaScopeAccount), soit documenter que 'Secrets' couvre les deux.",
+   "risks": "Le comportement change au relogin : le compte Secrets ne survivrait plus à un nouvel epoch. C'est une décision de David. Test-DomeniaAccounts l.236-276 figent SecretsCredential pour ReadLaps et ReadBitLocker (en échec de harnais aujourd'hui). Live.UI:9-10 lit ces variables directement.",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Compte Secrets d une session precedente refuse' (si la décision le retient) : SecretsCredential activé à l'epoch 1, $script:SessionEpoch=2 avec le même BaseDn, puis Get-WorkerContext 'ReadLaps'. Attendu : le Credential n'est pas SecretsCredential ; aujourd'hui il l'est."
+  },
+  {
+   "ids": "D055",
+   "function": "Get-WorkerContext (et garde de Start-LoadComputerSecrets)",
+   "location": "Domenia-Core.ps1:20679-20770 (garde Faults l.20682-20684 ; listes secrets l.20692 et 20700 ; listes distantes l.20686-20688) ; Start-LoadComputerSecrets Core:10409-10414",
+   "current": "`if($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey($retryScope)){throw 'Authentification rejetee pour cette ressource…'}`. Le choix intégré ou explicite se déduit de $script:Conn.UseCredential et de AuthMode ('Windows' ou 'Explicit', Core:22798). Listes `$OperationId -in @(\"ReadBitLocker\",\"ReadLaps\")` aux l.20692 et 20700.",
+   "change": "Garder le throw sur Faults en premier. Calculer `$need=Get-DomeniaOperationAuthNeed -OperationId $OperationId -IntegratedSession ([string]$script:Conn.AuthMode -eq 'Windows') -RefusedForScope (Faults.ContainsKey($retryScope)) -AlternateAvailable ($null -ne $retryCredential)` pour l'explication seulement (Reason vers Show-DomeniaUnavailableReasons et LblSecretsStatus). Remplacer les deux listes secrets par `(Get-DomeniaOperationResource $OperationId) -in @('Laps','BitLocker')`. Ne PAS remplacer $remoteOperations, $machineCredentialOperations ni $nonDirectoryOperations.",
+   "risks": "Get-DomeniaOperationAuthNeed rend 'Alternate' dès qu'un compte alternatif existe, même si c'est ce compte qui vient d'être rejeté (Faults posé par Core:20593). En faire une garde rouvrirait un bind refusé, avec risque de verrouillage. Remplacer les listes distantes : UserComputerProbe perdrait son credential LDAP, ComputerPing recevrait le credential LDAP (contraire à Test-DomeniaRemote 'Contexte: ping ne recoit pas le credential LDAP'), PresenceScan et SelectedPresence (fournisseur Network) perdraient le credential AD. Cas figés : Test-DomeniaAccounts l.267-276, Test-DomeniaRemote 'Contexte…', Test-DomeniaRelease l.100-104.",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Contexte ReadBitLockerKey = compte Secrets' : $script:SecretsCredential posé, Get-WorkerContext 'ReadBitLockerKey', puis Expect [object]::ReferenceEquals($ctx.Credential,$script:SecretsCredential). Aujourd'hui l'opération n'est pas listée et reçoit Conn.Credential. Garde-fou : Faults posé avec un compte alternatif présent, le throw est attendu."
+  },
+  {
+   "ids": "D056",
+   "function": "Update-DomeniaSecretActionUi, Show-DomeniaUnavailableReasons, Apply-CurrentPermissionUi",
+   "location": "Domenia-Core.ps1:21188-21292 (infobulles l.21213-21238) ; dev/wad/modules/Domenia-Guard.UI.ps1:208-220 (bouton BtnGuardWhy l.166) ; Domenia-Core.ps1:21355-21414 (l.21384-21392)",
+   "current": "Textes en dur : 'Selectionne d'abord une machine…', 'Lecture refusee avec ce compte…', 'L'estimation ACL locale indique un refus…'. Show-DomeniaUnavailableReasons liste `$n+' : '+$tip` pour cinq contrôles, sans route vers le prérequis.",
+   "change": "Pour BtnLoadLaps et BtnLoadBitLocker : `$x=Get-DomeniaCapabilityExplanation -Action <libellé> -State <NoSelection|Busy|Refused|Estimated> -Detail <texte actuel>` puis ToolTip=$x.Text. Garder le texte 'lecture en cours' pour $busy, qui n'est pas dans le ValidateSet. Dans Apply-CurrentPermissionUi : états ReadOnly, Busy, Refused (actualDenied), Estimated (state 'Refuse') et Stale ($script:ShowingCachedObject). Dans Show-DomeniaUnavailableReasons : une ligne par contrôle grisé avec $x.Text et une route résolue.",
+   "risks": "Les routes du modèle 'ChkReadOnlyMode', 'TabGuard', 'BtnObjectReadRetry' et 'TabPermissions' sont refusées par Invoke-DomeniaUxRoute (UX.UI:120, liste autorisée UX.UI:115). Il faut un résolveur (Select-DomeniaWorkspace -Workspace/-Inner/-Tab, comme Core:12336). Recouvrement avec Get-DomeniaDisabledHelp (Shell D088, module en cours d'écriture) : garder une seule source de motifs. Restore-DomeniaUxBaseToolTip (Core:21385) réécrit les infobulles. Aucune suite actuelle n'affirme ces textes : Test-Domenia et Test-DomeniaRelease doublent ces fonctions.",
+   "proof_test": "Test-DomeniaAccessWiring, cas WPF avec de vrais Button : $script:SelectedObject=$null, puis Expect BtnLoadLaps.ToolTip -match 'Selectionnez d abord un objet' (texte du modèle ; aujourd'hui 'Selectionne d'abord une machine'). Avec CurrentCapabilities.Secrets='Refuse' : -match 'connu qu a l execution'. Pour chaque état du ValidateSet, la route se résout vers un contrôle de Get-MainXaml sans exception."
+  },
+  {
+   "ids": "D057",
+   "function": "Start-LoadComputerSecrets (corps ReadLaps) + Complete-DomeniaSecretLoadUi + Fail-DomeniaSecretLoadUi",
+   "location": "Domenia-Core.ps1:10406-10507 (corps ReadLaps l.10443-10489, LiteralIndex 1, contrat 705B42C6…) ; 10323-10390 ; 10392-10404",
+   "current": "Dans le worker : `elseif([string]$v.DecryptionStatus -match '(?i)Unauthorized|AccessDenied'){$errorKind='AccessDenied';$errorMessage='Le compte ne dispose pas du droit de dechiffrement LAPS.'}` (Core:10478). Le refus de déchiffrement est confondu avec un refus de lecture, et aucune métadonnée n'est renvoyée (source, publication, expiration, déchiffreur autorisé, lecteur). L'UI affiche 'Lecture impossible : $detail'.",
+   "change": "Worker ré-épinglé : ajouter `Meta=[pscustomobject]@{Source;Published;ExpirationUtc;Account;Decryptor=[string]$v.AuthorizedDecryptor;PasswordPresent;ReadStatus='OK'|'AccessDenied'|'ModuleMissing'|'NotPublished';DecryptStatus='OK'|'NotEncrypted'|'Unauthorized'|'NotAttempted';Reader=[string]$Context.BindUser}`, sans jamais de mot de passe, et ErrorKind='DecryptionDenied' à la l.10478. Côté UI : `$view=ConvertTo-DomeniaLapsView $effective.Meta` ; LblSecretsStatus=$view.Message suivi des faits ; Set-DomeniaSecretDenied 'LAPS' seulement si $view.State -eq 'ReadDenied' ; Request-DomeniaAccessRecovery si $view.OfferOtherAccount ; Faults jamais touché pour DecryptDenied.",
+   "risks": "Contrat ReadLaps modifié : update_worker_contracts.py --apply, nouvelle empreinte de registre (Core:20061), et audit_preload refusera les fonctions critiques Get-DomeniaWorkerOperationHashes et Assert-DomeniaWorkerRegistry tant que tools/preload-baseline.json n'est pas mis à jour. Test-DomeniaRelease l.73-79 exige exactement deux here-strings dans Start-LoadComputerSecrets, BitLocker puis LAPS. Complete-DomeniaSecretLoadUi compare `$errorKind -eq 'AccessDenied'` (l.10339 et 10346) : il faut y traiter 'DecryptionDenied'. Un attribut confidentiel illisible paraît absent : 'NotPublished' n'est sûr que si l'expiration est lisible, limite à exposer dans le fait.",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Dechiffrement refuse explique' : extraire Complete-DomeniaSecretLoadUi, Fail-DomeniaSecretLoadUi et Update-SecretsGrid, avec un vrai TextBlock LblSecretsStatus. Résultat factice {Rows=@();Mode='LAPS';Success=$false;ErrorKind='DecryptionDenied';Meta={ReadStatus='OK';Published=$true;DecryptStatus='Unauthorized'}}. Attendu : LblSecretsStatus.Text -match 'publie et lu', -not (Test-DomeniaSecretDenied 'BitLocker' $dn) et Faults.Count -eq 0. Aujourd'hui le texte est 'Lecture impossible' : le test échoue sans le branchement."
+  },
+  {
+   "ids": "D058",
+   "function": "Lecture BitLocker en deux temps (nouvelle opération ReadBitLockerKey)",
+   "location": "Domenia-Core.ps1:10422-10439 (corps ReadBitLocker, LiteralIndex 0, contrat 55F46951…) ; XAML TabSecurity 5625-5660 ; Wire-Events 18685-18692 ; Toggle-SecretsVisibility 10509-10525 ; Copy-SelectedSecret 10548-10558 ; Update-DomeniaSecretIndexFromRows 15094 ; registre 19993-20054 et empreinte 20061 ; dev/tools/operation-contracts.json",
+   "current": "Le worker lit `msFVE-RecoveryPassword` sur tous les objets msFVE-RecoveryInformation (OneLevel) et garde toutes les clés en mémoire. Toggle-SecretsVisibility révèle toutes les lignes pendant 60 s. Aucune recherche par identifiant de récupération.",
+   "change": "Option recommandée, sous l'interrupteur Features.BitLockerKeySelection (défaut vrai, conformément à F5) : laisser ReadBitLocker inchangé pour le repli et ajouter deux opérations épinglées dans un module worker (par exemple Domenia-Access.Worker.ps1). ReadBitLockerList lit name, distinguishedName, msFVE-RecoveryGuid et whenCreated, SANS msFVE-RecoveryPassword. ReadBitLockerKey reçoit {DN;KeyDn;KeyGuid}, fait une recherche Base sur KeyDn, refuse si KeyDn n'est pas un enfant direct de DN ou si le GUID diffère, et renvoie une seule valeur. Côté UI : ConvertTo-DomeniaBitLockerKeyList sur la liste, nouveau TextBox TxtBitLockerRecoveryId avec Find-DomeniaBitLockerKey sur TextChanged, et Test-DomeniaSecretRevealAllowed -Trigger ExplicitReveal|ExplicitCopy -SelectedCount 1 avant Start-UiTask ReadBitLockerKey. Enregistrer les opérations dans Get-DomeniaWorkerOperationHashes, et à la main dans operation-contracts.json (update_worker_contracts.py refuse une liste d'opérations différente). Ajuster aussi Get-WorkerContext, Complete-UiTasks:20592 et Access.UI l.67, 231, 237 et 289.",
+   "risks": "L'ajout d'une opération casse trois cas RÉUSSIS aujourd'hui dans Test-DomeniaStartupLogin : l.64-68 (Count -eq 57), l.105-108 ('57 operations') et l.96-104 ('55/54', calculé à partir du nombre d'entrées). Il faut aussi mettre à jour preload-baseline (fonctions critiques du registre). Test-DomeniaRelease l.73-79 casse si une troisième here-string entre dans Start-LoadComputerSecrets. La sémantique de l'index change : BitLockerKeys compte aujourd'hui les clés LISIBLES, ensuite les objets VISIBLES. L'option de REPRISE (modifier ReadBitLocker) ne peut pas être désactivée par un interrupteur.",
+   "proof_test": "Test-DomeniaAccessWiring avec un double de Start-UiTask qui capture OperationId, Code et Payload. (1) Start-LoadComputerSecrets -Mode BitLocker : OperationId 'ReadBitLockerList' et Code sans 'msFVE-RecoveryPassword' ; aujourd'hui 'ReadBitLocker' avec l'attribut. (2) Après deux métadonnées, Find 'A1B2C3D4' puis révélation explicite : un seul Start-UiTask 'ReadBitLockerKey' avec le Payload.KeyDn choisi. (3) Toggle avec la première ligne sélectionnée : la deuxième reste '********'."
+  },
+  {
+   "ids": "D059",
+   "function": "Protect-DomeniaLogText (avec Protect-DomeniaSecretText et Select-DomeniaAllowedFields)",
+   "location": "Domenia-Core.ps1:180-198 ; appelants Core:288, 298, 348 (Write-DomeniaBootstrapTrace), 2098 (Add-DomeniaUiLog), 16440 (Write-AppLog), 19131 (Write-StartupTrace), 22632 (Write-DomeniaFastLoginLog) ; Access.Model:311-324 et 334-343",
+   "current": "Motifs propres (Bearer/Basic, clé=valeur password|passwd|pwd|mot de passe|token|authorization|api key|client secret, JSON, -p|-password|/p|/rp, clé BitLocker) puis remplacement des valeurs de $script:SecretRows et du presse-papiers. Simulé : 'secret=X', 'motdepasse=X', '-pass X' et '/password X' passent en clair.",
+   "change": "(1) Corriger d'abord Protect-DomeniaSecretText pour qu'il couvre au moins les motifs de Protect-DomeniaLogText. Simulé : il laisse aujourd'hui passer '/p X' en début de texte, '-p:X', '{\"password\":\"X\"}', 'Bearer X', 'client_secret=X' et 'api-key=X'. (2) Protect-DomeniaLogText doit rester autonome dans le cœur, car il est appelé Core:369/373 AVANT le chargement des modules (Core:23674). Soit fusionner les motifs en ligne, soit appeler Protect-DomeniaSecretText sous condition `$script:DomeniaAccessModelReady`, positionné après le dot-source du chargeur. Éviter un Get-Command à chaque ligne de journal.",
+   "risks": "Un appel non gardé arrête le démarrage (Write-DomeniaBootstrapTrace l.348 est hors try). Il ferait aussi échouer des cas RÉUSSIS qui extraient la fonction seule : Test-Domenia l.86-94 et Test-DomeniaCandidate l.63-66 et 112-114. Remplacer purement Protect-DomeniaLogText par Protect-DomeniaSecretText ferait échouer les mêmes cas (Bearer, JSON, '/p X' en tête).",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Marqueurs absents du journal' : chargeur réel, Write-AppLog et Protect-DomeniaLogText extraits, $script:AuditPath temporaire. Journaliser l'union des formes (les six de Test-DomeniaCandidate, 'secret=M', 'motdepasse=M', '-pass M', '/password M', '{\"p\":\"M\"}', clé BitLocker), puis Expect -not (Test-DomeniaTextHasSecret <fichier> @('M…')). Aujourd'hui le test échoue sur 'secret='. Cas 'Masquage sans modules' : Protect-DomeniaLogText et Write-DomeniaBootstrapTrace extraits seuls, sans chargeur, ne lèvent aucune exception."
+  },
+  {
+   "ids": "D059, D058",
+   "function": "Toggle-SecretsVisibility / Copy-SelectedSecret / Copy-AllSecrets / Update-SecretsGrid",
+   "location": "Domenia-Core.ps1:10509-10525, 10548-10558, 10560-10572, 10281-10294 ; Update-DomeniaSecretActionUi 21253-21257 ; carte de politique GUI Core:620",
+   "current": "Révélation globale `elseif ($script:SecretsVisible) { [string]$r.Value }` (toutes les lignes) pendant `[TimeSpan]::FromSeconds(60)` (Core:10515). 'Copier tout' est actif dès qu'une valeur est lisible. Rien n'avertit que l'historique du presse-papiers peut conserver une copie.",
+   "change": "`$p=Get-DomeniaSecretExposurePolicy`. Toggle ne révèle que la ligne sélectionnée ($script:RevealedSecretIndex) si Test-DomeniaSecretRevealAllowed 'ExplicitReveal' 1, pendant $p.RevealSeconds. Update-SecretsGrid se contente de comparer l'index, sans appeler le modèle. Copy-AllSecrets et BtnCopyAllSecrets sont désactivés si $p.CopyOneAtATime et Get-DomeniaFeatureFlag 'SecretSingleCopy'. Copy-SelectedSecret affiche $p.ClipboardLimit.",
+   "risks": "Retirer un parcours (Copier tout) exige un interrupteur selon F5, et ce nom manque dans REPRISE. Test-Domenia 'Secrets : masque integral…' (réussi) extrait Update-SecretsGrid seule : ne pas y appeler le modèle.",
+   "proof_test": "Test-DomeniaAccessWiring : deux lignes, la deuxième sélectionnée, puis Toggle-SecretsVisibility. Attendu : TestBoundRows[0].DisplayValue -ceq '********', TestBoundRows[1] affiche la valeur, et $script:SecretRevealTimer.Interval.TotalSeconds -eq 30. Aujourd'hui les deux lignes sont révélées pendant 60 s."
+  },
+  {
+   "ids": "D060",
+   "function": "Politique de transport (Get-DomeniaTransportPolicy, Test-DomeniaTransportFallbackAllowed, Test-DomeniaTransportCodeSafety)",
+   "location": "Get-WorkerContext Core:20732-20740 ; Set-DomeniaArtifactConsent dev/wad/modules/Domenia-Guard.UI.ps1:101-109 ; Assert-WRemoteArtifactPermission Core:8322-8327 ; Invoke-WRemoteTaskScript Core:8657-8690, appelé par des lectures Core:10685, 12896, 13082-13106, 14696, 15500, 16006",
+   "current": "Les lectures distantes (inventaire, logiciels, WMI, diagnostic, dernier utilisateur) passent par PsExec puis par une tâche planifiée seulement après un consentement explicite de 5 min (texte de Guard.UI:105 : « Relancez volontairement votre diagnostic »). La politique n'est affichée nulle part.",
+   "change": "Afficher Get-DomeniaTransportPolicy -UseCim -UseWinRM -UsePsExecFallback -UseTaskFallback (Get-CfgValue Remote …) -ArtifactConsent (même expression que Core:20736) dans Outils > Fiabilité, près de LblGuardRemote, et dans Show-DomeniaUnavailableReasons. Ne brancher Test-DomeniaTransportFallbackAllowed sur AllowRemoteArtifacts (Core:20736) qu'après décision. Test-DomeniaTransportCodeSafety devient un scénario de la campagne de qualification sur le ZIP extrait, en excluant Domenia-Access.Model.ps1, qui se détecte lui-même (simulé l.373 et 375).",
+   "risks": "Brancher le refus « lecture » supprimerait le repli consenti des lectures, une régression fonctionnelle contraire au texte du consentement. La règle D060 (Access.Tests.ps1) affirme pourtant ce refus. Invoke-WRemoteTaskScript vit dans $script:WorkerCommon, qui n'est pas épinglé : la garde doit rester dans le contexte calculé côté UI.",
+   "proof_test": "Test-DomeniaAccessWiring, cas 'Politique affichee' : $script:ArtifactConsent valide pour PC-01, la vue contient la ligne PsExec 'Autorise…' ; sans consentement, 'Inactif sans autorisation explicite'. Aujourd'hui aucune vue n'existe : le test échoue."
+  },
+  {
+   "ids": "D054 (et D097 hors périmètre)",
+   "function": "Test-DomeniaAccessBusyWrite",
+   "location": "dev/wad/modules/Domenia-Access.UI.ps1:53-55 (une trentaine d'appelants : Access.UI, Accounts.Async:5/40, Guard.UI:102/130, Continuity, Relations, Live, Selection, Core:7499, 9453, 9854, 9870, 18079, 21011)",
+   "current": "`return ([bool]$script:ActiveWriteTaskId -or $script:WriteState -in @('Running','Unknown','UnknownPending'))` : verrou global.",
+   "change": "Aucune fonction d'Access.Model ne le remplace : Test-DomeniaOperationAllowed (D097) est dans Safety, hors de ce périmètre. Seul changement ici : le retirer des conditions d'expiration (Access.UI:27 et :267), et le garder pour interdire le CHANGEMENT de compte (l.205, 223, 254 ; Accounts.Async:5 et 40).",
+   "risks": "audit_preload exige ce nom dans Queue-DomeniaSelectedObjectOpen et vérifie son ordre dans Invoke-DomeniaPendingSelectionOpen (audit_preload l.42-46) : ne pas le renommer. Sept doubles de tests portent ce nom.",
+   "proof_test": "Couvert par le cas 'Expire meme pendant une ecriture' du site des baux."
+  }
+ ],
+ "defects": [
+  {
+   "test": "Test-DomeniaRelease : 'Acces refuse reconnu en francais', 'Acces refuse reconnu en anglais', 'HRESULT acces refuse sans texte connu', 'HRESULT mot de passe refuse sans texte connu', 'Timeout ne signifie pas mauvais compte', 'Refus de dechiffrement LAPS reconnu', 'Rejet global du canal AD renvoie au login principal', 'Notification de fond sans fenetre automatique', 'Un seul avis par ressource et cible', 'Avis de droits limite a 16 cibles', 'Valeur absente distinguee d un refus certain' (+ 'Avis sans erreur brute…' en cascade)",
+   "classification": "suite désynchronisée (harnais)",
+   "cause": "La suite charge Domenia-Access.UI.ps1 (l.22) mais pas Domenia-Guard.Model.ps1, où se trouve désormais Get-DomeniaStructuredError.",
+   "fix": "Charger modules\\Domenia-Guard.Model.ps1, puis au raccordement Common, Engine, Relations et Access.Model. Le mieux est de dot-sourcer le vrai Domenia-Modules.ps1."
+  },
+  {
+   "test": "Test-DomeniaRelease : 'Compte LAPS conserve uniquement pour sa ressource', 'Remplacement distant ne remplace pas le compte LDAP', 'Compte distant temporaire ne reactive pas un bind AD rejete'",
+   "classification": "suite désynchronisée (fixture)",
+   "cause": "Reset-Fixture (l.48-56) crée AccessState sans Expires, alors que Get-DomeniaRetryCredential (Access.UI:27) appelle .Expires.ContainsKey, d'où « expression Null ». Dans le troisième cas, cette exception remplace le message 'Canal Active Directory suspendu' attendu.",
+   "fix": "Ajouter Expires=@{} au fixture, puis Leases et Coalescer après le raccordement."
+  },
+  {
+   "test": "Test-DomeniaRelease : 'Annuler le login conserve le precedent credential', 'Validation LAPS relance seulement la lecture et une fois', 'Ancienne selection ne relance pas sa lecture', 'Action ecriture jamais rejouee par le login'",
+   "classification": "suite désynchronisée (harnais)",
+   "cause": "Invoke-DomeniaAccessRecovery appelle Get-DomeniaSelectedMachineName (Access.UI:220), défini dans Domenia-Sessions.UI.ps1:15, que la suite ne charge pas.",
+   "fix": "Charger Sessions.UI ou doubler Get-DomeniaSelectedMachineName. Ces quatre cas deviennent les garde-fous du site Invoke-DomeniaAccessRecovery."
+  },
+  {
+   "test": "Test-DomeniaRelease 'Refus de dechiffrement LAPS reconnu', une fois le harnais réparé (prévision par simulation, non exécutée)",
+   "classification": "défaut réel de classement (Guard.Model)",
+   "cause": "Get-DomeniaStructuredError classe 'Le compte ne dispose pas du droit de dechiffrement LAPS.' en Unknown : le motif 'd[eé]chiffrement.*refus' exige le mot 'refus' après. CanOfferCredential est donc faux. En production, Complete-DomeniaSecretLoadUi préfixe 'Acces refuse. ' (Core:10346), ce qui masque le défaut ; il reste visible via Fail-DomeniaSecretLoadUi et Inspect-DomeniaAccessResult.",
+   "fix": "Brancher Get-DomeniaAccessFailureKind sur Get-DomeniaErrorDecision (DecryptionDenied), ou ajouter 'droit de d[eé]chiffrement' au repli AccessDenied de Guard.Model."
+  },
+  {
+   "test": "Test-DomeniaRelease 'Registre de 48 operations ferme' ; Test-Domenia 'Registre ferme : 47 corps…' ; Test-DomeniaStreaming 'Registre fermé de 48 opérations'",
+   "classification": "suite désynchronisée (constante obsolète)",
+   "cause": "Le registre compte 57 opérations (Core:19995-20054).",
+   "fix": "Comparer au nombre d'entrées de tools/operation-contracts.json, ou archiver ces cas dans wad/docs/history avec leur motif."
+  },
+  {
+   "test": "Test-DomeniaAccounts : 17 cas 'Start-DomeniaAccountValidation…' + 'Worker LAPS : nom et mot de passe du compte Secrets restent ensemble', 'Worker BitLocker : compte Secrets explicite et repli AD coherents', 'Dernier utilisateur : compte machine distinct…'",
+   "classification": "suite désynchronisée (harnais)",
+   "cause": "Les fonctions ont migré vers Domenia-Accounts.Async.ps1 et Domenia-Access.UI.ps1, que la suite n'importe pas.",
+   "fix": "Charger ces deux modules. Les trois cas worker protègent Get-WorkerContext contre l'ajout de ReadBitLockerKey et le remplacement des listes."
+  },
+  {
+   "test": "Test-DomeniaRemote : 'Contexte LastUser: conserve le compte AD et le compte distant distincts', 'Contexte: ping ne recoit pas le credential LDAP', 'Contexte LastUser: compte distant possible avec login Windows', 'Contexte LastUser: canal AD suspendu reste bloque' ; Test-DomeniaLastUser : 'Double clic meme DN…', 'Nouvelle machine…'",
+   "classification": "suite désynchronisée (harnais)",
+   "cause": "Get-DomeniaRetryCredential et Test-DomeniaAccessBusyWrite (Access.UI) ne sont ni chargés ni doublés.",
+   "fix": "Charger Access.UI avec un fixture AccessState complet. Ces cas interdisent de remplacer les listes de Get-WorkerContext par Get-DomeniaOperationResource."
+  },
+  {
+   "test": "Test-DomeniaStartupLogin : 'Le registre et le contrat DEV declarent les memes operations' (l.64-68), 'Le vrai initialiseur corrige demarre son DispatcherTimer' (l.105-108), 'Le vrai initialiseur RC1.4 reproduit le refus 55 sur 54' (l.96-104) — tous RÉUSSIS aujourd'hui",
+   "classification": "régression attendue lors de l'ajout de ReadBitLockerKey (décision à documenter)",
+   "cause": "Constante 57 aux l.67 et 108. Le message attendu '55/54' vient de 57-2 entrées comparées à la constante 54 du fixture RC1.4-Initialize-AsyncEngine.txt:10.",
+   "fix": "Remplacer 57 par $expected.Count (operation-contracts.json) et recalculer le message attendu. Mentionner le changement dans les notes RC1.11.0."
+  },
+  {
+   "test": "À écrire, règles D059 : matrice Test-DomeniaCandidate appliquée à Protect-DomeniaSecretText",
+   "classification": "défaut des règles pures (Access.Model)",
+   "cause": "Protect-DomeniaSecretText l.319 exige un blanc avant l'option (`(\\s[-/](?:p|rp|password|pwd|pass)\\s+)`) et ignore '-p:X', le JSON '\"password\"', 'Bearer', 'client_secret' et 'api-key' (simulé). Select-DomeniaAllowedFields hérite de cette faiblesse. Le test de règle D059 passe parce que ses entrées ont toutes un texte avant l'option.",
+   "fix": "Fusionner avec les motifs de Protect-DomeniaLogText : (^|\\s) au lieu de \\s, séparateur [:=] ou blanc, JSON multi-clés, Bearer/Basic. Ajouter ces cas à Access.Tests.ps1."
+  },
+  {
+   "test": "À écrire, règles D052 : 'Module LAPS absent n est pas un refus de dechiffrement' et 'Timeout pendant le dechiffrement reste un delai'",
+   "classification": "défaut des règles pures (Access.Model)",
+   "cause": "Get-DomeniaErrorDecision l.76 teste le texte 'decrypt' (qui reconnaît aussi 'decryptage') AVANT les catégories déduites du Kind structuré. Simulé : le message exact du worker LAPS (Core:10461) donne DecryptionDenied avec OfferCredential vrai alors que son Kind vaut ModuleUnavailable, et 'Timeout pendant le dechiffrement' donne DecryptionDenied.",
+   "fix": "Évaluer d'abord Uncertain, Timeout, Network et Prerequisite issus de $kind. Restreindre le motif texte à un refus explicite ('d[eé]chiffr\\w*.{0,40}refus|not authorized to decrypt|Unauthorized')."
+  },
+  {
+   "test": "À écrire, règles D052 : 'Identifiants rejetes par texte seul'",
+   "classification": "lacune des règles pures",
+   "cause": "Aucun repli texte ne mène à CredentialsRejected : 'The user name or password is incorrect.' donne Unknown.",
+   "fix": "Ajouter un repli texte en français et en anglais. D'ici là, ne jamais remplacer la regex du disjoncteur (Core:20589)."
+  },
+  {
+   "test": "À écrire, règles D051 : 'Meme poste en nom court et en FQDN'",
+   "classification": "défaut des règles pures",
+   "cause": "Get-DomeniaCredentialScope et Test-DomeniaCredentialContext gardent le FQDN ('Remote:pc-01.example.local' diffère de 'Remote:pc-01'), alors que l'UI normalise au nom court (Access.UI:225, Sessions.UI:69).",
+   "fix": "Normaliser la cible au premier label en minuscules dans les deux fonctions."
+  },
+  {
+   "test": "À écrire, règles D055 : 'Un compte alternatif rejete ne redevient pas utilisable'",
+   "classification": "défaut des règles pures",
+   "cause": "Get-DomeniaOperationAuthNeed rend 'Alternate' dès que AlternateAvailable est vrai, même quand ce compte est la cause du refus.",
+   "fix": "Évaluer RefusedForScope avant AlternateAvailable, ou ajouter un paramètre -AlternateRefused."
+  },
+  {
+   "test": "À écrire, règles D053 : 'Valeur absente non confirmee propose un compte'",
+   "classification": "lacune des règles pures",
+   "cause": "Le modèle n'a pas de catégorie pour le Kind 'Unconfirmed' (chemin Request-DomeniaAccessRecovery -Possible) : Get-DomeniaReauthPlan('Unknown').OfferAccount est faux.",
+   "fix": "Ajouter une catégorie 'Unconfirmed' (OfferAccount vrai, une seule relance de lecture) ou faire la correspondance côté UI."
+  },
+  {
+   "test": "À écrire, règles D060 : 'Lecture consentie et bornee'",
+   "classification": "écart entre la règle et le comportement existant (décision)",
+   "cause": "Test-DomeniaTransportFallbackAllowed refuse tout transport intrusif pour une lecture, même avec consentement. Or Set-DomeniaArtifactConsent (Guard.UI:105) a été conçu précisément pour le repli d'un diagnostic.",
+   "fix": "Décision de David : soit autoriser la lecture avec un consentement ciblé et borné dans le temps, soit retirer le repli des lectures."
+  },
+  {
+   "test": "À écrire, intégration : 'Routes de capacite resolubles'",
+   "classification": "incompatibilité entre les règles et l'UI",
+   "cause": "Les routes 'ChkReadOnlyMode', 'TabGuard', 'BtnObjectReadRetry' et 'TabPermissions' sont refusées par Invoke-DomeniaUxRoute (UX.UI:120).",
+   "fix": "Écrire un résolveur dédié, ou limiter les routes du modèle à Get-DomeniaUxRouteNames plus une cible interne."
+  },
+  {
+   "test": "À écrire, intégration : 'Expire meme pendant une ecriture'",
+   "classification": "défaut réel du code actuel (D054)",
+   "cause": "Access.UI:27 n'expire pas un compte pendant Test-DomeniaAccessBusyWrite et le rend encore à un nouvel appel.",
+   "fix": "Site des baux (Get-DomeniaRetryCredential)."
+  },
+  {
+   "test": "À écrire, intégration : 'Erreur structuree unique'",
+   "classification": "défaut réel du code actuel (D052)",
+   "cause": "ConvertTo-DomeniaErrorInfo Core:1976 : la classe `acc[ee]s` ne reconnaît pas 'è', et le motif LogonFailure 'identifiant' est testé avant Timeout.",
+   "fix": "Site ConvertTo-DomeniaErrorInfo."
+  },
+  {
+   "test": "À écrire, intégration : 'Code natif transporte par EndInvoke'",
+   "classification": "risque non vérifié (confiance modérée)",
+   "cause": "Le jeton est cherché en début de texte ('^\\[DOMENIA:'), alors que Complete-UiTasks:20543 ne garde que le message de l'exception levée par l'appel .NET EndInvoke, que PowerShell 5.1 enveloppe probablement dans une MethodInvocationException. Les codes AccountLocked et Unavailable seraient alors perdus.",
+   "fix": "Sites Get-DomeniaStructuredError et Complete-UiTasks. À exécuter sous 5.1 avant de conclure."
+  },
+  {
+   "test": "À écrire, intégration : 'Marqueurs absents du journal'",
+   "classification": "défaut réel du code actuel (D059)",
+   "cause": "Protect-DomeniaLogText ne masque ni 'secret=', ni 'motdepasse=', ni '-pass X', ni '/password X' (simulé).",
+   "fix": "Site Protect-DomeniaLogText, en fusionnant les motifs des deux fonctions de masquage."
+  }
+ ],
+ "discrepancies_with_reprise": [
+  "Les numéros de ligne de REPRISE §7.3 sont EXACTS pour ce périmètre : Protect-DomeniaLogText 180, Complete-DomeniaSecretLoadUi 10323, Start-LoadComputerSecrets 10406, Update-DomeniaSecretActionUi 21188, Get-WorkerContext 20679, $script:WorkerCommon 7895, Start-UiTask 20285, Complete-UiTasks 20467. Emplacements que REPRISE ne donne pas : Get-DomeniaStructuredError dans Guard.Model:2, Show-DomeniaUnavailableReasons dans Guard.UI:208, Test-DomeniaAccessBusyWrite dans Access.UI:53, Request-DomeniaAccessRecovery dans Access.UI:56, Get-DomeniaAccessScope dans Access.UI:10.",
+  "§7.3, « expiration absolue de 30 min » : elle est posée à Access.UI:227, mais aussi relue par Set-DomeniaTargetCredentialContext (Sessions.UI:72), que REPRISE ne cite pas. Le code actuel rend en plus un compte expiré pendant une écriture active ou incertaine (Access.UI:27).",
+  "§6, « une lecture = une fonction Get-Domenia<X>WorkerCode » : ReadLaps et ReadBitLocker sont des here-strings dans Start-LoadComputerSecrets (LiteralIndex 1 et 0), et Test-DomeniaRelease l.73-79 exige qu'il y en ait exactement deux. ReadBitLockerKey doit donc vivre dans une fonction séparée.",
+  "§6 propose de remplacer les listes de Get-WorkerContext par Get-DomeniaOperationResource et Get-DomeniaOperationProvider. Ce n'est pas équivalent : UserComputerProbe (classé 'Remote' mais il a besoin de LDAP), ComputerPing (recevrait le credential LDAP), PresenceScan et SelectedPresence (fournisseur Network, perdraient le credential AD), RemoteCredentialCheck (classé 'Directory' alors que c'est du CIM).",
+  "§7.3, « Get-DomeniaStructuredError … injecté dans chaque worker » : c'est exact (Core:20161), mais la fonction est aussi appelée dans le corps épinglé de GlobalSearch (Core:9724). La modifier change le comportement d'une opération épinglée sans changer son SHA-256.",
+  "§7.3, « nouvelle opération ReadBitLockerKey » : ce n'est pas suffisant. Soit on modifie le corps de ReadBitLocker (ré-épinglage, et aucun interrupteur Features possible), soit on ajoute aussi une opération de métadonnées. Tout ajout d'opération impose en outre de modifier à la main operation-contracts.json (update_worker_contracts.py refuse une liste différente), de mettre à jour preload-baseline (fonctions critiques Get-DomeniaWorkerOperationHashes et Assert-DomeniaWorkerRegistry), et casse trois cas réussis de Test-DomeniaStartupLogin.",
+  "§7.3, liste des Features : aucun interrupteur n'est prévu pour les comptes et secrets, alors que D058 (lecture BitLocker en deux temps) et D059 (suppression de 'Copier tout') remplacent des parcours existants, ce qui en exige un selon F5. Noms proposés : BitLockerKeySelection, SecretSingleCopy.",
+  "§4.4 attribue les échecs de Test-DomeniaRelease au seul Get-DomeniaStructuredError introuvable. S'y ajoutent l'absence d'Expires dans le fixture (trois cas) et Get-DomeniaSelectedMachineName, défini dans Sessions.UI et non chargé (quatre cas). Enfin 'Refus de dechiffrement LAPS reconnu' échouerait encore après réparation du harnais (simulé).",
+  "§4.2, « masquage de secrets » dans Access.Model : Protect-DomeniaSecretText est plus faible que Protect-DomeniaLogText sur six formes, et ne peut ni le remplacer ni être appelé par lui sans garde, puisque le cœur journalise (Core:348, 373) avant de charger les modules (Core:23674).",
+  "La règle D060 (intrusif interdit pour une lecture, même avec consentement) contredit le consentement explicite déjà conçu pour les diagnostics (Guard.UI:105-107).",
+  "Access.Model dépend à l'exécution d'Engine.Model (Get-DomeniaOperationProvider) et de Relations.Model (ConvertTo-DomeniaAccountIdentity), qui appartiennent à d'autres périmètres. REPRISE ne mentionne pas cette contrainte d'ordre de raccordement.",
+  "La portée 'Directory' n'a pas le même sens dans le modèle (toute opération AD) et dans l'UI (canal AD suspendu, qui déclenche un relogin complet à Access.UI:212). Substituer l'une à l'autre transformerait chaque refus AD en relogin.",
+  "Les routes de Get-DomeniaCapabilityExplanation (TabGuard, TabPermissions, ChkReadOnlyMode, BtnObjectReadRetry) ne font pas partie des routes acceptées par Invoke-DomeniaUxRoute.",
+  "Le nombre de 57 opérations (REPRISE §3) est confirmé, avec l'empreinte du registre à Core:20061."
+ ],
+ "design_notes": "Ordre conseillé. (1) Corriger les défauts d'Access.Model listés : masquage, ordre « decrypt » dans Get-DomeniaErrorDecision, repli texte CredentialsRejected, normalisation au nom court, AuthNeed face à un compte rejeté, catégorie Unconfirmed. Relancer Test-DomeniaRules sous 5.1. (2) Déclarer Common, Engine et Relations Model, puis Access.Model, dans Domenia-Modules.ps1 ; ajouter Requires si le champ est introduit. (3) Réparer les harnais de Test-DomeniaRelease, Accounts, Remote et LastUser pour qu'ils redeviennent des garde-fous, en documentant les écarts par rapport à la ligne de base. (4) Brancher D052 (structured error, failure kind, ErrorInfo, disjoncteur en union), puis D053/D051 (coalesceur, prompt, contrôle du contexte de compte), puis D054 (baux avec horloge substituable, consommation uniquement au départ du worker, même objet PSCredential), puis D055 (explication seulement, le throw sur Faults reste prioritaire), puis D056 (explications et résolveur de routes), puis D057 (ReadLaps ré-épinglé avec Meta), puis D058 (nouvelles opérations, interrupteur), puis D059 (masquage fusionné, exposition), et enfin D060 (affichage ; refus des lectures intrusives seulement après décision). (5) Exécuter update_worker_contracts.py --apply après relecture, mettre à jour tools/preload-baseline.json et les trois cas « 57 » de Test-DomeniaStartupLogin, puis relancer Invoke-LabRun et comparer à la ligne de base r3 (1215/79).\n\nTests d'intégration : une suite dédiée, wad/tests/Test-DomeniaAccessWiring.ps1. Elle dot-source le VRAI chargeur Domenia-Modules.ps1, de sorte qu'un module non déclaré échoue avec DOMENIA_MODULE_EXPORT. Elle extrait par AST les fonctions du cœur, double uniquement les frontières réseau et WPF (Start-UiTask capturant OperationId, Code et Payload ; Show-DomeniaAlternateCredential ; Confirm-Action) et utilise de vrais contrôles WPF pour les infobulles. Chaque cas proposé échoue sur le code actuel, donc aussi si l'on débranche.\n\nContrats épinglés touchés : ReadLaps (modifié) ; ReadBitLockerList et ReadBitLockerKey (ajoutés, option recommandée) ; ReadBitLocker inchangé pour le repli ; empreinte du registre (Core:20061). Get-DomeniaStructuredError n'est pas couvert par les empreintes, mais il change le comportement réel de tous les workers, GlobalSearch compris : à lister dans les notes de version.\n\nDécisions à soumettre à David (une question chacune, avec ma recommandation). (a) D060, lecture intrusive consentie : je recommande de garder le consentement ciblé de 5 min et d'adapter la règle. (b) D051, compte Secrets unique pour LAPS et BitLocker, ou deux comptes : je recommande de le garder unique et documenté, la séparation existant déjà dans les portées de reprise. (c) D054, le compte Secrets et le compte poste survivent-ils à un relogin dans le même domaine (aujourd'hui oui) ? Je recommande un bail Session lié à l'epoch. (d) D058, option à deux nouvelles opérations sous Features.BitLockerKeySelection ou modification de ReadBitLocker : je recommande la première. (e) Noms des interrupteurs absents de REPRISE : BitLockerKeySelection, SecretSingleCopy.\n\nRecouvrements à arbitrer avec les modules en cours d'écriture : Get-DomeniaDisabledHelp (Shell, D088) et Get-DomeniaCapabilityExplanation ; Get-DomeniaSessionEndPlan (Safety, D098) et les baux ; Test-DomeniaOperationAllowed (Safety, D097) et Test-DomeniaAccessBusyWrite ; Get-DomeniaNextAction (Insight, D102) et ErrorDecision.NextAction. Aucun nom ne se recoupe à ce jour : seuls des fichiers vides de deux lignes existent pour ces modules.\n\nRien n'a été exécuté : les vérifications de motifs sont des simulations Python. Aucune preuve Windows n'est revendiquée."
+}

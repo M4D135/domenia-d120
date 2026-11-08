@@ -1,0 +1,19 @@
+{
+    "Name":  "Test-DomeniaLiveSearchView",
+    "PID":  4536,
+    "RunnerPID":  1092,
+    "StartedUTC":  "2026-10-13T16:01:15.5611378Z",
+    "Executable":  "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaLiveSearchView.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaLiveSearchView.json"
+                  ],
+    "ScriptSha256":  "75ea2ccd02788a8d4e877200aa2b31f6aeb6bc80c6fc434a3d3012cfc7e711b5",
+    "TimeoutSeconds":  300
+}

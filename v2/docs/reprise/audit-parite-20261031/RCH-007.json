@@ -1,0 +1,19 @@
+{
+  "id": "RCH-007",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Bridge/Operations/DirectoryTreeOperations.cs:30 — directory.ou.children existe ; ligne 27 : en mode annuaire c'est une lecture réseau (NetworkRead), en simulation une lecture locale ; lignes 38-39 : la réponse vient directement de IDirectoryTreeReader.ChildrenAsync, sans passage par la base locale",
+    "src/Domenia.Ad/Screens/AdDirectoryTreeReader.cs:79 — les enfants sont lus dans l'AD par une seule recherche LDAP « objectClass=organizationalUnit » en subtree ; ligne 82 : arbre construit en mémoire ; lignes 62 et 85 : cache mémoire borné à l'epoch de session, jamais SQLite",
+    "src/Domenia.Ad/Screens/AdDirectoryTreeReader.cs:42 — FindLocalAsync relit seulement le cache mémoire de la session (aucune substitution d'anciens enfants SQL, mais aussi aucune relecture locale)",
+    "src/Domenia.Core/Directory/Tree/OrganizationalUnitTree.cs:110 — une énumération vide réussie reste vide (liste vide, jamais un ancien contenu rappelé) ; src/Domenia.Core/Directory/Tree/OrganizationalUnitTree.cs:9 — les conteneurs (CN=Users…) ne sont jamais listés comme enfants : le type « Conteneur » n'entre pas dans l'arbre",
+    "web/js/pages/rechercher/side.js:113 — la racine charge les OU (directory.ou.children) puis les conteneurs ; ligne 116 : search.containers appelé sans argument, donc sans comptage ; ligne 128 : les enfants d'une OU viennent de directory.ou.children, leaf = !hasChildren",
+    "src/Domenia.Ad/Screens/AdSearchReader.cs:199 — les conteneurs de la racine sont listés (objectClass=container, une niveau) ; ligne 207 : le comptage enfant n'est fait que si counts est demandé ; ligne 215 : retour d'une autre session refusé (« Session modifiée pendant la lecture des conteneurs »)",
+    "tests/Domenia.Tests/SearchOperationsTests.cs:404 — search.containers sans argument puis avec counts = true : le comptage n'est pas demandé par défaut ; ligne 411 : aucun argument accepté",
+    "tests/Domenia.Tests/DirectoryTreeTests.cs:68 — Check.Equal(0, Children(leaf)) : une branche sans sous-OU reste vide ; ligne 45 : hasChildren faux",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Directory.cs:30 — la base locale sait déjà écrire les OU d'un périmètre (kind « ou ») et les relire (lignes 132-165) : le socle existe, mais aucune table ni opération de sous-branches d'arbre (aucune CREATE TABLE de children/TreeChildren dans src/Domenia.Store)"
+  ],
+  "manque": "La publication des sous-branches lues dans l'AD puis leur relecture depuis SQLite avant affichage n'existe pas : aucun équivalent de Submit-DomeniaDirectoryTreeRead / Complete-DomeniaDirectoryTreeRead / Request-DomeniaDirectoryTreeSnapshot / Test-DomeniaDirectoryTreeCurrent (aucune table de sous-branches d'arbre dans src/Domenia.Store, aucun IDirectoryTreeReader adossé à la base locale — les deux seules implémentations sont src/Domenia.Ad/Screens/AdDirectoryTreeReader.cs:10 et src/Domenia.Simulation/Screens/SimulatedDirectoryTreeReader.cs:13). Pas de pages de 250 pour l'arbre (le seul paginage 250 trouvé concerne les mesures, src/Domenia.Core/Screens/Search/SearchService.cs:58), et le type Conteneur n'est jamais publié comme enfant d'arbre (src/Domenia.Core/Directory/Tree/OrganizationalUnitTree.cs:9) : il n'est listé que par search.containers à la racine.",
+  "effort": "L",
+  "depend": ["base locale SQLite des annuaires (vague 3, CompatibleDirectoryCache)", "RCH-006 (arbre des OU et parcours)", "RCH-083 (pages de 250 de la liste)"],
+  "risque": "ecriture-locale"
+}

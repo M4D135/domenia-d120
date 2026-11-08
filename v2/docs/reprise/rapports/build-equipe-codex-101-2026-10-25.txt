@@ -1,0 +1,28 @@
+Journal Windows : lignes UTF-8 ou OEM CP850 ; octets originaux conservés dans build-equipe-codex-101-2026-10-25.raw.gz
+vm.sh : lot spark-native, build — VM réservée.
+sync ok -> C:\DomeniaDev\src\spark-native\v2
+Erreur : At C:\DomeniaDev\src\spark-native\v2\tools\build-vm.ps1:81 char:79
++ ... t -gt 16384) { throw 'Trop de fichiers source pour l'identité de livr ...
++                                                          ~~~~~~~~
+Unexpected token 'identité' in expression or statement.
+
+At C:\DomeniaDev\src\spark-native\v2\tools\build-vm.ps1:93 char:99
++ ... y.Count -ne 1 -or $sdkIdentity[0] -notmatch '^\d+\.\d+\.\d+([\-A-Za-z ...
++                                                                  ~
+Missing type name after '['.
+
+At C:\DomeniaDev\src\spark-native\v2\tools\build-vm.ps1:148 char:75
++ ... ia.delivery.json'), $delivery, (New-Object Text.UTF8Encoding $false))
++                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The string is missing the terminator: '.
+
+At C:\DomeniaDev\src\spark-native\v2\tools\build-vm.ps1:81 char:39
++     if ($sourcePaths.Count -gt 16384) { throw 'Trop de fichiers sourc ...
++                                       ~
+Missing closing '}' in statement block or type definition.
+
+At C:\DomeniaDev\src\spark-native\v2\tools\build-vm.ps1:72 char:15
++ if ($Publish) {
++               ~
+Missing closing '}' in statement block or type definition.
+vm.sh : compilation Debug en échec (lot spark-native).

@@ -1,0 +1,22 @@
+{
+  "id": "TRV-111",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/FleetBoardModels.cs:70 — record FleetPopulation(Machines, Enabled, Disabled, Unknown, Criteria, StoreId), commenté « The population every figure, click and export of a board refers to (point 2) » : décrit ce que chiffre/widget/export compte (critères + magasin)",
+    "src/Domenia.Core/Screens/Requetes/QueryWorkshop.cs:10,61,157-161 — record QueryPopulation(Domain, ScopeDn, ScopeLabel, Subtree, Target, TargetLabel, RecipeName, Fingerprint, DatasetVersion, …) commenté « described so that a figure is never compared with another population » ; le texte rendu couvre domaine, périmètre, profondeur (sous-OU/sans sous-OU), types (Target), critères (recette + empreinte) et instantané (version du jeu, date de calcul)",
+    "src/Domenia.Core/Screens/Accueil/FleetAnalysis.cs:69-75,159-163 — Compare(deux relevés) remet en ordre chronologique puis produit un FleetFactor par dimension et nomme chaque différence : « Périmètre », « Couverture », « Règles », « État observé », chacun avec statut (Inchangé/Modifié/Inconnu) et texte explicite (ex. « même nombre, composition différente (entrées et sorties) »)",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardModels.cs:94-97 — FleetFigures porte PopulationHash, AssessedHash, CoverageHash, PolicyHash : les populations sont comparées par empreinte, pas par seul compteur",
+    "src/Domenia.Core/Screens/Accueil/FleetAnalysis.cs:89-107,166-172 — garde-fou « description absente jamais présumée identique » : Missing() + Hash() renvoient « unknown » si une empreinte manque → facteur « Inconnu » → catégorie « Limitée » et sommation « un des relevés ne décrit pas sa population, sa couverture ou ses règles. Ne pas lire la variation du score comme un gain ou une dégradation du parc. »",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.cs:420 — Compare branché : return FleetAnalysis.Compare(a, b) ; src/Domenia.Bridge/Operations/AccueilOperations.cs:227-231 — opération accueil.analysis.compare (LocalRead) « Compare deux relevés : périmètre, couverture, règles et état observé. »",
+    "tests/Domenia.Tests/AccueilTests.cs:327-339 — test fonctionnel Analysis_compares_two_readings_and_crosses_dimensions : 4 facteurs « périmètre, couverture, règles, état » et refus snapshot.same (impossible de comparer un relevé à lui-même) ; src/Domenia.Core/Screens/Accueil/QueryWorkshop.cs:157-159 — le texte de population est généré à chaque aperçu",
+    "tests/Domenia.Tests/PlatformTests.cs:132-134 — accueil.analysis.compare / snapshots / pivots classés LocalRead (aucune écriture)"
+  ],
+  "manque": "Rien de bloquant. Deux branches précises ne sont pas exercées par un test dédié (elles sont présentes et prouvées dans le code) : (1) le chemin « empreinte de population/couverture/règles absente → catégorie Limitée, jamais présumée identique » (FleetAnalysis.cs:89-103,166-172) — le test n'exerce que le cas nominal et le refus same-à-soi ; (2) le contenu exact du descripteur QueryPopulation (domaine/profondeur/types/critères/instantané) est produit à l'aperçu (QueryWorkshop.cs:157-161) mais n'est pas assert champ par champ. Un test ciblant ces deux points renforcerait la couverture.",
+  "effort": "S",
+  "depend": [
+    "TRV-110 (états de mesure qui alimentent figures et compteurs)",
+    "atelier de requêtes (QueryWorkshop/QueryPopulation) et tableau de bord Accueil (FleetBoard)",
+    "pertinence : relevés du même périmètre (cf. comparateur Sync des relevés, SyncRulesTests)"
+  ],
+  "risque": "lecture"
+}

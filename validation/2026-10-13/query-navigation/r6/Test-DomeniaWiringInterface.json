@@ -1,0 +1,116 @@
+{
+    "Build":  "RC1.11.0-D120-interface-a",
+    "Suite":  "Raccordement D082/D085 (interface A)",
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell":  true,
+    "Wpf":  true,
+    "MockedNetwork":  true,
+    "LiveAD":  false,
+    "Expected":  20,
+    "Passed":  20,
+    "Failed":  0,
+    "Skipped":  0,
+    "Complete":  true,
+    "Tests":  [
+                  {
+                      "Name":  "D082 : les tailles reservees du XAML correspondent a la regle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D082 : Update-DomeniaAccessButton utilise la regle et ne deplace pas les voisins",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D082 : Update-DomeniaExperienceActivity utilise la regle et ne deplace pas les voisins",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D085 : Update-DomeniaSelectionReadUi appelle la regle et remplit une ligne et le ToolTip",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D085 : Reset-DomeniaSelectionBoundViews vide les vues inventaire/logiciels/WMI",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D085 : Enter-DomeniaSelectionContext arrete inventory/software/wmi et vide les vues",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D085 : Complete-DomeniaSoftwareUi ignore un resultat tardif d un autre DN",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FO-07 : la selection d un poste reprend sa derniere lecture de la session",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D085 : Complete-DomeniaInventoryUi ignore un resultat tardif d un autre DN",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D085 : une selection B vide les vues A et ignore un resultat tardif A",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D085 : LblSelectionReadState reste une ligne de 20 unites pendant les phases",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : Ctrl+L, menu Explorateur WMI et palette ne modifient jamais le profil enregistre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : retour en lecture seule apres le delai sans ecriture, jamais pendant une ecriture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : confirmation de sortie de lecture seule dans la page, sans fenetre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : titre de fenetre « Fiche · nom — Domenia », puce du sujet et desinscription",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : Fiche et Poste actives sans selection, avec une page vide sans reseau",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : badge AD injoignable depuis HH:MM puis retour seul, sans relance",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : ItemStatus « Page actuelle » et regions annoncees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : suggestions de la barre sans requete AD, Entree seule interroge l annuaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L08 : a 960, 1280 et 1360 la recherche garde 280, le menu suit le viewport utile, rien n est rogne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

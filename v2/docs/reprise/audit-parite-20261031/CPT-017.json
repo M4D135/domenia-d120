@@ -1,0 +1,27 @@
+{
+  "id": "CPT-017",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Inventory/WindowsCredentialVault.cs:22,61,73,116-125 — le coffre passe bien par les appels natifs CredReadW, CredWriteW, CredDeleteW (advapi32.dll), avec CredFree ; ligne 11 : Available seulement en annuaire réel sous Windows ; lignes 79-84 : refusé sous impersonation, « aucun accès effectué »",
+    "src/Domenia.Core/Screens/Accounts/Access/CredentialVault.cs:17-22 — clés « Domenia:v1: » compatibles Domenia 1 (domaine, usage, compte) ; ligne 18 : plafond 2 560 octets ; usages hors liste refusés",
+    "src/Domenia.Bridge/Operations/AccountsVaultOperations.cs:11-40 — accounts.vault.save est classé LocalWrite, exige un ticket à usage unique (CredentialVaultProofs.Take, ligne 20, lié à l'époque de session), enregistre chaque usage, et rend le compte rendu « n/m usage(s) enregistré(s) » en cas d'échec ou d'interruption (lignes 30-35) ; aucune écriture dans la base Domenia : seules mutations.Write/Delete sont appelées",
+    "src/Domenia.Bridge/Operations/AccountsVaultOperations.cs:41-60 — accounts.vault.delete n'oublie que les entrées du compte et des usages choisis, sans fermer la session ni toucher l'AD",
+    "src/Domenia.Bridge/Operations/AccountsCredentialEntry.cs:15 — aucun mot de passe accepté dans le message de la page : « La saisie du mot de passe utilise la fenêtre native » ; lignes 22-26 — coffre bloqué avec le motif « Ce compte a été refusé : saisissez le mot de passe corrigé. Le coffre ne sera pas réessayé automatiquement. » ; lignes 44-45 — l'usage Secrets couvre « Laps » et « BitLocker » en une seule saisie ; lignes 55-63 — la mémorisation n'est préparée qu'après un succès et pour le domaine authentifié",
+    "src/Domenia.App/Secrets/CredentialWindow.cs:8 — case « Mémoriser sur ce PC après validation » décochée par défaut ; lignes 94-100 — bouton « Utiliser le coffre Windows » et case activés seulement pour un compte validé avec des cibles (request.CanUseVault), sinon le motif est affiché ; lignes 132-141 — la lecture du coffre se fait sur un clic explicite, remplit le champ, puis « Cliquez sur Valider pour effectuer un seul essai d'authentification » ; ligne 150 — le secret n'est remis que si la case est cochée",
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1420-1424 — CanUseVaultAsync : un compte refusé bloque le coffre jusqu'à une nouvelle saisie",
+    "web/js/pages/comptes/acces.js:222 — en simulation la case « Mémoriser sur ce PC (coffre Windows) » est désactivée avec son motif ; lignes 497-504 — tiroir « Oublier dans le coffre Windows » appelant accounts.vault.delete ; ligne 170 — « Oublier dans le coffre… » sur la carte du compte de connexion",
+    "src/Domenia.Inventory/WindowsCredentialVault.cs — lecture unique du coffre dans tout le code source (seul appel vault.Read : src/Domenia.App/Secrets/CredentialWindow.cs:136) : jamais de lecture au démarrage ni en arrière-plan",
+    "tests/Domenia.Tests/CredentialVaultTests.cs:31 et 43 — clés identiques à Domenia 1 sans alias d'autorité ni d'usage, clés locales exigeant la machine exacte et refusant les usages inconnus",
+    "tests/Domenia.Tests/CredentialVaultTests.cs:53 et 70 — écriture soumise à une preuve fraîche à usage unique qui possède sa propre copie du secret ; une authentification ne peut pas autoriser un autre compte du coffre",
+    "tests/Domenia.Tests/CredentialVaultTests.cs:81 — coffre indisponible en simulation avant tout appel Windows ; ligne 99 — les routes LocalWrite refusent un lecteur sans capacité de mutation, avant d'accéder à la source ou au secret",
+    "tests/Domenia.Tests/CredentialVaultTests.cs:121 — disposition native et identité rendue vérifiées avant d'utiliser un blob ; ligne 137 — un mot de passe dans le message web est refusé avant même d'ouvrir la fenêtre native ; ligne 150 — aucune remise de mot de passe et seul le domaine confirmé peut être mémorisé"
+  ],
+  "manque": "Rien de bloquant, deux réserves vérifiées : (1) les appels Cred* eux-mêmes ne sont exercés que sous Windows — les tests couvrent les règles, les routes et la disposition, et le pilote E2E natif (tests/Domenia.E2E/Driver/NativeCredentialDriver.cs:7-9) pilote la fenêtre « Charger le compte poste » et jamais une invite d'identification Windows ; (2) « Oublier le mot de passe » n'est pas une case de la fenêtre native mais une action distincte de l'écran Comptes (web/js/pages/comptes/acces.js:497-504 → accounts.vault.delete), ce qui reste conforme au contrat « par gestes explicites seulement ».",
+  "effort": "S",
+  "depend": [
+    "CPT-006/CPT-012 (comptes des trois usages)",
+    "CPT-008 (ressaisie conseillée après correction du mot de passe)",
+    "SEC-xxx (Secrets : LAPS et BitLocker ensemble)"
+  ],
+  "risque": "ecriture-locale"
+}

@@ -1,0 +1,16 @@
+{
+  "id": "TRV-027",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:197-205 — RefusePendingUpdate teste .update.pending, Support/.update.pending, wad/.update.pending, wad/Support/.update.pending et lève « Une mise à jour interrompue est signalée. Conservez les sauvegardes et réextrayez un paquet vérifié dans un nouveau dossier avant de relancer Domenia. »",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:69 — refus appelé en tête de Verify, avant toute lecture de composant : aucun code mélangé n'est exécuté",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:110 — re-contrôle du marqueur après l'inspection de l'arbre",
+    "repo/v2/tests/Domenia.Tests/PackageIntegrityTests.cs:66-71 — Support/.update.pending bloque même l'ouverture sans manifeste requis",
+    "repo/v2/src/Domenia.App/PackageLifecycleCommand.cs:32 — commande « restaurer <cible> <transaction> <Confirmation> » (delivery.Recover) et ligne 31 « apercu-restauration »",
+    "repo/v2/docs/MISES-A-JOUR.md:21 — procédure de reprise/restauration documentée avec le dossier frère .<cible>.domenia-lifecycle et l'identifiant de transaction"
+  ],
+  "manque": "Le message de refus au démarrage (PackageIntegrity.cs:203) ne donne aucune commande de restauration : il renvoie uniquement à « réextrayez un paquet vérifié », alors que le garde-fou D1 exige de citer la commande de restauration de la sauvegarde nommée dans le marqueur (équivalents D2 : livraison apercu-restauration/restaurer ou reprendre). Le marqueur .update.pending n'est pas relu pour indiquer la transaction/la sauvegarde à restaurer ; la sauvegarde du code (dossier frère .domenia-lifecycle) n'est pas désignée dans le message.",
+  "effort": "S",
+  "depend": ["PackageLifecycle reprise/restauration (PackageLifecycleCommand.cs:31-32)"],
+  "risque": "ecriture-locale"
+}

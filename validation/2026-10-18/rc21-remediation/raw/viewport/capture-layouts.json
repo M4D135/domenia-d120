@@ -1,0 +1,310 @@
+[
+    {
+        "File":  "accueil.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "LblFleetScope",
+                             "X":  333,
+                             "Y":  199,
+                             "Width":  780,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetDashboard",
+                             "X":  245,
+                             "Y":  228,
+                             "Width":  1620,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetOuRefreshStatus",
+                             "X":  245,
+                             "Y":  368,
+                             "Width":  1620,
+                             "Height":  16,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetIndexScope",
+                             "X":  245,
+                             "Y":  328,
+                             "Width":  86,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshPostes",
+                             "X":  339,
+                             "Y":  328,
+                             "Width":  52,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshBoth",
+                             "X":  399,
+                             "Y":  328,
+                             "Width":  54,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshStop",
+                             "X":  461,
+                             "Y":  328,
+                             "Width":  67,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetDashboardRefresh",
+                             "X":  1710,
+                             "Y":  194,
+                             "Width":  113,
+                             "Height":  30,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "actualisation-ou.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "LblFleetScope",
+                             "X":  333,
+                             "Y":  199,
+                             "Width":  780,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetDashboard",
+                             "X":  245,
+                             "Y":  228,
+                             "Width":  1620,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetOuRefreshStatus",
+                             "X":  245,
+                             "Y":  368,
+                             "Width":  1620,
+                             "Height":  16,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetIndexScope",
+                             "X":  245,
+                             "Y":  328,
+                             "Width":  86,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshPostes",
+                             "X":  339,
+                             "Y":  328,
+                             "Width":  52,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshBoth",
+                             "X":  399,
+                             "Y":  328,
+                             "Width":  54,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshStop",
+                             "X":  461,
+                             "Y":  328,
+                             "Width":  67,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetDashboardRefresh",
+                             "X":  1710,
+                             "Y":  194,
+                             "Width":  113,
+                             "Height":  30,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "selecteur-ou.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "LblFleetScope",
+                             "X":  333,
+                             "Y":  199,
+                             "Width":  780,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetDashboard",
+                             "X":  245,
+                             "Y":  228,
+                             "Width":  1620,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetOuRefreshStatus",
+                             "X":  245,
+                             "Y":  368,
+                             "Width":  1620,
+                             "Height":  16,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetIndexScope",
+                             "X":  245,
+                             "Y":  328,
+                             "Width":  86,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshPostes",
+                             "X":  339,
+                             "Y":  328,
+                             "Width":  52,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshBoth",
+                             "X":  399,
+                             "Y":  328,
+                             "Width":  54,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshStop",
+                             "X":  461,
+                             "Y":  328,
+                             "Width":  67,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetDashboardRefresh",
+                             "X":  1710,
+                             "Y":  194,
+                             "Width":  113,
+                             "Height":  30,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-requetes.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  272,
+                             "Y":  315,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  284,
+                             "Y":  1017,
+                             "Width":  1558,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  284,
+                             "Y":  511,
+                             "Width":  1558,
+                             "Height":  496,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetScope",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  780,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetDashboard",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1620,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblFleetOuRefreshStatus",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1620,
+                             "Height":  16,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetIndexScope",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  86,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshPostes",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  52,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshBoth",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  54,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetRefreshStop",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  67,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnFleetDashboardRefresh",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  113,
+                             "Height":  30,
+                             "Visible":  false
+                         }
+                     ]
+    }
+]

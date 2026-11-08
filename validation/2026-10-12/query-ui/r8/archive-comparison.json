@@ -1,0 +1,13 @@
+{
+  "R7_SHA256": "b2a0e5cfe3a632a4385dcd497b02ca687e4ae50d2bd1709be19c348aed633ac0",
+  "R8_SHA256": "fd0fdfc6524843cd705252df82d50ffa34715af216fd8101ed2976cfb2322f0c",
+  "Added": [],
+  "Removed": [],
+  "Changed": [
+    "dev/wad/package-manifest.json",
+    "dev/wad/tests/Test-DomeniaBoards.ps1"
+  ],
+  "RuntimeFilesCompared": 151,
+  "RuntimeIdentical": true,
+  "CaptureReuse": "R7 true WPF captures retained; runtime is byte-identical."
+}

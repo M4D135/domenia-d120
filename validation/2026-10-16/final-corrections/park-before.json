@@ -1,0 +1,23 @@
+{
+    "Kind":  "ParkDetection",
+    "Expected":  2,
+    "Filter":  "Widget : sondes seules|MO-08 : la liste",
+    "Complete":  false,
+    "NativeWindowsPowerShell51":  true,
+    "LiveAD":  false,
+    "MockedNetwork":  true,
+    "Passed":  1,
+    "Failed":  1,
+    "Tests":  [
+                  {
+                      "Name":  "Widget : sondes seules, sans console ni ping, lancees au geste sous la limite ; poste deja mesure non contacte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "MO-08 : la liste est actualisee une fois par lot enregistre, jamais une fois par poste",
+                      "Status":  "Failed",
+                      "Detail":  "Evaluations du filtre pour un lot de 3 postes : 0 at Assert, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1: line 17\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1: line 576\r\nat Case, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1: line 19\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1: line 555"
+                  }
+              ]
+}

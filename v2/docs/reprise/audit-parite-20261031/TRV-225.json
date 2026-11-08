@@ -1,0 +1,17 @@
+{
+  "id": "TRV-225",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:126-153 — DescribeTechnical, commenté « folded technical text of the confirmation (TRV-225) » : une ligne par fait, replié sous le bouton « Détails techniques »",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:135-137 — cible (type + nom), DN, GUID ; :141 — compte (SAM) ; :143 — destinataire : Contrôleur (ou « non indiqué ») ; :144-145 — opérateur et mode",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:148-149 — chaque changement « attribut (type) : avant → après », « (vide) » pour valeur absente",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:152 — 12 premiers caractères de l'empreinte du plan",
+    "repo/v2/web/js/write-flow.js:528-529 — bouton « Détails techniques » replié affichant plan.details ; repo/v2/web/js/pages/operations/receipts.js:571-572 — mêmes détails repliés dans le reçu",
+    "repo/v2/src/Domenia.Core/Writes/WriteModels.cs:70 — secrets absents du plan (donc du texte de confirmation)",
+    "repo/v2/tests/Domenia.Tests/WriteCircuitTests.cs:226 — test : les détails techniques du plan contiennent bien « Empreinte du plan »"
+  ],
+  "manque": "Trois éléments de l'énoncé absents du texte replié : 1) la ligne « domaine » n'existe pas (le domaine n'apparaît qu'implícitement dans le DN, WritePlans.cs:136) ; 2) les effets annoncés ne sont pas dans le texte replié — les risques sont affichés à côté, dans la section « Points à vérifier avant de confirmer » (repo/v2/web/js/write-flow.js:515), pas dans plan.details ; 3) le garde-fou « retours à la ligne aplatis » n'est pas appliqué : les valeurs avant/après sont insérées telles quelles dans le texte d'une ligne (aucun aplatissement trouvé dans WritePlans.cs/WriteModels.cs).",
+  "effort": "S",
+  "depend": ["TRV-227"],
+  "risque": "lecture"
+}

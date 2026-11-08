@@ -1,0 +1,1 @@
+PASS Domenia Query adapters: 105 assertions; probes=78

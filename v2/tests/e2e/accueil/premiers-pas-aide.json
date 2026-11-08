@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : aide et premiers pas terminés",
+  "description": "En simulation, les quatre premiers pas sont faits : leur carte a disparu. Le « ? » de l’en-tête ouvre l’aide, qui réaffiche la carte pour la visite ; « Masquer » la retire de nouveau.",
+  "modes": ["simulation"],
+  "start": "accueil",
+  "steps": [
+    { "do": "wait", "selector": "[data-entry=\"fleet.machines\"]", "title": "Le tableau du parc est calculé" },
+    { "do": "expect", "selector": ".hero .stepper", "absent": true, "title": "Premiers pas terminés : carte absente" },
+    { "do": "click", "selector": ".hero .help-btn", "title": "Ouvrir l’aide de l’Accueil" },
+    { "do": "expect", "selector": ".acc-help", "title": "L’aide est ouverte" },
+    { "do": "click", "text": "Réafficher les premiers pas", "within": ".acc-help" },
+    { "do": "expect", "selector": ".hero .stepper", "title": "La carte des premiers pas est de retour" },
+    { "do": "expect", "contains": "Facultatif", "within": ".hero .stepper", "title": "La vérification facultative est hors du compte" },
+    { "do": "click", "text": "Masquer", "within": ".hero .stepper" },
+    { "do": "expect", "selector": ".hero .stepper", "absent": true, "title": "Carte retirée" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

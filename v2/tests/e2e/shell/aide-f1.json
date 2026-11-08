@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : panneau d’aide F1 et recherche dans le catalogue",
+  "description": "Ouvre le panneau d’aide avec F1, cherche « verrouill » dans les 820 sujets de Domenia 1, ouvre le premier sujet, vérifie le chapitre du guide de l’écran, puis referme le panneau avec Échap.",
+  "modes": ["simulation"],
+  "start": "accueil",
+  "steps": [
+    { "do": "press", "key": "F1", "title": "Ouvrir l’aide" },
+    { "do": "expect", "selector": ".sh-help:not([hidden])", "title": "Le panneau d’aide est ouvert" },
+    { "do": "expect", "contains": "Guide du technicien", "within": ".sh-help", "title": "Le chapitre du guide de l’Accueil est cité" },
+    { "do": "type", "selector": ".sh-help [data-help-q]", "text": "verrouill" },
+    { "do": "wait", "selector": ".sh-help .sh-help-results [data-topic]", "title": "Des sujets correspondent" },
+    { "do": "click", "selector": ".sh-help .sh-help-results [data-topic]", "nth": 0, "title": "Ouvrir le premier sujet" },
+    { "do": "expect", "contains": "erroui", "within": ".sh-help", "title": "Le texte du sujet est affiché" },
+    { "do": "shot", "name": "aide-sujet", "selector": ".sh-help" },
+    { "do": "press", "key": "Escape", "title": "Effacer la recherche" },
+    { "do": "press", "key": "Escape", "title": "Fermer le panneau" },
+    { "do": "expect", "selector": ".sh-help:not([hidden])", "absent": true, "title": "Le panneau est fermé" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

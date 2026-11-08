@@ -1,0 +1,135 @@
+{
+  "NativeParser": false,
+  "Passed": 32,
+  "Failed": 0,
+  "Results": [
+    {
+      "Path": "INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "Domenia.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/Domenia-Start.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/Domenia-Core.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "tools/Signer-Distribution.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/maintenance/Verifier-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/maintenance/Preview-DomeniaProgress.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/maintenance/Preview-DomeniaLogin.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/maintenance/Sauvegarder-Cache.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/maintenance/Preview-DomeniaUi.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/tests/Test-DomeniaCandidate.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/Support/Debloquer-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Reconcile.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Continuity.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Storage.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Guard.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Dossier.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Access.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Dossier.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Live.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Sessions.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Guard.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Accounts.Async.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Storage.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Continuity.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Support.UI.ps1",
+      "Passed": true
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "TRV-139",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Directory/DistinguishedName.cs:49-123 — Parse() lit un DN selon RFC 4514 : un antislash échappe le caractère suivant (ligne 84-100) ou deux chiffres hexadécimaux (ligne 90-95) qui sont empilés puis décodés, une virgule non échappée sépare les RDN (ligne 102-109) — la « virgule après un nombre pair de barres obliques » est couverte par la règle antislash-échappe-le-suivant",
+    "src/Domenia.Core/Directory/DistinguishedName.cs:197-205 — FlushBytes() décode les octets \\xx en UTF-8 (Encoding.UTF8.GetString) : « libellé décodé en UTF-8 pour l'affichage »",
+    "src/Domenia.Core/Directory/DistinguishedName.cs:133-148 — Parent(dn) renvoie le parent immédiat en sautant le caractère échappé (i++ sur antislash) puis à la première virgule libre ; IsWithin/Parse (158-174) s'appuient sur la structure des RDN, jamais sur un libellé d'affichage, pour délimiter le périmètre",
+    "src/Domenia.Core/Directory/AdValues.cs:8,23-31 — Never = long.MaxValue ; FromFileTime(long?) renvoie null pour 0, négatif, Never et au-delà de MaxFileTime : « 0 et max valent jamais » ; AdValues.cs:33 ToFileTime",
+    "src/Domenia.Ad/Ldap/AdContracts.cs:143-152 — AdEntry.String décode byte[] en UTF-8 (Encoding.UTF8.GetString) ; :154-160 Strings() lit toléramment une collection (membres) ; :162-164 Int()/Long() retournent null quand la valeur n'est pas lisible (une valeur non lue n'est jamais zéro) ; :169 Guid() = new Guid(byte[16]) sinon null ; :172-187 Sid() = new SecurityIdentifier(bytes,0).Value en « S-1-5-21-… », null si illisible ; :189-201 Time() parse l'heure généralisée en UTC",
+    "src/Domenia.Ad/AdDirectoryMapper.cs:68,99,141,179 — la conversion d'une entrée exige entry.Guid(\"objectGUID\") (et .Sid(\"objectSid\") pour les objets identifiés) : une entrée sans identité n'est pas convertie (rien n'est inventé pour une valeur absente)",
+    "src/Domenia.Core/Screens/Assistance/SupportSnapshot.cs:151-165 — Flat(text, maximum = 240) aplatit les blancs et borne à 240 caractères ; src/Domenia.Core/Screens/Relations/RelationRules.cs:961 — même aplatissement par Regex des blancs (équivalents de ConvertTo-DomeniaFlatText)",
+    "tests/Domenia.Tests/SimulationGeneratorTests.cs:89-93 — aller-retour DistinguishedName.Parent/Parse/Format avec une valeur à virgule échappée (« Le Gall, Anne ») ; :240,256,262 — AdValues.FromFileTime sur LockoutTime/PasswordExpiryComputed/LastLogonTimestamp"
+  ],
+  "manque": "Deux conversions décrites manquent réellement et un garde-fou n'est pas respecté à la lettre. (1) Get-DomeniaDnSite (site ou OU d'appartenance tiré d'un DN) n'existe pas : aucun code ne parse « …,CN=Sites,CN=Configuration,… » pour en extraire le site (grep « CN=Sites|Sites,|DnSite|SiteFromDn » sur src/ ne renvoie que des usages sans rapport, ex. ObjectWrites.cs:543 qui refuse une écriture sous CN=Configuration) ; le site ne provient que d'un attribut du contrôleur (src/Domenia.Core/Directory/SessionModels.cs:43 ControllerIdentity(...,Site), src/Domenia.Core/Directory/DirectoryModels.cs:13 DomainController). (2) Le « texte aplati borné à 240 caractères » n'est pas un utilitaire des valeurs AD : le seul Flat(...,240) est src/Domenia.Core/Screens/Assistance/SupportSnapshot.cs:151 (Assistance) et src/Domenia.Core/Screens/Relations/RelationRules.cs:961 ; rien n'aplatit les valeurs AD lues via AdEntry avant affichage. (3) Le garde-fou « un octet invalide reste visible tel quel » n'est pas honoré : AdEntry.String (AdContracts.cs:149), Strings (AdContracts.cs:158) et DistinguishedName.FlushBytes (DistinguishedName.cs:203) appellent Encoding.UTF8.GetString, qui remplace les séquences invalides par U+FFFD (caractère de remplacement) au lieu de conserver l'octet invalide brut (aucun DecoderFallback verbatim). Pas de test dédié pour les DN/AdValues hors SimulationGeneratorTests (ni Test-GuidText, ni aplat 240 appliqué à une valeur AD).",
+  "effort": "S",
+  "depend": [
+    "src/Domenia.Core/Directory/DistinguishedName.cs (parse/parent/échappements/UTF-8) et src/Domenia.Core/Directory/AdValues.cs (FILETIME) sont en place",
+    "src/Domenia.Ad/Ldap/AdContracts.cs AdEntry (Guid, Sid, String/Strings/Int/Long/Time) : ajout d'un décodage tolérant gardant l'octet invalide visible",
+    "un utilitaire partagé de texte aplati (240) à créer dans la couche valeurs et à brancher sur les valeurs AD affichées ; un extracteur site/OU depuis un DN (Get-DomeniaDnSite) à écrire"
+  ],
+  "risque": "lecture"
+}

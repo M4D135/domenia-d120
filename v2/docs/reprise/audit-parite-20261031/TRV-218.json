@@ -1,0 +1,18 @@
+{
+  "id": "TRV-218",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Machine/MachineAccountRules.cs:30 — HostPattern « ^[A-Za-z0-9][A-Za-z0-9-]{0,62}(\\.[A-Za-z0-9-]{1,63})*$ » : noms NetBIOS/DNS seuls, ni joker, ni liste, ni chemin, ni séparateur natif ; :99-108 — MachineKey ne retourne que le nom court issu de ce motif",
+    "repo/v2/src/Domenia.Bridge/Operations/MachineOperations.cs:246-255 — toute cible « target » est refusée si MachineKey est nul (« doit être un nom de poste »)",
+    "repo/v2/src/Domenia.Ad/Screens/AdMachineAccountReader.cs:13-21 — la cible doit correspondre exactement (DnsHostName, ou nom court sans point) à un poste de l'annuaire local, un seul candidat, sinon null",
+    "repo/v2/src/Domenia.Ad/Screens/AdAccountsAccessReader.cs:104 et :136 — sans poste connu de l'annuaire local, l'essai distant est refusé (« Choisissez un poste connu de l'annuaire local. »)",
+    "repo/v2/src/Domenia.Inventory/CimQuery.cs:16 et :35-41 — borne 253 caractères et jeu de caractères lettre/chiffre/-/. avant toute construction de chemin WMI ; options natives (\\ , / , : , port) refusées",
+    "repo/v2/src/Domenia.Inventory/TaskSchedulerConnection.cs:12, repo/v2/src/Domenia.Inventory/CimSession.cs:71, repo/v2/src/Domenia.Inventory/WmiWorkstationReader.cs:115 — chaque transport reposté revalide IsHostName avant l'appel natif",
+    "repo/v2/tests/Domenia.Tests/CimInventoryTests.cs:27-31 — test : « .. », « PC..local », « -PC », « PC/other », « PC\\root », « PC:445 » refusés, nom DNS valide accepté, aucun appel interdit ; repo/v2/tests/Domenia.Tests/MachineAccountTests.cs:47-48 — test : clé de poste normalisée, « pc par » refusé ; repo/v2/tests/Domenia.Tests/RelationsTests.cs:777 — test : nom de poste contrôlé à la porte du pont",
+    "repo/v2/web/js/pages/poste/picker.js:20 et :27 — la sélection de poste circule par dn et name issus des lignes d'annuaire (mémoire de page), jamais par le texte affiché d'un contrôle ; la cible est de toute façon recontrôlée côté serveur contre l'annuaire"
+  ],
+  "manque": "Rien de vérifiable : la chaîne de contrôle (motif, correspondance exacte avec l'annuaire local, borne 253 avant transport, revalidation par chaque transport natif) est en place et testée. La borne 253 s'applique à l'entrée du transport ; en amont, MachineKey accepte jusqu'à 255 caractères (MachineAccountRules.cs:102), mais une cible de 254-255 caractères ne peut exister dans l'annuaire et serait arrêtée au transport.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

@@ -1,0 +1,16 @@
+{
+  "id": "TRV-103",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:125-128 — la section Streaming existe avec VerifyUserOnSelection, RevalidateListedObjects, RevalidateIntervalSeconds, ReconcileSeconds, mais AUCUNE clé MaxUserProbes n'est déclarée (la description demande « Streaming.MaxUserProbes (1 à 3, défaut 2) »)",
+    "src/Domenia.Core/Screens/Search/SearchPolicy.cs:60-92 — seul le Streaming réellement lu : RevalidateListedObjects (faux par défaut, « rien ne part sur le réseau sans geste ») et RevalidateIntervalSeconds borné 30 à 600 (l.31-33) ; aucun budget de vérifications simultanées sur sélection",
+    "src/Domenia.Bridge/BridgeAdmission.cs:10 et 287-288 — ReservedForeground = 2 : les lectures de fond sont plafonnées à OrdinaryLimit-2 et NetworkLimit-2, deux places du moteur restent réservées aux actions interactives ; le hors-file n'est même pas mis en attente (l.66, « Moteur saturé ; cette demande n'est pas mise en attente »)",
+    "src/Domenia.Bridge/AdmissionGuards.cs:22-23 — rien en démonstration : NetworkRead refusé (simulation.unavailable) sauf opération explicitement servie par la source simulée",
+    "src/Domenia.Core/Execution/PhysicalWorkBudget.cs:12-51 — admission physique globale (ReadLimit 12, ExplicitLimit 13, WriteLimit 14) avec budgets par fournisseur (Cim 3, Wts 2, Storage 1) et places réservées aux écritures ; src/Domenia.Inventory/NativeReadClient.cs:47 — en contexte d'écriture, aucune nouvelle admission de lecture n'est prise",
+    "tests/Domenia.Tests/SearchOperationsTests.cs:450-460 — la revalidation sur liste ne s'active que par l'administrateur et l'intervalle hors limites est refusé"
+  ],
+  "manque": "Streaming.MaxUserProbes (1 à 3, défaut 2) n'existe nulle part : rg « MaxUserProbes » ne renvoie aucun résultat dans src, web et tests — aucune limite dédiée de vérifications simultanées sur la sélection (la seule concurrency existante est Collection.Concurrency 1 à 8 pour les relevés, SearchPolicy.cs:35-36). La règle « rien pendant une écriture ou une purge » n'est pas appliquée telle quelle : PhysicalWorkBudget.InWriteContext sert uniquement à ne pas prendre le budget adaptatif site (NativeReadClient.cs:47, WmiReadWorkers.cs:69) mais n'interdit pas les vérifications de fond pendant une écriture ni pendant la purge (aucun test de garde purge→vérifications trouvé).",
+  "effort": "M",
+  "depend": ["TRV-107 (budgets de lecture par source)", "réglages Streaming (SearchPolicy)"],
+  "risque": "lecture"
+}

@@ -1,0 +1,254 @@
+[
+    {
+        "Hwnd":  197592,
+        "Parent":  0,
+        "Id":  0,
+        "Class":  "#32770",
+        "Text":  "Choisir le nouveau fichier local de la base restaurée"
+    },
+    {
+        "Hwnd":  263038,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "DUIViewWndClassName",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  197528,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "DirectUIHWND",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  131938,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "FloatNotifySink",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  131940,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "ComboBox",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  525244,
+        "Parent":  197592,
+        "Id":  1001,
+        "Class":  "Edit",
+        "Text":  "[edit]"
+    },
+    {
+        "Hwnd":  131930,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "CtrlNotifySink",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  131932,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "NamespaceTreeControl",
+        "Text":  "Namespace Tree Control"
+    },
+    {
+        "Hwnd":  132032,
+        "Parent":  197592,
+        "Id":  100,
+        "Class":  "SysTreeView32",
+        "Text":  "Navigation Pane"
+    },
+    {
+        "Hwnd":  131934,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "CtrlNotifySink",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  131994,
+        "Parent":  197592,
+        "Id":  1121,
+        "Class":  "SHELLDLL_DefView",
+        "Text":  "ShellView"
+    },
+    {
+        "Hwnd":  131996,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "DirectUIHWND",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  525228,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "FloatNotifySink",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  525226,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "ComboBox",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  720924,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "ToolbarWindow32",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  589856,
+        "Parent":  197592,
+        "Id":  1,
+        "Class":  "Button",
+        "Text":  "\u0026Save"
+    },
+    {
+        "Hwnd":  459592,
+        "Parent":  197592,
+        "Id":  2,
+        "Class":  "Button",
+        "Text":  "Cancel"
+    },
+    {
+        "Hwnd":  786458,
+        "Parent":  197592,
+        "Id":  -1,
+        "Class":  "ScrollBar",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  1114622,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "WorkerW",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  917696,
+        "Parent":  197592,
+        "Id":  40965,
+        "Class":  "ReBarWindow32",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  1179822,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "TravelBand",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  590310,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "ToolbarWindow32",
+        "Text":  "Navigation buttons"
+    },
+    {
+        "Hwnd":  721022,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "UpBand",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  1049092,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "ToolbarWindow32",
+        "Text":  "Up band"
+    },
+    {
+        "Hwnd":  131960,
+        "Parent":  197592,
+        "Id":  41477,
+        "Class":  "Address Band Root",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  131962,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "msctls_progress32",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  197508,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "Breadcrumb Parent",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  197506,
+        "Parent":  197592,
+        "Id":  1001,
+        "Class":  "ToolbarWindow32",
+        "Text":  "Address: C:\\DomeniaLab\\d120-rc11717-live\\storage-ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups"
+    },
+    {
+        "Hwnd":  197514,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "ToolbarWindow32",
+        "Text":  "Address band"
+    },
+    {
+        "Hwnd":  131956,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "SeparatorBand",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  131958,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "UniversalSearchBand",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  132008,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "Search Box",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  132006,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "SearchEditBoxWrapperClass",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  132004,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "DirectUIHWND",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  132002,
+        "Parent":  197592,
+        "Id":  0,
+        "Class":  "SeparatorBand",
+        "Text":  ""
+    },
+    {
+        "Hwnd":  852402,
+        "Parent":  0,
+        "Id":  0,
+        "Class":  "HwndWrapper[DefaultDomain;Pipeline Execution Thread;9b1bbc57-7001-48d4-9842-fd1c2ca3809f]",
+        "Text":  "Outils · Aucune sélection — Domenia"
+    }
+]

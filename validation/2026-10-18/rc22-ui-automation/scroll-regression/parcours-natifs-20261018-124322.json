@@ -1,0 +1,124 @@
+{
+    "Kind":  "DomeniaGuiJourneyQualification",
+    "Qualifying":  false,
+    "Target":  "Preview",
+    "Verdict":  {
+                    "Status":  "Partiel",
+                    "Qualified":  false,
+                    "Text":  "Passage partiel : defilement exécuté(s) ; navigation, fenetres, operations non exécuté(s). Seul un passage de tous les parcours qualifie."
+                },
+    "Journeys":  {
+                     "Defined":  [
+                                     "navigation",
+                                     "defilement",
+                                     "fenetres",
+                                     "operations"
+                                 ],
+                     "Selected":  [
+                                      "defilement"
+                                  ],
+                     "NotRun":  [
+                                    "navigation",
+                                    "fenetres",
+                                    "operations"
+                                ]
+                 },
+    "Environment":  {
+                        "Computer":  "FILPRO-W11B",
+                        "Domain":  "cnamts.local",
+                        "Session":  1,
+                        "Screen":  "1920x1440",
+                        "WorkingArea":  "1920x1392",
+                        "PowerShell":  "5.1.26100.6584",
+                        "OS":  "Microsoft Windows NT 10.0.26200.0"
+                    },
+    "SimulatedEvents":  {
+                            "Note":  "Événements envoyés par ce programme (UI Automation et SendInput) : ils ne valent pas un parcours humain.",
+                            "Passed":  7,
+                            "Failed":  0,
+                            "Steps":  [
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  901
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  2,
+                                              "Action":  "Cliquer sur WsSearch",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Clic souris en 110,191",
+                                              "DurationMs":  1008
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  3,
+                                              "Action":  "Vérifier DgObjects",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Contrôle présent, IsEnabled=True",
+                                              "DurationMs":  69
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  4,
+                                              "Action":  "Molette sur DgObjects : -6 cran(s)",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Défilement vertical 0 % → 100 %",
+                                              "DurationMs":  697
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  5,
+                                              "Action":  "Touches : Ctrl+Home",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Touches : Ctrl+Home",
+                                              "DurationMs":  371
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  6,
+                                              "Action":  "Molette sur DgObjects : 3 cran(s)",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Défilement vertical 100 % → 0 %",
+                                              "DurationMs":  618
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  7,
+                                              "Action":  "Capture grille (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Capture 1920×1080, aucune infobulle",
+                                              "DurationMs":  962
+                                          }
+                                      ]
+                        },
+    "Captures":  [
+                     {
+                         "Journey":  "defilement",
+                         "Name":  "grille",
+                         "Path":  "C:\\Windows\\Temp\\Domenia-RC21-Completion\\gui-accessible\\captures\\defilement-grille.png",
+                         "Width":  1920,
+                         "Height":  1080,
+                         "Tooltips":  0,
+                         "Sha256":  "373DDC715B6FE105D92E0B80F63E4BD4FD25A7E19E65778D0FE1E2534C90B947",
+                         "Valid":  true,
+                         "Reasons":  [
+
+                                     ]
+                     }
+                 ],
+    "HumanJourney":  {
+                         "Status":  "NonRelevé",
+                         "Note":  "Aucun relevé humain fourni (-HumanRecord) : le parcours à la main reste à faire."
+                     }
+}

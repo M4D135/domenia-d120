@@ -1,0 +1,38 @@
+{
+  "id": "TRV-313",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Shell/ShellInterface.cs:18 — clé de préférences du moteur BoardsKey = \"shell.boards\" (disposition par tableau enregistrée dans les préférences)",
+    "src/Domenia.Core/Screens/Shell/BoardLayoutHistory.cs:19 — MaxVersions = 5 ; ligne 61 la version précédente est poussée dans l'historique borné à 5 (cinq versions restaurables)",
+    "web/js/shell/store.js:209 — setBoard écrit le document de disposition dans localStorage sous « domenia.board.v1:<tableau> » (copie de secours du profil WebView2)",
+    "web/js/shell/store.js:218-222 — readBoard : moteur d'abord, puis copie du profil WebView2 quand le moteur n'a pas répondu",
+    "web/js/shell/board.js:422-424 — tant que state.engineRead est faux le tableau affiche la disposition livrée et ne sauvegarde jamais (commentaire : « a stored layout is never overwritten by the delivered one »)",
+    "web/js/shell/board.js:496-505 — arrivée tardive de la disposition enregistrée : adoptée seulement si l'opérateur n'a rien changé (« if (gestured) return; »)",
+    "web/js/shell/board.js:246-247 — version 1 acceptée comme liste simple (Domenia 1 Dashboard.<Board>.Layout) ; « [] » = tableau vidé volontairement, history vide, customized vrai",
+    "web/js/shell/board.js:90-118 — cleanLayout : widgets hors catalogue retirés (« if (!c) return; »), visual ramené à un visuel autorisé, taille ramenée à SIZES, identifiants invalides ou dupliqués régénérés de façon déterministe « prefix-clé-position »",
+    "web/js/shell/board.js:97 — clés de Domenia 1 traduites par legacyKeys (« DiskSpace » → « disk.free »)",
+    "web/js/shell/board.js:217 — Paused écrit seulement si vrai : « ...(i.paused ? { Paused: true } : {}) »",
+    "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.cs:102-111 — clé « Dashboard.<Board>.Layout » cherchée en premier, puis repli sur « Widgets.<Board> » pour Fleet et Computer seulement (legacy = vrai)",
+    "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.cs:145-152 — identifiants manquants ou dupliqués remplacés par « w-<SHA-256 de la clé sur 12>-<position> », suffixe incrémental (déterministe)",
+    "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.cs:154-156 — Paused non booléen refusé ; ligne 158 Paused repris seulement si JsonValueKind.True",
+    "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.cs:159-160 — widget absent du catalogue D2 = refus, « disposition entière conservée sans importation partielle »",
+    "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.Delivered.cs:14-20 — empreintes SHA-256 des dispositions livrées D1 : Fleet 17 (legacy et paire score/points), Computer 42 (avant W11) et 44 (après W11)",
+    "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.Delivered.cs:30-38 — remplacement par la disposition livrée actuelle seulement si Source = Builtin, titre vide et aucune pause : une disposition modifiée par l'opérateur n'est jamais reconnue donc jamais remplacée",
+    "src/Domenia.Core/Screens/Shell/LegacyBoardLayouts.cs:31 — commentaire explicite : « D1 settings, not a SQLite table »",
+    "src/Domenia.Store/Preferences/LegacyBoardLayoutFile.cs:44-47 — les seuls emplacements candidats sont des fichiers JSON (Domenia.settings.json, ADCC.settings.json, variantes .bak) ; aucun chemin de base SQLite",
+    "src/Domenia.Store/Preferences/LegacyBoardLayoutFile.cs:153-176 — Qualify refuse lecteur réseau, repoint et ancêtres redirigés ; lecture bornée (MaxBytes) et re-vérification d'empreinte avant import (lignes 111-117)",
+    "tests/Domenia.Tests/LegacyBoardMigrationTests.cs:41 — Empty_dashboard_is_explicit_and_never_falls_back_to_legacy_widgets (garde-fou « [] » testé)",
+    "tests/Domenia.Tests/LegacyBoardMigrationTests.cs:83 — Missing_and_duplicate_identifiers_are_stable_and_distinct (identifiants déterministes testés)",
+    "tests/Domenia.Tests/LegacyBoardMigrationTests.cs:137 — Source_discovery_respects_portable_and_user_local_roots_without_database_access",
+    "web/js/shell/board.js:304-306 — placeholderOf : widget sans chiffre annoncé (suspendu, en collecte, absent de la dernière lecture) ; jamais une mesure",
+    "tests/web/board-history.test.mjs:11-12 — tableau Poste réel : historique relu (items d'une version), aperçu puis restauration, annuler/rétablir"
+  ],
+  "manque": "La reprise des clés « Dashboard.<Board>.Layout » et « Widgets.<Board> » depuis la base SQLite de Domenia 1 (schéma 11) n'existe nulle part : LegacyBoardLayoutFile ne lit que des fichiers JSON de préférences (lignes 44-47) et LegacyBoardLayouts.cs:31 l'assume explicitement (« not a SQLite table »). Un opérateur dont la disposition ne vit que dans Domenia.db reçoit l'état « absent » avec le résumé « Aucune disposition D1 enregistrée. » (LegacyBoardLayouts.cs:114) et aucune épreuve de ce chemin n'existe dans les tests. Le reste de la fiche (shell.boards, cinq versions, copie WebView2, adoption avant réponse du moteur, liste version 1, legacyKeys, nettoyage, garde-fous « [] », Paused, widget sans donnée) est en place et testé.",
+  "effort": "M",
+  "depend": [
+    "TRV-265",
+    "TRV-260",
+    "PAR-028"
+  ],
+  "risque": "ecriture-locale"
+}

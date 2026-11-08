@@ -1,0 +1,3 @@
+# Preserve original Windows evidence bytes.
+raw/* -text -whitespace
+harness/* -text

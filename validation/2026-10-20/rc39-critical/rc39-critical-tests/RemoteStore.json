@@ -1,0 +1,143 @@
+{
+    "Suite":  "RemoteStore",
+    "Passed":  true,
+    "Total":  34,
+    "Checks":  [
+                   {
+                       "Name":  "WMI-only skips ICMP and shares ComputerSystem read",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Console failure does not prevent inventory",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Inventory can run without console request",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Catalog probes share one class call and one session",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Console, inventory and same-class probes share their reads; avoided queries are counted",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "A joined read refused as invalid falls back to the console read; the probe keeps its own failure",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Controller check reuses the system type of the inventory read",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Each finished CIM query advances the progress channel of a campaign",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "The ping step leaves its answer in the progress channel of a campaign",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "The pinned body carries the CIM grouping rule itself, with no prelude added at run time",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Probe groups use their bounded timeout and the longest requested consumer budget",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Authentication refusal stops remaining CIM calls on the same host",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Ping-only never opens CIM or creates console freshness",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Source observations preserve independent family dates",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Rejected identity and missing source time cannot enter the writer",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Probe schema hash changes when the query definition changes",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Admission does not publish; callback uses canonical SQL SELECT only",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Backpressure retains immutable batch identity and contents",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Storage failure and false receipt never publish values",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Committed old account/session cannot publish into new UI context",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Cancellation suppresses publication without invalidating captured persistence context",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "A failed detail read publishes committed AttemptData instead of old success",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Wrong detail key is refused before renderer",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Classic projection preserves required software fields and excludes secret WMI rows",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Classic renderer fence rejects same DN replaced by a new GUID",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Generated worker parses: Get-DomeniaInventoryWorkerCode",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Generated worker parses: Get-DomeniaSoftwareWorkerCode",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Generated worker parses: Get-DomeniaWmiNamespacesWorkerCode",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Generated worker parses: Get-DomeniaWmiClassesWorkerCode",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Generated worker parses: Get-DomeniaWmiQueryWorkerCode",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "WMI class source timestamp survives its early success return",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "WMI class bad credential stops before PsExec/task fallback",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Failed classic collection records attempt without replacing the valid view",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Classic error renderer is fenced after selecting another object",
+                       "Passed":  true
+                   }
+               ]
+}

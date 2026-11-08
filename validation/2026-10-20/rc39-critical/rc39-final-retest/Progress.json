@@ -1,0 +1,108 @@
+[
+  {
+    "Test": "TreeRendering",
+    "ExitCode": 0,
+    "TimedOut": false,
+    "ElapsedMs": 6601,
+    "SourceSha256": "8D068A8EB42BD22F62CD18528AD18CCAD2035342EB63FD35DD384B1782EFAC45",
+    "Arguments": [
+      "-ReportPath",
+      "C:\\DomeniaLab\\RC35-qualification\\rc39-final-retest\\TreeRendering.json"
+    ]
+  },
+  {
+    "Test": "TreeVirtualization",
+    "ExitCode": 1,
+    "TimedOut": false,
+    "ElapsedMs": 51024,
+    "SourceSha256": "D58566D45E02A317B201E3CA6953E91B85102D0EB06704155A6197B4F7CA7F1A",
+    "Arguments": [
+      "-ReportPath",
+      "C:\\DomeniaLab\\RC35-qualification\\rc39-final-retest\\TreeVirtualization.json"
+    ]
+  },
+  {
+    "Test": "LocalPreview",
+    "ExitCode": 0,
+    "TimedOut": false,
+    "ElapsedMs": 16746,
+    "SourceSha256": "E3BAA255084B78C1952A1A021D71E14A30D19E75CFA5899532709EE60E650A78",
+    "Arguments": [
+      "-ReportPath",
+      "C:\\DomeniaLab\\RC35-qualification\\rc39-final-retest\\LocalPreview.json"
+    ]
+  },
+  {
+    "Test": "QueryTargets",
+    "ExitCode": 0,
+    "TimedOut": false,
+    "ElapsedMs": 9690,
+    "SourceSha256": "AF9419EB34930FC611DFEF8989B160572BC9B6E3116D8BD56868E40E9FBA518E",
+    "Arguments": [
+      "-ReportPath",
+      "C:\\DomeniaLab\\RC35-qualification\\rc39-final-retest\\QueryTargets.json"
+    ]
+  },
+  {
+    "Test": "Boards",
+    "ExitCode": 0,
+    "TimedOut": false,
+    "ElapsedMs": 14408,
+    "SourceSha256": "640778A9EF13B36DA54C64A2059D978014BD740405484D9309CE621D9E57684F",
+    "Arguments": [
+      "-Filter",
+      "Programme 38",
+      "-ReportPath",
+      "C:\\DomeniaLab\\RC35-qualification\\rc39-final-retest\\Boards.json"
+    ]
+  },
+  {
+    "Test": "Navigation",
+    "ExitCode": 0,
+    "TimedOut": false,
+    "ElapsedMs": 9937,
+    "SourceSha256": "3D792BED9B6BDA28AA6D9F33E4459E018AD239CF1774B49A5F266D9C8BCE9C05",
+    "Arguments": [
+      "-Filter",
+      "Programme 8",
+      "-ReportPath",
+      "C:\\DomeniaLab\\RC35-qualification\\rc39-final-retest\\Navigation.json"
+    ]
+  },
+  {
+    "Test": "WiringRecherche",
+    "ExitCode": 1,
+    "TimedOut": false,
+    "ElapsedMs": 54908,
+    "SourceSha256": "E8726438ADC84F96DE239E53201DB5A85E2245BFAA620325EBAD1230B73A910A",
+    "Arguments": [
+      "-Filter",
+      "FO-04|UI-16|DS-07|CO-21|D032|D039",
+      "-ReportPath",
+      "C:\\DomeniaLab\\RC35-qualification\\rc39-final-retest\\WiringRecherche.json"
+    ]
+  },
+  {
+    "Test": "Rules-Park",
+    "ExitCode": 0,
+    "TimedOut": false,
+    "ElapsedMs": 2550,
+    "SourceSha256": "B8483A076AFA489C3A880D31469D793E9AB0BF9D28144558B88592633F6F2543",
+    "Arguments": [
+      "-TestFileFilter",
+      "Park.Tests.ps1",
+      "-ReportPath",
+      "C:\\DomeniaLab\\RC35-qualification\\rc39-final-retest\\Rules-Park.json"
+    ]
+  },
+  {
+    "Test": "FinalStartupIntegrity",
+    "ExitCode": 0,
+    "TimedOut": false,
+    "ElapsedMs": 19568,
+    "SourceSha256": "72D583EA58F7DC81AD9592ED7D0E6E3B5C270F8C1B7FBF7305DBB986BA5F78D9",
+    "Arguments": [
+      "-CheckOnly"
+    ]
+  }
+]

@@ -1,0 +1,23 @@
+{
+    "Kind":  "ParkDetection",
+    "Expected":  2,
+    "Filter":  "RC11711",
+    "Complete":  false,
+    "NativeWindowsPowerShell51":  true,
+    "LiveAD":  false,
+    "MockedNetwork":  true,
+    "Passed":  1,
+    "Failed":  1,
+    "Tests":  [
+                  {
+                      "Name":  "RC11711 : nettoyage après timeout et moteur saturé attendent sans arrêter ni perdre le poste suivant",
+                      "Status":  "Failed",
+                      "Detail":  "Lot arrêté ou poste perdu pendant nettoyage : Limite physique atteinte : des workers restent actifs ou en nettoyage. at Assert, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1: line 17\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1: line 1044\r\nat Case, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1: line 19\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1: line 1034"
+                  },
+                  {
+                      "Name":  "RC11711 : le timeout WMI est enregistré et le poste suivant est traité",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

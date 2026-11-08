@@ -1,0 +1,110 @@
+﻿[
+    {
+        "Value":  "Ready",
+        "ElapsedMs":  27.59,
+        "Utc":  "2026-10-20T18:17:45.8009854Z",
+        "MaxPollingGapMs":  8
+    },
+    {
+        "Value":  "AfterIdle1|Start",
+        "ElapsedMs":  81901.71,
+        "Utc":  "2026-10-20T18:19:07.6693938Z",
+        "MaxPollingGapMs":  362
+    },
+    {
+        "Value":  "AfterIdle1|Login",
+        "ElapsedMs":  107795.94,
+        "Utc":  "2026-10-20T18:19:33.5637281Z",
+        "MaxPollingGapMs":  295
+    },
+    {
+        "Value":  "AfterIdle1|Main",
+        "ElapsedMs":  225216.43,
+        "Utc":  "2026-10-20T18:21:30.9832210Z",
+        "MaxPollingGapMs":  312
+    },
+    {
+        "Value":  "AfterIdle1|Done",
+        "ElapsedMs":  261138.09,
+        "Utc":  "2026-10-20T18:22:06.9059338Z",
+        "MaxPollingGapMs":  300
+    },
+    {
+        "Value":  "BeforeIdle1|Start",
+        "ElapsedMs":  287577.32,
+        "Utc":  "2026-10-20T18:22:33.3452164Z",
+        "MaxPollingGapMs":  300
+    },
+    {
+        "Value":  "BeforeIdle1|Login",
+        "ElapsedMs":  319933.46,
+        "Utc":  "2026-10-20T18:23:05.7003701Z",
+        "MaxPollingGapMs":  313
+    },
+    {
+        "Value":  "BeforeIdle1|Main",
+        "ElapsedMs":  419402.19,
+        "Utc":  "2026-10-20T18:24:45.1698555Z",
+        "MaxPollingGapMs":  313
+    },
+    {
+        "Value":  "BeforeIdle1|Done",
+        "ElapsedMs":  462015.91,
+        "Utc":  "2026-10-20T18:25:27.7837445Z",
+        "MaxPollingGapMs":  313
+    },
+    {
+        "Value":  "BeforeIdle2|Start",
+        "ElapsedMs":  513126.58,
+        "Utc":  "2026-10-20T18:26:18.8945635Z",
+        "MaxPollingGapMs":  299
+    },
+    {
+        "Value":  "BeforeIdle2|Login",
+        "ElapsedMs":  543418.73,
+        "Utc":  "2026-10-20T18:26:49.1864610Z",
+        "MaxPollingGapMs":  317
+    },
+    {
+        "Value":  "BeforeIdle2|Main",
+        "ElapsedMs":  641434.87,
+        "Utc":  "2026-10-20T18:28:27.2022009Z",
+        "MaxPollingGapMs":  312
+    },
+    {
+        "Value":  "BeforeIdle2|Done",
+        "ElapsedMs":  679809.54,
+        "Utc":  "2026-10-20T18:29:05.5766536Z",
+        "MaxPollingGapMs":  312
+    },
+    {
+        "Value":  "AfterIdle2|Start",
+        "ElapsedMs":  722093.17,
+        "Utc":  "2026-10-20T18:29:47.8608836Z",
+        "MaxPollingGapMs":  313
+    },
+    {
+        "Value":  "AfterIdle2|Login",
+        "ElapsedMs":  745809.61,
+        "Utc":  "2026-10-20T18:30:11.5773571Z",
+        "MaxPollingGapMs":  313
+    },
+    {
+        "Value":  "AfterIdle2|Main",
+        "ElapsedMs":  833966.41,
+        "Utc":  "2026-10-20T18:31:39.7340767Z",
+        "MaxPollingGapMs":  306
+    },
+    {
+        "Value":  "AfterIdle2|Done",
+        "ElapsedMs":  1087792.71,
+        "Utc":  "2026-10-20T18:35:53.5609292Z",
+        "MaxPollingGapMs":  331
+    },
+    {
+        "Value":  "Complete",
+        "ElapsedMs":  1088228.78,
+        "Utc":  "2026-10-20T18:35:53.9956692Z",
+        "MaxPollingGapMs":  109
+    }
+]

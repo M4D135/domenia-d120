@@ -1,0 +1,24 @@
+{
+  "id": "TRV-190",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:356 — Contract(probe) construit et vérifie le contrat Domenia.ProbeContract/1 d'une sonde (commentaire ligne 355 cite ConvertTo/Test-DomeniaProbeContract)",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:352 — espaces de noms refusés : root\\subscription, root\\directory\\LDAP, root\\RSOP (+Computer/User), root\\default, root\\security",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:457 — classe refusée si CimReadSafety.MsiProviderClasses (Win32_Product/CIM_Product, ~90 classes, Platform/CimReadSafety.cs:10) ou DeniedClasses (Win32_ReliabilityRecords, ligne 351)",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:461 — Win32_UserAccount/Group/GroupUser exigent LocalAccount=TRUE (regex ligne 613) ou SkipOnDc",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:469-479 — propriétés bornées 1 à 64, filtre ≤ 512 caractères, jeu de caractères admis (FilterPattern ligne 616)",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:481-490 — seuls jetons {SINCE_24H}/{SINCE_7D} admis, jeton inconnu ou incomplet refusé",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:491-502 — chaque propriété doit avoir un type déclaré (Kind Text/Number/Boolean/Timestamp), doublons refusés",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:438-440 — comportement refusé si Writes, Code != Aucun, méthodes non vides, cible absente ; lecture CIM seule exigée",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:429-433 — privilège et coût obligatoirement décrits ; coût Lourd refuse sans collecte explicite (Slow)",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:619-620 — SourcePattern n'admet que learn.microsoft.com et github.com/microsoft|MicrosoftDocs",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:404-425 — tests attendus générés (Projection, Inconnu, Refus, Troncature, Contrôleur, Fenêtre, Correspondance)",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.Loading.cs:605-608 — Test-DomeniaProbeCatalogContracts : le chargement du catalogue lève si un contrat est invalide",
+    "repo/v2/tests/Domenia.Tests/ProbeDeclarationTests.cs:31-39 — test : tout le catalogue embarqué passe Contract() et les déclarations personnalisées ne déduisent ni privilège ni coût de la classe",
+    "repo/v2/tests/Domenia.Tests/CimReadSafetyTests.cs:24 — test : le contrat Accueil refuse les classes du fournisseur MSI"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

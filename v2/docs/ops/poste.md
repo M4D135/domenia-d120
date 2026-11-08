@@ -1,0 +1,614 @@
+# Écran « Poste » — opérations, écritures et mode annuaire
+
+Console d’un poste de travail (Domenia 1 : onglets Poste, Tableau du poste, Administration, Sessions, Services,
+Inventaire, Logiciels, Santé, WMI, Sécurité). Module `PosteOperations` (`Domenia.Bridge/Operations/PosteOperations*.cs`),
+lecteur `IPosteReader` (`Domenia.Core/Screens/Poste/IPosteReader.cs`), lecteur simulé
+`SimulatedPosteReader` (`Domenia.Simulation/Screens/Poste/`), écritures `Domenia.Core/Writes/Poste/` et
+`Domenia.Simulation/Writes/Poste/`, services de l’hôte `Domenia.App/Poste/` (§ 6), page `web/js/pages/poste.js` et
+`web/js/pages/poste/*.js`, styles `web/css/pages/poste.css`. Fonctions de Domenia 1 : `PST-001` à `PST-117`
+(`docs/features.json`), état dans `docs/status/poste.json`.
+
+## 1. Principes
+
+- **Lecture seule par défaut.** `poste.open` ne lit que la base locale (fiche de l’annuaire, observations enregistrées,
+  dernier inventaire) : aucune sonde réseau, aucun ping. Chaque lecture réseau part d’un geste (bouton, ouverture depuis
+  la liste pour le seul ping de vérification et, si l’option est cochée, l’utilisateur connecté, PST-051), vise **un seul
+  poste**, est bornée dans le temps et peut être arrêtée par type (`poste.collect.stop`).
+- **Jamais tout le domaine.** Les listes (`poste.list`, `poste.groups.search`, `poste.secrets.index`) portent sur l’OU de
+  travail ou la base locale, bornées (1 000 postes, 50 groupes, 50 000 postes pour l’index). Aucune opération de l’écran
+  ne parcourt le domaine.
+- **Écritures par le circuit** (`docs/WRITES.md`) : `poste.<verbe>.plan` (une lecture) prépare un plan scellé, la page le
+  montre, l’opérateur confirme (nom tapé pour les gestes dangereux), `write.execute` enregistre le reçu, envoie, relit.
+  Rien n’est rejoué automatiquement ; un jeton ne sert qu’une fois.
+- **Données honnêtes.** Chaque valeur est un `PosteFact` : valeur, état (`observed`, `estimated`, `refused`,
+  `unavailable`, `unknown`), source, limite, conseil et date. Un refus ou une lecture partielle n’est jamais présenté
+  comme « aucun » ; une mesure inconnue vaut `null` ; un contrôle non lu est « Non lu », jamais « Rien à signaler ».
+- **Aucun secret dans la page ni dans un journal.** Les valeurs LAPS et BitLocker ne passent que par la fenêtre
+  sécurisée de l’hôte (§ 6) : jamais dans une réponse du pont, le journal des opérations, le journal technique, un reçu ou
+  un export. Les arguments d’un programme lancé à distance ne sont gardés ni dans le plan ni dans le reçu (empreinte et
+  longueur seulement, PST-028).
+
+## 2. Routes de la page
+
+`#/poste` affiche le choix d’un poste (liste de l’OU de travail, recherche locale, filtres, postes ouverts récemment
+gardés dans la mémoire de la page, jamais sur le disque ni avec un nom d’utilisateur). `#/poste?dn=…` ou
+`#/poste?nom=PC-PAR-0001` ouvre la console. Paramètres :
+
+| Paramètre | Valeurs | Effet |
+|---|---|---|
+| `vue` | `ensemble`, `inventaire`, `diagnostic`, `releves`, `intervenir`, `secrets` | Vue ouverte. |
+| `onglet` | noms de Domenia 1 (`TabWmi`, `TabSoftware`, `TabSessions`, `TabComputerServices`, `TabSecurity`…) et onglets internes (`materiel`, `logiciels`, `services`, `processus`, `sessions`, `reseau`, `rapide`, `lent`, `evenements`, `wmi`, `jonction`) | Vue et onglet (PST-048). |
+| `panneau` | `postes`, `redemarrer`, `executer`, `groupe`, `deplacer`, `fiche` | Ouvre un panneau ; `executer` exige l’autorisation d’intervention. |
+| `verifier` | `1` | Ouverture depuis la liste : un seul ping (et l’état en direct si l’option `openReadsConsole` est cochée), puis le paramètre est retiré de l’adresse. |
+| `essai` | `inventaire`, `logiciels`, `services`, `processus`, `sessions`, `diagnostic`, `rapide`, `lent`, `evenements`, `wmi`, `sondes`, `laps`, `bitlocker`, `index`, `live`, `detection`, `connexions` | **Simulation seulement** : lance une lecture pour les captures et les guides ; ignoré en mode annuaire. Jamais une révélation de secret. |
+
+La page de l’atelier de requêtes (écran Requêtes, autre lot) est ouverte par `#/requetes?cible=poste&dn=…` (bouton
+« Atelier ») et `#/requetes?cible=poste&dn=…&sonde=<id>` (« Ouvrir dans l’atelier » d’une sonde, PST-111).
+
+## 3. Opérations
+
+Classe : celle du mode annuaire. En simulation, les lectures marquées « servie » sont admises (lectures en mémoire du
+monde fictif, latence simulée) ; les plans sont `LocalRead` en simulation et `NetworkRead` en mode annuaire, comme
+`accounts.unlock.plan`.
+
+### 3.1 Lectures locales, état de session et préférences
+
+| Opération | Classe | Arguments | Résultat |
+|---|---|---|---|
+| `poste.list` | `LocalRead` | `{ text?, limit? }` (texte ≤ 100, limite 1–1 000, 500 par défaut) | `PosteList` : postes de l’OU de travail avec présence, santé (niveau, points), utilisateur, système, site, dates. |
+| `poste.open` | `LocalRead` | `{ dn }` | `PosteConsole` : `computer`, `header`, `association`, `live`, `inventory`, `board` (santé avec la politique de l’OU, fiches, ressources, disques, protection, activité, comptages, sections), `secrets` (résumé non secret), `consent`, `options`, `notes`. Lie les autorisations à la session (§ 5). |
+| `poste.host` | `LocalRead` | `{}` | `{ secretWindow, toolLauncher, fileExport, simulation, openReadsConsole }` : services de l’hôte présents (§ 6) et option de l’écran. |
+| `poste.option.set` | `LocalWrite` | `{ name: openReadsConsole, value }` | Préférence locale `poste.openReadsConsole` (PST-051) ; aucune action sur un poste. |
+| `poste.inventory.cached` | `LocalRead` | `{ dn }` | `InventoryResult` du dernier inventaire (cette session, sinon le dernier validé en base locale) avec ses lignes, sa date et sa provenance ; `null` sans inventaire (PST-029, PST-036). |
+| `poste.software.cached` | `LocalRead` | `{ dn }` | `SoftwareResult` tiré du dernier inventaire (PST-025) ; `columns` dit les colonnes lues (PST-043). |
+| `poste.readings` | `LocalRead` | `{ dn }` | `ReadingsResult` : 15 lectures interprétées, fraîcheur (récente < 3,5 j, vieillissante, périmée > 7 j), prévision de saturation, BIOS comparé à la référence du modèle. |
+| `poste.probe.details` | `LocalRead` | `{ dn, probe, page? }` | Valeurs enregistrées d’une sonde (100 lignes par page), lecture interprétée et contrat de la sonde (PST-074). |
+| `poste.commands` | `LocalRead` | `{ dn }` | `PosteCommands` : Enter-PSSession, Invoke-Command, mstsc, UNC, consoles MMC ; valeurs entre apostrophes, jamais de mot de passe. |
+| `poste.suite.plan` | `LocalRead` | `{ dn, tool: pesto\|filpro }` | `{ tool, plan, launched: false, canLaunch, text }` : champs déclarés et validés seulement (PST-020). |
+| `poste.groups.search` | `LocalRead` (simulation), `NetworkRead` (annuaire) | `{ text? }` | Au plus 50 groupes (`{ dn, name }`) dont le nom contient le texte, sans accent ni casse ; en mode annuaire, repli LDAP sous la racine (§ 8.1). |
+| `poste.account.find` | `LocalRead` | `{ login }` (1–100) | `UserRef` du compte d’une session (sAMAccountName, domaine ou suffixe UPN retiré), ou `null` (PST-073). |
+| `poste.running` | `Local` | `{}` | Relevés en cours de la session, tous postes : `[{ dn, computer, kind, label, since }]` (PST-052). |
+| `poste.collect.stop` | `Local` | `{ dn, kind? }` (`inventory`, `diagnostic`, `probes`, `detection` ; tous sans `kind`) | `{ stopped, text }` : arrête un relevé du poste ; le lecteur rend ce qu’il a déjà lu (résultat partiel). |
+| `poste.consent.grant` | `Local` | `{ dn, kind: intervention\|readFallback, minutes? }` (1–15, 5 par défaut) | `{ consent, history }`. Ne lance rien. Refusé (`poste.writePending`) tant qu’une écriture sur ce poste reste « à vérifier ». |
+| `poste.consent.revoke` | `Local` | `{ dn, kind }` | `{ removed, consent, history }`. |
+| `poste.consent.history` | `Local` | `{}` | Autorisations accordées, refusées, retirées, expirées ou utilisées dans la session. |
+| `poste.secret.state` | `Local` | `{}` | `SecretWindowState` : ouverte, masquée ou fermée, échéance, prolongation restante ; jamais la valeur. |
+| `poste.secret.hide` | `Local` | `{}` | Ferme la fenêtre sécurisée et efface la valeur (changement de vue ou de poste, « Masquer maintenant »). |
+| `poste.dsreg.analyze` | `Local` | `{ dn, text, collectedAs: endUser\|admin\|unknown, endUser? }` | `DsregAnalysis` (128 Kio au plus) : jonction, mode, SSO évaluable seulement pour un texte collecté sous l’utilisateur final (PST-033). |
+| `poste.bios.reference` | `LocalWrite` | `{ dn, action: approve\|remove }` | Préférence locale `poste.biosReferences.<sha256 du domaine>` ; aucune action sur le poste (PST-080). |
+| `poste.export.save` | `LocalWrite` | `{ dn, kind, files: [{ part: lignes\|sources\|liste, csv }] }` (1 ou 2 parties, 8 Mio au plus) | `PosteExportResult` : fichier choisi par l’opérateur dans la boîte « Enregistrer sous » de Windows, nommé `Domenia-<poste>-<kind>-AAAAMMJJ-HHmm.csv`, la seconde partie à côté (`…-sources.csv`), UTF-8 avec BOM (PST-006, PST-039, PST-047). Sans hôte : `poste.hostUnavailable`, la page copie la liste. |
+
+### 3.2 Lectures réseau (servies en simulation)
+
+| Opération | Arguments | Résultat, bornes |
+|---|---|---|
+| `poste.ping` | `{ dn }` | `PresenceReading` : un écho ICMP, enregistré avant d’être montré (PST-050) ; un temps inconnu n’est jamais écrit « 0 ms ». |
+| `poste.live` | `{ dn }` | `PosteLive` : présence, dernier démarrage, utilisateur console, sessions. |
+| `poste.inventory` | `{ dn, deep }` | `InventoryResult` : lignes traduites (valeur brute gardée), état par source, catégories, `partial`, `notice`, `noticeAction` (`readFallback` quand CIM refuse). Rapide 55 s, complet 150 s ; à l’arrêt ou au budget, résultat partiel enregistré (sources restantes « Interrompu », PST-037). Événements `poste.inventory:progress`. |
+| `poste.software` | `{ dn, perUser, store, updates }` | `SoftwareResult` : registre Uninstall 64/32 bits, SCCM, ruches des profils, Appx ; jamais `Win32_Product`. 130 s (200 s avec les profils). |
+| `poste.services` | `{ dn }` | `ServicesResult` : 500 instances au plus, profil attendu (15 services), arrêts attendus. |
+| `poste.processes` | `{ dn }` | `ProcessesResult` : deux lectures espacées, part du processeur mesurée. |
+| `poste.events` | `{ dn, preset, hours?, max? }` | `EventsResult` : préréglages `Startup`, `Crash`, `Disk`, `Policy`, `Updates`, 1–720 h, 1–200 événements, bornes dites. |
+| `poste.sessions` | `{ dn }` | `SessionsResult` (WTS) : lignes sans compte comptées, jamais listées. |
+| `poste.restart.sessions` | `{ dn }` | `RestartSessions` : sessions lues avant un redémarrage ; une lecture impossible est dite, le redémarrage différé reste possible (PST-014). |
+| `poste.diagnostic` | `{ dn }` | `DiagnosticResult` : DNS, ping, ports 135/445/3389/5985/5986, CIM, C$, WinRM, replis, système, disque ; couches et étape bloquante ; 45 s ; à l’arrêt, contrôles restants « non tentés ». Événements `poste.diagnostic:progress`. |
+| `poste.quickDiag` | `{ dn }` | `QuickDiagResult` : cinq contrôles (système, dernier démarrage, disque C:, ports 135/445/5985, services Winmgmt, RpcSs, WinRM, LanmanServer), 20 s annoncées, aucun repli (PST-004). |
+| `poste.slow` | `{ dn }` | `SlowTriage` : pistes classées (mémoire, processeur mesuré, disques, redémarrage, démarrage automatique, journaux 72 h, lien réseau). |
+| `poste.wmi.namespaces` | `{ dn, parent? }` | Espaces de noms (root et enfants directs). |
+| `poste.wmi.classes` | `{ dn, ns }` | Classes, celles du fournisseur MSI marquées bloquées. |
+| `poste.wmi.query` | `{ dn, ns, cls, where?, limit? }` | `WmiQueryResult` : `SELECT *` validé, 1–500 instances (25 par défaut), aucune méthode. Refus : `poste.queryRefused`. |
+| `poste.probes.collect` | `{ dn, probes? }` (1–64 sondes du catalogue ; celles du tableau par défaut) | `ReadingsResult` : seules les sondes demandées sont relevées, une fois, enregistrées puis interprétées ; la page demande une confirmation avant (PST-110). Événements `poste.probes.collect:progress`. |
+| `poste.logonByDc` | `{ dn }` | `LogonActivity` : `lastLogon` sur chaque contrôleur (PST-114). |
+| `poste.lastUser.detect` | `{ dn }` | `LastUserDetection` : association locale, CIM, LogonUI, WinRM, profils, tâche SYSTEM unique (seulement avec la lecture de repli quand CIM refuse) ; 25 s ; une association existante n’est jamais écrasée (PST-117). Événements `poste.lastUser.detect:progress`. |
+| `poste.laps` | `{ dn }` | `LapsView` : métadonnées, sans valeur (PST-063). |
+| `poste.laps.reveal` | `{ dn }` | `SecretShown` (§ 6) : la valeur est montrée dans la fenêtre sécurisée, jamais renvoyée. Sans fenêtre : `poste.hostUnavailable` avant toute lecture. |
+| `poste.bitlocker.list` | `{ dn }` | `BitLockerList` : objets de récupération sous le poste (un niveau, 256 au plus), identifiant de récupération complet (`keyGuid`) et ses 8 premiers caractères, sans clé (PST-053). |
+| `poste.bitlocker.reveal` | `{ dn, key, expectedId }` | `SecretShown` (§ 6) ; la clé doit être un enfant direct du poste (`poste.keyNotChild`) et l’identifiant relu doit être `expectedId` (`poste.keyMismatch`, aucune valeur, PST-055). |
+| `poste.account.other` | `{ dn, resource: laps\|bitlocker }` | `OtherAccountResult` : un autre compte est proposé par l’invite Windows (mot de passe jamais vu par Domenia) ; accepté, le refus mémorisé est levé pour cette seule ressource (PST-060, PST-062). |
+| `poste.secrets.index` | `{}` | `SecretsIndex` de l’OU de travail : clés BitLocker comptées, état de lecture, expiration LAPS, 50 000 postes au plus ; aucune clé ni valeur ; les métadonnées d’un ancien détenteur du nom sont écartées (PST-065, PST-066). |
+| `poste.tool.open` | `{ dn, tool: rdp\|c\|compmgmt\|eventvwr\|services }` | `ToolLaunch` : outil ouvert par le lanceur de l’hôte (§ 6) ; en simulation rien n’est lancé, la commande est montrée (PST-009, PST-022). Sans lanceur : `poste.hostUnavailable`. |
+| `poste.suite.launch` | `{ dn, tool: pesto\|filpro }` | `ToolLaunch` : Pesto ou FILPRO ouvert après contrôle de l’empreinte SHA-256 et du contrat `suite-contract.json` (`DomeniaSuiteContract/1`), champs déclarés seulement ; rien en simulation (PST-020). |
+
+### 3.3 Erreurs propres à l’écran
+
+| Code | Cause |
+|---|---|
+| `poste.unknown` | Le DN ne désigne aucun poste (compte utilisateur, objet supprimé). |
+| `poste.unreachable` | Le poste ne répond pas (aucune conclusion sur son état), ou budget atteint avant toute lecture. |
+| `poste.consentRequired` | Exécuter un programme sans autorisation d’intervention active sur ce poste. |
+| `poste.writePending` | Autorisation demandée pendant qu’une écriture sur ce poste reste « à vérifier » (PST-010). |
+| `poste.refused` | Demande refusée par une règle (mode inconnu, message trop long, WinRM désactivé, valeur invalide, OU de travail absente). |
+| `poste.queryRefused` | Requête WMI refusée (espace, classe, filtre, fournisseur MSI). |
+| `poste.cimRefused` | CIM refusé (DCOM filtré, WinRM fermé) pour une lecture sans repli (services, processus, événements, sessions, WMI, tri d’un poste lent). |
+| `poste.keyNotChild` | Clé BitLocker hors du poste ouvert. |
+| `poste.keyMismatch` | Identifiant de récupération relu différent de la clé choisie : aucune valeur. |
+| `poste.busy` | Un relevé du même type tourne déjà sur ce poste : rien n’est relancé ni remplacé (PST-052). |
+| `poste.cancelled` | Relevé arrêté avant toute lecture (au-delà, le lecteur rend un résultat partiel). |
+| `poste.hostUnavailable` | Service de l’hôte absent (aperçu, tests) : fenêtre sécurisée, lanceur ou « Enregistrer sous ». Rien n’est lu ni lancé. |
+
+## 4. Écritures (circuit `write.execute`)
+
+| Plan | Arguments | Type (`Kind`) | Confirmation | Vérification |
+|---|---|---|---|---|
+| `poste.account.plan` | `{ dn, enable }` | `poste.accountState` | nom tapé pour désactiver | relecture de `userAccountControl` |
+| `poste.profile.plan` | `{ dn, description?, location?, managedBy? }` | `poste.profile` | simple ; seuls les attributs modifiés partent | relecture des attributs |
+| `poste.rename.plan` | `{ dn, name }` (1–63, étiquette DNS) | `poste.rename` | nom tapé ; seul le CN change (Rename-ADObject) : `sAMAccountName`, `dNSHostName` et nom Windows inchangés, le poste continue de s’authentifier | relecture par GUID (CN, DN et `sAMAccountName` inchangé) |
+| `poste.group.plan` | `{ dn, group, add }` | `poste.group` | simple (ajout), nom tapé (retrait d’un groupe protégé) | relecture de `member` |
+| `poste.move.plan` | `{ dn, ou }` | `poste.move` | nom tapé | relecture par GUID |
+| `poste.restart.plan` | `{ dn, mode: delayed\|now, minutes?, message? }` (1–60 min, message ≤ 400) | `poste.restart` | nom tapé pour « maintenant » ; la page ne coche jamais « Immédiat » d’office (PST-013) | redémarrage programmé ou dernier démarrage |
+| `poste.restartCancel.plan` | `{ dn }` | `poste.restartCancel` | simple | plus de redémarrage programmé |
+| `poste.gpupdate.plan` | `{ dn }` | `poste.gpupdate` | simple ; WinRM requis | code de retour de gpupdate |
+| `poste.service.plan` | `{ dn, name, action: start\|restart\|stop }` | `poste.service` | nom tapé pour redémarrer ou arrêter ; type de démarrage jamais modifié | relecture de l’état du service |
+| `poste.run.plan` | `{ dn, mode: system\|interactive, command, arguments?, user?, elevated? }` | `poste.run` | autorisation d’intervention **et** nom tapé ; les arguments restent en mémoire de la session sous leur empreinte jusqu’à l’envoi ou l’expiration du plan, le plan et le reçu ne portent que l’empreinte et la longueur | envoi de la tâche seulement (l’exécution du programme n’est pas vérifiée) ; autorisation et arguments revérifiés juste avant l’envoi (`write.stale`) |
+| `poste.wake.plan` | `{ dn }` | `poste.wake` | simple ; Wake-on-LAN activé, carte valide, sous-réseau autorisé | ping après le délai annoncé |
+
+En simulation, les écritures annuaire s’appliquent à la surcouche en mémoire (`SimulatedDirectoryOverlay.UpdateComputer`,
+`UpdateGroup`, ajoutés comme prévu par `WRITES.md`) et les actions distantes à l’état simulé du poste
+(`PosteSimulation`) : redémarrage programmé visible dans les notes de la console, service relu, réveil enregistré.
+
+## 5. Autorisations de session (`PosteSession`)
+
+- **Intervention** (PST-010, PST-017) : 1 à 15 minutes, un seul poste, exigée par `poste.run.plan` et revérifiée juste
+  avant l’envoi. Le décompte s’affiche dans l’en-tête ; « Retirer » la lève tout de suite ; elle expire seule.
+- **Lecture de repli** (PST-011, PST-023) : une seule lecture par tâche planifiée unique quand CIM (DCOM et WinRM) refuse,
+  consommée une fois par l’inventaire, les logiciels, le diagnostic ou la détection de l’utilisateur, distincte de
+  l’intervention. Sans elle, la lecture rend « non lu » (avec l’action « Autoriser une lecture de repli… ») au lieu de
+  basculer. PsExec n’est pas livré dans le pack.
+- Aucune autorisation n’est accordée tant qu’une écriture sur le poste reste « à vérifier » (`poste.writePending`, le refus
+  est inscrit dans l’historique) ; reçus illisibles : refus (fail closed).
+- Liées au compte et au domaine de la session de l’annuaire : un changement de session les efface toutes, arrête les
+  relevés et oublie les arguments en attente.
+- L’historique (`poste.consent.history`) garde accordée, refusée, retirée, expirée, utilisée ; il vit dans la session seulement.
+- **Relevés** (PST-052) : un relevé par poste **et par type** (`Inventory`, `Diagnostic`, `Probes`, `Detection`) ; un
+  diagnostic n’arrête jamais un inventaire ; un second relevé du même type est refusé (`poste.busy`) ; « Arrêter » vise un
+  type ; l’en-tête nomme les relevés en cours, y compris ceux d’un autre poste.
+
+## 6. Secrets et services de l’hôte (`Domenia.App/Poste/`)
+
+`OPERATIONS.md` § 1.2 interdit tout mot de passe ou clé dans une réponse : ce lot le respecte sans exception. Les
+fonctions PST-055 à PST-058, PST-063 et PST-064 de Domenia 1 révèlent **une** valeur sur un geste explicite ; Domenia 2 la
+montre dans une **fenêtre sécurisée native** de l’application, jamais dans la page :
+
+- `IPosteSecretWindow`, `IPosteToolLauncher` et `IPosteFileExport` (Core, `PosteHost.cs`) sont trouvés par la composition
+  comme des lecteurs d’écran : `PosteHostServices` (App) a un seul constructeur public qui prend la source d’annuaire,
+  appelé sur le fil de l’interface ; il y crée un contrôle de marshalling, puis chaque fenêtre est créée sur ce fil.
+  Aucun fichier partagé n’est modifié. Les tests et l’aperçu n’ont pas d’hôte : révélation, ouverture d’outil et
+  enregistrement répondent `poste.hostUnavailable` avant toute lecture.
+- **Fenêtre sécurisée** (`SecretWindowForm`) : au-dessus de Domenia, hors de la barre des tâches, exclue des captures
+  d’écran (`SetWindowDisplayAffinity`) ; la valeur seule (huit blocs numérotés pour une clé, un caractère par case pour un
+  mot de passe, chiffres et symboles distingués), l’identifiant complet à comparer avec l’écran du poste, un décompte de
+  30 s, une prolongation de 30 s, « Masquer maintenant » (et Échap). Elle **masque la valeur quand elle perd le focus**
+  et la réaffiche d’un clic sans nouvelle lecture (PST-057), l’efface à l’échéance ou à la fermeture. Couleurs du système :
+  thème de Windows et contraste élevé respectés.
+- **Copie protégée** (PST-058) : formats `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory = 0`,
+  `CanUploadToCloudClipboard = 0` ; après 30 s, le presse-papiers est vidé **seulement s’il contient encore la valeur** ;
+  la copie est journalisée avec l’identifiant, jamais la valeur.
+- La page ne reçoit que `SecretShown` (type, poste, identifiant, GUID, échéance, règles, mention fictive) et suit la
+  fenêtre par `poste.secret.state` ; elle la ferme (`poste.secret.hide`) au changement de vue, de poste ou d’écran.
+  `SecretReading` (la lecture interne) exclut sa valeur de toute forme JSON et de `ToString`.
+- **Lanceur** : `mstsc /v:`, Explorateur sur `\\poste\C$`, `mmc compmgmt.msc|eventvwr.msc|services.msc /computer:` ; avec
+  un compte d’exploitation déclaré, connexion préalable à `C$` ou `IPC$` par `WNetAddConnection3` avec l’invite Windows
+  (le mot de passe est saisi et gardé par Windows). Aucun interpréteur de commandes, aucun argument venu de la page
+  autre que le nom du poste validé. Outils de la suite : empreinte SHA-256 de l’exécutable comparée à la configuration,
+  contrat `suite-contract.json` (16 Kio au plus) relu à côté, champs déclarés et validés seulement ; sans contrat reconnu,
+  ouverture sans argument. Rien n’est lancé en simulation.
+- **Enregistrer sous** : boîte de Windows sur le fil de l’interface, écriture hors de ce fil, UTF-8 avec BOM ; le journal
+  ne garde que le nom des fichiers.
+
+## 7. Simulation
+
+Les données de chaque poste sont dérivées de façon déterministe de son GUID (`ScreenStream("poste").Fork(guid)`) :
+modèle (six modèles, dont les noms de `SIMULATION.md`), mémoire et disque (cohérents avec `InventoryMeasure` de la base
+locale), disque mécanique sur 7 % des fixes, usure élevée sur 2 %, BitLocker actif, suspendu ou absent, adresse IP par site
+(10.10 à 10.50 /22), cause de lenteur, association (managedBy déclaré ou contradictoire, sinon utilisateur du site
+observé ou historique, aucun pour 14 %), logiciels, démarrage automatique, services (WinRM arrêté sur 10 %, Spooler,
+WSearch, Dnscache en panne çà et là), correctifs, historique des volumes, écrans, batterie, événements, tâches,
+certificats ; antivirus refusé sur 3 %. Les postes qui ne répondent jamais au ping, les sondes en erreur et le ping filtré
+(répond à WMI, jamais au ping) reprennent `World.Presence`. CIM refusé sur 4 % des postes joignables (lecture de repli
+nécessaire). Lecture BitLocker refusée pour les postes de Marseille, lecture LAPS refusée pour ceux de Lille (refus
+mémorisés, levés par un autre compte fictif). Index des secrets de la base locale écrit pour un ancien détenteur du nom sur
+3 % des postes (écarté). Options de simulation : Wake-on-LAN activé sur 10.0.0.0/8, compte d’exploitation
+`EXAMPLE\adm-j.martin`, Pesto et FILPRO non configurés.
+
+## 8. Mode annuaire (vague 3)
+
+### 8.1 Annuaire (LDAP, `Domenia.Ad`)
+
+| Besoin | Requête | Attributs |
+|---|---|---|
+| Fiche du poste (`poste.open`, base) | Base sur le DN, contrôleur de la session | `name`, `cn`, `dNSHostName`, `sAMAccountName`, `objectSid`, `objectGUID`, `operatingSystem`, `operatingSystemVersion`, `description`, `location`, `managedBy`, `userAccountControl`, `whenCreated`, `whenChanged`, `pwdLastSet`, `lastLogonTimestamp`, `memberOf`, `msLAPS-PasswordExpirationTime`, `ms-Mcs-AdmPwdExpirationTime`, `primaryGroupID` |
+| Liste (`poste.list`) | base locale de l’OU de travail (instantané du parc), aucune requête | — |
+| LAPS, métadonnées | Base sur le DN | `msLAPS-PasswordExpirationTime`, `msLAPS-EncryptedPassword` (présence seulement, `attributeTypes` sans valeur), `ms-Mcs-AdmPwdExpirationTime` |
+| LAPS, révélation | Base sur le DN, sur geste | `msLAPS-Password` ou `msLAPS-EncryptedPassword` (déchiffrement DPAPI-NG par l’API Windows), sinon `ms-Mcs-AdmPwd` ; la valeur va à la fenêtre sécurisée |
+| BitLocker, liste | OneLevel sous le DN, `(objectClass=msFVE-RecoveryInformation)`, 256 au plus | `name`, `msFVE-RecoveryGuid`, `msFVE-VolumeGuid`, `whenCreated` ; jamais `msFVE-RecoveryPassword` |
+| BitLocker, révélation | Base sur le DN de la clé (enfant direct vérifié) | `msFVE-RecoveryPassword` et `msFVE-RecoveryGuid` relu, comparé à `expectedId` |
+| Index des secrets de l’OU | OneLevel ou Subtree borné à l’OU de travail, 50 000 au plus | présence d’objets `msFVE-RecoveryInformation` (comptés), expiration LAPS ; base locale : GUID et date de création pour écarter un ancien détenteur |
+| Connexions par contrôleur | Base sur le DN, sur **chaque** contrôleur du domaine (liste de la session), 5 s chacun | `lastLogon` |
+| Groupes | base locale (instantané) ; en repli : sous la racine, `(&(objectCategory=group)(name=*texte*))`, 50 au plus (d’où `NetworkRead` en mode annuaire) | `distinguishedName`, `name` |
+| Compte d’une session | base locale, sinon Base sur la racine `(&(objectCategory=person)(sAMAccountName=…))` | `distinguishedName`, `displayName`, `objectGUID` |
+| Écritures | `Modify` (`userAccountControl`, `description`, `location`, `managedBy`, `member` du groupe), `ModifyDN` (renommage : nouveau RDN `CN=` seulement ; déplacement `newSuperior`) | relecture par GUID après l’écriture |
+
+### 8.2 Poste (WMI/CIM, WinRM, registre)
+
+Transport : CIM sur WinRM (5985, Kerberos) quand `Remote.UseWinRM` est vrai, sinon CIM sur DCOM (135 puis ports
+dynamiques) ; repli par tâche planifiée unique seulement avec l’autorisation de lecture de repli. Une session CIM par
+relevé, fermée à la fin ; chaque source a son propre délai et son propre état.
+
+| Catégorie ou sonde | Classes et sources |
+|---|---|
+| Système, matériel | `Win32_OperatingSystem`, `Win32_ComputerSystem`, `Win32_ComputerSystemProduct`, `Win32_BIOS`, `Win32_Processor`, `Win32_PhysicalMemory`, `Win32_PhysicalMemoryArray`, `Win32_SystemEnclosure` |
+| Disques | `Win32_LogicalDisk` (`DriveType=3`), `MSFT_PhysicalDisk` et `MSFT_StorageReliabilityCounter` (`root\Microsoft\Windows\Storage`) |
+| Sécurité du démarrage | `Win32_EncryptableVolume` (`root\CIMV2\Security\MicrosoftVolumeEncryption`), `Win32_Tpm` (`root\CIMV2\Security\MicrosoftTpm`), registre `SYSTEM\CurrentControlSet\Control\SecureBoot\State` |
+| Réseau | `Win32_NetworkAdapter`, `Win32_NetworkAdapterConfiguration` (`IPEnabled=TRUE`), `MSFT_NetFirewallProfile` et `MSFT_NetConnectionProfile` (`root\StandardCimv2`), `MSFT_NetTCPConnection` (complet) |
+| Protection | `AntiVirusProduct` (`root\SecurityCenter2`), `MSFT_MpComputerStatus` (`root\Microsoft\Windows\Defender`) |
+| Mises à jour | `Win32_QuickFixEngineering`, registre `SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate`, clés de redémarrage en attente (CBS, Windows Update, `PendingFileRenameOperations`) ; fournisseur : Windows Update seul |
+| Logiciels | `StdRegProv` : `Uninstall` 64 et 32 bits, ruches `HKU` des profils chargés (option), `CCM_InstalledProduct` (`root\ccm\cimodels`) si SCCM, Appx (option Store, par WinRM) ; jamais `Win32_Product` |
+| Démarrage, tâches | `Win32_StartupCommand`, `MSFT_ScheduledTask` (`root\Microsoft\Windows\TaskScheduler`, complet) |
+| Services | `Win32_Service` (500 au plus) ; écritures par `StartService`/`StopService` via WinRM, jamais `ChangeStartMode` |
+| Processus | `Win32_PerfFormattedData_PerfProc_Process` lu deux fois, `Win32_Process` (chemin, propriétaire) |
+| Périphériques | `Win32_PnPEntity` (`ConfigManagerErrorCode<>0`), `Win32_PnPSignedDriver`, `WmiMonitorID` et `WmiMonitorConnectionParams` (`root\wmi`), `Win32_Battery`, `BatteryFullChargedCapacity` (`root\wmi`), `Win32_Printer` |
+| Sessions | API WTS (`WTSEnumerateSessions`, `WTSQuerySessionInformation`) ; repli `quser` par WinRM |
+| Événements | `Get-WinEvent` filtré par préréglage (journal, fournisseurs, identifiants, fenêtre) |
+| Certificats | magasin `Cert:\LocalMachine\My` par WinRM (complet) |
+| Dernier utilisateur | association locale, `Win32_ComputerSystem.UserName`, registre `LogonUI\LastLoggedOnUser`, WinRM, `Win32_UserProfile` (`LastUseTime`), tâche SYSTEM unique (lecture de repli) |
+| Sondes (33) | classes de `ProbeCatalog` (`Domenia.Core/Screens/Poste/ProbeCatalog.cs`), propriétés et filtres du contrat de chaque sonde |
+
+### 8.3 Budgets
+
+| Lecture | Budget |
+|---|---|
+| Ping | 1 écho, 1 000 ms |
+| État en direct | 10 s |
+| Inventaire rapide / complet | 55 s / 150 s (résultat partiel au-delà) |
+| Logiciels | 130 s, 200 s avec les profils |
+| Services | 90 s |
+| Processus | 2 lectures espacées de 1 s, 20 s |
+| Événements | 30 s |
+| Diagnostic complet / rapide | 45 s / 20 s |
+| Détection du dernier utilisateur | 25 s |
+| Sondes | 60 s pour l’ensemble |
+| Connexions par contrôleur | 5 s par contrôleur |
+| Révélation d’un secret | 15 s |
+
+## 9. Décisions appliquées et contrats avec les autres lots
+
+- **WAPT abandonné** (décision de David du 22/10, PST-001) : aucun connecteur, aucune option de configuration, aucun
+  service WAPTService dans les diagnostics, aucun fournisseur WAPT dans les faits de mise à jour (Windows Update seul).
+- **Tests à la toute fin** (décision de David du 22/10) : la VM sert seulement à compiler (`tools/vm.sh poste build`) ;
+  tests C# et scénarios E2E écrits, non exécutés.
+- Fin de support Windows : **non retenue** (`DECISIONS.md`, « balec ») ; les règles de fin de support ne produisent aucun
+  point d’attention.
+- **Règles de santé** (PST-092, PST-093) : la console lit, sans jamais l’écrire, le livre des règles de santé du domaine
+  tenu par l’éditeur des règles (ACC-024, lot Accueil) : préférence `accueil.health.<SHA-256 du DN racine en
+  majuscules>`, `{ domainDn, default: { thresholds, disabledRules, customRules, suspensions }, scopes: [{ scopeDn,
+  overrides: { thresholds, ruleStates, customRules, suspensions } }] }` (forme de Domenia 1
+  `ConvertTo-DomeniaHealthPolicyBook`). Défauts puis OU ancêtres du poste, la plus proche en dernier ; seuils et états un
+  par un, alertes et suspensions en listes entières ; partie illisible ignorée ; sans livre, seuils livrés avec Domenia 1
+  (dit dans « Règles et seuils appliqués »). Les alertes sur requête enregistrée sont comptées et laissées à l’atelier.
+- **Surcouche** : `SimulatedDirectoryOverlay.UpdateComputer` et `UpdateGroup` (partagés avec les lots Fiche et Comptes
+  machine) : un seul `UpdateComputer` à garder à la fusion, appartenance `memberOf` symétrique.
+- Thèmes : clair, sombre, contraste élevé ; animations en `transform`, `opacity`, `filter` ; « Animations réduites »
+  respectée ; disposition sur la grille de 12 colonnes du kit (`.grid`, `.span-*`), cartes d’une rangée de même hauteur.
+
+## 10. Collecteurs réels complémentaires (23 octobre 2026)
+
+Le lecteur CIM collecte aussi le démarrage automatique, les périphériques en erreur, les écrans actifs, les batteries et leurs capacités, les pilotes non signés, les partages et les imprimantes. Le complet ajoute les métadonnées des tâches et les connexions TCP/UDP. Les plafonds sont de 200 entrées pour les petites listes, 32 écrans, 16 batteries, 1 000 tâches et 500 lignes par protocole réseau, avec sentinelle de troncature et budget global inchangé. Les requêtes restent des projections SELECT ; aucune méthode ni action de tâche n’est lue ou exécutée.
+
+Les écrans sont joints par `InstanceName` selon [WmiMonitorID](https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorid) et [WmiMonitorConnectionParams](https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorconnectionparams). Un code inconnu reste non classé, y compris les adaptateurs virtuels. Les capacités des batteries ne sont rapprochées que par identité PnP ; zéro/valeur sentinelle de capacité n’est pas une mesure d’usure. Les valeurs des [imprimantes](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-printer) absentes ou inconnues ne deviennent plus un état sain. Les programmes de démarrage ne conservent que l’exécutable, jamais ses arguments ; leur éditeur reste inconnu tant qu’il n’a pas été vérifié.
+
+Les [métadonnées des tâches](https://github.com/microsoft/wmi/blob/master/server23h2/root/microsoft/windows/taskscheduler/MSFT_ScheduledTask.go) ne comprennent ni action, ni arguments, ni principal. Dernier résultat et dates d’exécution restent non lus dans cette projection et le relevé le dit. Le raccordement de ces collecteurs à toutes les opérations de la console, les autres transports et la recette native restent à terminer. Quatre tests écrits et compilés seulement ; aucune exécution de tests dans ce lot.
+
+## 11. Registre réel et incertitudes de configuration (23 octobre 2026)
+
+Le chemin interne de registre autorise seulement `EnumKey`, `GetStringValue`, `GetDWORDValue` et `GetMultiStringValue` de [StdRegProv](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/regprov/stdregprov). Les ruches, chemins et valeurs d’inventaire sont explicitement admis ; la garde de l’atelier WQL reste inchangée. Chaque appel respecte le budget restant, le compte choisi et le chiffrement DCOM. La [vue du fournisseur 64 bits](https://learn.microsoft.com/en-us/windows/win32/wmisdk/requesting-wmi-data-on-a-64-bit-platform) est exigée ; son absence ne déclenche pas une lecture d’une autre vue présentée comme équivalente. Un rejet d’authentification arrête les autres appels registre et CIM de ce relevé.
+
+Secure Boot, WSUS, les indicateurs de redémarrage et le site Netlogon utilisent ce chemin. Une valeur absente n’est pas un accès refusé ; un drapeau illisible ne devient pas zéro. Secure Boot désactivé ne prouve pas un BIOS hérité. Les obligations CBS/Windows Update sont distinctes des indices de renommage de fichiers ; les chemins de fichiers ne sont jamais conservés. Une date Windows Update sans fuseau reste du texte déclaré et ne participe pas à un calcul d’ancienneté. L’adresse du serveur WSUS ne conserve ni identifiants URI, ni chemin, paramètres ou fragment.
+
+Les [clefs de stratégie du pare-feu](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-gpfas/2100c552-7f37-4a7f-9fa0-2a864ab87212) comprennent `PrivateProfile` et l’ancienne `StandardProfile`. Une contradiction entre elles reste inconnue ; une lecture refusée ne cède pas la priorité à une valeur locale. Connexions non lues et absence de connexion sont distinguées. Les résumés, faits, exports et sondes ne présentent plus un profil inconnu comme activé ; il s’agit d’une configuration déclarée, pas d’un test effectif du filtrage réseau.
+
+Six tests écrits et compilés couvrent le contrat fermé, les états absents/refusés/inconnus, l’arrêt après rejet d’identité, les limites, les configurations contradictoires et les données expurgées. Debug/Release sans erreur ni avertissement dans la VM ; exécution des tests et recette réelle encore à faire en fin de développement.
+
+## 12. Inventaire logiciel par registre (23/10/2026)
+
+Le collecteur lit les deux vues Uninstall et, sur option, les ruches HKU déjà chargées dont le nom est un SID de profil. Aucune ruche n’est montée. Le plafond de 400 clés est partagé entre les deux vues pour la machine, puis entre tous les profils pour la portée utilisateur. Chaque clé conserve sa ligne, sa vue et son SID ; les homonymes ne sont pas fusionnés. Les informations déclarées suivent le [contrat des valeurs Uninstall](https://learn.microsoft.com/en-us/windows/win32/msi/uninstall-registry-key).
+
+Le filtrage des mises à jour examine `SystemComponent`, `ReleaseType` et `ParentKeyName` dans les deux vues. Un filtre illisible rend la portée partielle et n’inclut pas arbitrairement l’entrée. Une date invalide reste inconnue, la taille DWORD est convertie en octets sur 64 bits. Pour une commande de désinstallation, seul l’exécutable est conservé ; aucun argument potentiellement secret et aucune exécution. Les métadonnées détaillées ne sont pas lues par l’inventaire rapide.
+
+Une connexion StdRegProv est détenue seulement pendant le relevé logiciel, sur son worker et avec le compte choisi ; elle est libérée après le retour réel de la dernière lecture. Les délais par appel restent inclus dans le budget total de 130 s, ou 200 s avec profils. Une interruption conserve les observations déjà publiées. Refus, vue absente, lecture partielle et zéro logiciel sont distincts. SCCM et Appx restent à raccorder ; une option Store demandée indique explicitement son indisponibilité actuelle.
+
+## 13. Transport CIM WinRM natif (23/10/2026)
+
+`CimSession` sait sélectionner DCOM ou WinRM sans repli implicite. WinRM utilise le composant Windows `WSMan.Automation`, le port 5985 et Kerberos explicitement, avec chiffrement des messages conservé. Une adresse IP est refusée avant contact. Aucun TrustedHosts, Basic, CredSSP, contournement de certificat ou changement du poste. Le secret explicite passe comme BSTR natif temporaire effacé après affectation, sans chaîne de mot de passe managée. La connexion et les options COM restent détenues par le worker jusqu’à sa fin réelle, même après abandon de l’attente.
+
+Le SELECT conserve la garde WQL, les projections et les plafonds du chemin DCOM. Le registre admet seulement les quatre méthodes de lecture déjà fermées ; les options d’architecture sont exigées dans la requête. Les délais de chaque appel sont réduits au temps restant. Un refus WinRM interdit d’autres contacts de cette session ; les codes d’authentification sont distingués des droits insuffisants. Les messages d’erreur fournis par le serveur ne sont pas recopiés.
+
+XML : identité de classe/espace vérifiée, propriétés non demandées écartées, valeurs scalaires/tableaux/nil conservés, objets imbriqués et DTD refusés, résolution externe désactivée et tailles bornées. Les cinq tests de garde/décodage sont compilés seulement. Le fonctionnement COM, le passage du compte et les options du fournisseur doivent encore être qualifiés dans la VM en recette finale. Le réglage de Poste, Appx et les autres gestes WinRM restent à raccorder.
+
+Références : [énumération WinRM](https://learn.microsoft.com/en-us/windows/win32/winrm/enumerating-or-listing-all-instances-of-a-resource), [constantes de session](https://learn.microsoft.com/en-us/windows/win32/winrm/session-constants), [chiffrement et options](https://learn.microsoft.com/en-us/windows/win32/winrm/other-session-constants), [déclarations d’interopérabilité Microsoft](https://github.com/PowerShell/PowerShell/blob/master/src/Microsoft.WSMan.Management/Interop.cs).
+
+## 14. Sources Store et SCCM (23/10/2026)
+
+L’option Store lit `Get-AppxPackage -AllUsers` via un shell WinRM dédié au relevé, sous le même compte Kerberos. Script fermé sans entrée de l’utilisateur, PowerShell Windows sans profil, plafond de 2 000 paquets et 1 Mio, métadonnées explicitement projetées. Nom du poste, identifiant du shell et identifiant de commande sont contrôlés avant publication. Délai de 60 s inclus dans le budget logiciel, dont 2 s réservées à la fermeture. Une attente de sortie poursuit la même commande, sans la relancer. L’arrêt ferme seulement ce shell ; création sans réponse ou fermeture non confirmée sont dites, sans deuxième création. Une durée de vie du shell est demandée au serveur. Aucun bureau, service ni tâche planifiée n’est arrêté.
+
+Si les registres machine ont échoué sans fournir d’entrée, une requête bornée lit le fournisseur SCCM historique de Domenia 1, `Win32Reg_AddRemovePrograms` dans `root\cimv2`. La précédente mention de `CCM_InstalledProduct` dans la table était erronée : ce n’est pas le fournisseur utilisé par D1. SCCM reste un inventaire déclaré, à fraîcheur et architecture inconnues, et ne rend pas complet un registre refusé. Avec les mises à jour masquées, le nom/version de chaque `ProdID` et ses indicateurs sont contrôlés dans les deux vues du registre ; une ambiguïté ou un filtre illisible écarte l’entrée et le signale. L’inventaire ne touche jamais au fournisseur MSI.
+
+Sept tests supplémentaires écrits et compilés seulement couvrent le cycle du shell, les sorties étrangères, les interruptions, les pertes de réponse, les plafonds, les options et le filtrage SCCM. Les comportements natifs COM, le shell et l’identité effective restent à qualifier dans la VM à la recette finale.
+
+Références : [création d’un shell](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wsmv/593f3ed0-0c7a-4158-a4be-0b429b597e31), [réception et délai de sortie](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wsmv/50cc2c38-e094-4d59-aec2-39e09f314862), [fournisseur SCCM et effets du fournisseur MSI](https://github.com/MicrosoftDocs/SupportArticles-docs/blob/main/support/windows-server/admin-development/windows-installer-reconfigured-all-applications.md).
+
+## 15. Defender et version Windows déclarée (23/10/2026)
+
+Le relevé antivirus lit `MSFT_MpComputerStatus` indépendamment de `SecurityCenter2`, notamment sur les serveurs. Les protections, âges et version proviennent des propriétés déclarées ; le mode est lu séparément pour conserver le relevé principal lorsqu’une ancienne classe ne l’expose pas. Les booléens inconnus restent inconnus, 65535 jours est présenté comme « jamais », et aucune analyse en cours n’est déduite d’anciennes dates. Un mode passif ne prouve pas à lui seul qu’un autre antivirus est présent. Les valeurs sont visibles dans le tableau de bord, les sondes et la grille/export d’inventaire.
+
+L’inventaire rapide/complet ajoute UBR et DisplayVersion depuis le registre Windows : révision zéro conservée, version déclarée distincte du build. Ces deux lectures ne sont pas ajoutées au relevé court de recherche. Trois tests ajoutés et compilés seulement ; qualification native en recette finale.
+
+Référence : [propriétés et sentinelles MSFT_MpComputerStatus](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/defender/msft-mpcomputerstatus).
+
+
+## 16. Membres locaux, services, certificats et tâches (23/10/2026)
+
+Le groupe Administrateurs est résolu par son SID intégré `S-1-5-32-544` avec `LocalAccount=True`, après contrôle du nom et du rôle du poste. Un contrôleur de domaine ou un rôle inconnu n’entraîne aucune énumération de membres. Les membres directs passent par NetAPI/RPC, sous le même compte sélectionné, sans développement des groupes du domaine. Plafond affiché de 500 membres ; refus d’authentification transmis à la session commune. Le worker garde seul son jeton et ses tampons jusqu’au retour natif. Si NetAPI demande une suite, l’énumération est drainée même après arrêt de l’attente pour libérer sa ressource RPC ; aucun nouveau relevé n’est lancé. Le rapport nomme ce transport distinct.
+
+La lecture détaillée des services ajoute `DependOnService` et `DependOnGroup` depuis le registre dans le budget commun de 90 s. Les groupes de chargement gardent leur préfixe `+`. Refus, liste tronquée et anciens caches sans preuve donnent des dépendances inconnues, jamais « aucune » ; le graphe inverse signale son incomplétude. Le relevé rapide ne multiplie pas les appels de dépendances. Le démarrage différé inconnu reste visible comme tel.
+
+En WinRM sélectionné, deux scripts fixes ajoutent les métadonnées du magasin `Cert:\LocalMachine\My` (512 certificats, 15 s) et les états/dates/résultats des tâches (1 000, 30 s). Les budgets incluent 2 s de fermeture du seul shell créé ; identité, format, dates UTC, tailles et champs projetés sont contrôlés. Aucun paramètre ni fragment de code n’est reçu de l’interface. Clés privées et actions de tâche ne sont jamais exportées. Les certificats expirés restent dans le bilan ; une date sans fuseau, un code manquant ou une lecture refusée ne devient pas un succès. Le chemin DCOM garde sa projection des définitions de tâches et signale les détails indisponibles, sans ouvrir implicitement WinRM. Une fermeture incertaine ne transforme pas un refus de la source en données exploitables, y compris pour Appx.
+
+Six tests supplémentaires écrits et compilés seulement ; recette native des lectures RPC/WinRM à effectuer en fin de développement.
+
+Références : [NetLocalGroupGetMembers et fin d’énumération RPC](https://learn.microsoft.com/en-us/windows/win32/api/lmaccess/nf-lmaccess-netlocalgroupgetmembers), [fournisseur de certificats Windows](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/about/about_certificate_provider), [état d’exécution des tâches](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/get-scheduledtaskinfo).
+
+
+## 17. Configuration des lectures et des outils (23/10/2026)
+
+`IPosteSettingsReader` lit localement `Domenia.config.json` au premier usage, hors constructeur et hors thread UI, avec plafond de 1 Mo. Une erreur d’accès temporaire n’est pas conservée. Aucun contenu de fichier ni champ étranger n’est retenu ; clés ambiguës (même avec casse différente), JSON trop profond et types invalides sont signalés. Les valeurs absentes conservent les défauts D1.
+
+Le contexte de compte transmet désormais la sélection WinRM/DCOM et `Remote.UseCim` aux relevés Fiche, Rechercher, inventaire léger Accueil et sondes du parc, ainsi qu’au repli CIM des sessions. `Remote.UseRemoteRegistry=false` bloque StdRegProv avant contact. Désactiver CIM empêche aussi les shells d’inventaire ; aucun autre transport n’est lancé implicitement pour compenser ce choix. Les autres options de détection/repli sont lues pour le raccordement de Poste et ne donnent aucune autorisation d’intervention par elles-mêmes.
+
+Le redémarrage garde un délai de 60 à 3 600 s ; le timeout TCP, 200 à 5 000 ms. Le réveil exige `Features.WakeOnLan=true` et, dans V2, une liste explicite `WakeOnLan.AllowedNetworks` (128 réseaux IPv4 canoniques au plus, /8 à /30). Un réseau invalide ou non aligné n’est pas élargi ; activer le réveil sans périmètre ne permet aucun envoi. Les chemins et empreintes de suite utilisent les clés réelles D1 `Suite.PestoPath`, `Suite.PestoSha256`, `Suite.FilProPath`, `Suite.FilProSha256`. Chemin absolu d’exécutable et SHA-256 doivent tous deux être déclarés ; le lanceur reste responsable de la vérification réelle au clic.
+
+Six tests de configuration et de blocage avant contact ajoutés et compilés seulement. Les options de la console Poste seront exposées lors de son raccordement complet ; aucune recette native revendiquée à ce stade.
+
+
+## 18. Socle local et identité du poste (23/10/2026)
+
+La liste, l’ouverture de console, les inventaires/logiciels conservés et la recherche de comptes/groupes n’effectuent aucun contact LDAP ni machine. L’inventaire doit appartenir au GUID et dater d’après la création de l’objet. Son nom Windows est comparé au compte machine et au DNS cohérents : renommer le CN seul ne change pas Windows et ne doit pas invalider ce relevé. La même règle est partagée avec Fiche, Rechercher et les sondes du parc.
+
+Le site n’est plus deviné à partir de l’OU. L’absence de métadonnées LAPS ne prouve pas l’absence de LAPS. Le gestionnaire déclaré et un nom de console observé restent des indices distincts ; aucun GUID utilisateur n’est déduit du seul nom. La recherche d’un compte refuse une autorité étrangère et les ambiguïtés. Les associations D1 doivent encore être qualifiées et raccordées ; elles ne sont pas présentées comme absentes.
+
+Quatre tests ajoutés et compilés seulement. Le lecteur réel reste hors découverte automatique tant que le contrat réseau complet n’est pas implémenté ; aucune promotion du catalogue à ce stade.
+
+
+## 19. Premières lectures réseau de la console (23/10/2026)
+
+Chaque geste relit le compte ordinateur par LDAP et compare son GUID à celui de la console avant tout contact machine. Un compte recréé sous le même DN, un compte machine absent ou un DNS incohérent sont refusés. Le mapper ne fabrique plus un sAMAccountName depuis le CN. Le compte de la cascade et les réglages sont conservés pendant le relevé ; un changement de session invalide sa publication.
+
+Ping : un écho ICMP d’une seconde, présence enregistrée avant affichage ; erreur, silence et réponse sont distincts. Le silence ICMP n’empêche pas la lecture CIM explicitement demandée par l’état courant. Inventaires rapide/complet : budgets du collecteur, résultat partiel conservé et sauvegardé après arrêt si son identité est confirmée. Un contenu dont le nom Windows diffère est écarté ; une identité non lue ne publie que le rapport d’accès, sans données attribuées.
+
+Logiciels : portées réelles du collecteur, rapport de refus et résultat de session conservé. Services et état courant ne remplacent pas l’inventaire détaillé. Services partiels : aucun profil complet ni absence inventée. Processus : identité minimale et nombre de processeurs logiques lus avant les deux échantillons ; sans date de création, le PID ne prouve pas la continuité du processus. Une mesure inexistante reste inconnue, pas à 0 %. Les sessions utilisent WTS, puis le repli CIM non intrusif déjà documenté dans le budget commun de cinq secondes, sous le même compte.
+
+Six tests de frontière et de projection écrits et compilés seulement. Le lecteur complet n’est pas encore exposé : événements, diagnostics, secrets, associations, sondes et repli avec autorisation restent à raccorder. Recette native et suites de tests prévues en fin de développement.
+
+
+## 20. Événements par préréglage (23/10/2026)
+
+La lecture réelle vérifie d’abord l’identité Windows, puis applique le préréglage compilé, ses journaux, fournisseurs et identifiants, la fenêtre UTC de 1 à 720 heures et le plafond de 1 à 200 événements. Aucun code ni filtre libre ne vient de l’interface. Les messages sont aplatis et limités à 500 caractères ; aucune structure XML brute n’est exportée. L’émetteur est demandé explicitement pour distinguer poste et événement général. Le CN d’affichage n’est pas utilisé comme nom Windows pour cette attribution.
+
+WinRM utilise le shell fermé existant et Get-WinEvent avec filtres à la source, une sentinelle et un rapport par journal ; GroupPolicy Operational est inclus. L’absence de correspondance est distincte d’un refus. Identité du shell, format, journaux distincts, nombres, UTC et volume JSON sont contrôlés avant publication. Un élément hors sélection rend le bilan incomplet. DCOM utilise Win32_NTLogEvent pour System et Application ; les journaux opérationnels demandent WinRM et restent explicitement non lus lorsque ce transport n’est pas sélectionné. Aucun changement implicite de transport.
+
+Budget de 30 s pour la collecte, fermeture ciblée incluse dans le budget du shell. Les événements déjà reçus sont conservés si la suite est arrêtée ; un plafond, un journal non lu ou une fermeture incertaine ne prouve pas l’absence d’événements. Un refus ne devient pas une lecture partielle exploitable au seul motif que la fermeture n’est pas confirmée. Cinq tests ajoutés et compilés seulement ; qualification dans la VM à effectuer lors de la recette finale.
+
+Référence : [Get-WinEvent et ses filtres Windows PowerShell](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent?view=powershell-5.1).
+
+
+## 21. Diagnostic rapide et triage réels (23/10/2026)
+
+Le diagnostic rapide borne l’ensemble du geste à vingt secondes, vérification de l’objet AD comprise. Les trois connexions TCP (135, 445, 5985) sont parallèles, sans données applicatives, et bornées au timeout configuré ou deux secondes. Une ouverture TCP ne prouve ni un protocole fonctionnel ni un droit. Une interruption garde le port inconnu ; silence et fermeture ne prouvent pas que Windows est arrêté.
+
+Quatre requêtes CIM suffisent : identité Windows, OS/dernier démarrage en une lecture, volume C: exact, quatre services de gestion. Aucun inventaire complet, registre, logiciel, shell ou repli intrusif. Le nom de compte Windows est confirmé avant affichage. Volume dupliqué/inattendu, état de service absent et liste partielle sont signalés ; un refus n’invente pas quatre services non installés. Le résumé ne peut plus être complet au seul motif que chaque source partielle a fourni une valeur.
+
+Le triage de lenteur utilise le relevé court de système, mémoire, volumes, CPU et deux échantillons de processus. Les autres sources restent non lues. Une liste de processus partielle ne donne pas une charge totale. Ce geste ne remplace pas le dernier inventaire détaillé. Les événements dont le message est vide conservent leurs métadonnées au lieu d’être écartés.
+
+Quatre tests ajoutés et une assertion d’événement complétée, compilés seulement ; qualification native toujours prévue à la recette finale.
+
+
+## 22. Explorateur WMI réel (23/10/2026)
+
+Trois chemins de métadonnées fermés lisent les espaces directs, les définitions de classes et le schéma d’une classe. DCOM utilise les métadonnées WMI et Get de ManagementClass, jamais GetInstances pour le schéma. WinRM utilise un script fermé Get-CimClass ; seuls les noms validés entrent comme paramètres. Aucune valeur de propriété ni valeur arbitraire de qualificatif n’est lue dans le schéma : nom, type, clé et noms des qualificatifs seulement. Définitions liées au nom du poste, à l’espace et à la classe, JSON borné, listes plafonnées à 256 espaces, 4 096 classes et 512 propriétés. Les définitions ambiguës sont écartées.
+
+Avant les contacts, le SELECT demandé est validé par la grammaire commune, incluant MSI, secrets et énumérations générales de comptes. La requête réelle projette les colonnes non sensibles du schéma, avec priorité aux clés et au filtre ; aucune étoile n’est envoyée. Plafonds : 64 propriétés, 500 lignes, 2 048 caractères par valeur et 2 Mio affichables ; les limites sont annoncées dans le résultat. CommandLine, Command, arguments et désinstallation sont exclus de cette projection automatique ; un filtre sur ces valeurs est refusé. Objets imbriqués exclus, tableaux bornés. Les lignes reçues sont publiées au fil de la lecture pour être conservées après arrêt.
+
+La couche CIM borne aussi les valeurs brutes : 128 propriétés, 32 768 caractères par chaîne, 2 048 éléments scalaires par tableau et 8 Mio par lecture. Une première valeur hors limites produit un résultat partiel, jamais une absence. DCOM ne copie que les propriétés demandées, comme le transport WinRM. Les gardes du chemin général restent inchangées pour les classes système : seules les opérations internes de métadonnées peuvent interroger __Namespace ou meta_class.
+
+Les gestes complets sont limités à 30 s pour les listes et 45 s pour une requête, vérification AD comprise. Les enfants d’un espace restent inconnus jusqu’à leur ouverture, sans exploration récursive implicite. Le statut de lecture des classes est affiché, les types natifs conservent le rendu de date, les qualificatifs sont consultables et une réponse vide refusée/interrompue s’intitule « Lecture non concluante ».
+
+Six tests ajoutés et compilés seulement. Les API natives DCOM/WinRM et le parcours visuel seront vérifiés lors de la recette finale. Références : [métadonnées WMI](https://learn.microsoft.com/en-us/windows/win32/wmisdk/retrieving-a-class), [Get-CimClass](https://learn.microsoft.com/en-us/powershell/module/cimcmdlets/get-cimclass), [énumération des espaces CIM](https://learn.microsoft.com/en-us/powershell/module/cimcmdlets/get-ciminstance).
+
+
+## 23. Dernière connexion par contrôleur (23/10/2026)
+
+La lecture relit le GUID de l’objet ordinateur, puis recherche ce GUID exact sur chaque contrôleur connu, avec l’identité de la connexion AD. Elle ne contacte pas Windows : une absence de DNS du poste ne bloque donc pas son historique AD. Au plus cinquante contrôleurs, quatre lectures simultanées et cinq secondes par contrôleur. Les contrôleurs au-delà de la limite restent dans le dénominateur de couverture.
+
+Une valeur zéro signifie seulement qu’aucune connexion n’est enregistrée sur ce contrôleur. Attribut absent ou illisible, date antérieure au compte ou future, objet absent, identité différente et contrôleur non lu ne donnent pas une absence de connexion. La date maximale ne porte que sur les lectures concluantes ; un contrôleur non lu peut en connaître une plus récente. lastLogonTimestamp reste une estimation répliquée, sans preuve de présence actuelle.
+
+Un rejet d’authentification suspend les contacts en attente et est enregistré dans l’état d’accès. Aucun autre compte n’est essayé. L’arrêt conserve les dates déjà reçues, et les autres lignes restent inconnues. Un changement de session invalide la publication. Quatre tests écrits et compilés seulement ; recette native prévue en fin de développement.
+
+
+## 24. Sondes détaillées et historique local (23/10/2026)
+
+La sélection est validée intégralement avant LDAP. Une lecture de l’identité Windows précède uniquement les requêtes des sondes choisies ; propriétés et filtres proviennent du catalogue compilé. Le budget commun est de 60 secondes, huit secondes par sonde, sans repli implicite. Chaque sonde conserve jusqu’à 500 lignes, 192 Kio de cellules JSON primitives, 2 048 caractères par texte et 256 éléments scalaires par tableau. Une valeur hors limite reste inconnue et la réponse partielle ; aucun tronquage d’identifiant n’est présenté comme une identité complète. Les tableaux EDID et réseau restent des tableaux.
+
+Les colonnes reçues sont enregistrées dans le cache SQLite, séparées de l’inventaire complet et liées au GUID de l’ordinateur. La transaction fusionne chaque sonde selon sa date : deux relevés de sondes différentes ne s’écrasent pas. Dernière réussite complète, dernière tentative et date des données sont distinctes. Refus et arrêt n’effacent pas le dernier contenu daté. Le détail le laisse consultable avec sa provenance, sans le réinterpréter comme une mesure actuelle réussie. Une sélection partielle conserve ses valeurs brutes et n’invente pas un bilan complet à partir des sources non lues. Aucun ancien identifiant de batterie, numéro de processeur ou état actif d’écran n’est fabriqué dans le détail.
+
+Les interprétations sont calculées localement depuis ces colonnes, sans requêtes supplémentaires. Les compteurs de disque se joignent par identité unique. Les capacités de batterie du pilote se joignent par InstanceName exact, jamais par position à une charge Win32_Battery non identifiée. Paramètres du pare-feu et sécurité matérielle restent des déclarations, sans preuve d’une stratégie effective ou d’un Secure Boot actif. Une liste de services incomplète ne donne pas de conformité complète.
+
+L’historique du volume C: conserve un point valide toutes les six heures, au plus 60 points sur 400 jours ; une tentative en échec ne crée aucun point. Ce volume n’est pas supposé être le volume système. L’historique EDID conserve 20 changements entre ensembles complets, insensible à l’ordre des lignes ; une lecture partielle ne devient pas la référence de comparaison. Les bases D1 existantes restent préservées ; leur ancien historique non qualifié n’est pas inventé à partir du nouveau relevé.
+
+Neuf tests ajoutés et compilés seulement, couvrant sélection, identité, arrêt, limites, projection, conservation après refus, historique, fusion SQLite et raccordement AD/local. Qualification native et exécution des suites à la recette finale.
+
+
+## 25. Diagnostic complet réel (23/10/2026)
+
+Le budget de 45 secondes commence avant la vérification AD. DNS (4 s), un écho ICMP et les ports 135/445/3389/5985/5986 sont lus indépendamment ; le silence ICMP ne bloque pas CIM. Une ouverture TCP prouve seulement l’acceptation d’une connexion. L’inventaire conservé n’est pas remplacé ; seul le résultat ICMP daté rejoint la présence du parc.
+
+CIM confirme le nom Windows avant le système et ses autres sources. Le volume système vient de SystemDrive, validé comme lettre de lecteur : sans cette information, aucun C: n’est supposé. CBS, Windows Update et les renommages en attente sont lus séparément ; absence confirmée, indicateur possible et source non lue restent distincts. Le contrôle rapide conserve son contrat distinct sur C:.
+
+Trois contrôles authentifiés emploient le même compte sélectionné : Identify WS-Management Kerberos (6 s), ouverture de la racine C$ avec le droit de lister et OPEN_EXISTING (6 s), puis Connect/GetFolder sur la racine du planificateur (8 s). Aucun fichier énuméré ou créé, aucune tâche créée ou exécutée. Une lecture réussie du planificateur ne prouve pas le droit de créer une tâche. Le mot de passe de Connect passe par un BSTR natif temporaire, effacé après retour, sans chaîne managée supplémentaire. Les appels natifs possèdent leur copie de compte jusqu’à leur fin effective même si l’interface cesse d’attendre.
+
+Un rejet d’authentification ou un nom Windows étranger suspend les autres accès authentifiés. Arrêt, budget et saturation des workers conservent les contrôles reçus. Les résultats non concluants disposent d’un compteur et d’un rendu distincts : aucune réponse du poste n’est déduite du DNS seul, aucun port ignoré n’est considéré fermé, et un délai WinRM ne prouve pas une configuration absente. Les contrôles de repli respectent la configuration ; aucun PsExec non approuvé n’est lancé. Le repli de collecte avec création d’artefacts reste un circuit séparé, encore à raccorder à son autorisation unique.
+
+Sept tests écrits et compilés seulement. Le test natif local du planificateur, les appels SMB/WinRM et le parcours visuel seront exécutés lors de la recette finale. Références : [ouverture Windows en lecture seule](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew), [connexion au planificateur](https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-itaskservice-connect), [arguments IDispatch en ordre inverse](https://learn.microsoft.com/en-us/windows/win32/api/oaidl/nf-oaidl-idispatch-invoke), [contrôle Identify WS-Management](https://learn.microsoft.com/en-us/windows/win32/winrm/detecting-whether-a-remote-computer-supports-ws-management-protocol).
+
+## 26. Métadonnées LAPS, BitLocker et durée de vie des secrets (23/10/2026)
+
+LAPS lit exclusivement les deux attributs d’expiration après validation du GUID ordinateur. Une date visible ne prouve ni publication du mot de passe ni droit de lecture. Le bouton de révélation propose un geste distinct sans prélecture secrète. Une absence d’attribut reste non concluante. Budget global de vingt secondes ; aucune donnée confidentielle dans cette vue.
+
+La liste BitLocker demande les GUID, noms et dates des objets `msFVE-RecoveryInformation` directement sous le poste. Une 257e ligne détecte le dépassement de la limite affichée de 256. Les identités illisibles ou dupliquées sont écartées et la liste devient explicitement partielle. Un GUID de volume reste un identifiant, jamais une lettre C: supposée. Une liste vide avec ce compte ne prouve pas l’absence de clés.
+
+La révélation valide le parent et le GUID de récupération complet avant toute demande de mot de passe, puis scelle la recherche à l’objectGUID de l’objet récupération. Identifiant, type, DN enfant direct et parent ordinateur sont revérifiés ; une recréation écarte le résultat. Une seule valeur structurée en huit blocs est remise à la fenêtre native, sans cache ni export. Budget global de vingt-cinq secondes, recherches bornées et compte LDAP commun au geste sans repli.
+
+`SecretReading` possède désormais un tampon effaçable, libéré à la fermeture, à l’échéance ou après échec d’ouverture. Le pont transfère la propriété à la fenêtre seulement en cas de succès. Le propriétaire ne permet plus copie ni révélation après libération ; ses métadonnées restent utilisables. Les copies de présentation exigées par WinForms et le presse-papiers sont des chaînes managées : vider les contrôles et abandonner ces références n’est pas une garantie d’effacement immédiat de toutes les copies du runtime.
+
+Sept tests de frontières et de propriété écrits et compilés seulement. Debug/Release sans avertissement. Révélation LAPS réelle, autre compte, index et recette native restent en cours ; aucun secret du domaine réel n’a été demandé.
+
+## 27. Révélation LAPS réelle (23/10/2026)
+
+Le geste relit d’abord le GUID ordinateur et les seules expirations, puis demande la famille de mots de passe correspondante. Windows LAPS prime sur les métadonnées historiques, y compris avec une expiration zéro (rotation demandée). Un refus ou une valeur Windows invisible ne provoque aucun essai d’un ancien mot de passe historique. Le compte historique géré n’est pas inventé : son nom n’est pas publié par cet attribut. Aucun historique de mot de passe ni DSRM n’est demandé. Le parent ordinateur est relu avant publication du résultat.
+
+Le JSON Windows exige les champs uniques `n`, `t`, `p`, un horodatage valide, des chaînes bornées et une structure complète ; les erreurs ne recopient aucun contenu. Le [format chiffré MS-ADA2](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-ada2/b6ea7b78-64da-48d3-87cb-2cff378e4597) impose son en-tête de seize octets, taille exacte, réserve nulle et date cohérente avec le JSON déchiffré. Limites : 128 Kio de blob, 16 Kio de JSON, 256 caractères par champ.
+
+Le déchiffrement natif utilise [NCryptUnprotectSecret](https://learn.microsoft.com/en-us/windows/win32/api/ncryptprotect/nf-ncryptprotect-ncryptunprotectsecret) silencieux. Il reçoit une copie du compte scellé de la connexion LDAP. Un compte explicite utilise [LogonUserW, NETWORK_CLEARTEXT](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-logonuserw) pour obtenir son identité validée et garder ses accès réseau à GKDI ; le jeton local de l’opérateur n’est pas réutilisé sous un autre nom. Si Windows refuse cette ouverture de session, aucun autre type ni compte n’est essayé. Les droits LDAP et de déchiffrement restent des constats distincts.
+
+Deux travailleurs natifs au maximum, sans file ; attente limitée à quinze secondes dans un geste global de trente-cinq secondes. L’API non annulable conserve sa copie jusqu’à son retour réel. Après abandon de l’attente, tout résultat tardif est libéré ; tampons natifs et tableaux de traitement sont nettoyés. Le mot de passe traité est transféré au propriétaire de la fenêtre sans chaîne managée supplémentaire. Les chaînes LDAP et les copies WinForms restent soumises aux limites du runtime décrites au §26.
+
+Huit tests écrits et compilés seulement : Unicode, JSON ambigu/incomplet, tailles et dates, choix Windows/historique, absence de repli, compte du déchiffrement et recréation du poste. Debug/Release sans avertissement ; NCrypt, ouverture de session et LAPS réel restent à qualifier dans les VM lors de la recette finale.
+
+## 28. Autre compte de secret, limité au poste (23/10/2026)
+
+Le bouton propose une saisie native du compte et du mot de passe, dans le thème courant. La fenêtre doit être disponible avant tout contact LDAP. Les identités locales et les comptes hors contexte sont refusés avant validation ; une seule validation est effectuée. Annuler ou changer de session/compte pendant la saisie conserve la sélection précédente. Aucun coffre n’est écrit par ce geste.
+
+Le bail temporaire est indexé par la ressource LAPS ou BitLocker et le DN canonique du poste, avec trente minutes d’inactivité. Il ne remplace ni les choix d’autres postes ni la ressource voisine. Les lectures gardent leur contrôle du GUID ordinateur. Trente-deux comptes ciblés au maximum, tous visibles et oubliables dans Comptes. Les pauses suivent l’identité réellement sélectionnée ; aucun compte suivant n’est essayé après rejet. Un nouveau choix global du compte Secrets remplace explicitement ces choix ciblés.
+
+La page distingue désormais valeur invisible, refus de lecture et refus de déchiffrement, et laisse proposer un autre compte après ces réponses. Après validation, elle invite à relancer le geste ; aucune lecture ni révélation automatique. Les demandes d’accès des autres postes restent en attente.
+
+Cinq tests de ciblage, périmètre, oubli, pause et absence d’hôte ajoutés et compilés seulement. Debug/Release sans avertissement ; fenêtre et trois thèmes à qualifier dans la recette finale. Session Administrateur console 1 toujours active revérifiée, aucune fermeture de bureau.
+
+## 29. Métadonnées de secrets datées dans SQLite (23/10/2026)
+
+Les lectures de métadonnées LAPS et de liste BitLocker enregistrent uniquement des dates, états, types et nombres sous le GUID ordinateur. La dernière tentative BitLocker et le dernier constat positif sont distincts ; une lecture vide/refusée conserve la présence précédemment observée avec sa date d’origine. Les lectures arrivées en retard ne remplacent pas les plus récentes. LAPS et BitLocker fusionnent indépendamment. Une tentative refusée n’est enregistrée qu’après confirmation du GUID du parent.
+
+La base refuse GUID étranger/inconnu, dates futures, nombres incohérents et faux zéros associés à un état non lu. Les métadonnées antérieures à la création actuelle du poste, ou sans date de création fiable, ne sont pas réattribuées dans sa console. L’ouverture reste locale et signale explicitement un ancien constat positif que la lecture suivante n’a pas confirmé. Une relecture AD plus récente des expirations prime sur les métadonnées LAPS plus anciennes.
+
+Sept tests ajoutés et deux adaptés, compilés seulement : fusion datée, lecture vide/refusée, identité temporelle, validation, transaction SQLite et ouverture sans LDAP. Debug/Release sans avertissement. L’index réseau de toute l’OU et la reprise des anciennes données D1 restent à terminer ; `secret_state` D1 est conservé intact et n’est pas attribué automatiquement par simple homonymie (il ne porte pas le GUID du poste).
+
+## 30. Index réel des métadonnées de secrets (23/10/2026)
+
+Le geste choisit un seul compte BitLocker pour l’OU : un compte temporaire limité à un poste n’est pas étendu à ce périmètre. La racine du domaine et les périmètres étrangers sont refusés avant contact. Cinquante mille postes au plus, contrôleurs exclus, budget global de trois minutes. La projection complète des ordinateurs respecte l’expansion bornée des appartenances et ne déclare pas un recensement exhaustif de l’OU.
+
+La sélection récursive lit les objets récupération dans l’OU puis relit les identités des parents ; la sélection directe lit chaque parent sur un niveau, sans aucune requête Subtree. GUID, DN et création de l’ordinateur doivent rester cohérents. Les doublons de poste, d’objet récupération, de GUID récupération ou de DN sont exclus ; plafond ou réponse ambiguë donne une couverture partielle, jamais un faux zéro complet. Les recherches ne demandent ni mot de passe LAPS, ni clé BitLocker, ni paquet de clé.
+
+Après arrêt ou refus, les lignes déjà confirmées sont conservées. La dernière présence positive reste liée au GUID et à sa date d’origine, séparée de la tentative actuelle. Les anciens constats v2 déjà qualifiés par GUID sont repris si leur date est compatible ; les homonymes D1 sans GUID ne le sont pas. La grille et son export affichent date et précision de lecture ; zéro signifie aucun objet visible avec ce compte, sans prouver l’absence de clés. L’expiration LAPS invisible reste non concluante. La simulation fournit elle aussi les dates de ses constats et ne compte plus une lecture inconnue comme un zéro.
+
+Sept tests écrits et compilés seulement : frontières de périmètre, projection sans secret, non-récursivité, recréation et doublons, DN malformé, conservation après vide/refus, arrêt après une ligne confirmée. Debug/Release sans avertissement ; qualification AD et parcours visuel réservés à la recette finale.
+
+## 31. Détection réelle : console, LogonUI et profils (23/10/2026)
+
+Un geste garde le compte annuaire choisi et un compte machine, dans un budget global de vingt-cinq secondes. Le parent AD est confirmé avant contact et avant publication ; nom DNS, compte SAM, SID, GUID et création doivent rester identiques à la fiche. Chaque source native est bornée à six secondes et commence par l’identité Windows. Un rejet d’authentification arrête le parcours sans autre compte ; les travailleurs natifs détiennent leur copie jusqu’au retour réel.
+
+Le premier compte AD résolu arrête le parcours. Console CIM : nom qualifié à la date de lecture, sans prétendre avoir comparé le SID du jeton. LogonUI : dernier nom affiché, historique sans date de connexion, jamais une session actuelle. Profils : SID et date d’utilisation explicites, 129 lignes de garde, cinq candidats récents au plus, doublons écartés ; aucun compte dérivé du nom d’un dossier. Les profils antérieurs à la création du compte AD ne lui sont pas réattribués. CIM et StdRegProv suivent les réglages et le transport configurés, sans changement de service.
+
+La recherche LDAP est exacte et bornée à deux réponses ; les noms nus, locaux ou d’une autre autorité ne sont pas transformés en homonymes du domaine. Un UPN est comparé exactement, un SID lorsqu’il est disponible aussi. GUID, classe utilisateur, domaine, DN et création sont contrôlés. L’interface distingue résolution actuelle du compte AD et identité de l’observation réellement prouvée. Une déclaration existante reste prioritaire ; le constat récent est conservé dans la mémoire de cette session, sans écriture d’affectation. Arrêt ou changement d’identité avant la vérification finale n’installe pas le nouveau résultat.
+
+Sept tests écrits et compilés seulement : déclaration conservée, arrêt au premier résultat, comptes locaux/non qualifiés, profils par SID, LogonUI historique, mauvais hôte/recréation, rejet d’authentification, réponses manquantes/ambiguës. Debug/Release sans avertissement. Restent à raccorder les sources complémentaires du parcours D1 (journal 4624, propriétaire explorer/registre distant, tâche de lecture autorisée), les relations héritées et leur mémorisation automatique commune. Le lecteur Poste n’est pas exposé comme complet ; aucune recette native exécutée.
+
+## 32. Associations de la base Domenia 1 dans Poste (23/10/2026)
+
+La console et sa liste relisent localement les associations conservées dans `user_machine_links`. La lecture ne crée pas de base absente et ne migre ni ne modifie une base existante. Les identités connues sont rapprochées par GUID ; un renommage du CN ou du compte utilisateur ne casse pas ce lien. Un GUID différent ne rejoint pas le nouveau détenteur d’un nom. Les lignes sans GUID restent des libellés historiques non vérifiables ; elles n’acquièrent pas le DN ou le GUID du compte actuel par homonymie. Pour ces anciennes lignes, le nom Windows vient du compte machine, indépendamment du CN.
+
+Une affectation déclarée conserve sa priorité sur une détection récente. Les origines importée, indice et à vérifier ont désormais leurs propres badges. L’historique est borné à dix lignes ; un résultat de lecture partiel ou comportant des dates non qualifiées le dit. La liste construit une fois son index des relations par GUID et nom hérité, sans rescanner toutes les associations pour chaque poste.
+
+Six tests ajoutés et compilés seulement, dont ouverture sans LDAP, identité après renommage, homonymie et préservation des données D1. Debug/Release sans avertissement ; les écritures et la mémorisation commune des relations, les sources complémentaires de détection et la recette finale restent en cours.
+
+## 33. Dernier utilisateur : mémorisation locale (23/10/2026)
+
+Après vérification de l’utilisateur et relecture du parent, la détection verse une observation par GUID au service partagé des relations puis tente sa mémorisation locale autorisée. Le verdict distingue enregistrement, attente ou interruption. Les dates de la source sont conservées ; LogonUI ne reçoit pas une fausse date de connexion. Déclarations et anciens liens sans GUID restent intacts. Une panne locale ne transforme pas l’observation confirmée en affectation ni ne lance une boucle réseau. Voir `relations.md` §12. Le lecteur Poste complet et sa recette native restent en cours.
+
+
+## 34. Bail annuaire de la validation préalable (23/10/2026)
+
+Les gestes réseau de Poste valident désormais leur cible avec le compte annuaire sélectionné et son garde commun. RootDSE doit appartenir au domaine actif ; un rejet d’identifiants est enregistré et bloque le contact suivant, sans reprise avec une autre identité. La lecture exacte du parent est limitée à deux résultats et dix secondes. GUID, SID, date de création, DN et unicité sont contrôlés avant tout accès machine. L’expansion des appartenances reste active pour ne pas remplacer le cache par une projection tronquée.
+
+L’inventaire et le direct utilisent une seule acquisition annuaire pour toute leur chaîne de console : une identité à usage unique n’est pas consommée par un contrôle préliminaire puis remplacée au geste suivant. Le ping du direct se déroule dans cette chaîne et utilise le DNS fraîchement relu. Les règles de qualification, conservation des données partielles et mémorisation sont décrites dans `relations.md` §28 à §31.
+
+Cinq tests ajoutés couvrent pause avant contact, refus partagé, identités ambiguës ou incohérentes, parent absent/contrôleur étranger et cible DNS du rappel avant inventaire. Un test d’inventaire vérifie aussi l’unique liaison RootDSE. Debug/Release compilés en VM sans erreur ni avertissement ; tests non exécutés.
+
+
+## 35. Mémoire des sessions datées (23/10/2026)
+
+Le cache local conserve par GUID la dernière tentative et la dernière liste complète, séparément. Un refus ou une lecture partielle ne signifie jamais zéro session et ne remplace pas la dernière liste complète. Une réponse plus ancienne ou de même date conserve le constat déjà connu. Les lectures antérieures à la création du compte ordinateur ne s’appliquent pas à son identité actuelle.
+
+Chaque lecture est limitée à 512 lignes et l’ensemble à 2 Mio. Identifiants dupliqués, lignes nulles, dates futures, durées négatives, champs démesurés ou caractères de contrôle sont refusés, ainsi que les états prétendant une liste complète malgré des éléments non lus. Les écritures vérifient le GUID dans la base du domaine. Les détails D1 `Sessions/WTS` restent intacts : ce nouveau stockage ne les remplace pas et leur lecture compatible reste à raccorder.
+
+Cinq tests couvrent refus/succès, ordre temporel, limites, identité après recréation, réouverture SQLite et préservation D1. Debug/Release compilés sans erreur ni avertissement ; tests non exécutés. Raccordement du lecteur WTS et affichage local en cours.
+
+
+## 36. Sessions natives et historique visible (23/10/2026)
+
+Une lecture WTS conserve le même bail annuaire du contrôle initial au contrôle final. Le compte ordinateur (GUID, SID, création) et la cible DNS/SAM doivent rester identiques. Un refus sans contenu est conservé après le contrôle initial, sans relancer une identité potentiellement suspendue. Le repli CIM fournit des ouvertures de session ; il reste partiel pour l’état du bureau et ne remplace jamais une liste WTS complète. Aucune preuve de SID Windows distant n’est déduite de WTS.
+
+Le résultat est enregistré avant accusé, avec la dernière liste complète conservée séparément. Un défaut d’enregistrement est affiché explicitement. L’ouverture locale expose ces lectures sans nouveau contact réseau. L’écran permet de choisir la dernière tentative ou la dernière liste complète datée ; un échec de commande laisse l’ancienne lecture visible. L’identité transmise à la fiche conserve le domaine, et un nom non qualifié n’est pas navigable. Les éléments non lus, même sans ligne retournée, ne deviennent pas un total nul.
+
+Cinq tests ajoutés couvrent persistance et réouverture, historique après refus, modification du parent pendant WTS, refus LDAP final, comptes homonymes et nombre d’éléments non lus. Debug/Release compilés en VM sans erreur ni avertissement. Tests et validation visuelle différés à la recette finale.
+
+
+## 37. Sessions héritées de Domenia 1 (23/10/2026)
+
+La lecture locale recherche seulement le détail `Sessions/WTS` du GUID concerné, avec deux résultats au maximum pour détecter des versions ambiguës. Le DN et le nom Windows doivent correspondre ; les dates doivent porter un fuseau et ne pas précéder la création du compte. Taille des champs contrôlée dans SQLite avant transfert, JSON limité à 2 Mio et seize niveaux, 512 lignes au plus ; propriétés ou identifiants dupliqués refusés. Aucune migration ni écriture des détails d’origine.
+
+La date native `ObservedUtc` doit correspondre au dernier succès. `LogonTicks` est un FILETIME, `IdleTicks` une durée ; valeurs absentes restent inconnues. Un compte partiellement lu demeure visible comme non lu. Une liste absente ne devient jamais une liste vide. Le dernier échec générique D1 ne permet pas de déduire un rejet d’authentification et reste séparé de la dernière liste complète.
+
+L’ouverture de Poste combine cet historique avec les données V2 par leurs dates et leur GUID, sans contact réseau. Un nouveau refus natif conserve la dernière liste complète D1 dans le cache V2 ; le détail original demeure intact. Sept tests ajoutés et compilés en VM sans erreur ni avertissement ; tests non exécutés.
+
+
+## 38. Lecture partielle et présentation (23/10/2026)
+
+Avant redémarrage, une liste provenant du cache, non datée ou partielle laisse le total des sessions inconnu. Les personnes déjà identifiées restent affichées ; seule une lecture fraîche complète peut établir un total nul. La simulation respecte elle aussi l’autorité des comptes et l’UPN exact lors de l’ouverture d’une fiche, sans réattribuer un homonyme local ou étranger au domaine.
+
+Les notices d’inventaire portent une tonalité explicite : information pour la provenance et la mémorisation, avertissement pour un refus, une identité non confirmée ou une proposition de repli. Une simple confirmation de lecture n’apparaît plus comme une alerte. Trois tests ajoutés et compilés ; Debug/Release sans erreur ni avertissement, tests et validation visuelle toujours à effectuer en fin de développement.
+
+
+## 39. Historique Sécurité du dernier utilisateur (23/10/2026)
+
+`Remote.UseSecurityLog` active explicitement la source ; son défaut reste faux et n’ouvre aucun journal. La lecture RPC utilise le compte machine déjà sélectionné, sans repli d’identité, et le lecteur natif borné des événements. Le profil Poste accepte seulement 40 événements 4624 de types 2, 10 ou 11, au cours des trente derniers jours et après la création du compte ordinateur. Budget de trois secondes ; ressources et copie du secret restent détenues jusqu’à la fermeture réelle du worker.
+
+La source du journal doit être le poste demandé ; `WorkstationName` peut désigner son client et n’est pas pris pour son identité. Les candidats portent le SID cible, le domaine et la date de l’événement. Cinq SID récents au plus, un événement récent par SID ; comptes système, lectures réseau/service, doublons contradictoires et mauvaises dates exclus. Ces candidats suivent la validation AD et le contrôle final du parent déjà employés par les autres sources. Ils restent historiques et ne remplacent aucune affectation déclarée. Un rejet d’identifiants interrompt la chaîne avant publication des candidats.
+
+Les méthodes CIM de la détection sont désormais bornées à trois secondes chacune, dans l’enveloppe globale de vingt-cinq secondes. Six tests ajoutés et compilés en VM sans erreur ni avertissement ; tests et recette native non exécutés à ce stade. Les sources WinRM, registre distant et repli autorisé restent à terminer.
+
+
+## 40. Console et propriétaires Explorer par WinRM (23/10/2026)
+
+La détection peut lire la console et les propriétaires Explorer par un script WinRM fixe, sans argument utilisateur, dans le budget de trois secondes de la méthode. WinRM ou CIM désactivé interdit l’ouverture de ce shell. Aucun profil PowerShell chargé, aucune commande d’intervention ; le shell propre à cette lecture est fermé, sans toucher aux sessions du bureau. Une fermeture non confirmée reste explicite et ne provoque pas une nouvelle création.
+
+Seize processus Explorer au plus sont examinés avec leurs PID et dates de création. Les deux lectures de propriétaire sont encadrées par la vérification de l’identité du processus. Microsoft documente [GetOwner](https://learn.microsoft.com/fr-fr/windows/win32/cimwin32prov/getowner-method-in-class-win32-process) pour le nom/domaine et [GetOwnerSid](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/getownersid-method-in-class-win32-process) pour le SID ; seul un code de retour nul est accepté.
+
+La réponse est limitée à 64 Kio et dix-sept candidats (console plus processus), sans doublon de console/PID/propriété, avec nom Windows et dates vérifiés. La console porte sa date de lecture, sans SID de jeton inventé ; le propriétaire Explorer reste un indice historique dont la date de connexion est inconnue. Son SID est comparé à AD. La console WinRM confirmée rejoint les observations et passages partagés, sans remplacer une affectation déclarée.
+
+Six tests ajoutés couvrent la nature des preuves, contrat et limites, options désactivées, fermeture incertaine, rejet d’identité et intégration au lecteur AD. Debug/Release compilés en VM sans erreur ni avertissement ; tests et recette native toujours différés à la fin du développement.
+
+
+## 41. Repli LogonUI par registre distant (23/10/2026)
+
+Cette source respecte `Remote.UseRemoteRegistry`, indépendamment de CIM. Le compte machine sélectionné est conservé pendant la lecture RPC ; un compte explicite incomplet n’est jamais remplacé par la session Windows. Trois valeurs sont admises : le nom Windows actif et les deux noms LogonUI. La clef est ouverte en lecture seule, sans modification de service ou de configuration. Le nom actif est vérifié avant puis après les deux valeurs, dans le budget de trois secondes.
+
+La taille et le type sont demandés avant allocation, limités à 2 Kio. Le lecteur traite le contenu comme de l’UTF-16 borné, même sans NUL final ; il refuse les caractères de contrôle et les identités de plus de 320 caractères, sans expansion de `REG_EXPAND_SZ`. Une croissance entre les deux appels n’entraîne pas de nouvel essai. Ce traitement suit le contrat documenté de [RegQueryValueExW](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regqueryvalueexw).
+
+Un refus sur une valeur demeure visible même si l’autre nom a été reçu. Un rejet d’identifiants arrête la lecture et écarte les candidats avant toute publication. Les noms gardent leur domaine et passent dans la validation AD commune ; ils restent des indices historiques sans SID ni date de connexion inventés. Sept tests ajoutés couvrent options, identité avant/après, refus, limites UTF-16 et intégration AD. Deux doubles de tests ont été complétés pour exclure toute connexion réelle pendant les futurs tests. Debug/Release compilés en VM sans erreur ni avertissement ; tests non exécutés.
+
+
+## 42. Journal préparatoire des lectures par tâche distante (23/10/2026)
+
+Avant tout artefact distant, le plan local doit identifier la base, le poste par GUID/DN/DNS/date de création, le compte utilisé, la lecture autorisée, un nonce et l’empreinte SHA-256 du script. Le cache doit encore contenir cette identité exacte ; les contrôleurs de domaine sont exclus. Le nom de tâche et de répertoire dérive exclusivement du GUID de l’opération. Ce journal ne contient aucun secret et ne déclenche aucun réseau.
+
+La table V2 est ajoutée après une sauvegarde vérifiée sans modifier les tables D1. Un plan en attente bloque une autre lecture par tâche sur ce GUID ou ce nom DNS. Le résultat reçu, l’arrêt de l’exécution et le retrait des artefacts sont trois faits séparés ; le blocage n’est levé que lorsque les deux derniers sont confirmés. Les reçus ont une révision comparée et ne peuvent perdre un effet déjà observé. Un réessai exact est idempotent, y compris après réouverture de la base.
+
+La lecture des attentes ne crée pas de fichier et ne reprend jamais automatiquement une tâche. Empreintes, tailles, identités et états contradictoires sont contrôlés ; des effets de triggers supplémentaires annulent la transaction. Sept tests couvrent reprise, conservation D1, collisions, reçus périmés, corruption, DC et absence de base. Debug/Release compilés en VM sans erreur ni avertissement ; tests différés. L’exécution SYSTEM et le raccordement au consentement restent en cours.

@@ -1,0 +1,74 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : déverrouiller un compte par le circuit d’écriture",
+  "description": "Liste la vue des comptes verrouillés (tout le domaine, choix explicite : aucun relevé proposé), sélectionne un compte verrouillé, lance « Déverrouiller… » marqué comme écriture : plan relu par le moteur, confirmation (simulation), reçu, puis relecture de la ligne qui passe à Actif. Rien n’est rejoué.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "rechercher?vue=lockedusers&domaine=1&sel=locked",
+  "steps": [
+    {
+      "do": "wait",
+      "contains": "Vue sur tout le domaine",
+      "within": ".rch-notices",
+      "title": "La vue sur tout le domaine n’offre aucun relevé"
+    },
+    {
+      "do": "wait",
+      "text": "Déverrouiller…",
+      "within": ".rch-preview",
+      "title": "L’aperçu propose l’écriture, marquée"
+    },
+    {
+      "do": "click",
+      "text": "Déverrouiller…",
+      "within": ".rch-preview",
+      "title": "Préparer le déverrouillage"
+    },
+    {
+      "do": "wait",
+      "text": "Confirmer…",
+      "title": "Le plan relu par le moteur est prêt"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…"
+    },
+    {
+      "do": "wait",
+      "text": "Confirmer (simulation)",
+      "title": "La confirmation du kit est affichée"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)",
+      "title": "Confirmer l’écriture simulée"
+    },
+    {
+      "do": "wait",
+      "text": "Fermer",
+      "within": ".k-drw",
+      "title": "Le reçu est affiché"
+    },
+    {
+      "do": "shot",
+      "name": "recu-deverrouillage"
+    },
+    {
+      "do": "click",
+      "text": "Fermer",
+      "within": ".k-drw"
+    },
+    {
+      "do": "wait",
+      "contains": "Actif",
+      "within": ".rch-preview .rch-obj-hero",
+      "title": "La ligne relue est active"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

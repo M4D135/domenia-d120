@@ -1,0 +1,39 @@
+﻿{
+    "Suite":  "Test-DomeniaInstaller",
+    "Passed":  4,
+    "Failed":  0,
+    "Skipped":  0,
+    "Expected":  4,
+    "Complete":  true,
+    "CaseFilter":  "choix.explicite.-LocalData|choix.saisis.en.minuscules|retour.verifie|restauration.complete.disponible",
+    "NativeWindowsPowerShell51":  true,
+    "PSVersion":  "5.1.26100.6584",
+    "ElevatedSession":  true,
+    "ProfileDataDeletionExecuted":  false,
+    "Checks":  [
+                   {
+                       "Name":  "D114 version complete preparee, activation, preferences et donnees conservees, retour verifie",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  47.591
+                   },
+                   {
+                       "Name":  "D114 interruption au milieu des copies bloque le lancement, restauration complete disponible",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  39.705
+                   },
+                   {
+                       "Name":  "P144 choix explicite -LocalData Supprimer : le dossier installe disparait entierement",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  23.876
+                   },
+                   {
+                       "Name":  "P144 choix saisis en minuscules : -LocalData supprimer supprime, -LocalData demander conserve sans question",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  51.732
+                   }
+               ]
+}

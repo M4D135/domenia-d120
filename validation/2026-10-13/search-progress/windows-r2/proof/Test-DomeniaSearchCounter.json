@@ -1,0 +1,71 @@
+﻿{
+    "Status":  "PASS",
+    "Scope":  "Actual production counter expressions and callbacks through inert ports; no Windows GUI or AD validation",
+    "PowerShell":  "5.1.26100.6584",
+    "SourceSha256":  "c2e2f4ecd514b3f0ddf9289b78e75266bb1458e1bf180d8be8dd4bdaeb61d772",
+    "Cases":  12,
+    "Assertions":  27,
+    "Failed":  0,
+    "Results":  [
+                    {
+                        "Name":  "Running search never presents its loaded fraction as a complete list",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Empty cache preview remains loading",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Timeout marks both counters partial before UI queue finalization",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Finalized timeout retains the partial marker with all loaded rows visible",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Local filtering cannot hide that the source list is partial",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Explicit cancellation uses the existing live stop marker",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Partial LDAP result is visibly partial even without a supplied reason",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Partial LDAP reason takes priority over a reached display limit",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "A successful result still draining the UI queue remains loading",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "A successful finalized full list keeps the ordinary visible fraction",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "The result limit has its own marker and is never labelled a timeout",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Global search retains its scope explanation beside the partial marker",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

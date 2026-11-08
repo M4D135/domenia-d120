@@ -1,0 +1,26 @@
+{
+  "id": "TRV-282",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs:14-17 — ValidateReceiptPath : chemin entièrement qualifié exigé, préfixe double antislash refusé (aucun chemin UNC), racine de disque refusée, DriveType.Fixed exigé, deux-points en cours de chemin refusé (flux alternatif) ; DOMENIA_RECEIPT_PATH",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs:18 → src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:152-160 — ValidateLocalPath : lecteur réseau refusé, fichier déjà redirigé refusé, puis remontée de tous les ancêtres et refus d'un ancêtre ReparsePoint : aucun point d'analyse sur tout le chemin",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs:21-26 — ReceiptPrincipals : uniquement l'utilisateur courant (identity.User), LocalSystem et BuiltinAdministrators ; identité Windows absente = DOMENIA_RECEIPT_DACL",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs:46-48 — ProtectReceiptDirectory : SetAccessRuleProtection(true, false) (héritage coupé) puis FullControl pour ces trois seuls principes, écrit par parent.SetAccessControl",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs:53-59 — ProtectReceiptFile : même DACL réécrite pour le journal receipts.jsonl et pour le témoin receipts.jsonl.state (MarkerPath, ligne 10)",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs:62-71 — VerifyReceiptAccess : relecture effective des règles (nombre, principes, Allow, FullControl, héritage, IsInherited, PropagationFlags) ; écart = DOMENIA_RECEIPT_DACL « droits relus différents de la protection attendue »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Protection.cs:39-40 — UnauthorizedAccessException / SecurityException / IOException pendant la protection = DOMENIA_RECEIPT_DACL « protection du dossier et des reçus non confirmée ; aucun envoi autorisé »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.cs:60 — le chemin est validé dès la construction du magasin ; FileReceiptStore.cs:162 — ProtectReceiptRoot() est appelé au début de chaque Append, avant l'ouverture du flux ; FileReceiptStore.cs:183 — ProtectReceiptFile juste avant l'écriture des octets ; FileReceiptStore.cs:170 — revalidation du chemin sous le verrou machine",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Read.cs:9,20,55 — la protection et la validation du chemin sont reprises à chaque lecture et sur chaque fichier relu (journal, témoin, archives)",
+    "aucun SetOwner, SetGroup ni SetAuditRule dans src/Domenia.Store/Receipts (rg sur le dossier : seuls SetAccessRuleProtection et AddAccessRule) et relecture limitée à AccessControlSections.Access (Protection.cs:50,59) : propriétaire, groupe et audit ne sont pas touchés",
+    "tests/Domenia.Tests/ReceiptStoreProtectionTests.cs:12-30 — Receipt_directory_and_files_keep_owner_and_group_but_remove_other_principals : propriétaire et groupe du dossier comparés avant/après, une règle WorldSid (Tout le monde) ajoutée puis effacée, CheckReceiptAcl sur le dossier, sur receipts.jsonl et sur le témoin .state",
+    "tests/Domenia.Tests/ReceiptStoreProtectionTests.cs:113-122 — CheckReceiptAcl : DACL protégée de l'héritage, « utilisateur, SYSTEM et Administrateurs seulement » (SetEquals + nombre de règles), règles non héritées, Allow et FullControl exactement",
+    "tests/Domenia.Tests/ReceiptStoreProtectionTests.cs:33-39 — Redirected_and_alternate_receipt_paths_are_rejected_before_opening : UNC refusé sans accès réseau, flux alternatif refusé, racine du disque refusée (« ne jamais réécrire la DACL de la racine du disque »)"
+  ],
+  "manque": "Rien de fonctionnel par rapport à la fiche. Deux précisions vérifiables : (1) la DACL est réécrite sur le dossier parent immédiat du journal (Protection.cs:31-35, parent = DirectoryInfo du dossier contenant receipts.jsonl) et sur les fichiers, pas sur les ancêtres plus hauts — l'héritage étant coupé sur ce parent (SetAccessRuleProtection(true, false)), aucun droit supplémentaire ne descend vers les reçus ; (2) le contrôle des points d'analyse ne porte que sur les ancêtres existants à l'instant de la validation (CompatibleDirectoryCache.cs:157-159, « if (parent.Exists …) ») : un ancêtre transformé en jonction après coup n'est vu qu'à la validation suivante, chaque ajout et chaque lecture reprenant ValidateReceiptPath (FileReceiptStore.cs:170, FileReceiptStore.Read.cs:20).",
+  "effort": "S",
+  "depend": [
+    "TRV-281 (reçu durable écrit avant tout envoi)",
+    "TRV-283 (compaction et archivage des reçus)"
+  ],
+  "risque": "ecriture-locale"
+}

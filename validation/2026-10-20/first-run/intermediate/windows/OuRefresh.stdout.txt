@@ -1,0 +1,300 @@
+{
+    "Suite":  "Domenia.OuRefresh",
+    "Platform":  "Win32NT",
+    "PowerShell":  "5.1.26100.6584",
+    "Pass":  55,
+    "Fail":  3,
+    "Tests":  [
+                  {
+                      "Name":  "Three independent OU sources; Search Global and unchecked subtrees do not widen to domain or mutate controls",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Missing OU and domain root refused before any job",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Foreign OU refused",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Escaped commas in the OU remain inside the exact domain",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Core dispatch carries operation identity and full OU payload",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Core callback queues operation identity and does not collect before receipt",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Exact storage receipt starts Both only on subsequent tick",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Base mode ends at confirmed save without remote collection",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Partial AD can save rows but never chains collection",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Null AD result fails the chain",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "AD error callback fails chain",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Refused AD admission releases UI state",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Tout actualiser on Accueil: an AD failure still starts ping and WMI on the local base",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Tout actualiser on Accueil: a partial AD read is recorded partial and the collection follows",
+                      "Pass":  false,
+                      "Error":  "Assertion failed"
+                  },
+                  {
+                      "Name":  "Storage failure latches before automatic retries",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Cancellation during storage prevents later success from collecting",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Foreign operation receipt ignored",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Old receipt from same OU cannot advance a new operation",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Foreign storage Epoch ignored",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Foreign storage Path ignored",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changing source OU cancels pending handoff",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changing another page OU does not alter the operation",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Session or database drift stops the chain",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Busy local target response does not prepare remote workers",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Empty scoped base is explicit and sends no ping",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "5001 active targets ignore empty displayed grid and force fresh measurements only for this run",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Confirmation precedes ping and names the captured OU",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changing OU before confirmation cannot start the timer",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Cancelled AD job cannot leave the flow waiting forever",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Closing engine prevents any phase transition",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Existing collection blocks another refresh before AD dispatch",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Storage preparation failure becomes explicit flow error",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Finished collection with suspended storage never reports persisted success",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Successful collection reports completion only after local persistence drained",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Index button still opens its picker when no OU has been chosen",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Old operation status identifies its original OU after scope selection changes",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Fleet controls become enabled after choosing their own OU",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Selected dashboard probes are snapshotted before AD and forced in remote plan",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "First click includes saved query widget probes on both boards without opening the workshop",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Loaded query library is used without rereading or changing its draft",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Configured query widget Unreadable refuses collection before any worker",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Configured query widget Missing refuses collection before any worker",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Configured query widget Duplicate refuses collection before any worker",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Paused query widget is left out of the WMI refresh of the OU (decision David 2026-10-14)",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Tout actualiser (decision 2026-10-19): one ping of every workstation, then WMI of those online only, without a second confirmation",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Base-only refresh is independent of a damaged query library",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Failed workstation measurements never announce full ping and WMI success",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Scope clocks: base refresh records one AD run with controller and count only after its receipt",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Scope clocks: AD failure keeps its cause and records no workstation family",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Scope clocks: refused AD admission is not an attempt",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Scope clocks: partial AD read is recorded as partial, without ping or WMI",
+                      "Pass":  false,
+                      "Error":  "Assertion failed"
+                  },
+                  {
+                      "Name":  "Scope clocks: a declined confirmation records the AD run only",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Scope clocks: an approved ping with one failed workstation records a partial presence clock",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Scope clocks: a WMI run whose saves are not confirmed is never recorded as a success",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Scope clocks: another session never receives the run",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Scope clocks: the dashboard re-reads them only after a complete SQLite receipt of this session",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "FI-13 : la relecture AD de l OU attend la sauvegarde verifiee de la base ; ping, refus et echec ne lisent rien",
+                      "Pass":  false,
+                      "Error":  "Sauvegarde absente avant la mise a jour du tableau de bord"
+                  },
+                  {
+                      "Name":  "FI-13 : une OU choisie pendant la sauvegarde n est jamais lue sans son propre clic",
+                      "Pass":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Limitations":  "Actual orchestration, Core AST hooks, storage receipt and collection UI with mocked workers/timers/controls; no AD, WMI, SQLite IO, WPF or Windows qualification."
+}

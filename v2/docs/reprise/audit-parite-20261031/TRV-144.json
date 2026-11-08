@@ -1,0 +1,19 @@
+{
+  "id": "TRV-144",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/web/js/shell/pulse.js:21-25 — échec d'un rappel périodique : entry.failures++ ; « if (entry.failures >= 3) entries.delete(entry) » puis onError de diagnostic ; l'échec du diagnostic ne casse pas la minuterie partagée",
+    "repo/v2/tests/web/page-pulse.test.mjs:31-35 — test « Battement : arrêt définitif après trois fautes et aucune relance au retour visible » avec « trois diagnostics distincts » et « abonné arrêté »",
+    "repo/v2/src/Domenia.Bridge/OperationRefusals.cs:10-15 — « refusal of the same operation is written once a minute at most, so that a refused refresh never floods the journal » (Quiet = 1 minute)",
+    "repo/v2/src/Domenia.Bridge/BridgeAdmission.cs:377-382 — échecs consécutifs par source : state.Failures++ jusqu'au seuil du budget, puis pause avec backoff exponentiel (BackoffSeconds * 2^n, plafond MaxBackoffSeconds)",
+    "repo/v2/src/Domenia.Bridge/BridgeAdmission.cs:308 — message clair quand le minuteur de fond est arrêté pour la source : « Lectures de fond suspendues ou en reprise progressive pour cette source. »",
+    "repo/v2/tests/Domenia.Tests/BridgeSchedulingTests.cs:259 — test « Failures pause only background then recovery widens after success without retrying failures »",
+    "repo/v2/src/Domenia.App/MainForm.Closing.cs:25-37 — fermeture : PrepareCloseAsync du circuit d'écritures ; « decision.ConfirmationRequired » ou avertissement de tâche → confirmation demandée avant de fermer (garde-fous « fermeture possible après confirmation si une écriture était en cours »)",
+    "repo/v2/tests/Domenia.Tests/WriteClosingTests.cs — tests du circuit de fermeture avec écritures en cours",
+    "repo/v2/web/js/shell/pulse.js:5-6 — état « writing » : les abonnements de fond sont suspendus pendant qu'une écriture est en cours (allowed exige !state.writing)"
+  ],
+  "manque": "Rien de bloquant. Écart de conception assumé par rapport à Domenia 1 : les erreurs de la boucle sont diagnostiquées à chaque échec (trois diagnostics distincts puis arrêt, pulse.js:21-25 et page-pulse.test.mjs:35) plutôt qu'écrites « une fois par minute » — la limitation à une fois par minute s'applique aux refus d'opérations (OperationRefusals.cs:15) et aux incidents d'interface (guards.js:240, NOTICE_INTERVAL_MS = 60_000).",
+  "effort": "S",
+  "depend": ["TRV-124/125 (file et réglages du moteur)", "circuit d'écritures (fermeture)"],
+  "risque": "ecriture-locale"
+}

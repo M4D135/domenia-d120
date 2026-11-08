@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : demande d’écriture avec saisie exacte du nom",
+  "description": "Pose une demande d’écriture d’exemple : la confirmation reste grisée tant que le nom saisi diffère (casse comprise), s’active quand il correspond ; Échap dans le champ vide n’annule pas par erreur, le bouton « Annuler » retire la demande sans rien exécuter.",
+  "modes": ["simulation"],
+  "start": "shell?onglet=outils",
+  "steps": [
+    { "do": "click", "selector": "[data-tool=\"request-typed\"]", "title": "Poser une demande avec saisie du nom" },
+    { "do": "wait", "selector": ".sh-request[data-tone=\"danger\"]" },
+    { "do": "expect", "selector": ".sh-request [data-req=\"confirm\"]", "property": "disabled", "equals": true, "title": "Confirmation grisée avant la saisie" },
+    { "do": "type", "selector": ".sh-request [data-req=\"typed\"]", "text": "exemple-0001", "title": "Saisir le nom avec une autre casse" },
+    { "do": "expect", "selector": ".sh-request [data-req=\"confirm\"]", "property": "disabled", "equals": true, "title": "La casse compte" },
+    { "do": "type", "selector": ".sh-request [data-req=\"typed\"]", "text": "EXEMPLE-0001", "clear": true, "title": "Saisir le nom exact" },
+    { "do": "expect", "selector": ".sh-request [data-req=\"confirm\"]", "property": "disabled", "equals": false, "title": "Confirmation active" },
+    { "do": "expect", "selector": ".sh-request .sh-request-typed.ok", "title": "Coche de correspondance" },
+    { "do": "shot", "name": "demande-nom-exact", "selector": ".sh-request" },
+    { "do": "click", "selector": ".sh-request [data-req=\"cancel\"]", "title": "Annuler" },
+    { "do": "expect", "contains": "Annulé ou retiré", "within": "[data-result=\"request\"]", "title": "Rien n’a été écrit" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

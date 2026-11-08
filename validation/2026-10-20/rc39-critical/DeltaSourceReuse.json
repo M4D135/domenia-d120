@@ -1,0 +1,40 @@
+{
+  "Description": "Runtime byte identity from targeted R2/R4 results to the final runtime; no new test execution implied.",
+  "Files": [
+    {
+      "TestRound": "rc39-final-retest",
+      "Path": "wad/modules/Domenia-LocalPreview.UI.ps1",
+      "TestedSha256": "F256D8EC1679D2DB85D809B916F0823890A518BAE05CEEBA1533C93247D24617",
+      "CurrentSha256": "F256D8EC1679D2DB85D809B916F0823890A518BAE05CEEBA1533C93247D24617",
+      "Identical": true
+    },
+    {
+      "TestRound": "rc39-final-retest",
+      "Path": "wad/modules/Domenia-Widgets.UI.ps1",
+      "TestedSha256": "47B7B6A3F483B23CE242BF37BFE4A4268C9F6599959DDACD6C93F40F06F98E77",
+      "CurrentSha256": "47B7B6A3F483B23CE242BF37BFE4A4268C9F6599959DDACD6C93F40F06F98E77",
+      "Identical": true
+    },
+    {
+      "TestRound": "rc39-tree-r4",
+      "Path": "wad/modules/Domenia-DirectoryTree.Types.cs",
+      "TestedSha256": "8BF412290A145C6F7B2E4FC3CCBCEC08DCFF3C5C353D1676FE5FC49F39448D09",
+      "CurrentSha256": "8BF412290A145C6F7B2E4FC3CCBCEC08DCFF3C5C353D1676FE5FC49F39448D09",
+      "Identical": true
+    },
+    {
+      "TestRound": "rc39-tree-r4",
+      "Path": "wad/modules/Domenia-DirectoryTree.UI.ps1",
+      "TestedSha256": "BEB4EFEA536E574093D4826957BD790F813DC8BB03CCBB0B464C2B252715EC89",
+      "CurrentSha256": "BEB4EFEA536E574093D4826957BD790F813DC8BB03CCBB0B464C2B252715EC89",
+      "Identical": true
+    },
+    {
+      "TestRound": "rc39-tree-r4",
+      "Path": "wad/Domenia-Core.ps1",
+      "TestedSha256": "1C6913CACD820669B750FDE2E09E1E4C4A09F936B327B8225DD38BE295037F74",
+      "CurrentSha256": "1C6913CACD820669B750FDE2E09E1E4C4A09F936B327B8225DD38BE295037F74",
+      "Identical": true
+    }
+  ]
+}

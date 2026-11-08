@@ -1,0 +1,16 @@
+{
+ "id": "TRV-100",
+ "verdict": "partiel",
+ "preuves": [
+  "src/Domenia.Inventory/NativeReadProcess.cs:33-40 — le processus auxiliaire est le propre exécutable de l'application, lancé avec seulement mode + nom du tube + PID parent (« The child waits on the private pipe. It receives neither account nor work before assignment succeeds ») : rien de compte ni de charge utile sur la ligne de commande",
+  "src/Domenia.Inventory/NativeReadProcess.cs:36-38,51-63,74-80 — borné : objet Job 1 processus, 512 Mio de mémoire, arrêt garanti (TerminateJobObject) ; identité croisée PID client/serveur vérifiée (« Identité du processus natif non confirmée »)",
+  "src/Domenia.Inventory/NativeReadClient.cs:63-71 — tube privé CurrentUserOnly, hello puis secret via le tube (NativeReadProtocol.cs:112-129 « Secret natif »), jamais via la ligne de commande ; src/Domenia.Inventory/NativeReadProtocol.cs:33,45-50 — contrat borné (budget 1..300 000 ms) et liste fermée par kind (Registre natif refusé, Inventaire natif refusé, Diagnostic natif refusé) ; aucune écriture possible hors des kinds de lecture (NativeReadProtocol.cs:13)",
+  "src/Domenia.Inventory/CimSession.cs:173, CimSession.Metadata.cs:43 (namespaces/classes), CimSession.Diagnostic.cs:24, CimSession.InventoryShell.cs:27, CimSession.Appx.cs:26, CimSession.Registry.cs:121, CimSession.Events.cs:22 — les lectures WMI/registry/inventaire/diagnostic tournent réellement hors processus (WmiQuery, WmiClasses, WmiNamespaces, ComputerDiagnostics, SoftwareInventory via InventoryShell/Appx)",
+  "src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:115 — Features.IsolatedReads déclaré « désactivé par défaut » ; src/Domenia.Core/Screens/Accounts/Access/OperationRequirements.cs:77 — entrée IsolatedRead (Local/Unknown) dans la table des opérations",
+  "tests/Domenia.Tests/NativeReadWorkerTests.cs, NativeReadProgressTests.cs, PhysicalWorkBudgetTests.cs — bancs du travailleur natif, de sa progression et du budget physique"
+ ],
+ "manque": "Le réglage Features.IsolatedReads n'est consommé nulle part (seule occurrence hors docs : ConfigurationReport.cs:115) — l'isolation est le comportement par défaut des lectures CIM/registry (direction actée docs/FEATURES.md:10111), pas un drapeau activable ; le drapeau « Isolable » par lecture revue et la décision de dispatch (équivalents Get-DomeniaIsolationDecision / New-DomeniaIsolatedReadPayload) n'existent pas (rg Isolable = 0 occurrence) : le choix hors-processus est figé par site d'appel dans CimSession. Garde-fou non appliqué tel que décrit : un compte explicite traverse bien la frontière (src/Domenia.Inventory/CimSession.Isolation.cs:16-17 passe login et mot de passe ; NativeReadClient.cs:25,70 copie le secret et l'écrit dans le tube) — protégé par tube CurrentUserOnly et vérification PID, mais l'exclusion « sans compte explicite » n'est pas implémentée. Aucune interdication propre à la démonstration côté Domenia.Inventory (DemoSessionProcess ne filtrant rien dans le chemin natif). Enfin ComputerPing (src/Domenia.Inventory/WorkstationPresenceReader.cs, ICMP en processus) et TreeChildren (Ldap en processus) listés par D1 comme isolables ne passent pas par le travailleur.",
+ "effort": "M",
+ "depend": ["budget physique/travailleurs WMI (WmiReadWorkers, PhysicalWorkBudget)", "sujet réglages Features (ConfigurationReport)"],
+ "risque": "reseau"
+}

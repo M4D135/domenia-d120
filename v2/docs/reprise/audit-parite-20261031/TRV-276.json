@@ -1,0 +1,20 @@
+{
+  "id": "TRV-276",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Preferences/FilePreferenceStore.cs:330 — fichier temporaire nommé dans le même dossier que la destination (« {path}.{ProcessId}.tmp »)",
+    "src/Domenia.Store/Preferences/FilePreferenceStore.cs:336 — stream.Flush(flushToDisk: true) avant le remplacement, avec FileOptions.WriteThrough (ligne 333)",
+    "src/Domenia.Store/Preferences/FilePreferenceStore.cs:340 — File.Move(temporary, path, overwrite: true) : remplacement atomique, la destination n'est jamais supprimée d'abord",
+    "src/Domenia.Store/Shell/ShellLocalFiles.cs:607 — temporaire « .domenia-{guid}.tmp » dans le dossier résolu de la destination",
+    "src/Domenia.Store/Shell/ShellLocalFiles.cs:613 — FlushAsync avant le remplacement ; ligne 617 CheckTarget est rejoué juste avant File.Move pour ne pas écraser une écriture concurrente",
+    "src/Domenia.Store/Documents/FileDocumentStore.cs:69 — File.Move(temporary, target, overwrite: false) : une destination existante n'est jamais écrasée ni supprimée (nom unique « -2 », « -3 »)",
+    "src/Domenia.Store/Receipts/FileReceiptStore.Archive.cs:82 — File.Replace(temp, target, null) quand la cible existe, File.Move sinon : jamais de suppression préalable de la destination",
+    "tests/Domenia.Tests/PreferencesTests.cs:40 — test « Absent_document_then_atomic_write_and_read_back » ; ligne 53 vérifie qu'aucun *.tmp n'est laissé",
+    "tests/Domenia.Tests/ShellLocalFilesTests.cs:153 — vérifie l'absence de fichier temporaire après écriture locale",
+    "tests/Domenia.Tests/ConfigurationSeedTests.cs:136 — aucun temporaire de remplacement abandonné après refus disque"
+  ],
+  "manque": "Il n'existe aucun utilitaire partagé d'écriture atomique (équivalent de Write-DomeniaAtomicText) : chaque magasin réimplémente temporaire + flush + File.Move/File.Replace chez lui (FilePreferenceStore.cs:326, ShellLocalFiles.cs:607, FileDocumentStore.cs:215, QueryLibraryFiles.cs:141, SyncExports.cs:97, OperationsExports.cs:111, RelationExports.cs:170, DomeniaDatabase.Backups.cs:112), avec des conventions de nommage différentes (« .{guid}.tmp », « .{ProcessId}.tmp », « .domenia-{guid}.tmp ») et des politiques de remplacement incohérentes (overwrite: true / false / File.Replace). Le volet « .bak optionnel » n'est jamais écrit : rg sur src ne montre des .bak qu'en LECTURE de compatibilité héritée (LegacyBoardLayoutFile.cs:54, CompatibleDirectoryCache.cs:121, LegacySearchFile.cs:11, CompatibleDirectoryCache.SharedPark.cs:236) ; aucun appelant ne peut demander la conservation d'une copie de l'ancienne version pendant le remplacement.",
+  "effort": "M",
+  "depend": [],
+  "risque": "ecriture-locale"
+}

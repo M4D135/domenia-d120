@@ -1,0 +1,9 @@
+Get-DomeniaSavedQueryRecipes : The term 'Get-DomeniaSavedQueryRecipes' is not recognized as the name of a cmdlet,
+function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the
+path is correct and try again.
+At C:\DomeniaLab\d120-rc11720-qualification\dev\wad\modules\Domenia-Query.UI.ps1:75 char:14
++     $saved=@(Get-DomeniaSavedQueryRecipes);$store=$script:DomeniaQuer ...
++              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Get-DomeniaSavedQueryRecipes:String) [], ParentContainsErrorRecordExcep
+   tion
+    + FullyQualifiedErrorId : CommandNotFoundException

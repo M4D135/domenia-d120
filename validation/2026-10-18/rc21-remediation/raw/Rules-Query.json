@@ -1,0 +1,100 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  12,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "P151",
+                       "P153",
+                       "P154",
+                       "P155",
+                       "P156",
+                       "P157",
+                       "P158",
+                       "P70"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "P155",
+                      "Name":  "Analyse WQL : propriétés, clés ajoutées, condition, préconditions, limites et prudence",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P155",
+                      "Name":  "Analyse WQL : propriété absente, MSI, instruction multiple, limite et fournisseur coûteux",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P155",
+                      "Name":  "Analyse WQL : une recette exige un test de la même requête sur le même poste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P155",
+                      "Name":  "Analyse WQL : jamais tous les comptes ou groupes du domaine depuis un poste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P154",
+                      "Name":  "Exploration WMI : espace de noms et filtre de classes contrôlés",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P154",
+                      "Name":  "Opérations de lʼatelier classées : QuerySchema lecture CIM du poste, QueryTransfer fichiers locaux",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P156",
+                      "Name":  "Relations WMI : associations déclarées, références par identité, aucune jointure libre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P151",
+                      "Name":  "Fenêtre commune proposée : seuil, plafond des mesures instantanées et cas sans date",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P158",
+                      "Name":  "Répartition : page bornée, filtre, inconnu en dernier et graphique au total exact",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P153",
+                      "Name":  "Impact dʼune recette : widgets liés ou non, lien orphelin, vue de Recherche, autres recettes exclues",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P157",
+                      "Name":  "Export PowerShell : commentaires sur une ligne et littéral JSON ASCII",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P70",
+                      "Name":  "Widget de requête : la révision évaluée est nommée, un lien en retard ou une révision archivée le signalent",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

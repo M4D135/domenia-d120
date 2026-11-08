@@ -1,0 +1,17 @@
+{
+  "id": "TRV-214",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:45 — SemaphoreSlim writeGate = new(1, 1) ; :162-172 — toute exécution attend le jeton libre : strictement une écriture à la fois dans le circuit",
+    "repo/v2/src/Domenia.Bridge/AdmissionGuards.cs:37-46 — mode annuaire : toute opération Write hors la porte est refusée avant son handler (write.unavailable), classes inconnues comprises ; :52-56 — IsWriteCircuit : la porte unique est write.execute, le nom est scellé (deux opérations homonymes refusées à la composition)",
+    "repo/v2/src/Domenia.Bridge/Operations/OperationsOperations.cs:736 — auto-test : « Une seule porte d'écriture (write.execute) : plan scellé, jeton à usage unique de 5 min, reçu avant l'envoi, relecture, jamais rejouée »",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:382-395 — EnsureWritesFreeAsync : reçu à vérifier sur la propre cible → write.targetPending, sur tout autre objet → write.receiptsPending ; :97 — vérifié dès la préparation du plan ; :156-159 — jeton dépensé : le même plan déjà soumis repart jamais (write.tokenUsed)",
+    "repo/v2/tests/Domenia.Tests/OperationsOperationsTests.cs:150-152 — tests : « un autre objet est bloqué aussi » (ReceiptsPending), « sa propre cible d'abord » (TargetPending) ; repo/v2/tests/Domenia.Tests/SessionWritePolicyTests.cs:29 — aucun rejeu du plan après reconnexion",
+    "repo/v2/web/js/write-flow.js:301,332,343 — classe wf-locked posée pendant l'envoi, retirée au reçu ; :192-199 — Échap refusé pendant l'écriture ; repo/v2/web/js/kit/drawer.js:20 — tiroir modal par défaut : « Backdrop, inert page and focus trap », donc contrôles de la page gelés pendant l'écriture",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:17 — Lifetime = 5 min : plan et jeton expirés ne partent pas (WriteCircuit.cs:146-147 write.tokenExpired)"
+  ],
+  "manque": "Les délais D1 « doux 90 s / dur 300 s » n'existent pas sur le canal d'écriture : le dispatcher ne pose de deadline que sur les lectures Background (repo/v2/src/Domenia.Bridge/BridgeDispatcher.cs:128-130, CancellationTokenSource uniquement si Priority == Background) et le tableau de budgets ne concerne que des providers de lecture (repo/v2/src/Domenia.Bridge/BridgeScheduling.cs:164-171, TimeoutSeconds pour Directory/Cim/Wts/Storage/Network) ; writeGate.WaitAsync et RunAsync (WriteCircuit.cs:162-166) n'ont aucun délai interne, donc un exécuteur bloqué sur un DC fige la porte unique indéfiniment (seul le CancellationToken de l'appelant peut l'interrompre). Le verrouillage n'est pas « par cible et classe d'action » comme D1 : c'est une porte globale (une écriture à la fois) plus les reçus à vérifier (targetPending/receiptsPending) — plus strict à l'envoi, mais sans verrous distincts par classe qui laisseraient tourner deux écritures de classes indépendantes. Le nom du canal « domenia-write-channel » reste documentaire (repo/v2/docs/FEATURES.md, absent du code) ; l'équivalent fonctionnel est le nom d'opération write.execute.",
+  "effort": "M",
+  "depend": [],
+  "risque": "reseau"
+}

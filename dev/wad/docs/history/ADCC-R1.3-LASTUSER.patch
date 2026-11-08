@@ -1,0 +1,426 @@
+--- R1.2/wad/ADCC-Core.ps1
++++ R1.3/wad/ADCC-Core.ps1
+@@ -5387,7 +5387,7 @@
+                     $replaceKey -in @("secrets","computerdiag","permissions") -or
+                     $replaceKey -like "lastuser:*"
+                 ) {
+-                    Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded
++                    Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded -Reason 'Changement de selection'
+                 }
+             }
+             catch { }
+@@ -8544,7 +8544,9 @@
+ 
+         # Purge AVANT tout affichage ou chargement. Une ancienne fiche ne doit
+         # jamais rester visible pendant que la nouvelle machine est lue.
+-        if ($Force -or [string]$script:SelectionResetDn -ine $dn) {
++        # R1.3: Force rafraichit la fiche, pas la detection deja en cours du meme poste.
++        # Une vraie nouvelle selection purge toujours toutes les donnees precedentes.
++        if ([string]$script:SelectionResetDn -ine $dn) {
+             $script:SelectionResetDn = $dn
+             Reset-AdccSelectionBoundViews -Dn $dn -Type $type -Name $name
+         }
+@@ -15127,6 +15129,75 @@
+ 
+ 
+ 
++
++function Get-AdccRunningComputerUserProbe {
++    param([string]$Computer)
++    $normalized = Normalize-LinkComputer $Computer
++    if ([string]::IsNullOrWhiteSpace($normalized)) { return $null }
++    foreach ($taskId in @($script:AsyncJobs.Keys)) {
++        $job = $script:AsyncJobs[$taskId]
++        if ($null -eq $job -or [string]$job.OperationId -ne 'ComputerLastUser') { continue }
++        if ([bool]$job.CancelRequested -or [bool]$job.Superseded) { continue }
++        if ([long]$job.SessionEpoch -ne [long]$script:SessionEpoch) { continue }
++        $target = Normalize-LinkComputer ([string]$job.CallbackState.Computer)
++        if ($target -ieq $normalized) { return $job }
++    }
++    return $null
++}
++
++function Clear-AdccComputerUserProbeState {
++    param([string]$ProbeId,[string]$Computer)
++    # Un ancien arret ne doit pas effacer l identifiant d une nouvelle detection.
++    if ([string]::IsNullOrWhiteSpace($ProbeId) -or [string]$script:ActiveLinkProbeId -ne $ProbeId) { return }
++    $normalized = Normalize-LinkComputer $Computer
++    if ([string]$script:ActiveLinkProbeComputer -ine $normalized) { return }
++    $script:ActiveLinkProbeId = ''
++    $script:ActiveLinkProbeComputer = ''
++    try { if ($script:LinkProbeDone.ContainsKey($normalized)) { [void]$script:LinkProbeDone.Remove($normalized) } } catch { }
++}
++
++function Receive-AdccComputerUserProbeProgress {
++    param($Job)
++    if ($null -eq $Job -or [string]$Job.OperationId -ne 'ComputerLastUser') { return }
++    if ([long]$Job.SessionEpoch -ne [long]$script:SessionEpoch) { return }
++    $queue = $null
++    try { $queue = $Job.CallbackState.Progress } catch { }
++    if ($null -eq $queue) { return }
++    $computer = Normalize-LinkComputer ([string]$Job.CallbackState.Computer)
++    $probeId = [string]$Job.CallbackState.ProbeId
++    # File thread-safe, bornee par le nombre fixe de methodes et le budget du resolver.
++    for ($i=0; $i -lt 32; $i++) {
++        $item = $null
++        if (-not $queue.TryDequeue([ref]$item)) { break }
++        if ($null -eq $item) { continue }
++        $detail = ([regex]::Replace(([string]$item.Detail),'\s+',' ')).Trim()
++        if ($detail.Length -gt 1200) { $detail = $detail.Substring(0,1200)+' [...]' }
++        $level = if ([string]$item.Status -in @('KO','VALIDATION AD KO')) { 'WARN' } else { 'INFO' }
++        Write-AppLog ("Association {0} [probe={1}] | {2} [{3}] | {4}" -f $computer,$probeId,[string]$item.Method,[string]$item.Status,$detail) $level
++        if ([string]$item.Status -eq 'EN COURS' -and [string]$script:ActiveLinkProbeId -eq $probeId -and
++            (Get-CurrentSelectedComputerName) -ieq $computer) {
++            [void](Set-AdccControlText -Name 'LblLinkProbeStatus' -Text ("Detection de {0} : {1}..." -f $computer,[string]$item.Method))
++        }
++    }
++}
++
++function Stop-AdccComputerUserProbeUi {
++    param($Job,[string]$Reason)
++    if ($null -eq $Job -or [string]$Job.OperationId -ne 'ComputerLastUser') { return }
++    $computer = Normalize-LinkComputer ([string]$Job.CallbackState.Computer)
++    $probeId = [string]$Job.CallbackState.ProbeId
++    $wasCurrent = (-not [string]::IsNullOrWhiteSpace($probeId) -and [string]$script:ActiveLinkProbeId -eq $probeId)
++    Receive-AdccComputerUserProbeProgress -Job $Job
++    Clear-AdccComputerUserProbeState -ProbeId $probeId -Computer $computer
++    $elapsed = [Math]::Max(0,[int]((Get-Date)-$Job.Started).TotalSeconds)
++    Write-AppLog ("Association interrompue : {0} [probe={1}], apres {2}s, motif={3}, remplacee={4}." -f $computer,$probeId,$elapsed,$Reason,[bool]$Job.Superseded) 'WARN'
++    if ($wasCurrent -and -not [bool]$Job.Superseded -and -not [bool]$Job.TimeoutErrorDelivered -and
++        (Get-CurrentSelectedComputerName) -ieq $computer) {
++        [void](Set-AdccControlText -Name 'LblLinkProbeStatus' -Text ("Detection annulee pour {0}. Association en cache conservee ; relance possible apres nettoyage." -f $computer))
++    }
++    if ((Get-CurrentSelectedComputerName) -ieq $computer) { Refresh-AssociationContext -SkipResultRefresh }
++}
++
+ function Complete-AdccComputerUserProbeUi {
+     param($Result,$State)
+     $computer = ""
+@@ -15178,6 +15249,7 @@
+             [void](Set-AdccControlText -Name "LblLinkProbeStatus" -Text $message)
+             $messageLevel = if ($added) { "INFO" } else { "WARN" }
+             Set-Status $message $messageLevel
++            Write-AppLog $message $messageLevel
+             $probeMethod = "Classique"
+             try {
+                 if (-not [string]::IsNullOrWhiteSpace([string]$effective.FallbackTransport)) { $probeMethod = [string]$effective.FallbackTransport }
+@@ -15210,6 +15282,7 @@
+                 [void](Set-AdccControlText -Name "LblLinkProbeStatus" -Text $message)
+                 Set-Status $message "WARN"
+             }
++            Write-AppLog $message 'WARN'
+         }
+     }
+     catch {
+@@ -15220,6 +15293,7 @@
+             $script:ActiveLinkProbeId = ""
+             $script:ActiveLinkProbeComputer = ""
+         }
++        try { Refresh-AssociationContext -SkipResultRefresh } catch { }
+     }
+ }
+ 
+@@ -15230,7 +15304,11 @@
+     try { $computer = Normalize-LinkComputer ([string]$State.Computer) } catch { }
+     try { $probeId = [string]$State.ProbeId } catch { }
+     if ([string]::IsNullOrWhiteSpace($computer)) { $computer = "machine inconnue" }
+-    if (-not [string]::IsNullOrWhiteSpace($probeId) -and -not [string]::IsNullOrWhiteSpace([string]$script:ActiveLinkProbeId) -and [string]$script:ActiveLinkProbeId -ne $probeId) { return }
++    if (-not [string]::IsNullOrWhiteSpace($probeId) -and [string]$script:ActiveLinkProbeId -ne $probeId) { return }
++    if ((Get-CurrentSelectedComputerName) -ine $computer) {
++        Clear-AdccComputerUserProbeState -ProbeId $probeId -Computer $computer
++        return
++    }
+     $detail = ([string]$Message).Trim()
+     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue du worker." }
+     try { if ($script:LinkProbeDone.ContainsKey($computer)) { [void]$script:LinkProbeDone.Remove($computer) } } catch { }
+@@ -15238,6 +15316,7 @@
+     [void](Set-AdccControlText -Name "LblLinkProbeStatus" -Text "Echec pour $computer : $detail")
+     Set-Status "Detection du dernier utilisateur de $computer : $detail" "ERROR"
+     Write-AppLog "Detection du dernier utilisateur de $computer : $detail" "ERROR"
++    try { Refresh-AssociationContext -SkipResultRefresh } catch { }
+ }
+ 
+ function Start-ComputerUserLinkProbe {
+@@ -15245,6 +15324,19 @@
+     $computerNorm = Normalize-LinkComputer $Computer
+     try {
+         if ([string]::IsNullOrWhiteSpace($computerNorm)) { return }
++
++        # Le registre des vraies taches fait autorite, pas un ancien drapeau.
++        $runningProbe = Get-AdccRunningComputerUserProbe -Computer $computerNorm
++        if ($null -ne $runningProbe) {
++            $script:ActiveLinkProbeId = [string]$runningProbe.CallbackState.ProbeId
++            $script:ActiveLinkProbeComputer = $computerNorm
++            [void](Set-AdccControlText -Name 'LblLinkProbeStatus' -Text "Detection deja en cours pour $computerNorm : requete conservee.")
++            if ($Force) { Write-AppLog "Detection deja en cours pour $computerNorm : aucun redemarrage du worker." 'INFO' }
++            return
++        }
++        if ([string]$script:ActiveLinkProbeComputer -ieq $computerNorm) {
++            Clear-AdccComputerUserProbeState -ProbeId ([string]$script:ActiveLinkProbeId) -Computer $computerNorm
++        }
+ 
+         # LOCAL-FIRST : une association connue est immédiatement exploitable.
+         # On ne bloque jamais l'interface en attendant une confirmation distante.
+@@ -15273,13 +15365,6 @@
+             }
+         }
+ 
+-        # Un seul probe actif par poste. Contrairement a l'ancienne logique,
+-        # un echec ne verrouille pas le poste pour toute la session.
+-        if (-not [string]::IsNullOrWhiteSpace([string]$script:ActiveLinkProbeId) -and
+-            [string]$script:ActiveLinkProbeComputer -ieq $computerNorm -and -not $Force) {
+-            return
+-        }
+-
+         $probeId = [guid]::NewGuid().ToString("N")
+         $script:ActiveLinkProbeId = $probeId
+         $script:ActiveLinkProbeComputer = $computerNorm
+@@ -15287,7 +15372,10 @@
+         $classicTimeout = [Math]::Max(4,[Math]::Min(10,[int](Get-CfgValue "UserMachineLink" "ClassicProbeTimeoutSeconds" 7)))
+         $taskFallbackTimeout = [Math]::Max(12,[Math]::Min(30,[int](Get-CfgValue "UserMachineLink" "TaskFallbackProbeTimeoutSeconds" 18)))
+         $methodTimeout = [Math]::Max(1000,[Math]::Min(4000,[int](Get-CfgValue "UserMachineLink" "ProbeMethodTimeoutMs" 2500)))
+-        $overallTimeout = $classicTimeout + $taskFallbackTimeout + 8
++        # Inclut le plancher 10s PsExec + 15s schtasks et le nettoyage distant.
++        # Les appels natifs non cooperatifs restent geres par le moteur existant.
++        $overallTimeout = $classicTimeout + [Math]::Max(25,$taskFallbackTimeout) + 20
++        $probeProgress = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]' 
+ 
+         $code = @'
+ $attempts = New-Object Collections.ArrayList
+@@ -15297,7 +15385,17 @@
+ $methodTimeoutMs = [Math]::Max(1000,[int]$Payload.MethodTimeoutMs)
+ function Add-Attempt {
+     param($Method,$Status,$User,$Score,$Ms,$Detail)
+-    [void]$attempts.Add([pscustomobject]@{ Method=$Method; Status=$Status; User=$User; Score=$Score; DurationMs=$Ms; Detail=$Detail })
++    $attempt = [pscustomobject]@{ Method=$Method; Status=$Status; User=$User; Score=$Score; DurationMs=$Ms; Detail=$Detail }
++    [void]$attempts.Add($attempt)
++    try { if ($null -ne $Payload.Progress) { $Payload.Progress.Enqueue($attempt) } } catch { }
++}
++function Set-ProbeStep {
++    param([string]$Method)
++    try {
++        if ($null -ne $Payload.Progress) {
++            $Payload.Progress.Enqueue([pscustomobject]@{ Method=$Method; Status='EN COURS'; Detail='Appel en cours.' })
++        }
++    } catch { }
+ }
+ function Test-ProbeBudget {
+     if ($totalWatch.ElapsedMilliseconds -ge $classicTimeoutMs) { throw "Budget des methodes classiques depasse (${classicTimeoutMs} ms)." }
+@@ -15310,6 +15408,7 @@
+     param([string]$Method,[string]$Raw,[int]$Score,[string]$Detail,[int]$Ms)
+     $u = Normalize-WUser $Raw
+     if ([string]::IsNullOrWhiteSpace($u)) { Add-Attempt $Method "VIDE" "" 0 $Ms $Detail; return $null }
++    Set-ProbeStep ('Validation AD du candidat ('+$Method+')')
+     $validation = Test-WUserInAd $Context $u -Detailed
+     if (-not [bool]$validation.LookupSucceeded) {
+         Add-Attempt $Method 'VALIDATION AD KO' $u 0 $Ms ('Candidat lu, verification LDAP impossible : '+[string]$validation.Error)
+@@ -15331,26 +15430,48 @@
+ 
+ # RESOLVER RAPIDE : on cherche d'abord les sources peu couteuses et tres
+ # discriminantes. Une preuve valide arrete immediatement le pipeline.
+-# 1. CIM / DCOM : meilleur rapport fiabilite/cout.
++# 1. CIM : utilisateur courant puis dernier compte LogonUI via la meme session.
++# StdRegProv passe par CIM ; ne demarre pas le service RemoteRegistry.
+ try {
+     Test-ProbeBudget
++    Set-ProbeStep 'Ouverture session CIM'
+     $sw=[System.Diagnostics.Stopwatch]::StartNew(); $cimSession=$null
+     try {
+         $cimSession=New-WAdccCimSession $Context $computer $cred ([Math]::Max(2,[int]([Math]::Ceiling((Get-RemainingMethodTimeout)/1000.0))))
+-        $cs=Get-CimInstance -CimSession $cimSession -ClassName "Win32_ComputerSystem" -Property UserName -ErrorAction Stop
+-        $raw=[string]$cs.UserName
+-    }
+-    finally { Remove-WAdccCimSession $cimSession }
+-    $sw.Stop()
+-    $hit=Return-Candidate "CIM utilisateur courant" $raw 97 "Win32_ComputerSystem.UserName via DCOM" ([int]$sw.ElapsedMilliseconds)
+-    if($null -ne $hit){$hit;return}
+-} catch { Add-Attempt "CIM utilisateur courant" "KO" "" 0 0 $_.Exception.Message }
++        try {
++            Test-ProbeBudget
++            Set-ProbeStep 'CIM utilisateur courant'
++            $cs=Get-CimInstance -CimSession $cimSession -ClassName 'Win32_ComputerSystem' -Property UserName -OperationTimeoutSec ([Math]::Max(1,[int][Math]::Ceiling((Get-RemainingMethodTimeout)/1000.0))) -ErrorAction Stop
++            $hit=Return-Candidate 'CIM utilisateur courant' ([string]$cs.UserName) 97 'Win32_ComputerSystem.UserName' ([int]$sw.ElapsedMilliseconds)
++            if($null -ne $hit){$hit;return}
++        } catch { Add-Attempt 'CIM utilisateur courant' 'KO' '' 0 ([int]$sw.ElapsedMilliseconds) $_.Exception.Message }
++        if ([bool]$Payload.UseRemoteRegistry) {
++            foreach ($valueName in @('LastLoggedOnSAMUser','LastLoggedOnUser')) {
++                if ($totalWatch.ElapsedMilliseconds -ge $classicTimeoutMs) { break }
++                try {
++                    Test-ProbeBudget
++                    Set-ProbeStep ('CIM LogonUI '+$valueName)
++                    $reg = Invoke-CimMethod -CimSession $cimSession -Namespace 'root\default' -ClassName 'StdRegProv' -MethodName 'GetStringValue' -Arguments @{
++                        hDefKey=[uint32]2147483650
++                        sSubKeyName='SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI'
++                        sValueName=$valueName
++                    } -OperationTimeoutSec ([Math]::Max(1,[int][Math]::Ceiling((Get-RemainingMethodTimeout)/1000.0))) -ErrorAction Stop
++                    if ([uint32]$reg.ReturnValue -ne 0) { throw ("StdRegProv $valueName : code "+[string]$reg.ReturnValue) }
++                    $hit=Return-Candidate 'CIM dernier utilisateur LogonUI' ([string]$reg.sValue) 91 $valueName ([int]$sw.ElapsedMilliseconds)
++                    if($null -ne $hit){$hit;return}
++                } catch { Add-Attempt 'CIM dernier utilisateur LogonUI' 'KO' '' 0 ([int]$sw.ElapsedMilliseconds) $_.Exception.Message }
++            }
++        }
++    }
++    finally { Remove-WAdccCimSession $cimSession; $sw.Stop() }
++} catch { Add-Attempt 'Session CIM' 'KO' '' 0 0 $_.Exception.Message }
+ 
+ # 2. WinRM uniquement si le transport est vraisemblablement disponible.
+ # Cela evite un appel long sur les postes dont 5985/5986 sont fermes.
+ if ([bool]$Context.UseWinRM) {
+ try {
+     Test-ProbeBudget
++    Set-ProbeStep 'WinRM session'
+     $open5985=$false;$open5986=$false
+     try{$open5985=Test-WTcpPort $computer 5985 350}catch{}
+     if(-not $open5985){try{$open5986=Test-WTcpPort $computer 5986 350}catch{}}
+@@ -15379,6 +15500,7 @@
+ if ([bool]$Payload.AllowUnboundedFallbacks -and [bool]$Payload.UseRemoteRegistry) {
+     try {
+         Test-ProbeBudget
++        Set-ProbeStep 'Registre distant optionnel'
+         $sw=[System.Diagnostics.Stopwatch]::StartNew();$base=[Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey("LocalMachine",$computer);$key=$base.OpenSubKey("SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI");$sw.Stop()
+         foreach($n in @("LastLoggedOnSAMUser","LastLoggedOnUser")){$raw=[string]$key.GetValue($n,"");$hit=Return-Candidate "Registre LogonUI" $raw 88 "$n=$raw" ([int]$sw.ElapsedMilliseconds);if($null -ne $hit){try{$key.Dispose();$base.Dispose()}catch{};$hit;return}}
+         try{$key.Dispose();$base.Dispose()}catch{}
+@@ -15388,8 +15510,9 @@
+ # 4. Profils CIM : une seule session, pas de reconnexion par profil.
+ try {
+     Test-ProbeBudget
++    Set-ProbeStep 'CIM profil recent'
+     $sw=[System.Diagnostics.Stopwatch]::StartNew();$cimSession=$null
+-    try{$cimSession=New-WAdccCimSession $Context $computer $cred ([Math]::Max(2,[int]([Math]::Ceiling((Get-RemainingMethodTimeout)/1000.0))));$profiles=@(Get-CimInstance -CimSession $cimSession -ClassName "Win32_UserProfile" -Property LocalPath,LastUseTime,Special,Loaded -ErrorAction Stop | Where-Object {-not $_.Special -and $_.LocalPath} | Sort-Object LastUseTime -Descending)}
++    try{$cimSession=New-WAdccCimSession $Context $computer $cred ([Math]::Max(2,[int]([Math]::Ceiling((Get-RemainingMethodTimeout)/1000.0))));$profiles=@(Get-CimInstance -CimSession $cimSession -ClassName "Win32_UserProfile" -Property LocalPath,LastUseTime,Special,Loaded -OperationTimeoutSec ([Math]::Max(1,[int][Math]::Ceiling((Get-RemainingMethodTimeout)/1000.0))) -ErrorAction Stop | Where-Object {-not $_.Special -and $_.LocalPath} | Sort-Object LastUseTime -Descending)}
+     finally{Remove-WAdccCimSession $cimSession}
+     $sw.Stop()
+     foreach($p in ($profiles|Select-Object -First 5)){$raw=Split-Path -Leaf ([string]$p.LocalPath);$hit=Return-Candidate "CIM profil recent" $raw 82 "LastUse=$($p.LastUseTime), Loaded=$($p.Loaded)" ([int]$sw.ElapsedMilliseconds);if($null -ne $hit){$hit;return}}
+@@ -15399,6 +15522,7 @@
+ if ([bool]$Payload.UseSecurityLog) {
+     try {
+         Test-ProbeBudget
++        Set-ProbeStep 'Journal Security 4624 optionnel'
+         $sw=[System.Diagnostics.Stopwatch]::StartNew();$events=@(Get-WinEvent -ComputerName $computer -FilterHashtable @{LogName="Security";Id=4624} -MaxEvents 40 -ErrorAction Stop);$sw.Stop()
+         foreach($ev in $events){try{$lt=[string]$ev.Properties[8].Value;if($lt -notin @("2","10","11")){continue};$raw=[string]$ev.Properties[5].Value;$hit=Return-Candidate "Security 4624" $raw 80 "LogonType=$lt, Time=$($ev.TimeCreated)" ([int]$sw.ElapsedMilliseconds);if($null -ne $hit){$hit;return}}catch{}}
+     } catch { Add-Attempt "Security 4624" "KO" "" 0 0 $_.Exception.Message }
+@@ -15410,6 +15534,7 @@
+ try {
+     $sw=[Diagnostics.Stopwatch]::StartNew()
+     $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("JGM9TmV3LU9iamVjdCBDb2xsZWN0aW9ucy5BcnJheUxpc3QKZnVuY3Rpb24gQShbc3RyaW5nXSRSYXcsW3N0cmluZ10kU291cmNlLFtpbnRdJFNjb3JlLFtzdHJpbmddJERldGFpbCl7aWYoLW5vdFtzdHJpbmddOjpJc051bGxPcldoaXRlU3BhY2UoJFJhdykpe1t2b2lkXSRjLkFkZChbcHNjdXN0b21vYmplY3RdQHtSYXc9JFJhdztTb3VyY2U9JFNvdXJjZTtTY29yZT0kU2NvcmU7RGV0YWlsPSREZXRhaWx9KX19CnRyeXskdj0oR2V0LUl0ZW1Qcm9wZXJ0eSAnSEtMTTpcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cQXV0aGVudGljYXRpb25cTG9nb25VSScgLUVycm9yQWN0aW9uIFN0b3ApLkxhc3RMb2dnZWRPblNBTVVzZXI7QSAoW3N0cmluZ10kdikgJ1RhY2hlIGxvY2FsZSBMb2dvblVJJyA5MSAnTGFzdExvZ2dlZE9uU0FNVXNlcid9Y2F0Y2h7fQp0cnl7JHE9JiAoSm9pbi1QYXRoICRlbnY6U3lzdGVtUm9vdCAnU3lzdGVtMzJccXVzZXIuZXhlJykgMj4kbnVsbDtmb3JlYWNoKCRsaW5lIGluIEAoJHF8U2VsZWN0LU9iamVjdCAtU2tpcCAxKSl7aWYoJGxpbmUgLW1hdGNoICdeXHMqPj9ccyooW15cc10rKVxzKycpe0EgJG1hdGNoZXNbMV0gJ1RhY2hlIGxvY2FsZSBRVVNFUicgOTYgKFtzdHJpbmddJGxpbmUuVHJpbSgpKX19fWNhdGNoe30KdHJ5eyRjcz1HZXQtQ2ltSW5zdGFuY2UgV2luMzJfQ29tcHV0ZXJTeXN0ZW0gLUVycm9yQWN0aW9uIFN0b3A7QSAoW3N0cmluZ10kY3MuVXNlck5hbWUpICdUYWNoZSBsb2NhbGUgQ29tcHV0ZXJTeXN0ZW0nIDk4ICdXaW4zMl9Db21wdXRlclN5c3RlbS5Vc2VyTmFtZSBsb2NhbCd9Y2F0Y2h7fQp0cnl7JHA9QChHZXQtQ2ltSW5zdGFuY2UgV2luMzJfVXNlclByb2ZpbGUgLUVycm9yQWN0aW9uIFN0b3B8V2hlcmUtT2JqZWN0ey1ub3QkXy5TcGVjaWFsLWFuZCRfLkxvY2FsUGF0aH18U29ydC1PYmplY3QgTGFzdFVzZVRpbWUgLURlc2NlbmRpbmd8U2VsZWN0LU9iamVjdCAtRmlyc3QgNSk7Zm9yZWFjaCgkeCBpbiAkcCl7QSAoU3BsaXQtUGF0aCAoW3N0cmluZ10keC5Mb2NhbFBhdGgpIC1MZWFmKSAnVGFjaGUgbG9jYWxlIHByb2ZpbCByZWNlbnQnIDcyICgnTGFzdFVzZT0nK1tzdHJpbmddJHguTGFzdFVzZVRpbWUpfX1jYXRjaHt9Cltwc2N1c3RvbW9iamVjdF1Ae0NhbmRpZGF0ZXM9QCgkYyl9"))
++    Set-ProbeStep 'Secours PsExec / tache planifiee'
+     $classicDetail=Get-WProbeAttemptSummary -Attempts @($attempts)
+     $fb=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([Math]::Min($taskFallbackTimeoutSeconds,[int]$Context.TaskFallbackTimeoutSeconds)) $classicDetail
+     $sw.Stop()
+@@ -15441,8 +15566,9 @@
+ '@
+         [void](Set-AdccControlText -Name "LblLinkProbeStatus" -Text "Rafraichissement distant de $computerNorm en arriere-plan...")
+         Add-AdccUiLog -Area "Association" -Text ("Resolver user-machine lance pour {0} : cache conserve, confirmation distante en arriere-plan." -f $computerNorm)
+-        Start-UiTask -Name "Dernier user $computerNorm" -OperationId "ComputerLastUser" -Code $code -Payload ([pscustomobject]@{
++        $probeTaskId = Start-UiTask -Name "Dernier user $computerNorm" -OperationId "ComputerLastUser" -Code $code -Payload ([pscustomobject]@{
+             Computer=$computerNorm
++            Progress=$probeProgress
+             ClassicTimeoutMs=($classicTimeout*1000)
+             TaskFallbackTimeoutSeconds=$taskFallbackTimeout
+             MethodTimeoutMs=$methodTimeout
+@@ -15450,7 +15576,8 @@
+             UseRemoteRegistry=[bool](Get-CfgValue "Remote" "UseRemoteRegistry" $true)
+             UseProfilesShare=[bool](Get-CfgValue "Remote" "UseProfilesShare" $false)
+             AllowUnboundedFallbacks=[bool](Get-CfgValue "Remote" "AllowUnboundedFallbacks" $false)
+-        }) -CallbackState ([pscustomobject]@{ Computer=$computerNorm; ProbeId=$probeId }) -ReplaceKey "lastuser:$computerNorm" -DisableControls @("BtnRefreshMachineLink") -TimeoutSeconds $overallTimeout -StatusText "Rafraichissement utilisateur de $computerNorm en arriere-plan..." -SuccessHandler "Complete-AdccComputerUserProbeUi" -ErrorHandler "Fail-AdccComputerUserProbeUi" | Out-Null
++        }) -CallbackState ([pscustomobject]@{ Computer=$computerNorm; ProbeId=$probeId; Progress=$probeProgress }) -ReplaceKey "lastuser:$computerNorm" -DisableControls @("BtnRefreshMachineLink") -TimeoutSeconds $overallTimeout -StatusText "Rafraichissement utilisateur de $computerNorm en arriere-plan..." -SuccessHandler "Complete-AdccComputerUserProbeUi" -ErrorHandler "Fail-AdccComputerUserProbeUi"
++        Write-AppLog ("Association demarree : {0}, probe={1}, tache={2}, budget={3}s, build={4}." -f $computerNorm,$probeId,$probeTaskId,$overallTimeout,$script:MasterBuild) 'INFO' 
+     }
+     catch {
+         Fail-AdccComputerUserProbeUi -Message $_.Exception.Message -State ([pscustomobject]@{ Computer=$computerNorm; ProbeId=$probeId })
+@@ -17189,6 +17316,11 @@
+                 $script:Ctrl["TxtCompLinkSource"].Text = [string]$link.Source
+                 $script:Ctrl["TxtCompLinkConfidence"].Text = [string]$link.Confidence
+                 $script:Ctrl["TxtCompLinkWhen"].Text = [string]$link.When
++            }
++            else {
++                $activeProbe = Get-AdccRunningComputerUserProbe -Computer $computer
++                $script:Ctrl["TxtCompLinkedUser"].Text = if ($null -ne $activeProbe) { 'Detection en cours...' } else { 'Non determine' }
++                $script:Ctrl["TxtCompLinkSource"].Text = if ($null -ne $activeProbe) { 'Interrogation distante en cours' } else { 'Aucune association en cache ; detection disponible' }
+             }
+         }
+         elseif ($null -ne $script:SelectedObject -and [string]$script:SelectedObject.Type -eq "Utilisateur") {
+@@ -18144,7 +18276,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.21-R1.2-REMOTE"
++$script:MasterBuild = "2026.09.21-R1.3-LASTUSER"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -19281,7 +19413,7 @@
+         UserComputerProbe     = "2494489F82A7982DACBFF4A982B872FF2D82879FDC6A33557C524598085A2622"
+         ComputerInventory     = "7BED026657CCD23F29190269B2471AF16CFFC800054D16C308CD576FBBE00B2D"
+         ComputerDiagnostics   = "6C085DBC70F8DDB545571667DEE245DC87289494CD1E5A1C1EBBF9EAAA2CC257"
+-        ComputerLastUser      = "F96046909357C9DB9804DA24DA78A049B26ABBEA159B7D1A40FB7FC5BFA960B4"
++        ComputerLastUser      = "DE3B94E37EF51799EC91AEEE20358C720F55F4B4B0BEDC519AA89CA232A01DED"
+         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
+         ComputerPing          = "BE1A5B70CCA9477571D839A85A1330334210DA891C53DBA257814486369F5887"
+         ComputerGpUpdate      = "95A3CCDFB28C9CF810848E79126A936655B82216971653E45B8CD0E6065301F8"
+@@ -19494,7 +19626,7 @@
+         foreach ($oldId in @($script:AsyncJobs.Keys)) {
+             $old = $script:AsyncJobs[$oldId]
+             if ($null -ne $old -and [string]$old.ReplaceKey -eq $ReplaceKey -and -not [bool]$old.IsWrite) {
+-                Request-UiTaskStop -Id $oldId -Silent -Force -Superseded
++                Request-UiTaskStop -Id $oldId -Silent -Force -Superseded -Reason 'Remplacement de tache'
+             }
+         }
+     }
+@@ -19551,7 +19683,7 @@
+ 
+ function Request-UiTaskStop {
+     [CmdletBinding()]
+-    param([Parameter(Mandatory=$true)][string]$Id,[switch]$Silent,[switch]$Force,[switch]$Superseded)
++    param([Parameter(Mandatory=$true)][string]$Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,[string]$Reason='Demande d arret')
+     if (-not $script:AsyncJobs.Contains($Id)) { return }
+     $job = $script:AsyncJobs[$Id]
+     if ($null -eq $job) { return }
+@@ -19567,6 +19699,9 @@
+     $job.CancelRequested = $true
+     $job.CancelRequestedAt = Get-Date
+     $job.Superseded = [bool]$Superseded
++    try { Stop-AdccComputerUserProbeUi -Job $job -Reason $Reason } catch {
++        Write-AppLog ("Nettoyage etat de detection : " + $_.Exception.Message) 'WARN'
++    }
+     if ([string]$job.ReplaceKey -eq "object") {
+         $objectRequestId = ""
+         try { $objectRequestId = [string]$job.CallbackState.RequestId } catch { }
+@@ -19596,7 +19731,7 @@
+         Set-Status "Annulation refusee : une ecriture AD est en cours ou en attente de confirmation du DC." "WARN"
+         return
+     }
+-    Request-UiTaskStop -Id $script:LatestTaskId
++    Request-UiTaskStop -Id $script:LatestTaskId -Reason 'Annulation utilisateur'
+ }
+ 
+ function Detach-AdccReadUiTask {
+@@ -19613,6 +19748,9 @@
+     [void]$script:AsyncJobs.Remove($Id)
+     if ([string]$script:LatestTaskId -eq $Id) { $script:LatestTaskId = "" }
+     if ($null -eq $script:DetachedReadJobs) { $script:DetachedReadJobs = New-Object System.Collections.ArrayList }
++    if ([string]$job.OperationId -eq 'ComputerLastUser') {
++        Clear-AdccComputerUserProbeState -ProbeId ([string]$job.CallbackState.ProbeId) -Computer ([string]$job.CallbackState.Computer)
++    }
+     $job.OnSuccess = $null; $job.OnError = $null; $job.CallbackState = $null
+     try { [void]$script:DetachedReadJobs.Add($job) } catch { }
+     try {
+@@ -19631,6 +19769,9 @@
+     foreach ($id in @($script:AsyncJobs.Keys)) {
+         $job = $script:AsyncJobs[$id]
+         if ($null -eq $job) { continue }
++        try { Receive-AdccComputerUserProbeProgress -Job $job } catch {
++            Write-AppLog ("Progression detection : " + $_.Exception.Message) 'WARN'
++        }
+         $elapsed = ((Get-Date) - $job.Started).TotalSeconds
+         $invokeCompleted = $false
+         $stopCompleted = $false
+@@ -19671,7 +19812,7 @@
+                     try { Invoke-AdccJobErrorUi -Job $job -Message $message } catch { Set-Status $message "ERROR" }
+                     $job.TimeoutErrorDelivered = $true
+                 }
+-                Request-UiTaskStop -Id $id -Silent -Force
++                Request-UiTaskStop -Id $id -Silent -Force -Reason 'Delai de lecture depasse'
+             }
+             continue
+         }

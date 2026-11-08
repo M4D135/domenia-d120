@@ -1,0 +1,19 @@
+﻿{
+    "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.22-D120",
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell51":  true,
+    "CheckOnlyExitCode":  0,
+    "Passed":  true,
+    "RuntimeFiles":  172,
+    "Archives":  [
+                     {
+                         "File":  "Domenia_PROD.zip",
+                         "SHA256":  "A8DDD1DD5FC363B33EF8FD8C66ECC856AAE6EEFB0A4EFFA054D5E31467179B77"
+                     },
+                     {
+                         "File":  "Domenia_DEV.zip",
+                         "SHA256":  "DD9A59F311CDB8813A39C80280A51EACB2FB91445D20A0B34739DE2199EA43BD"
+                     }
+                 ],
+    "CompletedUtc":  "2026-10-18T12:49:26.3893963Z"
+}

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Domenia.Core</RootNamespace></PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Screens/Requetes/QueryImplementation.json" LogicalName="Domenia.QueryImplementation.json" />
+  </ItemGroup>
+</Project>

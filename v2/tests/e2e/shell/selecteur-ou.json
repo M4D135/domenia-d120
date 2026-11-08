@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : sélecteur d’OU, recherche, GUID relu et revérification",
+  "description": "Ouvre le sélecteur d’OU partagé, cherche « Paris » (100 résultats au plus, chemin affiché), choisit la première OU : son GUID est relu, l’OU est révélée dans l’arbre, puis la validation revérifie le nom distinctif et le GUID avant de rendre le choix (TRV-242).",
+  "modes": ["simulation"],
+  "start": "shell?onglet=outils",
+  "steps": [
+    { "do": "click", "selector": "[data-tool=\"ou\"]", "title": "Ouvrir le sélecteur d’OU" },
+    { "do": "wait", "selector": ".k-drw .sh-pick-ou" },
+    { "do": "type", "selector": ".sh-pick-ou [data-ou-q]", "text": "Paris" },
+    { "do": "press", "key": "Enter", "title": "Lancer la recherche (geste explicite)" },
+    { "do": "wait", "selector": ".sh-pick-ou [data-ou-hit]", "title": "Des OU correspondent" },
+    { "do": "click", "selector": ".sh-pick-ou [data-ou-hit]", "nth": 0, "title": "Choisir la première OU" },
+    { "do": "wait", "contains": "OU relue", "within": ".sh-pick-ou [data-ou-summary]", "title": "Le GUID de l’OU est relu" },
+    { "do": "shot", "name": "selecteur-ou-choix", "selector": ".k-drw" },
+    { "do": "click", "selector": ".k-drw-foot [data-id=\"ok\"]", "title": "Choisir cette OU" },
+    { "do": "wait", "contains": "OU choisie et revérifiée", "within": "[data-result=\"ou\"]", "title": "Le choix revérifié est rendu" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

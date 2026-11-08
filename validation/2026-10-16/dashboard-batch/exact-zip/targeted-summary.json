@@ -1,0 +1,24 @@
+{
+    "Scope":  "Targeted native checks of DEV archive; no AD/transport/full-release qualification",
+    "ArchiveSha256":  "39AE44650715EF9A3CDFBD7EEEE50EECB51E78E5AB457AE1595B1EEB15524E9F",
+    "PowerShell":  "5.1.26100.6584",
+    "PSEdition":  "Desktop",
+    "Is64BitProcess":  true,
+    "ApartmentState":  "STA",
+    "Suites":  [
+                   {
+                       "Suite":  "Boards",
+                       "ExitCode":  0,
+                       "Passed":  9,
+                       "Failed":  0,
+                       "DurationMs":  16965
+                   },
+                   {
+                       "Suite":  "Query source dates",
+                       "ExitCode":  0,
+                       "Passed":  1,
+                       "Failed":  0
+                   }
+               ],
+    "ParserExitCode":  0
+}

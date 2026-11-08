@@ -1,0 +1,38 @@
+{
+  "Build": "2026.09.21-R1.3-LASTUSER",
+  "BaseBuild": "2026.09.21-R1.2-REMOTE",
+  "MainFunctions": 560,
+  "AddedFunctions": [
+    "Clear-AdccComputerUserProbeState",
+    "Get-AdccRunningComputerUserProbe",
+    "Receive-AdccComputerUserProbeProgress",
+    "Stop-AdccComputerUserProbeUi"
+  ],
+  "ChangedFunctions": [
+    "Complete-AdccComputerUserProbeUi",
+    "Complete-UiTasks",
+    "Detach-AdccReadUiTask",
+    "Fail-AdccComputerUserProbeUi",
+    "Get-AdccWorkerOperationHashes",
+    "Queue-AdccSelectedObjectOpen",
+    "Refresh-AssociationContext",
+    "Request-UiTaskStop",
+    "Reset-AdccSelectionBoundViews",
+    "Start-ComputerUserLinkProbe",
+    "Start-UiTask",
+    "Stop-LatestUiTask"
+  ],
+  "RemovedFunctions": [],
+  "UnchangedBinariesComparedToR12": [
+    "ADCC.exe",
+    "wad/Microsoft.ActiveDirectory.Management.dll",
+    "wad/ActiveDirectoryPowerShellResources.dll",
+    "wad/PsExec.exe"
+  ],
+  "ChangedWorkerOperationIds": [
+    "ComputerLastUser"
+  ],
+  "NativePowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveDirectoryExecuted": false
+}

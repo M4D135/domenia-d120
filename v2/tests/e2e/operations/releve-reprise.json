@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : reprendre puis arrêter le relevé interrompu",
+  "description": "Le relevé d’inventaire interrompu de l’OU Bordeaux (simulation) est repris après confirmation du nombre de postes restants, apparaît comme lot en cours, puis est arrêté : les mesures reçues sont gardées, rien n’est rejoué.",
+  "modes": ["simulation"],
+  "start": "operations?onglet=releves",
+  "steps": [
+    { "do": "expect", "contains": "postes restants sur", "within": ".op-offer-card", "title": "Le relevé interrompu est proposé" },
+    { "do": "click", "selector": "[data-run-act=\"resume\"]", "within": ".op-offer-card", "title": "Reprendre…" },
+    { "do": "expect", "contains": "seront lus", "within": ".k-dlg", "title": "La confirmation donne le nombre et le périmètre" },
+    { "do": "click", "selector": ".k-dlg-foot [data-id=\"ok\"]", "title": "Confirmer la lecture des postes restants" },
+    { "do": "expect", "contains": "Relevé repris", "within": ".toasts" },
+    { "do": "expect", "contains": "Arrêter le relevé", "within": ".op-survey-card", "timeoutMs": 6000, "title": "Le lot est en cours" },
+    { "do": "shot", "name": "lot-en-cours", "selector": ".op-runs .grid" },
+    { "do": "click", "text": "Arrêter le relevé", "within": ".op-survey-card", "title": "Arrêter le relevé" },
+    { "do": "expect", "contains": "Arrêt demandé", "within": ".toasts", "title": "L’arrêt est demandé, pas encore confirmé" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

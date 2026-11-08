@@ -1,0 +1,36 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : thème contraste élevé",
+  "description": "Affiche l’Accueil en contraste élevé : indicateurs, tableau du parc, badges du score et barre d’outils restent lisibles (cadres au lieu des halos).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "accueil",
+  "theme": "contrast",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-entry=\"fleet.health\"]",
+      "title": "Le tableau du parc est calculé"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-entry=\"fleet.health\"] .fw-badges .k-pill",
+      "title": "Le badge du score est affiché sous le verdict (ACC-055)"
+    },
+    {
+      "do": "expect",
+      "selector": ".fw-tools .k-cmdbar[role=\"toolbar\"]",
+      "title": "La barre du tableau est celle du kit"
+    },
+    {
+      "do": "shot",
+      "name": "accueil-contraste"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

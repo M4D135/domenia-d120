@@ -1,0 +1,69 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  8,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "P129"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "P129",
+                      "Name":  "Parcours graphiques : touches de la liste fermee, modificateurs explicites",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P129",
+                      "Name":  "Parcours graphiques : texte saisi independant de la disposition du clavier",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P129",
+                      "Name":  "Parcours graphiques : definition valide et erreurs detectees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P129",
+                      "Name":  "Parcours graphiques : fichier livre valide",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P129",
+                      "Name":  "Parcours graphiques : capture 1920x1080 sans infobulle, sinon refusee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P129",
+                      "Name":  "Parcours graphiques : releve humain vierge, complet ou incomplet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P129",
+                      "Name":  "Parcours graphiques : jamais qualifie sur des evenements simules seuls",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P129",
+                      "Name":  "Parcours graphiques : un passage partiel ne qualifie jamais",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

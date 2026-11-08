@@ -1,0 +1,16 @@
+{
+  "id": "TRV-028",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:78 — au démarrage, Hold(PackageLayout.At(root, \".lifecycle.lock\")) ouvre le verrou avant toute vérification",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:182 — Hold ouvre en FileAccess.Read, FileShare.Read et garde le flux dans held jusqu'à Dispose : lecture partagée pendant toute l'exécution",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:238-244 — Dispose libère tous les flux retenus (verrou et fichiers)",
+    "repo/v2/src/Domenia.App/Program.cs:54 — using var package = CheckPackage(...) : le verrou est libéré à la sortie de Main, y compris sur exception (équivalent du finally du lanceur)",
+    "repo/v2/src/Domenia.App/PackageLifecycle.cs:177 — l'installateur ouvre .lifecycle.lock en FileAccess.ReadWrite, FileShare.None (exclusif) : il ne peut pas remplacer le code d'une instance qui tourne",
+    "repo/v2/tests/Domenia.Tests/PackageIntegrityTests.cs:32-43 — pendant Open, une ouverture exclusive du verrou lève IOException (« mise à jour concurrente refusée ») et l'écriture d'un fichier vérifié est bloquée ; après Dispose l'écriture réussit (« verrou libéré à la fermeture »)"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "ecriture-locale"
+}

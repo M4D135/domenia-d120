@@ -1,0 +1,30 @@
+{
+  "id": "OPE-032",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/SqliteDatabase.cs:19 — constructeur unique de connexion, busyTimeoutMs = 2500 par défaut, utilisé par l'interface comme par les workers",
+    "src/Domenia.Store/Sqlite/SqliteDatabase.cs:33 — Native.sqlite3_busy_timeout(handle, Math.Clamp(busyTimeoutMs, 100, 5000)) : la borne 100..5000 est appliquée à toute connexion, y compris à une valeur hors bornes",
+    "src/Domenia.Store/Sqlite/SqliteDatabase.cs:180-186 — Check() : un code natif 5 ou 6 (SQLITE_BUSY / SQLITE_LOCKED) appelle OperationsMeasurements.RecordSqliteBusy() puis lève « Base occupée ; aucun résultat vide n'a été substitué. »",
+    "src/Domenia.Store/Sqlite/SqliteDatabase.cs:275-278 — SqliteStoreException.Busy = (SqliteCode & 255) is 5 or 6",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Index.cs:27,41 — lecture locale de l'index : connexion readOnly avec busyTimeoutMs 50 (ramenée à 100 par le clamp) et, sur Busy, réponse SyncIndex.Busy(query, 0) — jamais un résultat vide",
+    "src/Domenia.Core/Screens/Operations/OperationActivity.cs:321-334 — RecordSqliteBusy : compteur de session sqliteBusy et horodatage de la dernière, une ligne au journal (« comptée, rien n'est rejoué »), aucun rejeu",
+    "src/Domenia.Core/Screens/Operations/OperationActivity.cs:336-346 — propriété SqliteBusy rendant (Count, Last) pour l'affichage",
+    "src/Domenia.Core/Screens/Operations/ActivityRules.cs:699-703 — SqliteBusyTimeout : 2500 par défaut, Math.Clamp(number, 100, 5000)",
+    "src/Domenia.Core/Screens/Operations/ActivityRules.cs:705-719 — SqliteBusySummary : « Base locale occupée : N attente(s) de verrou SQLite dépassée(s) dans cette session, la dernière à HH:mm:ss (délai 2 500 ms) », et la phrase « aucune attente » à zéro",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:509-513 — EngineHealth.sqlite construit depuis activity.SqliteBusy et ActivityRules.SqliteBusyTimeout ; en simulation la ligne dit qu'il n'y a pas d'attente SQLite de collecte",
+    "web/js/pages/operations/health.js:168 — la ligne est affichée dans la carte « Enregistrement local, sources et collecte » de l'onglet Santé du moteur, panneau Opérations",
+    "src/Domenia.Core/Screens/Operations/OperationsMeasurements.cs:7-16 — contexte AsyncLocal : Enter(activity) / RecordSqliteBusy() qui ne fait rien hors d'un contexte",
+    "src/Domenia.Bridge/OperationTracking.cs:31,41 — le contexte est entré pour chaque requête du pont suivie (les deux branches du handler)",
+    "tests/Domenia.Tests/OperationsMeasurementsTests.cs:27-47 — « Native busy is counted in its session and restored after nested scope » : un vrai SqliteDatabase bloqué par une transaction ouverte est compté dans la session, le contexte imbriqué est isolé",
+    "tests/Domenia.Tests/OperationsRulesTests.cs:158-162 — défaut documenté 2500, borne basse 100, borne haute 5000, phrase à zéro et phrase à 2 attentes",
+    "src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:174 — réglage LocalStore.DatabaseBusyTimeoutMs déclaré (défaut 2500, bornes 100..5000) ; ligne 58 — l'helper N() donne ConfigUse.Planned par défaut"
+  ],
+  "manque": "Deux morceaux du texte manquent encore. (1) La valeur réglée n'est jamais appliquée : aucun appelant de « new SqliteDatabase(...) » ne passe le délai (tous omettent le paramètre et reçoivent le 2500 codé en dur de SqliteDatabase.cs:19 ; src/Domenia.Store/Sqlite/DomeniaDatabase.Index.cs:27 met 50 en dur, ramené à 100 par le clamp de la ligne 33), le réglage LocalStore.DatabaseBusyTimeoutMs est déclaré ConfigUse.Planned (ConfigurationReport.cs:174) et le panneau affiche toujours le défaut puisque src/Domenia.Bridge/Operations/OperationsOperations.cs:510 appelle ActivityRules.SqliteBusyTimeout(null). (2) « Chaque fin de worker » n'est pas couvert : le compteur ne fonctionne que dans un contexte OperationsMeasurements, entré uniquement pour les requêtes du pont (src/Domenia.Bridge/OperationTracking.cs:31,41) ; un SQLITE_BUSY rencontré par un worker de fond hors requête suivie — boucle d'écriture de src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:61-84 (qui n'incrémente que health.Conflicts) ou boucle minute de src/Domenia.Bridge/Operations/StorageBackupScheduler.cs:19-27 — n'est pas compté (OperationsMeasurements.cs:16 ne fait rien sans contexte) et n'apparaît donc ni dans le nombre ni dans l'heure de la dernière attente.",
+  "effort": "S",
+  "depend": [
+    "LocalStore.DatabaseBusyTimeoutMs (réglage du fichier de configuration, src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:174, encore ConfigUse.Planned)",
+    "Domenia.Store (boucle d'écriture et sauvegardes de fond : entrer le contexte OperationsMeasurements autour du travail du worker)",
+    "OPE-031 (carte Santé du moteur, operations.engine.health)"
+  ],
+  "risque": "lecture"
+}

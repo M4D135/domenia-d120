@@ -1,0 +1,3 @@
+# Native evidence hashes refer to exact bytes, including Windows line endings.
+*.json -text
+*.txt -text

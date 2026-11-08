@@ -1,0 +1,20 @@
+{
+  "id": "TRV-191",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:434-435 — sonde personnalisée : Behavior, Privilege et Cost doivent être déclarés, « sans déduction »",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:363-378 — pour Origine « Personnalisée », aucun privilège ni coût déduit (chaînes vides → erreur si absents), contrairement aux sondes intégrées",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:436-437 — sonde personnalisée : collecte explicite (Slow) et exclusion des contrôleurs (SkipOnDc) requises",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:438-440 — comportement : Reads==« CIM », Writes faux, Code==« Aucun », Methods vide, Target explicite requis — sinon refus",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/ProbeCatalog.Loading.cs:40-41 — refus au chargement du catalogue : contrat invalide → InvalidCatalog",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/PersonalProbeCatalog.cs:93-106 — ValidatePersonal :Origine « Personnalisée » + contrat complet exigés à l'import et à la validation d'exécution ; classe/namespace restreints au catalogue autorisé ; WqlRules.CheckTarget",
+    "repo/v2/src/Domenia.Core/Screens/Accueil/PersonalProbeCatalog.cs:67-91 — revérification à la frontière d'exécution avant tout worker natif, clé = empreinte de la déclaration (aucune déduction possible)",
+    "repo/v2/tests/Domenia.Tests/ProbeDeclarationTests.cs:57-69 — tests : retrait de Behavior/Privilege/Cost/Slow/SkipOnDc → contrat invalide ; origine Personnalisée créée directement refusée sans déclarations ; « aucun privilège déduit »",
+    "repo/v2/tests/Domenia.Tests/ProbeDeclarationTests.cs:45-50 — test : déclaration complète acceptée, droit et coût déclarés conservés, cible explicitement déclarée affichée",
+    "repo/v2/tests/Domenia.Tests/PostePersonalProbeTests.cs:34-35 — test : droit et coût du contrat vérifiés avant la décision de collecte"
+  ],
+  "manque": "Rien ; on notera seulement que l'exclusion des contrôleurs est exigée via SkipOnDc sans vérification que la cible déclarée exclut bien les DC par-delà ce drapeau.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

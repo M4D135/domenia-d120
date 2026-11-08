@@ -1,0 +1,332 @@
+[
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Window",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TitleBar",
+        "Name":  "Accueil · Aucune sélection — Domenia",
+        "Type":  "ControlType.TitleBar",
+        "Enabled":  true
+    },
+    {
+        "Id":  "SystemMenuBar",
+        "Name":  "System Menu Bar",
+        "Type":  "ControlType.MenuBar",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Item 1",
+        "Name":  "System",
+        "Type":  "ControlType.MenuItem",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Minimize",
+        "Name":  "Minimize",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Maximize",
+        "Name":  "Maximize",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Close",
+        "Name":  "Close",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "RootScroll",
+        "Name":  "",
+        "Type":  "ControlType.Pane",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxBrandCompact",
+        "Name":  "D",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabApplicationTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxSidebarToggle",
+        "Name":  "Déployer le menu : icônes et libellés.",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabDashboard",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavBack",
+        "Name":  "Précédent",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnNavForward",
+        "Name":  "Suivant",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblUxPageTitle",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUxDomain",
+        "Name":  "Connecté à cnamts.local",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ChkReadOnlyMode",
+        "Name":  "Protection des modifications",
+        "Type":  "ControlType.CheckBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WorkspaceTabs",
+        "Name":  "Choisissez une rubrique dans la barre latérale",
+        "Type":  "ControlType.Tab",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetShowMachines",
+        "Name":  "Ouvrir lʼatelier de requêtes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetDashboardRefresh",
+        "Name":  "Recalculer la vue sans collecte",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblFleetScope",
+        "Name":  "Périmètre et fraîcheur AD",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblFleetDashboard",
+        "Name":  "Dates des mesures et du calcul",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetScope",
+        "Name":  "Choisir lʼOU du tableau de bord",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetOpenSearch",
+        "Name":  "Analyser ces postes dans Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetRefreshAll",
+        "Name":  "Tout actualiser : objets AD, puis ping et WMI de lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetIndexScope",
+        "Name":  "Mettre à jour la base locale de l’OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetRefreshPostes",
+        "Name":  "Actualiser les postes de l’OU par ping et WMI",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetRefreshBoth",
+        "Name":  "Mettre à jour la base locale puis les postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblFleetOuRefreshStatus",
+        "Name":  "Progression de l’actualisation du périmètre",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxSessionDetails",
+        "Name":  "Détails de la session et outils de vérification",
+        "Type":  "ControlType.Group",
+        "Enabled":  true
+    },
+    {
+        "Id":  "HeaderSite",
+        "Name":  "Détails de la session et outils de vérification",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "VerticalScrollBar",
+        "Name":  "",
+        "Type":  "ControlType.ScrollBar",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PageUp",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PageDown",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUiLogLast",
+        "Name":  "Dernier message du journal",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxLogToggle",
+        "Name":  "Déplier le journal",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LstSearchBarScope",
+        "Name":  "Où chercher",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ItmSearchBarScopeOu",
+        "Name":  "Dans lʼOU choisie",
+        "Type":  "ControlType.ListItem",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblSearchBarScopeOu",
+        "Name":  "OU de la recherche",
+        "Type":  "ControlType.Text",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LstSearchBarType",
+        "Name":  "Type cherché",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCommandPalette",
+        "Name":  "Palette de commandes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnAccessRecovery",
+        "Name":  "Accès",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSuiteActivity",
+        "Name":  "Opérations",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnThemeToggle",
+        "Name":  "Passer au thème sombre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxHelpToggle",
+        "Name":  "Afficher lʼaide",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomOut",
+        "Name":  "Réduire le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomReset",
+        "Name":  "Réinitialiser le zoom à 100 %",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomIn",
+        "Name":  "Agrandir le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    }
+]

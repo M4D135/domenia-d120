@@ -1,0 +1,11 @@
+# CLI Dossier — lot 024
+
+La commande `Domenia.exe dossier` reçoit maintenant le magasin local existant du domaine et ses lecteurs Assistance. Elle réutilise la sélection de base de `CompatibleDirectoryCache`, y compris une sélection explicite et un basculement local enregistré. L’option `--ou` qualifie les OU du relevé stocké : elle ne dépend plus d’un sélecteur jamais ouvert dans cette nouvelle commande.
+
+`ReadOnlyDirectoryCache` n’expose que les lectures utiles et refuse les méthodes de mutation imposées par les interfaces. Ses lectures utilisent les transactions SQLite `readOnly:true` existantes ; aucun appel à l’initialisation, à la migration ni à la sauvegarde. Base absente, projection absente ou schéma incompatible : refus, sans base de remplacement. La composition CLI injecte un transport LDAP fermé et aucun collecteur de postes. La simulation ne résout aucun chemin du profil réel.
+
+L’identité, le schéma et la révision du magasin sont relus autour des lectures et juste avant la création du dossier. Une révision modifiée refuse la publication. Cette garde couvre les écritures Domenia portant la révision ; elle ne prétend pas détecter toute modification externe qui contournerait cette révision ni maintenir un verrou global pendant l’export. Les données exportées restent des données locales datées, sans revalidation AD. Les fichiers du dossier conservent le format, les plafonds, les empreintes et la création atomique du parcours existant.
+
+Sept tests écrits dans `OfflineDossierLocalStoreTests` : base SQLite réelle et fichiers exportés relus par SHA-256, OU locale sans picker, mutations et connexion refusées, absence/annulation sans création, base historique non migrée, changement de révision au point avant écriture avec preuve d’atteinte, simulation avec chemins réels invalides. Aucun test ni build exécuté sur le Mac. `git diff --check` ciblé propre ; compilation et recette critique à faire par root dans la VM Windows.
+
+Le lien de tests `PackageDefaults.cs`, ajouté par root, est préservé dans le projet de tests avec le nouveau lien `OfflineDossierContext.cs`. Aucun changement de catalogue. Les autres commandes D1 d’automatisation ne sont pas ajoutées par ce lot.

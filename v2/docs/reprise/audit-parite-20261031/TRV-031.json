@@ -1,0 +1,18 @@
+{
+  "id": "TRV-031",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Startup/StartupMeasurements.cs:7-19 — une seule horloge monotone de processus (started = clock.GetTimestamp()) ; ProcessMilliseconds = âge depuis l'amorçage, DurationMilliseconds = durée de l'étape ; historique borné à 32 (ligne 19)",
+    "repo/v2/src/Domenia.Core/Startup/StartupMeasurements.cs:20-22 — l'appel à publish est enveloppé dans try/catch : un échec de trace n'interrompt jamais le démarrage",
+    "repo/v2/src/Domenia.Core/Startup/StartupMeasurements.cs:6 — contrat explicite : « observations never participate in admission or startup decisions » (mesure seule, jamais décision)",
+    "repo/v2/src/Domenia.App/StartupTrace.cs:16-33 — Clock publie vers TechnicalLog.Info « Démarrage/<phase> : X ms ; depuis l'amorçage Y ms » ; les mesures ne sont écrites qu'après PackageVerified (lignes 22-30)",
+    "repo/v2/src/Domenia.App/Program.cs:164 — durée du contrôle d'intégrité mesurée (StartupPhase.Integrity) ; ligne 51 NativeVisible ; ligne 336 Window",
+    "repo/v2/src/Domenia.App/Composition.cs:54-84 — étapes mesurées du chargeur : Composition, LocalSource, Assemblies, Preferences, Readers, Configuration, Modules, Registry",
+    "repo/v2/src/Domenia.App/MainForm.cs:166-234 — WebViewEnvironment, WebViewControl et Navigation mesurés",
+    "repo/v2/tests/Domenia.Tests/StartupPreflightTests.cs:55-67 — test « Startup_measurements_use_one_clock_are_bounded_and_ignore_a_failed_sink » : horloge commune, historique borné, sink en échec ignoré"
+  ],
+  "manque": "La granularité du chronométrage ne correspond pas au chargeur D1. L'énumération des phases (StartupMeasurements.cs:3) ne contient ni « Fichiers et analyse syntaxique », ni « Types C# », ni « Socle », ni « Contrôle des exports », et aucune sous-étape « Detail/<nom> » n'est mesurée : les phases réelles sont Integrity/Assemblies/Readers/Preferences/Configuration/Modules/Registry/Window/NativeVisible/Composition/WebView*/Navigation/InterfaceReady/LocalSource/LocalSession. Les mesures vont dans le journal technique domenia.log (StartupTrace.cs:31-33), jamais dans un fichier dédié « Domenia-startup.log ». Le garde-fou « le lanceur et le cœur partagent une horloge de processus » n'a pas d'équivalent : Domenia 2 est un seul processus .NET sans lanceur séparé, il n'y a donc qu'une horloge par construction (aucun partage lanceur/cœur à tester).",
+  "effort": "M",
+  "depend": [],
+  "risque": "ecriture-locale"
+}

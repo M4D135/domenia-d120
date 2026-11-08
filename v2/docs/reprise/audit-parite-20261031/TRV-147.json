@@ -1,0 +1,20 @@
+{
+  "id": "TRV-147",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecipeJson.cs:11-15 — contrat versionné : lecture des formes Domenia 1 (PascalCase, Domenia.Query/1 et /2), refus de toute propriété inconnue et de tout format plus récent",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecipeJson.cs:335-347 — CheckFormat : version > max refusée (« Format … plus récent … mettez Domenia à jour. Rien n'a été lu. »)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryEngine.cs:23 — logique à trois états : « AND is FALSE as soon as one part is FALSE, OR is TRUE as soon as one part is TRUE, NOT keeps Unknown »",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryEngine.cs:890-915 — ClausePredicate : valeur absente ou propriété incomplète rendue MatchState.Unknown (jamais zéro/faux)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryEngine.cs:330-332 — refus au-delà de QueryLimits.MaxConditions (« une requête accepte 64 conditions au maximum. ») ; QueryModels.cs:365 — MaxConditions = 64",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryEngine.cs:548 — champ inconnu refusé (« information inconnue ») ; catalogue fermé QueryCatalog",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryCatalog.cs:53-57 — cache des définitions de champs : Lazy<FrozenDictionary<QueryTarget, ImmutableArray<QueryField>>> et Lazy<FrozenDictionary<string, QueryField>> en publication verrouillée",
+    "repo/v2/tests/Domenia.Tests/RequetesEngineTests.cs:143-144 — tests : propriété inconnue refusée, format plus récent (Domenia.Query/9) refusé",
+    "repo/v2/tests/Domenia.Tests/RequetesEngineTests.cs:156-160 — tests : mesure absente → inconnu jamais faux ; OU de faux et inconnu reste inconnu",
+    "repo/v2/tests/Domenia.Tests/RequetesRound2Tests.cs:279 — test : 65 conditions levent QueryDefinitionException (« 64 conditions au plus »)"
+  ],
+  "manque": "Rien de fonctionnel détecté. Le nom du moteur partagé Domenia 1 « M4D.Admin.Common.Query » n'apparaît qu'en documentation (docs/FEATURES.md:7355, d1_refs de docs/features.json:15238), jamais dans repo/v2/src (aucune correspondance rg) ; le code V2 le réimplémente nativement dans Domenia.Core/Screens/Requetes avec le même contrat Domenia.Query/1 (sous-ensemble /2), ce qui satisfait l'intention.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

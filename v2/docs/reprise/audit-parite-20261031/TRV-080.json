@@ -1,0 +1,17 @@
+{
+  "id": "TRV-080",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accounts/Access/AuthenticationTrace.cs:5 — énumération fermée des étapes (Validation, ControllerAndBind, RootDse, DomainIdentity, AccountIdentity, SessionQueue, TransportQueue, ControllerSetup, Bind) ; ligne 21-27 Step() écrit début/fin d’étape avec durée ; ligne 46 file bornée à 128 lignes ; ligne 7 « No API accepts an account, secret, exception, endpoint or arbitrary text »",
+    "src/Domenia.Ad/Ldap/AdConnection.cs:998-1006 — RaiseTrace(operation, code) émet « LDAP <opération> : code <n> » ; lignes 469, 504, 510, 515, 597 — jalons AuthenticationTrace.Step pendant la liaison LDAP",
+    "src/Domenia.App/Program.cs:99 — AdConnection.TechnicalTrace += TechnicalLog.Warning : les codes LDAP entrent dans le journal technique",
+    "src/Domenia.App/Secrets/NativeValidationDialog.cs:135 — à la fin de chaque essai, TechnicalLog.Info écrit les phases de la trace « (sans identité ni cible) »",
+    "src/Domenia.App/TechnicalLog.cs:10-12 — journal primaire %LOCALAPPDATA%\\Domenia\\logs\\domenia.log avec chemin de secours sous TEMP : chemin d’urgence quand le stockage des données est refusé (src/Domenia.App/AppPaths.cs:67 LocalApplicationData)",
+    "src/Domenia.Core/Platform/TechnicalJournalRecord.cs:21-23 — masquage des secrets avant écriture ; ligne 18-29 taille bornée : aucun mot de passe ni requête sérialisée, lignes bornées",
+    "tests/Domenia.Tests/LoginPresentationTests.cs:282-330 — trace bornée, étapes avec durée, cloisonnement des traces concurrentes testés ; tests/Domenia.Tests/TechnicalJournalTests.cs:12-13 — secrets masqués dans le journal"
+  ],
+  "manque": "La trace ne nomme jamais les candidats essayés pendant la découverte du contrôleur : l’étape ControllerSetup est chronométrée (AuthenticationTrace.cs:54) mais la découverte est déléguée à Windows (AdConnection.cs:578-581 LdapDirectoryIdentifier) et la ligne de trace est délibérément « sans identité ni cible » (NativeValidationDialog.cs:135) — aucun équivalent des candidats de Get-DomeniaFastLoginLogPath/Add-DomeniaFastLoginDetail de D1. Il manque aussi une écriture systématique de la trace pour les essais de connexion hors fenêtre de validation native (seule NativeValidationDialog écrit trace.Text ; l’entrée initiale Composition.InitialLogin.cs:32-88 ne journalise que des lignes d’état sans phases).",
+  "effort": "S",
+  "depend": ["TRV-081 (file d’écriture et repli TEMP du journal technique)"],
+  "risque": "ecriture-locale"
+}

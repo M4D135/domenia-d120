@@ -1,0 +1,33 @@
+{
+  "id": "PAR-005",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/shell/store.js:8 — PROFILES = ['essentiel', 'expert'] dans le magasin de la coque ; ligne 48 policy.expertAllowed par défaut à true",
+    "web/js/shell/store.js:294-301 — expertAllowed() (false quand UI.AllowExpertProfile masque Expert) et effectiveProfile() qui rend 'essentiel' quoi qu'ait mémorisé le magasin",
+    "web/js/app.js:713-731 — sélecteur au pied du menu (bouton « nav-account ») : choix radio Essentiel / Expert, Expert désactivé avec la raison « Profil Expert masqué par l'administrateur : UI.AllowExpertProfile vaut faux dans Domenia.config.json. »",
+    "web/js/app.js:569-576 — à la lecture des règles de l'interface, si Expert est masqué et le profil mémorisé « expert », setPrefs({ profile: 'essentiel' }) est appliqué et le message dit « Les droits ne changent pas. »",
+    "web/js/app.js:1122-1133 — setProfile refuse Expert quand l'administrateur le masque (le profil Essentiel reste appliqué) et rappelle « Les droits ne changent pas. »",
+    "src/Domenia.Core/Screens/Shell/ShellTexts.cs:160-213 — ShellPolicies lit UI.AllowExpertProfile dans Domenia.config.json (seul le booléen false ou le nombre 0 masque) ; src/Domenia.Store/Shell/ShellLocalFiles.cs:666 — lu à la demande, jamais écrit ; src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:120 — le réglage est marqué ConfigUse.Applied",
+    "tests/Domenia.Tests/ShellTests.cs:363-374 — sans fichier, false, 0, « false » en texte, true, JSON illisible, BOM : comportement du masque Expert testé",
+    "web/js/pages/parametres/apparence.js:105,113-115 — sélecteur de profil de Paramètres avec la description « Expert montre en plus les vues techniques (vue brute du journal, empreintes, plans SQLite, noms des réglages, détails des contrôles). Ce choix ne donne aucun droit. » ; ligne 171 — si !allowExpert et profil expert, le réglage est remis à 'essentiel'",
+    "web/js/pages/parametres.js:150 — page.dataset.profile = 'expert' ou 'essentiel' selon prefs.expert(st.allowExpert) ; web/css/pages/parametres.css:16 — .pr-page:not([data-profile=\"expert\"]) .pr-expert-only { display: none !important; }",
+    "web/js/pages/parametres/journaux.js:104 — le segmenté « Lisible / Brut » n'est rendu qu'en expert ; lignes 118-119 et 253-258 — state.raw est remis à false dès que la vue experte tombe (la vue brute n'est jamais laissée sélectionnée) ; ligne 228 — le clic sur « raw » n'est accepté qu'avec sctx.expert()",
+    "web/js/pages/parametres/configuration.js:20 — les noms des réglages (section.clé) en pr-expert-only ; web/js/pages/parametres/donnees.js:56,133 — empreintes SHA-256 en pr-expert-only ; ligne 185 — les lectures mesurées (plans SQLite) en pr-expert-only ; ligne 191 — le détail des contrôles en pr-expert-only",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:439-450 — PlanHow(x.Probe.Plan) construit le texte des plans (src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:102 EXPLAIN QUERY PLAN), rendu seulement en expert via donnees.js:185",
+    "web/js/shell/guards.js:43-46,131 — les détails techniques d'une confirmation ne sont montrés qu'avec la sonde experte ; web/js/app.js:1270 — setExpertProbe(() => expertFor(router?.params()))",
+    "web/js/app.js:1269,1344 — expertFor(params) et effectiveProfile() sont passés à chaque page comme ctx.expert et ctx.profile ; web/js/shell/navigation.js:160-167 — expertDecision : vue experte ponctuelle sans jamais changer le profil (tests/web/shell/navigation.test.mjs:17-23)",
+    "web/js/app.js:1116-1119 — Ctrl L suit le profil sans jamais le changer : écran Opérations en Expert, panneau journal en Essentiel",
+    "web/js/pages/fiche/general.js:381-382 — les lignes « Classe » et « GUID » de la fiche sont rendues sans aucune condition de profil",
+    "web/js/pages/poste.js:26-31 — les onglets du Poste (Diagnostic, Sondes et relevés, Intervenir, Secrets) sont listés sans condition d'expert ; src/Domenia.Core/Screens/Fiche/FicheSheet.cs:874 — les onglets de la fiche dépendent du type d'objet et des compteurs, jamais du profil",
+    "web/js/pages/poste/inventory.js:212 — la colonne « Source » existe mais est une colonne masquée par défaut (hidden: true), sans lien avec le profil ; web/js/pages/synchro/data.js:34 — « Correspondance » (avec Score ligne 14) idem, colonne masquée par défaut",
+    "web/js/pages/parametres/interface.js:116 — expert: (allowed = true) => allowed && (ctx?.expert === true || get().profile === 'expert') : seul lecteur de ctx.expert trouvé côté écrans (web/js/pages/parametres/journaux.js:118, apparence.js:144, parametres.js:150,310) ; aucun fichier de web/js/pages hors parametres/ ne l'appelle"
+  ],
+  "manque": "Le troisième point du « reste » n'est pas fait : hors Paramètres, aucune écran ne suit ctx.expert de la coque. La coque fournit bien ctx.expert et ctx.profile à chaque page (web/js/app.js:1269,1344) mais aucun fichier de web/js/pages hors parametres/ ne les lit : Classe et GUID sont affichés y compris en Essentiel (web/js/pages/fiche/general.js:381-382), les vues WMI et « Sondes et relevés » du Poste et les onglets de la fiche ne sont jamais masqués par le profil (web/js/pages/poste.js:26-31, src/Domenia.Core/Screens/Fiche/FicheSheet.cs:874), la colonne « Source » de l'inventaire et les colonnes Score/Correspondance de la base autonome sont de simples colonnes masquées par défaut sans rapport avec le profil (web/js/pages/poste/inventory.js:212, web/js/pages/synchro/data.js:14,34), et il n'existe pas de vue « Permissions » ni « Autodiagnostic » soumise au profil (l'onglet droits est web/js/pages/fiche/rights.js, sans garde de profil). Le garde-fou « une page masquée n'est jamais laissée sélectionnée » n'est honoré que pour deux cas (profil : web/js/app.js:573 et web/js/pages/parametres/apparence.js:171 ; vue brute du journal : web/js/pages/parametres/journaux.js:119,256) : la politique GuiElementPolicy « Hidden » masque l'élément (web/js/shell/gui-policy.js:50) mais rien ne déplace la sélection — web/js/kit/tabs.js:67 allume les panneaux d'après l'identifiant courant sans jamais vérifier qu'un onglet a été masqué ou interdit.",
+  "effort": "M",
+  "depend": [
+    "coque : ctx.expert déjà exposé (web/js/app.js:1344) et expertFor (ligne 1269)",
+    "GuiElementPolicy / PAR-044 (masquage des éléments et sélection de repli d'un onglet masqué)",
+    "écrans Fiche (Classe, GUID, droits), Poste (WMI, autodiagnostic, colonne Source) et Synchro (Score, Correspondance) pour raccorder leurs vues expertes à ctx.expert"
+  ],
+  "risque": "lecture"
+}

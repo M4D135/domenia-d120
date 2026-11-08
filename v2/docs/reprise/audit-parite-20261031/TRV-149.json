@@ -1,0 +1,18 @@
+{
+  "id": "TRV-149",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryModels.cs:256 — le brouillon porte un champ ImmutableArray<string>? ObjectIds (null = pas de sélection figée)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryModels.cs:371 — QueryLimits.MaxObjectIds = 20000",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryEngine.cs:339-355 — à la compilation : refus au-delà de 20 000 GUID, refus de tout GUID non parsable ou Guid.Empty (\"GUID invalide dans la sélection d'objets\"), constitution d'un FrozenSet d'identités",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryEngine.cs:149-152 — la sélection figée filtre la population par GUID (kept = identities.Contains(record.Id)) ; un ensemble vide ne fait correspondre aucun poste, donc vide ≠ « tous »",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryRecipeJson.cs:46-52 — ObjectIds lu depuis le JSON avec contrôle de taille et rejet des éléments non-chaîne ; écriture triée et normalisée (ligne 206-213)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryAnalysis.cs:713 — la sélection figée est affichée avec son empreinte (Sha256 des GUID triés, 12 premiers caractères)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:14 — enregistrement en bibliothèque avec Revision, Fingerprint et Definition ; receipt relu sur disque (ligne 55)",
+    "repo/v2/tests/Domenia.Tests/QueryPersonalProbeTests.cs:133-138 — un brouillon avec ObjectIds est validé (requetes.validate) puis enregistré (requetes.widget.save) avec la sélection conservée"
+  ],
+  "manque": "Aucun point d'entrée pour créer la liste : l'atelier affiche (« Sélection figée de N GUID », repo/v2/web/js/pages/requetes/compose.js:552) et retire (compose.js:612) une sélection, mais aucune interface ni opération ne permet de la saisir ou de la recevoir d'un widget / point d'attention (équivalent de Show-DomeniaAttentionInWorkshop introuvable ; les liens widgets→atelier, repo/v2/web/js/pages/accueil/board.js:630-637, n'ouvrent que la recette enregistrée, sans GUID). Aucun test dédié des gardes (refus >20 000, GUID vide/invalide, vide ≠ tous) dans repo/v2/tests.",
+  "effort": "M",
+  "depend": ["TRV-148", "atelier de requêtes (widgets accueil)"],
+  "risque": "ecriture-locale"
+}

@@ -1,0 +1,382 @@
+{
+ "lots": {
+  "L01": {
+   "title": "Écritures AD : idempotence, verrous, relectures",
+   "ids": [
+    "TRV-228",
+    "TRV-230",
+    "TRV-232",
+    "TRV-233",
+    "TRV-234",
+    "TRV-235",
+    "TRV-236",
+    "TRV-237",
+    "TRV-238",
+    "TRV-239",
+    "TRV-212",
+    "TRV-231",
+    "TRV-225",
+    "TRV-140"
+   ],
+   "intro": "Sécuriser le circuit d'écriture AD avant tout : empreinte de plan comme clé d'idempotence, verrou par cible, machine à états, codes LDAP 16/20, garde-fous de relecture et de protection, réinterprétation des reçus au démarrage, sélection des DLL RSAT.\n\nEffectif : 14 fonctions (2 S, 8 M, 4 L). À faire complètes dans ce lot : TRV-140.\n- **⚠ écritures AD** — annuaire de test d'abord, journal des reçus vérifié à chaque étape."
+  },
+  "L02": {
+   "title": "Opérations à distance et transport",
+   "ids": [
+    "TRV-229",
+    "TRV-214",
+    "TRV-216",
+    "TRV-207",
+    "TRV-200",
+    "TRV-201",
+    "PST-023"
+   ],
+   "intro": "Raccorder les exécuteurs distants réels et les contrats de transport : délais doux/durs, décideur de repli, besoins d'identifiants par opération, contrôle de sûreté du code transport, chaînage PrepareFallbackPlan et conventions des écrans Postes.\n\nEffectif : 7 fonctions (2 S, 5 M, 0 L). À faire complètes dans ce lot : TRV-201.\n- **⚠ réseau** — à valider hors production."
+  },
+  "L03": {
+   "title": "Sécurité : gardes locales des opérations",
+   "ids": [
+    "TRV-186",
+    "TRV-189",
+    "TRV-192",
+    "TRV-196",
+    "TRV-197",
+    "TRV-198",
+    "TRV-199",
+    "TRV-202",
+    "TRV-203",
+    "TRV-204",
+    "TRV-205",
+    "TRV-206",
+    "TRV-210",
+    "TRV-211",
+    "TRV-215"
+   ],
+   "intro": "Compléter les gardes déjà écrits mais inactifs : minuteur d'accès, projection liste blanche, inspecteur de résultats worker, déduplication bornée, presse-papiers secret, refus mémorisé par capacité, interruptions de maintenance sur tous les gestes, comparaison d'identité de la cible (DN complet, compte de service).\n\nEffectif : 15 fonctions (4 S, 11 M, 0 L)."
+  },
+  "L04": {
+   "title": "Connexion, comptes, secrets",
+   "ids": [
+    "TRV-012",
+    "TRV-013",
+    "TRV-014",
+    "TRV-015",
+    "TRV-016",
+    "TRV-183",
+    "TRV-193",
+    "TRV-219",
+    "TRV-221",
+    "TRV-222",
+    "TRV-223",
+    "TRV-240",
+    "TRV-241"
+   ],
+   "intro": "Achever la connexion et la vie du compte : bornes de délai lues de la configuration, masquage selon Auth.AllowWindowsSession, comparaison du compte mémorisé sans domaine, décompte des lectures avec l'ancien mot de passe, disjoncteur par compte, rapprochement SID, identité de session en une structure, bornes de copie des secrets, règle de compensation.\n\nEffectif : 13 fonctions (4 S, 8 M, 1 L).\n- **⚠ écritures AD** — annuaire de test d'abord, journal des reçus vérifié à chaque étape.\n- **⚠ réseau** — à valider hors production."
+  },
+  "L05": {
+   "title": "Moteur : contrats de sondes, plafonds, calibrage",
+   "ids": [
+    "TRV-096",
+    "TRV-097",
+    "TRV-099",
+    "TRV-100",
+    "TRV-101",
+    "TRV-103",
+    "TRV-104",
+    "TRV-105",
+    "TRV-106",
+    "TRV-113",
+    "TRV-121",
+    "TRV-122",
+    "TRV-129",
+    "TRV-146"
+   ],
+   "intro": "Appliquer les chiffres annoncés : plafonds et bornes des réglages (1 à 2000, MaxUserProbes, 256 Kio), calibrage sur mesures réelles, isolation des lectures, regroupement par requête, relevés d'utilisation, table déclarative des classes, messages de progression réels des lectures.\n\nEffectif : 14 fonctions (3 S, 10 M, 1 L).\n- **⚠ réseau** — à valider hors production."
+  },
+  "L06": {
+   "title": "Moteur : ordonnancement, workers, registre",
+   "ids": [
+    "TRV-114",
+    "TRV-117",
+    "TRV-130",
+    "TRV-131",
+    "TRV-134",
+    "TRV-141",
+    "TRV-142",
+    "TRV-143",
+    "TRV-135",
+    "TRV-137",
+    "TRV-133"
+   ],
+   "intro": "Construire ce qui manque au cœur : minuteur de recherche progressive, cadences des pastilles, registre des minuteries et hôtes de travail, fabrique protégée, durées par fournisseur, annulation de première ligne, tampons de page, registre d'atteignabilité annuaire, sauvegarde des collectes remplacées.\n\nEffectif : 11 fonctions (2 S, 8 M, 1 L). À faire complètes dans ce lot : TRV-114, TRV-130, TRV-135, TRV-137, TRV-133."
+  },
+  "L07": {
+   "title": "Moteur : noms, valeurs et projections AD",
+   "ids": [
+    "TRV-112",
+    "TRV-116",
+    "TRV-136",
+    "TRV-138",
+    "TRV-139",
+    "TRV-164",
+    "TRV-165"
+   ],
+   "intro": ""
+  },
+  "L09": {
+   "title": "Ateliers de requêtes et bibliothèque partagée",
+   "ids": [
+    "TRV-148",
+    "TRV-149",
+    "TRV-151",
+    "TRV-152",
+    "TRV-278",
+    "TRV-279",
+    "TRV-035",
+    "REQ-034",
+    "ACC-039",
+    "ACC-051"
+   ],
+   "intro": "Raccorder l'atelier : création de liste depuis la sélection, exclusion des widgets masqués, garde de révision sans lecture confirmée, protocole de publication de la bibliothèque, reprise des réglages hérités, chemin des points d'attention et des chiffres vers l'atelier, épinglement SHA-256 de la bibliothèque commune.\n\nEffectif : 10 fonctions (4 S, 5 M, 1 L). À faire complètes dans ce lot : TRV-035."
+  },
+  "L08": {
+   "title": "Moteur : cache et fraîcheur",
+   "ids": [
+    "TRV-153",
+    "TRV-154",
+    "TRV-155",
+    "TRV-157",
+    "TRV-158",
+    "TRV-159",
+    "TRV-160",
+    "TRV-161",
+    "TRV-162",
+    "TRV-163"
+   ],
+   "intro": "Mettre le cache au contrat : empreinte de contenu comme clé, cache de plan par empreinte de dépendances (dépend de TRV-151/152 du lot L09), cache progressif LiveCache, cache négatif horodaté, haché de définition pour toutes les sondes, DN hors clé, unité de politique, TTL de visite, réglage ObservationMaxAgeDays.\n\nEffectif : 10 fonctions (4 S, 5 M, 1 L). À faire complètes dans ce lot : TRV-154.\n- **⚠ réseau** — à valider hors production."
+  },
+  "L11": {
+   "title": "Stockage : écritures, lots, verrous, schéma",
+   "ids": [
+    "TRV-248",
+    "TRV-251",
+    "TRV-253",
+    "TRV-254",
+    "TRV-255",
+    "TRV-256",
+    "TRV-257",
+    "TRV-260",
+    "TRV-261",
+    "TRV-262",
+    "TRV-263",
+    "TRV-264",
+    "TRV-265"
+   ],
+   "intro": "Rendre conformes les chemins d'écriture SQLite : file d'écriture réelle, lotissage, bornes annoncées, table morte réemployée (domenia_store_batches), nom du verrou global, schema_version, préférences réellement écrites, faits poste complets, gardes de résumé et de départ de relevé.\n\nEffectif : 13 fonctions (2 S, 8 M, 3 L)."
+  },
+  "L10": {
+   "title": "Stockage : lectures, contrats, workers",
+   "ids": [
+    "TRV-247",
+    "TRV-249",
+    "TRV-250",
+    "TRV-252",
+    "TRV-258",
+    "TRV-259",
+    "TRV-266",
+    "TRV-267"
+   ],
+   "intro": "Côté lecture : worker épinglé pour les documents, plan durable dans les préférences, budgets constants conformes (96 Kio), lectures détaillées durables, mode de stockage annoncé, catalogue des contrats, worker LocalIndexRead à liste close.\n\nEffectif : 8 fonctions (2 S, 4 M, 2 L)."
+  },
+  "L12": {
+   "title": "Sauvegardes, purge et migrations",
+   "ids": [
+    "TRV-268",
+    "TRV-269",
+    "TRV-270",
+    "TRV-271",
+    "TRV-272",
+    "TRV-274",
+    "TRV-275",
+    "TRV-276",
+    "TRV-120",
+    "TRV-037",
+    "TRV-090",
+    "PAR-028"
+   ],
+   "intro": "Fiabiliser sauvegardes et passages de Domenia 1 : séries Geste-*.db, utilitaire d'écriture atomique, copies de migration autonomes, bascule de domaine, abandons comptés et signalés, refus maintenance sur les gestes, copie de Domenia.settings.json (TRV-037), lecture tolérante du magasin de vues hérité (TRV-090), index poste→liens, reprise de la base D1 depuis Paramètres.\n\nEffectif : 12 fonctions (2 S, 8 M, 2 L). À faire complètes dans ce lot : TRV-037, TRV-090."
+  },
+  "L13": {
+   "title": "Paramètres : base locale et diagnostic",
+   "ids": [
+    "PAR-010",
+    "PAR-011",
+    "PAR-012",
+    "PAR-013",
+    "PAR-014",
+    "PAR-015",
+    "PAR-023",
+    "PAR-025",
+    "PAR-026",
+    "PAR-030",
+    "PAR-031",
+    "PAR-049"
+   ],
+   "intro": "Corriger l'écran Base locale : politique d'effacement atteignant la copie de l'avis, suspension des collectes au seuil 512 Mio, garde-fous d'identité de marqueur, colonnes mensongères du mode annuaire, ouverture de l'emplacement, dbstat par table, verdict Sain en mode annuaire, double liste des tables de purge, identité du coffre.\n\nEffectif : 12 fonctions (7 S, 5 M, 0 L)."
+  },
+  "L14": {
+   "title": "Paramètres : assistant et sauvegardes",
+   "ids": [
+    "PAR-016",
+    "PAR-020",
+    "PAR-033",
+    "PAR-034",
+    "PAR-035",
+    "PAR-036"
+   ],
+   "intro": "Achever l'assistant et les sauvegardes réglées : pièces manquantes du déroulement, huit états du libellé, budget LocalStore.BackupTimeoutSeconds appliqué, dispositions de l'annexe, plus les tests des deux sauvegardes déjà branchées.\n\nEffectif : 6 fonctions (3 S, 3 M, 0 L)."
+  },
+  "L15": {
+   "title": "Collecte (réglages et widgets)",
+   "ids": [
+    "PAR-037",
+    "PAR-038",
+    "PAR-039",
+    "PAR-040",
+    "PAR-041",
+    "TRV-290",
+    "TRV-291",
+    "TRV-292"
+   ],
+   "intro": "Raccorder la collecte : travail de fond consultant la fenêtre, trois réglages appliqués, plafonds SE-05 aux relevés de widget, plafond de file, fil de progression par widget, et tests des réglages déjà raccordés.\n\nEffectif : 8 fonctions (5 S, 3 M, 0 L).\n- **⚠ réseau** — à valider hors production."
+  },
+  "L16": {
+   "title": "Réglages décoratifs à raccorder",
+   "ids": [
+    "PAR-005",
+    "PAR-043",
+    "PAR-044",
+    "PAR-045",
+    "PAR-046",
+    "PAR-048"
+   ],
+   "intro": "Faire que les réglages agissent : les douze commutateurs décoratifs de PAR-043, l'appliqué des tables, l'étiquette « Appliqué », le raccordement secrets/AD, le remplacement confirmé d'OU propre, le suivi de thème hors Paramètres.\n\nEffectif : 6 fonctions (0 S, 4 M, 2 L).\n- **⚠ écritures AD** — annuaire de test d'abord, journal des reçus vérifié à chaque étape.\n- **⚠ réseau** — à valider hors production."
+  },
+  "L17": {
+   "title": "Journal technique",
+   "ids": [
+    "TRV-070",
+    "TRV-071",
+    "TRV-072",
+    "TRV-073",
+    "TRV-074",
+    "TRV-075",
+    "TRV-076",
+    "TRV-077",
+    "TRV-078",
+    "TRV-079",
+    "TRV-080",
+    "TRV-083"
+   ],
+   "intro": "Compléter le journal : barre de journal repliée, phrase bornée 280, masquage des noms, purge de la pastille, synthèse multi-jobs en une ligne (TRV-077), niveau Trace et synthèse par requête (TRV-079), candidats de découverte, code incident INC-XXXX, anneau borné, tests des bascules existantes.\n\nEffectif : 12 fonctions (5 S, 6 M, 1 L). À faire complètes dans ce lot : TRV-079."
+  },
+  "L18": {
+   "title": "Démarrage : chargeur, intégrité, plan",
+   "ids": [
+    "TRV-022",
+    "TRV-024",
+    "TRV-025",
+    "TRV-026",
+    "TRV-027",
+    "TRV-029",
+    "TRV-030",
+    "TRV-031",
+    "TRV-032",
+    "TRV-033",
+    "TRV-034",
+    "TRV-036",
+    "TRV-039",
+    "TRV-040"
+   ],
+   "intro": "Reprendre le chargeur D1 : plan phasé et ordonné, codes DOMENIA_MODULE_MISSING, tolérance CRLF/LF, plan des modules, message de refus avec commande, fichier d'erreur de démarrage, chronométrage aux phases, décision de premier plan journalisée, trace d'amorçage, DOMENIA_ROOT/MEGAD, rendu du résultat d'intégrité. TRV-034 (compilation à l'exécution) demande un arbitrage (le XAML/PowerShell n'est plus le produit).\n\nEffectif : 14 fonctions (6 S, 6 M, 2 L)."
+  },
+  "L19": {
+   "title": "Démarrage : coquille et fenêtre",
+   "ids": [
+    "TRV-019",
+    "TRV-020",
+    "TRV-023",
+    "TRV-041",
+    "TRV-042",
+    "TRV-043",
+    "TRV-044",
+    "TRV-045",
+    "TRV-046"
+   ],
+   "intro": "Finir la coquille : bornes de la fiche, fermeture d'hôte testée, contrôles d'hôte à revoir pour un .exe natif, surveillant et réglages associés, jalon interface et fonction différée, codes incident d'affichage, activation. TRV-041 et TRV-042 exigent d'abord un arbitrage de David (préflight XAML sans objet ; audit a11y bloquant à reformuler depuis web/js/shell/a11y.js).\n\nEffectif : 9 fonctions (5 S, 4 M, 0 L). À faire complètes dans ce lot : TRV-041, TRV-042."
+  },
+  "L20": {
+   "title": "Livraison et intégrité des paquets",
+   "ids": [
+    "TRV-084",
+    "TRV-085",
+    "TRV-088",
+    "TRV-089",
+    "TRV-208"
+   ],
+   "intro": "Sécuriser la livraison : contrat unique avec étiquette de build, comparaison de reconstruction, options de choix local, vérification Authenticode et épinglement d'empreintes (TRV-089), registre fermé tools/operation-contracts.json (TRV-208).\n\nEffectif : 5 fonctions (0 S, 3 M, 2 L). À faire complètes dans ce lot : TRV-089, TRV-208.\n- **⚠ réseau** — à valider hors production."
+  },
+  "L21": {
+   "title": "Tableau de bord, opérations, tableaux",
+   "ids": [
+    "ACC-007",
+    "ACC-027",
+    "ACC-031",
+    "OPE-001",
+    "OPE-019",
+    "OPE-032",
+    "TRV-287",
+    "TRV-313"
+   ],
+   "intro": "Raccorder les écrans de pilotage : sondes des widgets actifs avant actualisation OU, alerte mémoire (%) sur l'accueil, paramètres revision/clé vers Rechercher, percentiles de file d'attente, phases nommées du panneau, valeur réglée de santé du moteur, info-bulle WMI, reprise des clés Dashboard/Widgets.\n\nEffectif : 8 fonctions (2 S, 6 M, 0 L).\n- **⚠ réseau** — à valider hors production."
+  },
+  "L22": {
+   "title": "Rechercher : arbre, liste, export",
+   "ids": [
+    "RCH-007",
+    "RCH-045",
+    "RCH-048",
+    "RCH-069"
+   ],
+   "intro": "Finir Rechercher : publication/relecture SQLite des sous-branches (budget de lecture), état déplié publié par le kit, budget par tic de la liste, export CSV en fichier.\n\nEffectif : 4 fonctions (1 S, 2 M, 1 L).\n- **⚠ réseau** — à valider hors production."
+  }
+ },
+ "queues": {
+  "A": [
+   "L22",
+   "L13",
+   "L17",
+   "L19",
+   "L08",
+   "L11",
+   "L05",
+   "L15",
+   "L20",
+   "L04",
+   "L01"
+  ],
+  "B": [
+   "L07",
+   "L21",
+   "L14",
+   "L18",
+   "L09",
+   "L10",
+   "L12",
+   "L06",
+   "L16",
+   "L03",
+   "L02"
+  ]
+ }
+}

@@ -1,0 +1,15 @@
+surface 1920x1080
+capture accueil 1920x1240
+capture actualisation-ou 1920x1080
+capture atelier-requetes 1920x1240
+capture atelier-catalogue 1920x1080
+capture atelier-modeles 1920x1080
+capture alerte-selection 1920x1240
+capture atelier-condition 1920x1240
+capture atelier-collecte 1920x1240
+capture atelier-fiche-locale 1920x1240
+capture atelier-bibliotheque 1920x1080
+capture accueil-sonde-requete 1920x1240
+capture recherche-requete 1920x1080
+capture recherche-requetes 1920x1080
+capture recherche-inconnus 1920x1080

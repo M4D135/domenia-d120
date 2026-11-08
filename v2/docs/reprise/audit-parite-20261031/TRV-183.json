@@ -1,0 +1,22 @@
+{
+  "id": "TRV-183",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Bridge/AdmissionGuards.cs:24-26 — échec fermé en démonstration : « Any other Write, and any class added later, are refused » (SimulationReadOnly) ; NetworkRead refusé par défaut en simulation (« a future remote tool can never run for real in simulation », ligne 17)",
+    "repo/v2/src/Domenia.Bridge/AdmissionGuards.cs:40-44 — mode annuaire : seul write.execute du circuit d'écriture est admis, tout autre Write refusé avant son gestionnaire",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:81-82 — écriture interdite pendant une écriture en cours ou d'état inconnu : write.targetPending (reçu incertain sur la cible) et write.receiptsPending (toute nouvelle écriture attend la vérification des reçus, OPE-025/026) ; refus write.stale ligne 115",
+    "repo/v2/src/Domenia.Core/Screens/Poste/PosteRemote.cs:84 — repli respectant Remote.UseWinRM : « Redémarrage différé indisponible : il passe par WinRM, désactivé par la configuration (Remote.UseWinRM). Rien n'est envoyé. »",
+    "repo/v2/src/Domenia.Bridge/Operations/PosteOperations.Writes.cs:260-262 — gpupdate refusé quand WinRM est désactivé par Remote.UseWinRM ; ligne 245 — le mode de redémarrage est validé contre Options.UseWinRm",
+    "repo/v2/src/Domenia.Ad/AdWorkstationAccess.cs:96-98 — avant tout nouvel envoi distant : transports comparés aux réglages courants, « Réglages CIM, registre ou transport modifiés avant la lecture ; aucun nouvel envoi. »",
+    "repo/v2/src/Domenia.Ad/Screens/AdRelationsReader.Console.cs:48-52 — aucun contact distant si la cible n'est pas l'objet courant de l'annuaire avec nom DNS qualifié : « Cible locale différente ou sans nom DNS ; aucun contact distant. » (sélection su par la seule base locale hors ligne = pas de départ)",
+    "repo/v2/src/Domenia.Ad/Screens/AdPosteReader.cs:42 — « Poste absent ou ambigu dans la base locale ; relisez sa fiche dans Rechercher. »",
+    "repo/v2/src/Domenia.Core/Writes/Poste/PosteRemoteWrites.cs:43-56,87 — boutons distants sous la même règle que GPUpdate/Redémarrer : plan écrituré, code 5 refusé sans renvoi, requête unique jamais rejouée, effet non relisible laissé « à vérifier »",
+    "repo/v2/tests/Domenia.Tests/DemonstrationSessionTests.cs:89 — test du garde AdmissionGuards.ReadOnlySimulation sur le dispatcher",
+    "repo/v2/tests/Domenia.Tests/WriteCircuitTests.cs — tests des refus targetPending/receiptsPending",
+    "repo/v2/tests/Domenia.Tests/RemoteCollectionSettingsTests.cs:25 et AccountsAccessTests.cs:225-229 — tests : Remote.UseWinRM lu et appliqué (conflit winrm/UseWinRM=false refusé)"
+  ],
+  "manque": "La règle « sélection connue seulement par la base locale (hors ligne) » n'est vérifiable côté écriture distante que par abstraction : aucun exécuteur réel d'écrites distantes (IPosteRestartExecutor, IPosteGpUpdateExecutor, IPosteServiceExecutor, IPosteRunExecutor) n'existe en mode annuaire — seuls les exécuteurs simulés (repo/v2/src/Domenia.Simulation/Writes/Poste/SimulatedPosteRemoteExecutors.cs) sont enregistrés, donc les actions distantes réelles sur un poste ne sont pas encore implémentées en Domenia 2 ; le blocage tient ici à l'absence d'exécuteur plus qu'à une vérification explicite de fraîcheur de la sélection au moment de l'envoi. À ré-auditer quand les exécuteurs AD réels arriveront. Le d1_refs Test-DomeniaAssistWriteBlocked / Update-DomeniaComputerAssistPermissions (état des boutons du panneau assistance suivi par un seul test) n'a pas d'équivalent nommé unique ; la règle est dispersée entre AdmissionGuards, WriteCircuit et les refus des readers.",
+  "effort": "M",
+  "depend": ["TRV-186", "TRV-187"],
+  "risque": "ecriture-AD"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "TRV-072",
+  "verdict": "fait-sans-test",
+  "preuves": [
+    "repo/v2/web/js/pages/parametres/journaux.js:111 — champ de recherche littérale dans le journal affiché : <input type=\"search\" data-find placeholder=\"Rechercher dans le journal\" aria-label=\"Rechercher dans le journal affiché\"> avec le bouton « Suivant » (ligne 112) et une zone d'annonce aria-live (ligne 112)",
+    "repo/v2/web/js/pages/parametres/journaux.js:165-184 — findNext() : recherche littérale sans tenir compte de la casse (state.query.toLowerCase() ligne 166 comparé à lineText(l).toLowerCase() ligne 172), aucune expression régulière ni requête (aucun new RegExp ni appel réseau dans le chemin), boucle sur toutes les lignes affichées à partir de la précédente occurrence (for k=1..n, n=(found+k)%lines.length — lignes 170-171), entrée par entrée en vue lisible (lineText couvre texte + lignes de détail)",
+    "repo/v2/web/js/pages/parametres/journaux.js:174 — le suivi automatique se met en pause à l'occurrence trouvée : state.follow = false, la case « Suivre » est décochée et le pulsateur 4 s est arrêté (schedule())",
+    "repo/v2/web/js/pages/parametres/journaux.js:179 — l'indication exacte « Ligne N · suivi en pause » s'affiche (out.textContent), avec « Aucune occurrence. » sinon (ligne 183) et « Saisissez un texte. » sur champ vide (ligne 169)",
+    "repo/v2/web/js/pages/parametres/journaux.js:222 — Entrée dans le champ déclenche findNext (onKey, e.key === 'Enter'), en plus du bouton Suivant (ligne 238) ; la ligne trouvée est marquée (.found) et amenée à l'écran (scrollIntoView block:center, lignes 177-178)",
+    "repo/v2/web/js/pages/parametres/journaux.js:168 — la recherche porte sur le filtre affiché : visible() applique « Erreurs seulement » et la marque d'effacement (linesAfter) ; found est réinitialisé quand le filtre ou la requête change (lignes 209 et 218)"
+  ],
+  "manque": "Aucune exigence de la fiche n'est absente en l'état ; le défaut est uniquement la couverture automatisée : findNext (boucle, mise en pause du suivi, message « Ligne N · suivi en pause ») n'est testé par aucun automate — repo/v2/tests/web/parametres.test.mjs ne teste que les fonctions pures (maskNames, markOf, linesAfter, lignes 32-57) et aucun scénario e2e ne couvre la recherche du journal (aucun fichier e2e ne mentionne « suivi en pause » ou data-find). Le report de focus au clavier depuis le champ vers « Suivant » et le comportement en vue brute ne sont pas non plus éprouvés.",
+  "effort": "S",
+  "depend": [
+    "TRV-070 (la vue lisible et le filtre que la recherche traverse — mêmes lignes de journaux.js)",
+    "TRV-071 si une barre de journal amarrée est rétablie : la recherche devrait alors la viser aussi"
+  ],
+  "risque": "lecture"
+}

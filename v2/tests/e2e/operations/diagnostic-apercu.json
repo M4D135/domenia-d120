@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : aperçu du diagnostic expurgé avant tout enregistrement",
+  "description": "Prépare le diagnostic expurgé, vérifie qu’il dit ce qu’il ne contient jamais, puis l’enregistre après confirmation : en mode E2E les documents restent en mémoire, rien n’est écrit ni envoyé.",
+  "modes": ["simulation"],
+  "start": "operations?onglet=diagnostic",
+  "steps": [
+    { "do": "expect", "contains": "Aucun blocage commun observé", "within": ".op-why-card", "title": "Le bilan des blocages est lu" },
+    { "do": "click", "text": "Préparer l’aperçu", "title": "Préparer l’aperçu du diagnostic" },
+    { "do": "expect", "contains": "Jamais inclus", "within": ".op-redacted-card", "title": "Ce qui n’est jamais inclus est dit" },
+    { "do": "click", "text": "Contenu exact (JSON)", "title": "Déplier le contenu exact" },
+    { "do": "expect", "contains": "Domenia.Diagnostic.3", "within": ".op-redacted-card" },
+    { "do": "shot", "name": "apercu", "selector": ".op-redacted-card" },
+    { "do": "click", "selector": "[data-diag=\"save\"]", "title": "Enregistrer…" },
+    { "do": "click", "text": "Enregistrer", "within": ".k-dlg-foot", "title": "Confirmer l’enregistrement" },
+    { "do": "expect", "contains": "non écrit", "within": ".toasts", "title": "Mode E2E : document préparé en mémoire seulement" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

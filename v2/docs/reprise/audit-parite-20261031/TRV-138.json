@@ -1,0 +1,21 @@
+{
+  "id": "TRV-138",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Fiche/FicheDiagnostics.cs:7-8 — « One dated fact with its source and its limit (Domenia 1 New-DomeniaFact) : an unknown value stays unknown » ; record FicheFact(Group, Label[fait], Value[valeur], State[état], Source, Limit[limite], Hypothesis[hypothèse], Reader[compte lecteur], DateText[date]) : tous les champs de la description sont là",
+    "src/Domenia.Core/Screens/Fiche/FicheDiagnostics.cs:310,319 — une affirmation porte sa limite : « Sans cet état, un lockoutTime non nul ne prouve pas un verrouillage actuel. », « Date du dernier verrouillage enregistré, pas son état actuel. »",
+    "src/Domenia.Core/Screens/Poste/PosteFacts.cs:9-22 — enum FactState { Observed, Estimated, Refused, Unavailable, Unknown } = Constaté/Estimé/Refusé/Indisponible/Inconnu ; record PosteFact(Label, Value, State, Source, Limit, Hint[hypothèse], At[date], Tone) ; PosteFacts.cs:7 commentaire « A refusal or an unavailable source never proves anything ; an estimate is never a proof »",
+    "src/Domenia.Core/Screens/Audit/AuditReads.cs:30-38 + src/Domenia.Core/Screens/Audit/AuditViews.cs:57-60 — « State of a fact (New-DomeniaFact) : Constaté, Estimé, Refusé, Indisponible, Inconnu » (enum AuditFactState) et record AuditFact(Label, Value, State, StateLabel, Source, Limit, Id) « One explainable fact : value, state, source and limit (New-DomeniaFact, AUD-002) » ; src/Domenia.Core/Screens/Audit/AuditText.cs:163-166 — mappage des états vers le français",
+    "src/Domenia.Core/Screens/Accounts/AccountsModels.cs:172 — module accès : record AccountsFact(Label, Value, Tone, Source, Limit, Hypothesis) ; src/Domenia.Core/Screens/Accounts/AccountsModels.cs:178 — AccountsBand porte un ImmutableArray<AccountsFact>",
+    "le format est bien consommé par les modules : PosteFact dans src/Domenia.Core/Screens/Poste/PosteSecrets.cs:22,28, PosteExtras.cs:10, PosteDiagnostics.cs:59, PosteProcesses.cs:9, PosteBoardModels.cs:172 ; AuditFact dans AuditViews.cs:204,228 ; FicheFact dans FicheDiagnostics.cs:56,82",
+    "tests/Domenia.Tests/DashboardCalculatorTests.cs:262-269 — la limite d'une mesure est dite (« disques et redémarrages non évalués », « inventaire trop ancien : limite dite ») ; des tests citent les faits (AdAssistanceContextTests.cs, WorkstationDetailsTests.cs)"
+  ],
+  "manque": "Ce n'est pas un « format commun » mais le même gabarit New-DomeniaFact dupliqué par module, avec des champs incohérents : PosteFact a Hint+At mais pas de compte lecteur (PosteFacts.cs:22), AuditFact n'a ni hypothèse ni compte lecteur ni date (AuditViews.cs:60), FicheFact est le seul à porter Reader=compte lecteur et DateText (FicheDiagnostics.cs:8), AccountsFact remplace l'état par un simple Tone et n'a ni compte lecteur ni date (AccountsModels.cs:172). L'énumération des cinq états est recopiée deux fois (FactState dans PosteFacts.cs:9 et AuditFactState dans AuditReads.cs:31) au lieu d'un type partagé, et FicheFact stocke l'état en chaîne libre (« known »/« unknown », FicheDiagnostics.cs:301-319) plutôt que dans l'enum. Le garde-fou « chaque affirmation porte sa limite » n'est pas appliqué : Limit est une chaîne nullaire (PosteFacts.cs:22, AuditViews.cs:60) très souvent passée à null (ex. FicheDiagnostics.cs:301,306), donc une affirmation peut être émise sans sa limite. Enfin les modules « annuaire » et « lectures » n'utilisent aucun enregistrement de fait : ils s'appuient sur MeasureState / PresenceReadOutcome (src/Domenia.Core/Fleet/FleetModels.cs:6-14 Known/Absent/NotRead/Refused/Expired/Incomplete/Error), dont les faits ne portent pas source/limite/hypothèse/date au format commun.",
+  "effort": "M",
+  "depend": [
+    "unifier FicheFact / PosteFact / AuditFact / AccountsFact derrière un seul type DomeniaFact (fait, valeur, état, source, limite, hypothèse, date, compte lecteur) et une seule énumération d'états",
+    "rendre la limite non facultative (ou exiger une limite/justification quand l'état n'est pas « Constaté ») pour honorer le garde-fou",
+    "faire reposer les modules annuaire et lectures (src/Domenia.Core/Fleet, lectures de recherche) sur ce format commun plutôt que sur MeasureState seul"
+  ],
+  "risque": "lecture"
+}

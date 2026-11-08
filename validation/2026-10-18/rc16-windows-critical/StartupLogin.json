@@ -1,0 +1,253 @@
+{
+    "Build":  "2026.10.01-DOMENIA-1.0-RC1.6-BOOTLOGIN",
+    "Environment":  "Windows PowerShell 5.1 x64 STA",
+    "Passed":  48,
+    "Failed":  0,
+    "Skipped":  0,
+    "Complete":  true,
+    "Expected":  48,
+    "NoADAccess":  true,
+    "NoProductionData":  true,
+    "Tests":  [
+                  {
+                      "Name":  "Le registre et le contrat DEV declarent les memes operations",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "La verification du registre complet accepte la livraison",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L ordre de declaration ne change pas le controle",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un registre nul est refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un registre vide est refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Retirer LiveSelectedPing est refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ajouter une operation non autorisee est refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Remplacer une operation en conservant le nombre d entrees est refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Modifier une empreinte valide est refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Une empreinte de mauvaise longueur est refusee",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Une empreinte en minuscules est refusee",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un identifiant avec caracteres interdits est refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Le corps de chaque operation correspond a son empreinte sans execution",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un corps modifie est refuse sans etre execute",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Une operation inconnue est refusee avant execution",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Le vrai initialiseur RC1.4 reproduit le refus 55 sur 54",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Le vrai initialiseur corrige demarre son DispatcherTimer",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Les ticks continuent sur le Dispatcher sans operation reseau",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Une seconde initialisation ne cree pas un second timer",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un registre incomplet bloque le vrai initialiseur",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : disposition et largeur FILPRO conservees",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : champs de 40 et hotes natifs disponibles",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : libelles associes aux champs",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : formulaire seul defilant, actions hors du scroll",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : pas de diagnostic encombrant au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : actions principales alignees et larges",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : textes et champs suivent le theme",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : theme sans perte de saisie ni authentification",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : pas de mot de passe dans les aides",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : erreur longue et diagnostic externe accessible",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : actions restent dans la fenetre limitee a 480 de haut",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : memorisation et theme accessibles au clavier",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : UX-28 session de domaine, Continuer en tant que en action principale",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : UX-28 Utiliser un autre compte deplie le formulaire sans rien valider",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : disposition et largeur FILPRO conservees",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : champs de 40 et hotes natifs disponibles",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : libelles associes aux champs",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : formulaire seul defilant, actions hors du scroll",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : pas de diagnostic encombrant au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : actions principales alignees et larges",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : textes et champs suivent le theme",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : theme sans perte de saisie ni authentification",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : pas de mot de passe dans les aides",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : erreur longue et diagnostic externe accessible",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : actions restent dans la fenetre limitee a 480 de haut",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : memorisation et theme accessibles au clavier",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : UX-28 session de domaine, Continuer en tant que en action principale",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : UX-28 Utiliser un autre compte deplie le formulaire sans rien valider",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ]
+}

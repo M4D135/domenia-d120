@@ -1,0 +1,41 @@
+{
+    "PowerShell":  "5.1.26100.6584",
+    "Apartment":  "STA",
+    "Synthetic":  true,
+    "ADAccessed":  false,
+    "Passed":  2,
+    "Failed":  4,
+    "Assertions":  11,
+    "Results":  [
+                    {
+                        "Name":  "The query editor occupies its own workspace, outside the dashboard",
+                        "Passed":  false,
+                        "Error":  "Query editor remains in dashboard at Expect, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 15\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 32\r\nat Case, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 16\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 28"
+                    },
+                    {
+                        "Name":  "Zoom has bounded persistent steps and controls outside the transformed shell",
+                        "Passed":  false,
+                        "Error":  "You cannot call a method on a null-valued expression. at \u003cScriptBlock\u003e, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 42\r\nat Case, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 16\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 40"
+                    },
+                    {
+                        "Name":  "Tools use separate tabs and whole-domain shortcut buttons are absent",
+                        "Passed":  false,
+                        "Error":  "Missing tab TabIndexUpdate at Expect, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 15\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 58\r\nat Case, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 16\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 57"
+                    },
+                    {
+                        "Name":  "OU results sort by name and then full DN; stale results stay rejected",
+                        "Passed":  false,
+                        "Error":  "Name/DN ordering incorrect at Expect, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 15\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 68\r\nat Case, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 16\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\codex-ux-20261012-r1\\source\\dev\\wad\\tests\\Test-DomeniaUxRefinements.ps1: line 62"
+                    },
+                    {
+                        "Name":  "OU picker forces a visible vertical scrollbar and bounded virtualized rows",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Freshness uses successful covering OU and excludes child, sibling, malformed and partial sync",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

@@ -1,0 +1,19 @@
+{
+    "WindowMaximized":  true,
+    "WindowLeft":  120,
+    "WindowTop":  80,
+    "WindowWidth":  1320,
+    "WindowHeight":  820,
+    "Policy":  {
+                   "Version":  1,
+                   "AutomaticBackup":  true,
+                   "BackupHours":  48,
+                   "BackupKeep":  5,
+                   "PresenceDays":  30,
+                   "ConsoleDays":  90,
+                   "InventoryDays":  180,
+                   "ProbeDays":  90,
+                   "DetailDays":  30,
+                   "LinkHistoryDays":  0
+               }
+}

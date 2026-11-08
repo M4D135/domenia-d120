@@ -1,0 +1,15 @@
+{
+  "Checks": {
+    "dev": {
+      "FilesCompared": 377,
+      "SourceMismatches": [],
+      "ArchiveSHA256": "47B21D448E2B4BAFE03E246B0B433725C1013DE628D19C1119E06954E71570F0"
+    },
+    "prod": {
+      "FilesCompared": 91,
+      "SourceMismatches": [],
+      "ArchiveSHA256": "E323AAEDD5E3072C9FC24DA82A6959853136F80EC53143428A6AA2B04F890BE9"
+    }
+  },
+  "Note": "Manifestes propres à chaque distribution vérifiés par build_packages et release_guard ; fichiers runtime comparés octet par octet."
+}

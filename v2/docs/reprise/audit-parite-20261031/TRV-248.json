@@ -1,0 +1,25 @@
+{
+  "id": "TRV-248",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Shell/ShellInterface.cs:31 — thème en choix fermé : light, dark, contrast, system",
+    "src/Domenia.Core/Screens/Shell/ShellInterface.cs:32 — animations en choix fermé : full, reduced, system",
+    "src/Domenia.Core/Screens/Shell/ShellInterface.cs:33 — profil en choix fermé : essentiel, expert",
+    "src/Domenia.Core/Screens/Shell/ShellInterface.cs:34 — densité en choix fermé : compact, normal, confortable",
+    "src/Domenia.Core/Screens/Shell/ShellInterface.cs:60 — Choice(value, Themes) : une valeur hors liste est rejetée et reprend le défaut",
+    "src/Domenia.Core/Screens/Shell/ShellInterface.cs:68 — largeur d'arbre bornée entre MinNavWidth et MaxNavWidth (200 à 360, lignes 28-29)",
+    "src/Domenia.Core/Screens/Settings/CollectionSettings.cs:128 — cacheMinutes : nombre borné 0 à 1440 avec valeurs proposées",
+    "src/Domenia.Core/Screens/Settings/CollectionSettings.cs:138 — wmiRetries : nouvelles tentatives bornées 0 à 4",
+    "src/Domenia.Core/Screens/Search/SearchMemory.cs:224 — limite de recherche bornée (1 à SearchLimits.MaxLimit)",
+    "src/Domenia.Core/Screens/Search/SearchMemory.cs:228 — présence restreinte à la liste fermée PresenceFilters : PresenceFilter n'est pas une préférence autonome",
+    "src/Domenia.Core/Session/WorkingScope.cs:183 — clé de préférence liée au domaine par SHA-256 de la racine canique (motif fermé)",
+    "src/Domenia.Core/Platform/IPreferenceStore.cs:32 — IsValid ne contrôle que la forme de la clé (pointillée, 128 caractères au plus)",
+    "src/Domenia.Store/Preferences/FilePreferenceStore.cs:31 — MaxBytes = 1 048 576 pour le document de préférences",
+    "src/Domenia.Store/Preferences/FilePreferenceStore.cs:239 — document de plus de 1 Mo traité comme illisible : les valeurs par défaut reprennent la main",
+    "src/Domenia.Store/Preferences/FilePreferenceStore.cs:267 — « Unknown but well-formed keys are kept as they are » : toute clé bien formée est conservée telle quelle"
+  ],
+  "manque": "La clé libre n'est pas bloquée : toute clé pointillée valide est persistée (FilePreferenceStore.cs:267), sans motif fermé lié au domaine ou au magasin. Aucun plafond de 256 clés et aucun plafond de 1 MiB par clé : le 1 MiB s'applique au document entier (FilePreferenceStore.cs:31). Pas de normalisation centralisée trouvée pour taille et position de fenêtre, hauteur du journal, zoom et limites WMI ; la construction de l'index n'apparaît pas comme choix fermé.",
+  "effort": "M",
+  "depend": ["LocalStore"],
+  "risque": "ecriture-locale"
+}

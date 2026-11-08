@@ -1,0 +1,132 @@
+{
+    "Status":  "PASS",
+    "Scope":  "Actual GlobalSearch body and dispatch; inert LDAP/UI ports and a local runspace; not Windows/AD qualification",
+    "PowerShell":  "5.1.26100.6584",
+    "Platform":  "Win32NT",
+    "NetworkAccessed":  false,
+    "WpfExecuted":  false,
+    "RealDirectoryAccessed":  false,
+    "CoreSha256":  "aaa1383c7839aebc4ffc12296783a25910ca4f7fd608c51e6b7775200feaceb5",
+    "EngineSha256":  "bc7f3951d8eb8df79635fda7df26e2f33b9c19b1d667914de44ef2fbe2b38c2c",
+    "LiveSha256":  "c2e2f4ecd514b3f0ddf9289b78e75266bb1458e1bf180d8be8dd4bdaeb61d772",
+    "Cases":  23,
+    "Assertions":  39,
+    "Failed":  0,
+    "Results":  [
+                    {
+                        "Name":  "5000 actual row conversions are streamed and counted as real LDAP progress",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Empty successful LDAP responses do not manufacture row progress",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Cached queue contents cannot count as LDAP activity",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Duplicate LDAP rows count as activity without duplicate display rows",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Ignored object types still prove a real LDAP response",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Result limit stops reading and keeps its distinct limit marker",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Cancellation before the first received row does not report progress",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Midstream cancellation keeps prior streamed rows and ignores the cancelled response",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "LDAP enumeration failure preserves partial rows without inventing completion",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "A row received before failed conversion is counted as progress but never emitted",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Failed bind retries do not extend observed-row progress",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Successful fallback observes exactly its own rows in the original OU and depth",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Worker still supports callers without a progress tracker",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "LDAP page size honors a configured value above the previous cap",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Configured LDAP request budgets reach the actual searcher",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "GlobalSearch retains the in-process shared-object dispatch contract",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Actual caller supplies 120-second inactivity, 900-second hard cap and 250-row pages by default",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Legacy saved 45/8/12-second budgets are lifted to the safe new floors",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Supported longer budgets and page size remain configurable",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Total cap cannot precede idle timeout and LDAP client receives server plus 30 seconds",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "All configurable budgets and LDAP page size retain a finite ceiling",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Actual live-search preparation preserves the caller page size instead of overriding it with 40",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Actual dispatch resets a queued tracker, retains it on the job and shares it with the runspace",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

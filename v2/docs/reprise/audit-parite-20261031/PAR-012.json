@@ -1,0 +1,32 @@
+{
+  "id": "PAR-012",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:87 — à l'ouverture du dépôt local, l'emplacement actif vient du marqueur de bascule : ReadSwitchState()?.ActivePath ?? ResolvePath(...) (lecture seule du fichier marqueur, l'équivalent de ReadRedirect)",
+    "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.State.cs:38-44 — ReadSwitchDocument : enveloppe SHA-256 vérifiée (« Marqueur de stockage altéré ; aucun changement implicite de base. »), taille bornée à 4 Mio",
+    "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.State.cs:56-79 — ReadSwitchState : version, domaine, identifiants de plan, empreintes de 64 caractères, cohérence stage/ActivePath, identité de la copie ; sinon InvalidDataException « Marqueur d'un autre domaine ou état de bascule incohérent. » ; ligne 78 « Base sélectionnée absente ; aucun repli sur une base vide. » — aucun fichier n'est écrit ni supprimé",
+    "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.State.cs:80-83 — SwitchPending : prepared/copied/returning, ou committed/rolledBack sans reçu de preuve ou avec un fence encore présent",
+    "src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.State.cs:84-96 — WithSwitchState : Maintenance.Locked, TargetPath, CanUndo, PreviousPath, RecoveryReceipt et Writer.Suspended avec « Bascule interrompue : reprise ou retour explicite nécessaire. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:111-122,128 — base illisible détectée en lecture seule par PRAGMA quick_check(10) et par les codes SQLite 11/26 ; ligne 150 — Maintenance.Recovery = corrupt (4e champ de src/Domenia.Core/Screens/Settings/LocalStoreModels.cs:83-91)",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:321-330 — « Base locale illisible : restaurez une sauvegarde vérifiée. Les collectes restent suspendues. » et « Bascule à terminer : reprenez-la ou revenez à la base précédente. Aucun fichier ne sera supprimé. »",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:343-354 — une base prouvée illisible n'accepte que la restauration : move, resume et rollback refusés avec la raison « Base locale illisible : seule la restauration d'une sauvegarde vérifiée est proposée. »",
+    "web/js/pages/parametres/donnees.js:224-230 — l'assistant rend Déplacer / Restaurer une sauvegarde / Reprendre la bascule / Revenir à la base précédente, chacun désactivé avec sa raison ; web/js/pages/parametres.js:209,214-216 — quand seule la restauration reste, l'avis sous le bandeau propose « Restaurer une sauvegarde… »",
+    "src/Domenia.Core/Writes/Storage/StorageWrites.cs:113-114 — scénarios « Bascule interrompue » et « Base illisible » ; tests/Domenia.Tests/SettingsCompletionTests.cs:323-324 — ScenarioOf les reconnaît ; lignes 329-330 — « base illisible : seule la restauration » (Restore vrai, Move et Rollback faux)",
+    "tests/Domenia.Tests/NativeStorageSwitchTests.cs:48 — « Interrupted copy is explicitly resumed after restart without replaying the first plan » ; ligne 83 — un retour interrompu reprend vers l'original sans rejouer la bascule avant ; ligne 97 — la restauration refuse une sauvegarde d'un autre domaine",
+    "tests/Domenia.Tests/NativeStorageRecoveryTests.cs:12 — base corrompue à froid restaurée par la session et l'exécuteur natif ; ligne 51 — restauration interrompue reprise explicitement après redémarrage, octets d'origine conservés ; ligne 122 — original illisible trop volumineux refusé avant preuve",
+    "tests/e2e/parametres/restaurer-base-illisible.json:18,54-61 — scénario « Base illisible » joué, contrôle d'intégrité rendu « Défaut », puis restauration",
+    "src/Domenia.Ad/Screens/AdSettingsReader.cs:11-13 — en mode annuaire l'inspection vient de la vraie base SQLite (Domenia.Store) : la détection n'est plus de la seule simulation",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:36 — écrivain suspendu : tout nouvel enregistrement est refusé tant que la reprise explicite n'a pas eu lieu",
+    "src/Domenia.Core/Screens/Sync/SyncCoverage.cs:392-396 — la phrase de refus « Maintenance de la base locale en cours : nouvelles collectes suspendues jusqu'à la fin de la maintenance. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:121 — checks[\"redirect\"] = (\"redirect\", \"unknown\", \"Aucune bascule déduite du seul fichier de base ; aucun emplacement changé.\")",
+    "web/js/pages/parametres.js:238-250 — si settings.storage lève, la tuile « Base locale » affiche « — » et le texte de l'erreur (tileError)"
+  ],
+  "manque": "Trois points manquent. (1) Le garde-fou « marqueur ambigu ou d'identité incohérente : refusé, fichiers conservés » n'est couvert par aucun test (aucune assertion dans tests/Domenia.Tests ne cite « Marqueur d'un autre domaine ou état de bascule incohérent », src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.State.cs:76-78) et, en pratique, l'opérateur ne reçoit pas l'assistant : InspectLocalStoreAsync appelle d'abord CacheAsync, qui lit ce marqueur (src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Sync.cs:10 puis src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:87), donc l'InvalidDataException remonte avant WithSwitchState et settings.storage répond en erreur (web/js/pages/parametres.js:238-250) au lieu de proposer reprise, retour arrière ou restauration vérifiée. (2) « les collectes restent suspendues » n'est pas appliqué en mode annuaire : src/Domenia.Ad/Screens/AdSyncReader.cs:35 appelle SyncCoverageRules.Storage(false, 0, null, null, 0, …) — maintenance et échecs d'écrivain ne sont jamais transmis — alors que la simulation les transmet (src/Domenia.Simulation/Screens/Sync/SimulatedSyncReader.cs:91) ; seule l'écriture locale est bloquée (src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:36). (3) Le rapport d'intégrité ne dit rien du marqueur : le contrôle « redirect » est une valeur fixe « unknown » (src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:121), la détection ne vit que dans la lecture du marqueur et n'apparaît jamais dans le verdict d'intégrité.",
+  "effort": "M",
+  "depend": [
+    "Domenia.Store (marqueur de bascule et inspection, src/Domenia.Store/Sqlite/CompatibleDirectoryCache.Switch.State.cs, DomeniaDatabase.Settings.cs:111-128)",
+    "Base autonome (src/Domenia.Ad/Screens/AdSyncReader.cs:35 : transmettre maintenance et état de l'écrivain à SyncCoverageRules.Storage)",
+    "PAR-010 et PAR-011 (avis sous le bandeau et routes de reprise)"
+  ],
+  "risque": "ecriture-locale"
+}

@@ -1,0 +1,1952 @@
+{
+  "CurrentSourceMatchesArchive": true,
+  "DevZipSHA256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+  "FileCount": 389,
+  "Files": [
+    {
+      "File": "dev/.github/workflows/windows.yml",
+      "SHA256": "7926c8dfd11fe9105d34e454e9d0168b94dce27479c952de8da0379746f4d30a",
+      "Bytes": 1265
+    },
+    {
+      "File": "dev/APERCU-ACTIVITE.cmd",
+      "SHA256": "9b590baab1e8aa9fce8e4a53e8399779c41adcf1856a682f6ba01fb711ab48e5",
+      "Bytes": 403
+    },
+    {
+      "File": "dev/APERCU-CONNEXION.cmd",
+      "SHA256": "b80e58f61067b380b9876f90417a1d4c811b41819ce017db4317a22c5cb5ae87",
+      "Bytes": 468
+    },
+    {
+      "File": "dev/APERCU-INTEGRE.cmd",
+      "SHA256": "eecb4754257e6e8a7d8eab663b1a1870671a1f4460d65783cc5cde2486b76f30",
+      "Bytes": 261
+    },
+    {
+      "File": "dev/APERCU-INTERFACE.cmd",
+      "SHA256": "1aa7dcd9f1dfa19fbc69e30edf21eabf9fb9093de64200b9d25fdfd6d7198250",
+      "Bytes": 494
+    },
+    {
+      "File": "dev/APERCU-PROGRESSIF.cmd",
+      "SHA256": "35359e9612e6bd06b0282a3c470f2209439ec0807201876d9db48f5f93c12228",
+      "Bytes": 221
+    },
+    {
+      "File": "dev/APERCU-RELATIONS.cmd",
+      "SHA256": "6333e5310b8ebefd9b3767e741ab5f30e62705caf60973e571abbb39b0f3c48d",
+      "Bytes": 407
+    },
+    {
+      "File": "dev/CORRECTIF-ACTIVITE-FIXE-RC1.7.md",
+      "SHA256": "bde7dfadfc38fb03411a81be559ab4bac6dba649217551472f050ff52c9ace52",
+      "Bytes": 7692
+    },
+    {
+      "File": "dev/CORRECTIF-DEMARRAGE-LOGIN-RC1.5.md",
+      "SHA256": "73163b27b176b910afb8099f700bb449e66f173ae3297947c4a563e12b2f38ad",
+      "Bytes": 10588
+    },
+    {
+      "File": "dev/CORRECTIF-INTERFACE-STABLE-RC1.6.md",
+      "SHA256": "b3ecaf6f62c49847983c21bf04ddb1c082023077866a22eae937622f4a96c7f2",
+      "Bytes": 8535
+    },
+    {
+      "File": "dev/CORRECTIF-RC1.10.3.md",
+      "SHA256": "44f80b9b24a3f214728b62bc019bf0ef7df4ae8190a20ca3e87fc6310fd889f2",
+      "Bytes": 674
+    },
+    {
+      "File": "dev/CORRECTIF-RC1.10.4.md",
+      "SHA256": "9a68f5fe0f2e753ab4fb0912c7a088e88d5faff87527561e66ffefd67c9422d5",
+      "Bytes": 555
+    },
+    {
+      "File": "dev/CORRECTIF-RC1.10.5.md",
+      "SHA256": "4d8c00098eefabdc47ac7de939d562c5c542b09b2d0e5f6525a295888364379a",
+      "Bytes": 827
+    },
+    {
+      "File": "dev/DEMARRAGE-RC1.10.1.md",
+      "SHA256": "4f9890f329f8bbf1b34d6e34bb8bffc8539aa416d6d68da5534b3e5a2742a3c7",
+      "Bytes": 464
+    },
+    {
+      "File": "dev/Domenia.exe",
+      "SHA256": "3535a6cbceea3baa0066d9024ea316a8dfa2992a463f8eb17cc8baa40b6be7ac",
+      "Bytes": 26624
+    },
+    {
+      "File": "dev/Domenia.ps1",
+      "SHA256": "c88496443ed583a0eba005ed6ee1803bd3462137b472573272ea4882cd1f4010",
+      "Bytes": 142
+    },
+    {
+      "File": "dev/FABRIQUER_PROD.cmd",
+      "SHA256": "cb35b3aeeb96d0345a2adea6d75e8221a7a83484443d906f80fde2164df5ce9a",
+      "Bytes": 517
+    },
+    {
+      "File": "dev/INSTALLER-MISE-A-JOUR.ps1",
+      "SHA256": "df6175db0681aa59440c4d90da9a84e7b0350b0cbea0753d3fc1fc9abed3d344",
+      "Bytes": 1828
+    },
+    {
+      "File": "dev/INTERACTIONS-INTEGREES-RC1.9.md",
+      "SHA256": "77b6663c30d333ae57ebb25224c62fd764ab0ed6d93dc5eaf505bbc7d8dfb03f",
+      "Bytes": 15150
+    },
+    {
+      "File": "dev/LANCER-Domenia.cmd",
+      "SHA256": "53c06df9105ca0736833db671e61fbca827cd553e3eb163d8881479ec84130a6",
+      "Bytes": 66
+    },
+    {
+      "File": "dev/LIRE-MOI.md",
+      "SHA256": "c1367adc993354fc3a67de5b4bfc336b9e6939975d4d62315019974af09138d0",
+      "Bytes": 9202
+    },
+    {
+      "File": "dev/Lancer-Domenia.vbs",
+      "SHA256": "8e5fac72fcc579e1a23e7ca40104d1efd2a69267750b92ac244acaf196f2abe1",
+      "Bytes": 347
+    },
+    {
+      "File": "dev/PRECHARGEMENT-RC1.10.7.md",
+      "SHA256": "796c59971f5a55cecf770e845a9ce8e4e42bdfd5f3e6506f41c9df5f53e93e38",
+      "Bytes": 9798
+    },
+    {
+      "File": "dev/RELATIONS-ALIGNEMENTS-RC1.8.md",
+      "SHA256": "878d1838f570c9d2c4c7d3d65d2495083af83087fb03a5f34964bccec7ceb558",
+      "Bytes": 14677
+    },
+    {
+      "File": "dev/RELATIONS-RC1.10.md",
+      "SHA256": "e8748fa7d335f4d1f68897d90006da8cbba0eaa1fb4dcb2412087eda15f86769",
+      "Bytes": 2024
+    },
+    {
+      "File": "dev/TESTER-ACL.cmd",
+      "SHA256": "bce98611bc85a29305396df863107ebf3d97afe9b3a9e5c21e33fa375f6bc1fd",
+      "Bytes": 195
+    },
+    {
+      "File": "dev/TESTER-ACTIVITE.cmd",
+      "SHA256": "556a26f59716d0486d2a8d52c7f4ca6f0aba27d4efaa67764bf38fd73d94fa5b",
+      "Bytes": 394
+    },
+    {
+      "File": "dev/TESTER-DEMARRAGE-LOGIN.cmd",
+      "SHA256": "321bb43f091d1fac53f3572e0e141d6c2bba0cd30f36f4b66f875d81ec803821",
+      "Bytes": 392
+    },
+    {
+      "File": "dev/TESTER-DOMENIA.cmd",
+      "SHA256": "c32f64a40feacf2f98f52ded54f81a5902c0cf2a585382cb9cd2ee956f65156a",
+      "Bytes": 522
+    },
+    {
+      "File": "dev/TESTER-INTEGRATION.cmd",
+      "SHA256": "79c9ebffabcdf2b2d88cd1af7aa5ba406cee0b9bd2a6d7e3e19b7b02e6610a54",
+      "Bytes": 252
+    },
+    {
+      "File": "dev/TESTER-INTERFACE-STABLE.cmd",
+      "SHA256": "c021efea9639f2b566a791cbde186e4a49929fd8548c9fccbd986a0b97762846",
+      "Bytes": 388
+    },
+    {
+      "File": "dev/TESTER-MODULES.cmd",
+      "SHA256": "fb4333ab285d864260e7a6014e88b8d19c3474aa844f2617ea176531d337247f",
+      "Bytes": 387
+    },
+    {
+      "File": "dev/TESTER-PRECHARGEMENT.cmd",
+      "SHA256": "67d18beb9d3f6e84ab4ad3240f914806f82b565b99e5ee73728d6c6d18be85d8",
+      "Bytes": 387
+    },
+    {
+      "File": "dev/TESTER-RECHERCHE-PRESENCE.cmd",
+      "SHA256": "8b7eb7dc2199336b906385aefde0d40d2c8789dfc7032d8281ca1d5f1c819e06",
+      "Bytes": 237
+    },
+    {
+      "File": "dev/TESTER-RELATIONS.cmd",
+      "SHA256": "996a6790829d1240cec51aca97fcfdc4c41dbedeeebfd7941b07412f05127ed4",
+      "Bytes": 398
+    },
+    {
+      "File": "dev/TESTER-SELECTION.cmd",
+      "SHA256": "5764a587d39147106482cfdc66cbbb5914233fa869980526d4600c06cd99ed1d",
+      "Bytes": 389
+    },
+    {
+      "File": "dev/VERIFIER-PACK.cmd",
+      "SHA256": "52bef7dfeacb6819e275bd2f42d9836d96d4121c8c3892baed64bfe3d291f45e",
+      "Bytes": 470
+    },
+    {
+      "File": "dev/engineering/d120/ETAT-2026-10-02.md",
+      "SHA256": "c20e166304d4ad7879318b7ade7b51e06cbfeb145676003fe236d5c3c5ff7b43",
+      "Bytes": 61504
+    },
+    {
+      "File": "dev/engineering/d120/PLAN-EXECUTION-D120.md",
+      "SHA256": "ebb0a7d2d7ea528be482950931faeafebd44e259fe5d5fcd44369f7e2402cd08",
+      "Bytes": 3768
+    },
+    {
+      "File": "dev/engineering/d120/README.md",
+      "SHA256": "f655afcc149209e85c77033cef9b11a19016ef12dacb0d04e94debe95a204f04",
+      "Bytes": 3245
+    },
+    {
+      "File": "dev/engineering/d120/Suivi_D001_D120.json",
+      "SHA256": "589b2b2adcc277d226350f3bff018260e4a78e8b5e82c83d7b5844b863d6c512",
+      "Bytes": 236675
+    },
+    {
+      "File": "dev/engineering/d120/Test-NativeParser.ps1",
+      "SHA256": "4ad70c8e04af888d398064452d859279d2bf3e7929a2f360500b13226ddb304c",
+      "Bytes": 15965
+    },
+    {
+      "File": "dev/engineering/d120/packaging-validation-20261012.json",
+      "SHA256": "ef09089b96c19c84a52fe99d0d5e67f33ee6885f6d0d6cb6e300cb87e2530790",
+      "Bytes": 14957
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/ETAT.md",
+      "SHA256": "6ec804fa873d00a0061596f1821929309ad16328be885940306d2e1ad53c403d",
+      "Bytes": 1524
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/PISTES-AMELIORATION-2026-10-08.md",
+      "SHA256": "eca0564bb3f57125bf520ae4e77ddedb353d573f5742ae1984826821a2f99caf",
+      "Bytes": 232512
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/langue-corrections-a-relire.json",
+      "SHA256": "a8ca403d29e386273d661b1d99253d7d9af38185ddf65b4836db4c41a0050b1b",
+      "Bytes": 17988
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/langue-corrections-sures.json",
+      "SHA256": "8f3945a90c9bf59f39e0cd5b084d37626d6a00525dfc60ad593b2afbc10b2895",
+      "Bytes": 108403
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L01.md",
+      "SHA256": "889c77592f1e22f84b04782649a3e8d088c63d8e438e23a86c31973cc8f6fa1c",
+      "Bytes": 25764
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L02.md",
+      "SHA256": "e28afb50012dc8af72ddf4b40e01aaea94482e3f107a06fc5e840db62120c6d3",
+      "Bytes": 21917
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L03.md",
+      "SHA256": "d64199884506404171bc4782c3007866b16bd738dfaf5e059c34b9b36e89f165",
+      "Bytes": 13544
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L04.md",
+      "SHA256": "e3f6ba4c5e2247eb034f21c402929e706f15ad7adbc372ac515f15bfe5d4d78d",
+      "Bytes": 13198
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L05.md",
+      "SHA256": "70083728588a54117f516cc2f3e9d568dff31d235ed3f5599576f1118565032b",
+      "Bytes": 15112
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L06.md",
+      "SHA256": "495c34d0f6df274ca67f480949f6139c138b88d4f0299ad10dba88c8f0117f34",
+      "Bytes": 19763
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L07.md",
+      "SHA256": "46c7928b903b38a1e034accd7df2336a45b0d4320aea5a305757e295e4a5494d",
+      "Bytes": 10375
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L08.md",
+      "SHA256": "2468547c845bcb5832ad45b35950fe71b237ac46861a115eee994f71de546c8b",
+      "Bytes": 21889
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L09.md",
+      "SHA256": "664bbdac93a2a624c93394c5bd65503f17e9db231d696f2433b58c159d683e5d",
+      "Bytes": 21349
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L10.md",
+      "SHA256": "f4e95452c4ad77a2eac07cd7549a0c97aadffef6e9fd738244122a4c96e3be9b",
+      "Bytes": 17912
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L11.md",
+      "SHA256": "38cd9c9c43614d257b9997e697bf85a9e8ca737d00c5baf48d1fa8240a9aabb0",
+      "Bytes": 17708
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L12.md",
+      "SHA256": "34799be3509596a4d954c8df464a58804b2761bd4916cfa5b748a35daae22ca9",
+      "Bytes": 14579
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L13.md",
+      "SHA256": "4829cb0697245fcd22f8639946d4a111d64c7e7e1ca18231673ec6f12763cfb7",
+      "Bytes": 16532
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L14.md",
+      "SHA256": "d7ec09ff531c6051dac79ecfff0fe8f3c4365f6d3fb2f2605e3c84579aa5165e",
+      "Bytes": 12569
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L15.md",
+      "SHA256": "c91a6798a38a2560d41d044cefeb4f95a99bc29ea80850ef71c1a4daae59e226",
+      "Bytes": 15533
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L16.md",
+      "SHA256": "18cdfc941339dae6cd75c40ce9228adf13a1833db209e6c94232881b31920968",
+      "Bytes": 19693
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L17.md",
+      "SHA256": "4cf3979f99516e02841b8c3a94f2b7232195fd4d6cc88ec51252711c6ef2b356",
+      "Bytes": 10437
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L18.md",
+      "SHA256": "100bc0c2223ad43e2dbd367a99188f4b426bbd47aa5abf091a30cabce2afdb7b",
+      "Bytes": 12156
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L19.md",
+      "SHA256": "5991843f8df3954c83def72f3448a03868b3c9a866db48da5e5ecb822500f127",
+      "Bytes": 16283
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L20.md",
+      "SHA256": "ccd91a1a080fa28ffe6b282d3655c69be2596f705fea7ae9676cd534958fda0d",
+      "Bytes": 11603
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L21.md",
+      "SHA256": "82bd6f713dae0c7866686da63066c0c9369ebb9ce995ee0f8400449d616d7b16",
+      "Bytes": 11363
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L22.md",
+      "SHA256": "ef59285d7df860064f55d4ed030f9594c7f8729b2ae7ac782bdfb06cf15b4ed5",
+      "Bytes": 12575
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L23.md",
+      "SHA256": "fdac03b3a8ae8ba2d6b816454cd7a37b124cc4d680c0609624579d132fe0e308",
+      "Bytes": 9316
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/lots/L24.md",
+      "SHA256": "9bb88ef8b177c3f0593be5ddbb96281425cc5aea13008b058ebbe3720ee9a515",
+      "Bytes": 8515
+    },
+    {
+      "File": "dev/engineering/d120/programme-2026-10-08/plan-lots.json",
+      "SHA256": "9735050bb7fc1101692a131e977010fe159552024f6fbcb990302bc4a4c6d9a8",
+      "Bytes": 130997
+    },
+    {
+      "File": "dev/engineering/d120/quick-ui-20261012/Invoke-DomeniaAdditionalUi.ps1",
+      "SHA256": "6578bc6501564be2f3954c6ed8f64ec0066f952d80e30f1f16cd207280b04814",
+      "Bytes": 4910
+    },
+    {
+      "File": "dev/engineering/d120/quick-ui-20261012/Invoke-DomeniaAllOffline.ps1",
+      "SHA256": "ad35890c50057c2eed99ffa8838284f91f2dd6e570aa8c3324cf8ec2ed2261e8",
+      "Bytes": 6026
+    },
+    {
+      "File": "dev/engineering/d120/quick-ui-20261012/Invoke-DomeniaQuickUi.ps1",
+      "SHA256": "ba2972f9bb1e0340d30f8b038f6d5b0ef4b8d9e27ff45273655fa71921b64a47",
+      "Bytes": 6757
+    },
+    {
+      "File": "dev/engineering/d120/quick-ui-20261012/README.md",
+      "SHA256": "0a6a7e50144432dff2bbac5dab93433c69934b6084077c08d958ce2304e94663",
+      "Bytes": 4788
+    },
+    {
+      "File": "dev/engineering/d120/quick-ui-20261012/Test-DomeniaProdFactory.ps1",
+      "SHA256": "df9339f689bd591249f45107d1fb102e22f76c517df6afcc9f2438a15b1267ae",
+      "Bytes": 3891
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-access.json",
+      "SHA256": "71b48030d09b81e412ee2099e8fad9a312b7f5348b32c20c5a5e4ddd3e39a313",
+      "Bytes": 58942
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-cache-storage.json",
+      "SHA256": "248597eeb4ca5a1d8cbcd0394bb0144300ea7827b74446b0a2d5ce7503934104",
+      "Bytes": 63511
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-directory-safety.json",
+      "SHA256": "c5e6bfb062da772788e786d79919fcd83e959a2f7c21f2ffe4650d9d081d47fc",
+      "Bytes": 59969
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-engine.json",
+      "SHA256": "14b009b5eddb7c324ef596960a36c1e571b48590327f54ad06fe42075a065d46",
+      "Bytes": 71146
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-historic-suites.json",
+      "SHA256": "ea57c3b1a9dd5c749511b23bc9c9f9b8dab78d1f0047577aec5573df8dd4331f",
+      "Bytes": 56963
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-relations.json",
+      "SHA256": "dcce89a833eb2a0298dca8b8a7fa9c4da5d438e7c6b2aeddc066a6fd4be765b1",
+      "Bytes": 56261
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-release-build.json",
+      "SHA256": "65b279e55e815c7bcd2a9d674f9ca55cd20929bc1987354878d744c618a59a5b",
+      "Bytes": 72964
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-search.json",
+      "SHA256": "df6613cf0c371cc53b0b20f49960f6d28d46a3aabc2a6327385b828744c1afca",
+      "Bytes": 61843
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-startup-demo.json",
+      "SHA256": "03937be9da0267b069719d8e4c2e30ec6f5e24270620c1009789d0ca8ba148b5",
+      "Bytes": 76340
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/carte-workstation-shell.json",
+      "SHA256": "62822d800601e0eaee9fc1e511855d12b5b887bf931f4b97574b3d7b3804685a",
+      "Bytes": 70141
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/critique.json",
+      "SHA256": "02f400a97cf46c581f714e1e003be568fda325f337f172ca6eef0c1ba11cefc9",
+      "Bytes": 28180
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/decisions-lot-cache-2026-10-04.md",
+      "SHA256": "8f920dc27137517d8fe407e5a38934ad64d46061e1321578183d39e1301ead2c",
+      "Bytes": 4520
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-acces.json",
+      "SHA256": "81dc8614e2d9ce7cff326441caa1a65de4fd6f22344aba86177632ebf9aad838",
+      "Bytes": 20237
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-cache.json",
+      "SHA256": "d9190e2f7b41552331f3ab4003c60b355d0afffe7d6d7dabed7da38f35c9faec",
+      "Bytes": 23668
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-ecritures.json",
+      "SHA256": "43221050e13ff85c206f7ad79a9c77d0eb74e72293227453f89a081e7195be90",
+      "Bytes": 6387
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-interface-c4.json",
+      "SHA256": "42434c8ec16e4d82f85063e19c5461c937b140cf879067fdf455056e75b8b4f2",
+      "Bytes": 2286
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-interface.json",
+      "SHA256": "ce892c481a0e774451202c5e86fdc72bb6995bc6ae4512d0cf3f2e451899beac",
+      "Bytes": 3055
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-moteur.json",
+      "SHA256": "36a2030fd099f811bbf008db3715c01fb5525dcacdd0c8b0ec4133b8a5186a7d",
+      "Bytes": 18710
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-query.json",
+      "SHA256": "da0372ab194dab50f1e550ded47a57033ee606fdbd44a3bb5a3a77b5f1294067",
+      "Bytes": 1065
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-recherche.json",
+      "SHA256": "064bd9998d5be2aaec2b80dbd8b0d27556978a9b88d84a78815752f6c454271c",
+      "Bytes": 17695
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-relations.json",
+      "SHA256": "c193a04656a573ccec37cae69b16d9000014ca580bce3a7a49bc982f04a5656c",
+      "Bytes": 20924
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/lot-suites.json",
+      "SHA256": "210a31f463dca2e6fb62b461b1f3810d07f2cf233b24cf0359aacb24779eedd7",
+      "Bytes": 8806
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/plan-lot-cache-2026-10-04.json",
+      "SHA256": "d977afc161b91a895ae7f04b487955fc7885e186136e7acbd4f7a4c5dc58a2e4",
+      "Bytes": 213296
+    },
+    {
+      "File": "dev/engineering/d120/raccordement/regles-points-ouverts.md",
+      "SHA256": "f224310c2b07bfb036591e74977c5f415e9ca643d822dfce02f8d4e31980e286",
+      "Bytes": 29345
+    },
+    {
+      "File": "dev/engineering/d120/release-guard-tests.stderr.txt",
+      "SHA256": "9063c8043689c6d693d9dfc95a51fa7900e5efb9b3261d831276780d96e75e0d",
+      "Bytes": 1643
+    },
+    {
+      "File": "dev/engineering/d120/release-guard-tests.stdout.txt",
+      "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "Bytes": 0
+    },
+    {
+      "File": "dev/engineering/d120/release_guard.py",
+      "SHA256": "d3b053a583edf0f3b0c067d08b60dbe89c22a92092ce69b94e68cd1870b496e7",
+      "Bytes": 15257
+    },
+    {
+      "File": "dev/engineering/d120/test_dev_tools.py",
+      "SHA256": "c0c42ab4169b87e4d2c5332c3a49656c3179e439970bfe2ee616fd88a8612b38",
+      "Bytes": 9087
+    },
+    {
+      "File": "dev/engineering/d120/test_release_guard.py",
+      "SHA256": "f86915927e764114d3ff046c460e01613c0e427208d1985c80914752c15bd862",
+      "Bytes": 14510
+    },
+    {
+      "File": "dev/native/ObservationReader.cs",
+      "SHA256": "361dea7be559e3cbf25364ea73e5191838ac5e2fbd24ca073272cad1a69d86b0",
+      "Bytes": 10507
+    },
+    {
+      "File": "dev/native/ProbeAggregation.cs",
+      "SHA256": "81ee62b401d523a22769ca4abbeb63040586761f43a2ece36f540c891f309c75",
+      "Bytes": 7061
+    },
+    {
+      "File": "dev/tools/Fabriquer-Prod.ps1",
+      "SHA256": "00184761ad3b28151f1ce63730485d024a020a0fa78787fd813f5dbbe2d58b94",
+      "Bytes": 4058
+    },
+    {
+      "File": "dev/tools/Production.Source.ps1",
+      "SHA256": "d49916845858b46c4a5387b321923b82431b5c768c9a054bdf4e00f813b869b3",
+      "Bytes": 18643
+    },
+    {
+      "File": "dev/tools/Signer-Distribution.ps1",
+      "SHA256": "38daa5052c33b8551f8062bae59868a1de20483d53b92b778a990382acbee758",
+      "Bytes": 4766
+    },
+    {
+      "File": "dev/tools/Test-DomeniaPs51Compat.ps1",
+      "SHA256": "3e13cd609ff682b6b247464b58abc619da6b06cba5208bccb1fd6201a28e2197",
+      "Bytes": 15285
+    },
+    {
+      "File": "dev/tools/Test-DomeniaSignature.ps1",
+      "SHA256": "fb2c0891747f2ccb3dac040df97fb0bbef44e0a9badb9657e8e2729523ed3760",
+      "Bytes": 12271
+    },
+    {
+      "File": "dev/tools/Test-DomeniaUiBlocking.ps1",
+      "SHA256": "2675e06ff622a4f1c1971084fdea50947178ea60e2fccaf313635a146793d6f1",
+      "Bytes": 14370
+    },
+    {
+      "File": "dev/tools/Test-DomeniaUiBlockingDebt.ps1",
+      "SHA256": "c8f3408442142503655863abaadbf58e5e6f41a506ef90fa53ced172e5e28a32",
+      "Bytes": 65695
+    },
+    {
+      "File": "dev/tools/audit_function_names.py",
+      "SHA256": "dbfc276803d6198241225377a6da35fd3b1d5dbac094140fbb6f95229162779d",
+      "Bytes": 4688
+    },
+    {
+      "File": "dev/tools/audit_preload.py",
+      "SHA256": "3d0feac16b5f91edf0bb84e8c607db31468f59a88064a2c3be2012da54f8d4bb",
+      "Bytes": 15452
+    },
+    {
+      "File": "dev/tools/audit_wording.py",
+      "SHA256": "4df58949f7d804e6aff5c924c5860d779c6838432af7f22ede194a362b6e8eb8",
+      "Bytes": 12055
+    },
+    {
+      "File": "dev/tools/baselines/RC1.3-search.json",
+      "SHA256": "33b9341b20c80e8eb956b77727c0857c12f2b8bdc4a7f610588b7a5d22d4ac62",
+      "Bytes": 72056
+    },
+    {
+      "File": "dev/tools/baselines/wording-baseline.json",
+      "SHA256": "8df8b15a4028ffd3426f0c0bcf0cf5a6643e6aebb2f9eb7c38aebbcc590f211e",
+      "Bytes": 29425
+    },
+    {
+      "File": "dev/tools/build_native.ps1",
+      "SHA256": "303b3b3988e758e1a5c155754b3e619224847f1b6c660dc56a7bab410271ce00",
+      "Bytes": 2951
+    },
+    {
+      "File": "dev/tools/build_packages.py",
+      "SHA256": "c8546739053ac11bc10b77e74f951395c26c4266cf75fa4a361546854859884d",
+      "Bytes": 21853
+    },
+    {
+      "File": "dev/tools/integrate_lots.py",
+      "SHA256": "be9ba92a3ce866f8af5cf2a7532f677ded285deaa9173358b244ba2630a82319",
+      "Bytes": 11589
+    },
+    {
+      "File": "dev/tools/launcher/build.py",
+      "SHA256": "db7ffe6f8ba03e3d2182509f08543c4c0cd7f8b6f44ef90877af5e1e2c228afb",
+      "Bytes": 3882
+    },
+    {
+      "File": "dev/tools/launcher/launcher.c",
+      "SHA256": "1fad009d7e7a4f717dc88f9b679480ae8a57a801c1458305ef87cb22e6ad12b0",
+      "Bytes": 4960
+    },
+    {
+      "File": "dev/tools/launcher/test_portable.c",
+      "SHA256": "df24fbdc44d95d6d8dc7e64c6194b56d08cea5e36c1a6794984ce179086961a4",
+      "Bytes": 1489
+    },
+    {
+      "File": "dev/tools/migration-worker.json",
+      "SHA256": "577b3967a68f1c268219817345e0ed6d64399ebe0ea0609a2063f66274ca429e",
+      "Bytes": 3038
+    },
+    {
+      "File": "dev/tools/operation-contracts.json",
+      "SHA256": "31b49bf39d5d094555df9923a1a0afdfdfe9c36c26e8cc0da488756dfb157bcf",
+      "Bytes": 16808
+    },
+    {
+      "File": "dev/tools/preload-baseline.json",
+      "SHA256": "67a88acf78c5c35fea6cfe30f248d1b6351a400f11cd8620d60a6f9f5efd63cd",
+      "Bytes": 215729
+    },
+    {
+      "File": "dev/tools/prod-layout.json",
+      "SHA256": "ddba7e0be710f9468c93343683e591cd56c55f8ab5300fb0f9c60f18b1c301ff",
+      "Bytes": 927
+    },
+    {
+      "File": "dev/tools/prod-manifest.json",
+      "SHA256": "265d7cd1779d9650e314fec9ce7f1823b0e5abe1186f2df6915f37f05c8b8a18",
+      "Bytes": 21145
+    },
+    {
+      "File": "dev/tools/release-contract.json",
+      "SHA256": "62a682db21b6e99e18b2625df1167a341500e1b9f339321b9c339551ffb62a0c",
+      "Bytes": 2753
+    },
+    {
+      "File": "dev/tools/release_contract.py",
+      "SHA256": "81d3433a60ee2080c5d9569deb4d47bfc8827fea2db49d7b7e484c904fce5024",
+      "Bytes": 6998
+    },
+    {
+      "File": "dev/tools/tests/test_classic_packaging.py",
+      "SHA256": "fb68cd023cdc04f1d0d27ba4663f12ceff9002da7f432b8d4c9aa5e4951a54ae",
+      "Bytes": 18865
+    },
+    {
+      "File": "dev/tools/ui-blocking-baseline.json",
+      "SHA256": "e3b9dcc70d0ecf20ab68bee65d80e83517bf4ee4dc756f9b1c193ba545ed7ad2",
+      "Bytes": 22821
+    },
+    {
+      "File": "dev/tools/ui-blocking-debt-baseline.json",
+      "SHA256": "276bfa643b4591d953185b538984144e63de917b5e8e88551f73f0f8718accf2",
+      "Bytes": 698094
+    },
+    {
+      "File": "dev/tools/update_migration_worker.py",
+      "SHA256": "c974c69a356ff7e8cc8d0d637af45e5becfc0b831229414057a3bbf24a10deeb",
+      "Bytes": 2489
+    },
+    {
+      "File": "dev/tools/update_worker_contracts.py",
+      "SHA256": "23156efc97cda63bf129a1e6234f8b2b1a186ca297c5d59230f5b2000ee00122",
+      "Bytes": 6471
+    },
+    {
+      "File": "dev/tools/validate_powershell_static.py",
+      "SHA256": "e6777342548e136583e7a4f0249b57da9193aaaecd5cdedb202eced2f26a40c7",
+      "Bytes": 6297
+    },
+    {
+      "File": "dev/vendor/m4d-admin-common/lock.json",
+      "SHA256": "eb1f4941b72fd7a729d2ae4e99b4e103bfb8fd954a3094f930860e46229f4ef9",
+      "Bytes": 453
+    },
+    {
+      "File": "dev/vendor/m4d-admin-common/manifest.json",
+      "SHA256": "fa683f3bb8287ef747a19371aec1857e79ea1c948d7b8809dfde42973fd58fef",
+      "Bytes": 1491
+    },
+    {
+      "File": "dev/vendor/m4d-admin-common/src/Query/QueryEngine.cs",
+      "SHA256": "533d6a5cc6cc0644a9c64c0261f54dd25f507f44a3c9a8c79acdb9934d996951",
+      "Bytes": 21400
+    },
+    {
+      "File": "dev/vendor/m4d-admin-common/src/Query/README.md",
+      "SHA256": "ae3c252c046f56e1e0951c5f01e7eca7c008501de1d5da8474cad0ec6069e95f",
+      "Bytes": 3153
+    },
+    {
+      "File": "dev/vendor/m4d-admin-common/tests/Query/QueryTests.cs",
+      "SHA256": "53764ea19025e91fe18d4fcc3a8e34d4e8c4080c17c70f3c615cbe592737fe61",
+      "Bytes": 10694
+    },
+    {
+      "File": "dev/vendor/m4d-admin-common/tests/Query/Test-Query.ps1",
+      "SHA256": "69ac5b1c0c8530d13950b6c30792ca26d831b9e30d3bc7fb1a066c6d097337eb",
+      "Bytes": 420
+    },
+    {
+      "File": "dev/wad/ActiveDirectoryPowerShellResources.dll",
+      "SHA256": "e233d92238aa31ea1b3c60145d8811edb2e517e1b9b53f4bc496883ee5d9973b",
+      "Bytes": 33280
+    },
+    {
+      "File": "dev/wad/Domenia-Core.ps1",
+      "SHA256": "41b82e030868a1af6816d639328d218ed3f290a776ad069051a07015845b98fe",
+      "Bytes": 2034713
+    },
+    {
+      "File": "dev/wad/Domenia-Modules.ps1",
+      "SHA256": "b7eb959844dd9fa405f5972f5a8a0278237a70c58ac151996b34ec569c2af135",
+      "Bytes": 77213
+    },
+    {
+      "File": "dev/wad/Domenia-Start.ps1",
+      "SHA256": "d8aaae59b5baa81b079c6145e06dbef822ce7a43c99f08e8af20b16358d43e97",
+      "Bytes": 11318
+    },
+    {
+      "File": "dev/wad/Domenia.config.json",
+      "SHA256": "766dbf8924f4efc3641768e0c1b2c37e5936d681f002c3260e2fe6c8da7680f8",
+      "Bytes": 148
+    },
+    {
+      "File": "dev/wad/Domenia.ico",
+      "SHA256": "ec032bf6a14eac2cc80073b376fe0364dda62f25d452c8c783c926b0c28e837f",
+      "Bytes": 18263
+    },
+    {
+      "File": "dev/wad/Domenia.login-mode.cfg",
+      "SHA256": "ef6691545d2c5523efed00424407cb261aeb0037d165ca5792f7f8bac3381362",
+      "Bytes": 8
+    },
+    {
+      "File": "dev/wad/Domenia.release.json",
+      "SHA256": "62a682db21b6e99e18b2625df1167a341500e1b9f339321b9c339551ffb62a0c",
+      "Bytes": 2753
+    },
+    {
+      "File": "dev/wad/Domenia.theme.cfg",
+      "SHA256": "dbcd5e7bb7a0f538810de44c3efbd813037ee3fa358747bb71fa58e157af45f7",
+      "Bytes": 5
+    },
+    {
+      "File": "dev/wad/Domenia.ui-profile.cfg",
+      "SHA256": "d0da7ab8bc927960b4ca3c6678137464baf9266c4fe3281f30e4769f6c4427db",
+      "Bytes": 4
+    },
+    {
+      "File": "dev/wad/Microsoft.ActiveDirectory.Management.dll",
+      "SHA256": "1a6af7b8f8bce5b35ff873e2528746480c980526d86e38ca5acd04c2e9037157",
+      "Bytes": 1172992
+    },
+    {
+      "File": "dev/wad/PsExec.exe",
+      "SHA256": "edfae1a69522f87b12c6dac3225d930e4848832e3c551ee1e7d31736bf4525ef",
+      "Bytes": 833472
+    },
+    {
+      "File": "dev/wad/Support/.lifecycle.lock",
+      "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "Bytes": 0
+    },
+    {
+      "File": "dev/wad/Support/DEBLOQUER_TOUT.cmd",
+      "SHA256": "eb9ca9bda1174d07227df29256b5a5b90c9514c7e120aa38a683a45016118b1d",
+      "Bytes": 1495
+    },
+    {
+      "File": "dev/wad/Support/Debloquer-Paquet.ps1",
+      "SHA256": "a62becf6cc25f85a0a21b6ce018fdc0826b43ec99d9897eb5e227967e8ba9454",
+      "Bytes": 5749
+    },
+    {
+      "File": "dev/wad/Support/INSTALLER-MISE-A-JOUR.ps1",
+      "SHA256": "8de2d1c4c8f3af56668412df44badb52166386514fed60991b42662aad13d8cd",
+      "Bytes": 50210
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-ACL-RC1.1.json",
+      "SHA256": "1079a5e0c0e010ddb72addb8c6cfebe4077af2d54b16ce61407659f58abfd612",
+      "Bytes": 5944
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-ACTIVITE-RC1.7.json",
+      "SHA256": "186c0a8eae2ce35cb43ae6e042a2c13a1bcc2a2681a1cffe494eb65e271eb4da",
+      "Bytes": 17137
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-DEMARRAGE-LOGIN-RC1.5.json",
+      "SHA256": "e6db21c8795121b3494ecb8d89d2f0f555c370381b145a06ab0a69ca88a54606",
+      "Bytes": 24276
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-DOMENIA-RC1.1.json",
+      "SHA256": "2dd0f648830030a2fdce12997fe54abcc17050e23c572595e3673dde03eb0f62",
+      "Bytes": 23768
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-DOMENIA-RC1.2.json",
+      "SHA256": "dbaee8d54e3686e012794a192f995a477903ae9b5ef962ff633c7083c4a70917",
+      "Bytes": 23906
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-DOMENIA-RC1.3.json",
+      "SHA256": "33379348cf7593d7cb82f81f75497e1a4083a420789cf81439444cea8ee0e0d3",
+      "Bytes": 23908
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-DOMENIA-RC1.4.json",
+      "SHA256": "de07ee1b2ca83ddaa9be51d99eda2d7cc51ad6ed22c0b662b84a163899b3fd69",
+      "Bytes": 24137
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-DOMENIA-RC1.json",
+      "SHA256": "0c6ce799f8279603cdfe58fa96b22f095360060102b0600dbd0648f251607090",
+      "Bytes": 23762
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-GENERAL-RC1.5.json",
+      "SHA256": "97cf6238bcd13729b6c8f57533c44be5ee534f1546207c48be38e3e8673fcf57",
+      "Bytes": 24415
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-GENERAL-RC1.6.json",
+      "SHA256": "da877bf44d2bc93cb1d9d0bd278afafe448fd6d1be61d28f9d5bdadd927d4661",
+      "Bytes": 24414
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-GENERAL-RC1.7.json",
+      "SHA256": "1e60281200db4f35ab6495b8d43b7e9a627e97a051152208fb4cbe49e0f2b52d",
+      "Bytes": 24419
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-GENERAL-RC1.8.json",
+      "SHA256": "cc85a3ecc2cf0e53edfe185f2bc789c6c5a2d4236f348ac04295ce2ac88c056b",
+      "Bytes": 24554
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-GENERAL-RC1.9.json",
+      "SHA256": "9c7b3c175dbd18e123a287c789a7de5568495e8799cbeb70f46c1aabe894a122",
+      "Bytes": 25175
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-INTEGRATION-RC1.9.json",
+      "SHA256": "52ecc136a2e26791695452a01f2ad520614e4c87f95c61e72bd8e2cc63c2c06a",
+      "Bytes": 15829
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-INTERFACE-STABLE-RC1.6.json",
+      "SHA256": "cc5fe288d261c693f139569bc397c5d20fd742692555ede1167c32588464fa50",
+      "Bytes": 22858
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-MODULES-RC1.2.json",
+      "SHA256": "819833259b3a3af920825b4674e3f84461df71c9b00dbcb311751c05ce70f0cc",
+      "Bytes": 9764
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-PRECHARGEMENT-RC1.10.7.json",
+      "SHA256": "29f92111db08eb5806296fffa441d890043efe2f994be386579c5845a69b9eb5",
+      "Bytes": 18715
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-RECHERCHE-PRESENCE-RC1.4.json",
+      "SHA256": "6513fffc66aaf8648079cdf9b273ddd83e5b5120bd70848003c8b763a3ee27c1",
+      "Bytes": 17241
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-RELATIONS-RC1.10.json",
+      "SHA256": "94b5fcf2696f9d0c4d4fbe3706fe417302bae6d66c3832d24940d4d86d664519",
+      "Bytes": 3146
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-RELATIONS-RC1.8.json",
+      "SHA256": "e8f26c998d06dbb70f2903ec1dfc2bf319e807a01c9bf75808ac8611b6e5a39e",
+      "Bytes": 27484
+    },
+    {
+      "File": "dev/wad/docs/AUDIT-SELECTION-RC1.3.json",
+      "SHA256": "44ca5f5a670ea17ec1a611228c4d3c51acd814d79fdfd7af57b04ff55a7468e1",
+      "Bytes": 16971
+    },
+    {
+      "File": "dev/wad/docs/BUILD-LAUNCHER.json",
+      "SHA256": "66fcc37b294f390d003265e8f65dfdd5b58ef9b0acb9da15762490dc8ab8e599",
+      "Bytes": 175
+    },
+    {
+      "File": "dev/wad/docs/COMPONENTS.json",
+      "SHA256": "c761a3b888a609f63cfdfa37240ac7fc90ce3629188052f9fe3e5c88a70b2099",
+      "Bytes": 1139
+    },
+    {
+      "File": "dev/wad/docs/CORRECTIF-DEMARRAGE-RC1.1.md",
+      "SHA256": "a286e42981237114c75b242de90846100f696694e46a965332781e237fea6306",
+      "Bytes": 9085
+    },
+    {
+      "File": "dev/wad/docs/CORRECTIF-MODULES-RC1.2.md",
+      "SHA256": "cb7a021bb0283dac1903033c7543130006c070bb54c43e252005301a9c6944e1",
+      "Bytes": 8114
+    },
+    {
+      "File": "dev/wad/docs/CORRECTIF-RECHERCHE-PRESENCE-RC1.4.md",
+      "SHA256": "8cbf94b0acbb9d4c715e46c8e9bbeecb73464120fb9cf29e99d302147d9ca900",
+      "Bytes": 10970
+    },
+    {
+      "File": "dev/wad/docs/CORRECTIF-SELECTION-RC1.3.md",
+      "SHA256": "0d6c125666e6b9f76e6db38b11e6846310076811724e41a87bcb895b648b68b7",
+      "Bytes": 8570
+    },
+    {
+      "File": "dev/wad/docs/GUIDE-DOMENIA-RC1.md",
+      "SHA256": "4cbec79210c7bc19817ea1d8e2d85fb62444c5e611aa0a4322a32e90a3a155cc",
+      "Bytes": 15329
+    },
+    {
+      "File": "dev/wad/docs/HISTORIQUE-LIRE-MOI-RC1.7.md",
+      "SHA256": "9a2570d2525f35b91e9543c581f5578a6b927aaf79a90f04b77cfbd2a88858ba",
+      "Bytes": 6072
+    },
+    {
+      "File": "dev/wad/docs/LEXICAL-CURRENT-SCRIPTS.json",
+      "SHA256": "713a0cd1ad2e4b5282e6334f32c260202924003ac4af40df7a4f121acf02c9f4",
+      "Bytes": 2817
+    },
+    {
+      "File": "dev/wad/docs/M01-M42-COUVERTURE.json",
+      "SHA256": "9c346628283029b8a895555b88505126d775c17c56dde033b475a07908b8b669",
+      "Bytes": 40502
+    },
+    {
+      "File": "dev/wad/docs/M01-M42-COUVERTURE.md",
+      "SHA256": "b9730c302a59457299edb11daf8f47bb87773963fef7ea39fe93489e0b365416",
+      "Bytes": 21633
+    },
+    {
+      "File": "dev/wad/docs/PRECHARGEMENT-RC1.10.7.md",
+      "SHA256": "796c59971f5a55cecf770e845a9ce8e4e42bdfd5f3e6506f41c9df5f53e93e38",
+      "Bytes": 9798
+    },
+    {
+      "File": "dev/wad/docs/RC1.1-ACL.patch",
+      "SHA256": "2fb57b26253db02eb18892104965a15a54fbbe2a788d4cd7accb52005ed2bcbe",
+      "Bytes": 4496
+    },
+    {
+      "File": "dev/wad/docs/RC1.2-Modules.patch",
+      "SHA256": "cbd2a04c01c5b86c3b8d711742b5e52767db4dc7010f89d002cf95d9e6e0c5e9",
+      "Bytes": 2883
+    },
+    {
+      "File": "dev/wad/docs/RC1.3-Selection.patch",
+      "SHA256": "847ec7ea98215f477604d0a2aa1cf8dc1e3a5cbfff5c75408be14aa595a7b960",
+      "Bytes": 47760
+    },
+    {
+      "File": "dev/wad/docs/RC1.4-Search-Presence.patch",
+      "SHA256": "9c88359162a320e71b3ca6433673bef78bf21ab3722fb0eadac9f2330d50a80e",
+      "Bytes": 102270
+    },
+    {
+      "File": "dev/wad/docs/RC1.5-FILPRO-reference.json",
+      "SHA256": "a0a5d2c7fec346f746ec4bd2c14ff4ba4da5044eb618fca54a2eefe3535e707b",
+      "Bytes": 1141
+    },
+    {
+      "File": "dev/wad/docs/RC1.5-baseline.json",
+      "SHA256": "f5d599def7368c4f11bcb8d54ff2a8a1609e8ad38ff96ba736d2eb9ac910b267",
+      "Bytes": 68084
+    },
+    {
+      "File": "dev/wad/docs/RC1.5-startup-login.patch",
+      "SHA256": "7b5e4a7b8c289279b13da598df58878f6f6b94cf5377f3da354a67dafc23325d",
+      "Bytes": 45700
+    },
+    {
+      "File": "dev/wad/docs/RC1.6-Domenia-Access.UI-baseline.json",
+      "SHA256": "8d8b2f63c0af6fe405a79b956191480920eaf3c9411faf485f84a9068adc8742",
+      "Bytes": 1415
+    },
+    {
+      "File": "dev/wad/docs/RC1.6-Domenia-Experience.UI-baseline.json",
+      "SHA256": "5fa532473f2116060e9eb784abf6dfaff1940af7c0750d38a6cbacd6adbc32e1",
+      "Bytes": 1695
+    },
+    {
+      "File": "dev/wad/docs/RC1.6-Domenia-UX.UI-baseline.json",
+      "SHA256": "af7723b320a5428292af29e7bf742c544987ff69ea077303512234eec8a05ad4",
+      "Bytes": 2475
+    },
+    {
+      "File": "dev/wad/docs/RC1.6-INTERFACE-STABLE.patch",
+      "SHA256": "56f2be809768174fa99de28599d418fc9ca06920c59339a83356c23d8adec15a",
+      "Bytes": 25196
+    },
+    {
+      "File": "dev/wad/docs/RC1.6-baseline.json",
+      "SHA256": "9f2aedd518b661e5031650fe54be4598c497f24c8cb19f65015d661427feafbb",
+      "Bytes": 62561
+    },
+    {
+      "File": "dev/wad/docs/RC1.7-ACTIVITY.patch",
+      "SHA256": "129cf0ddb69410f15451751272b52f3936241b51ac9fbf9383154f954b9f7cb3",
+      "Bytes": 8728
+    },
+    {
+      "File": "dev/wad/docs/RC1.7-baseline.json",
+      "SHA256": "ce99d8448a5e9127e6a322067b18c187ae91cc93324c96a007cd6a893ea781f4",
+      "Bytes": 62559
+    },
+    {
+      "File": "dev/wad/docs/RC1.8-baseline.json",
+      "SHA256": "d8bd99f3bd0c3d53e46dfb361138e2cc69b890c0617175b9298b69e293c480e5",
+      "Bytes": 62644
+    },
+    {
+      "File": "dev/wad/docs/RC1.8-core.patch",
+      "SHA256": "b53d81d937fd053008f390852c08fa453cd2230d71f9beb0bc7cf025dfcc1a90",
+      "Bytes": 82038
+    },
+    {
+      "File": "dev/wad/docs/RC1.9-integrated.patch",
+      "SHA256": "4428d7d7fe482809de36cbe1ebeda0564e4d93cf5dfdbaf1871e497f280691f6",
+      "Bytes": 87133
+    },
+    {
+      "File": "dev/wad/docs/RC1.9-source-baseline.json",
+      "SHA256": "573d14f141f4f7b291ac907944d88a65846535b8adda4fbb83a9132b76677145",
+      "Bytes": 72457
+    },
+    {
+      "File": "dev/wad/docs/TEST-LAUNCHER-PORTABLE.json",
+      "SHA256": "34eb3c83541b89d9428f0536e1ca3b4311092c84792a49f4f6706e0cb694bccc",
+      "Bytes": 74
+    },
+    {
+      "File": "dev/wad/docs/reference-filpro/Controls.xaml",
+      "SHA256": "004c360f6c78551d0aba8517d97991f7acb8217a05bfc907a0214ce640cada95",
+      "Bytes": 35140
+    },
+    {
+      "File": "dev/wad/docs/reference-filpro/Login.xaml",
+      "SHA256": "4833e2ba7e0a2246d20b982ebc59c3500baa44b43f347887f5e71b022747446b",
+      "Bytes": 11251
+    },
+    {
+      "File": "dev/wad/maintenance/Preview-DomeniaLogin.ps1",
+      "SHA256": "74b1d18345ac9a36af76e03426906d67052dfb0fb236771a60743a1ac2410066",
+      "Bytes": 9485
+    },
+    {
+      "File": "dev/wad/maintenance/Preview-DomeniaProgress.ps1",
+      "SHA256": "9ab973588c396b425ddd83ac9b3aad94cbf0ee987009e6629dbe675c59e3dc0b",
+      "Bytes": 5253
+    },
+    {
+      "File": "dev/wad/maintenance/Preview-DomeniaUi.ps1",
+      "SHA256": "36d657d39d21b543a6942a1f12d42bae65edccb4e58f57db676662e338e60d6b",
+      "Bytes": 43047
+    },
+    {
+      "File": "dev/wad/maintenance/Sauvegarder-Cache.ps1",
+      "SHA256": "bd52f319e568b4fec0a4b762d056164c8b4203d3d7cee5a09dcaa68c198aab3d",
+      "Bytes": 2124
+    },
+    {
+      "File": "dev/wad/maintenance/Verifier-Paquet.ps1",
+      "SHA256": "cbd999f68b387b9263846f08e0a4f05cd495e8feba7ae9b3cce1b086570b6d2c",
+      "Bytes": 7033
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Access.Model.ps1",
+      "SHA256": "6c4cdda5e2d395d7824bca6f018061c66645a0012002e613de8f171f34781ae3",
+      "Bytes": 36950
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Access.UI.ps1",
+      "SHA256": "d586df3becca3f804841816be122a3bbdea78e07aecb9b0adb186aad3c84b7ce",
+      "Bytes": 45149
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Accounts.Async.ps1",
+      "SHA256": "91860b5746e5c356e3756793a494afd232bc6625400f0706d50daa73ad1c7d81",
+      "Bytes": 5782
+    },
+    {
+      "File": "dev/wad/modules/Domenia-BoardComputer.UI.ps1",
+      "SHA256": "5c7101fc3da5ef33a76922b1bced5726398885be5b15c4c7adffaace7b782ebd",
+      "Bytes": 43177
+    },
+    {
+      "File": "dev/wad/modules/Domenia-BoardFleet.Model.ps1",
+      "SHA256": "ef9d778b40d8b22e724212c4f4632e79fb8bec527016cd8d8df15a8c2f7b3dbd",
+      "Bytes": 49506
+    },
+    {
+      "File": "dev/wad/modules/Domenia-BoardSoftware.Model.ps1",
+      "SHA256": "a237aee00a6e5a071aff2ba71dc5cedc6a16aeff9ac35f20f7d6cde02feb8718",
+      "Bytes": 22174
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Boards.Model.ps1",
+      "SHA256": "07cddb312f1ecd0aebc25059788a63a0dfcfeb40182e1b31b8a46556dd19cbbf",
+      "Bytes": 55065
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Cache.Model.ps1",
+      "SHA256": "91eae39d0596f29779f7d9628c197b61098015db8e18c0385de317dc346a7054",
+      "Bytes": 35507
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Charts.UI.ps1",
+      "SHA256": "6297f10d4c174db7deeca53b7848ec299ff3be30e53c7fb50059250c6635e70e",
+      "Bytes": 73091
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Clipboard.Native.cs",
+      "SHA256": "172aac508c967e80b18ab427eda9157516d63c61315bf7a1febee62206e19adc",
+      "Bytes": 3056
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Common.Model.ps1",
+      "SHA256": "db17c532a83a2f17d0218d4544b890431a3d1ebcd2e114dc0050a1d52626b3c7",
+      "Bytes": 15504
+    },
+    {
+      "File": "dev/wad/modules/Domenia-CommonLibrary.json",
+      "SHA256": "eb1f4941b72fd7a729d2ae4e99b4e103bfb8fd954a3094f930860e46229f4ef9",
+      "Bytes": 453
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Continuity.Model.ps1",
+      "SHA256": "74c3adbe8ccda07a3b5a05157813b57e545c623ba3b6cb9af9cceca6aa87073e",
+      "Bytes": 5842
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Continuity.UI.ps1",
+      "SHA256": "910a5f75439a77eb5a396b49e11f30f200494508c8722669956a014ad4b14646",
+      "Bytes": 28152
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Dashboard.UI.ps1",
+      "SHA256": "e7d11b5ae7041970f4bc6c310efcaf6cce26c0183e8641b970c613269f6ea588",
+      "Bytes": 46038
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Demo.Model.ps1",
+      "SHA256": "b5bd808f5356bb2eb477b230067fe5cba981cffc997ca4ec46022ee074fa09b6",
+      "Bytes": 11407
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Demo.UI.ps1",
+      "SHA256": "6717745c11ae231250fd4334359092f25c33f11a70cadcd0d1ee880bef634f7e",
+      "Bytes": 3946
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Demo.Worker.ps1",
+      "SHA256": "4642d799e6ca86b459e4f8fb2ce186eb0b29c411e26216a23eff610d07018d0e",
+      "Bytes": 25033
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Directory.Model.ps1",
+      "SHA256": "90a8f2f6685c7ff198c625d8ac245c58cc0b0921f55c93ba3ce815dd13327c92",
+      "Bytes": 47317
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Dossier.Model.ps1",
+      "SHA256": "9d6d07cd0a9202d027139e022f7b34a7d05e0266401f6784570529f19ee4bcff",
+      "Bytes": 3263
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Dossier.UI.ps1",
+      "SHA256": "620090e7ee794237f55e77442f2d41fe3d49d5b317459de808cb52a2277112fc",
+      "Bytes": 4557
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Embedded.UI.ps1",
+      "SHA256": "754c33c2ea4cc3958c566b3a0b37e1f782047f432a95a1040bfba3314ff69c48",
+      "Bytes": 73989
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Engine.Model.ps1",
+      "SHA256": "67ee24e9c67f0ea7fb08dbfa666e8a04107efc3d6677cc9644fc2a183a708db7",
+      "Bytes": 40349
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Engine.UI.ps1",
+      "SHA256": "16097f29bf9c1af0f7b021e6379310548f6cfe541591acf11c048d86001d04f9",
+      "Bytes": 66986
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Engine.Worker.ps1",
+      "SHA256": "bc77945fdeace25f3484399e0e000b89c70b103026d6d049962cf11e92e1670f",
+      "Bytes": 36032
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Experience.Model.ps1",
+      "SHA256": "4b4397f5d6f358675d9a0018504b44e2b37345854aa677c7e299f1ed3503a239",
+      "Bytes": 8096
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Experience.UI.ps1",
+      "SHA256": "e39651d35b472930d77a56aa86b270a20fe502a457cd3f44ad91c3a8146b1cac",
+      "Bytes": 41335
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Guard.Model.ps1",
+      "SHA256": "cd305affcd81e9af750a4b20dcc4706e63ba3ca7ced54c18614673914f4b7b3f",
+      "Bytes": 6040
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Guard.UI.ps1",
+      "SHA256": "210918db7f9463a78729d3e056b8fc2abe6c3793cd1b7d801247e021d0e34260",
+      "Bytes": 29769
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Identity.Types.cs",
+      "SHA256": "25ec6fefe1bd669caffd81a9c10d7114722959e96d5e43677e08eeea4788ed1c",
+      "Bytes": 8246
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Inline.UI.ps1",
+      "SHA256": "4c6d519ae76faddd4b1d5e26f40036c47b6699f7829facb2c5aef01baadb3685",
+      "Bytes": 11079
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Inline.xaml",
+      "SHA256": "9fa6a241982efc6b48c4fdd0e2a8a0af025b0f3a88af241b0800eef537a2c0d1",
+      "Bytes": 3997
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Insight.Model.ps1",
+      "SHA256": "6287ee0f3fe04f5d03e25e529bb1f4b056ece8f66c2de26872bcaa228c9de27a",
+      "Bytes": 15094
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Isolation.Worker.ps1",
+      "SHA256": "dda9be0b91370ae8c23ca130198ff17c5bb3b4a0f584c8510588029d5c9e0a33",
+      "Bytes": 2759
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Live.Model.ps1",
+      "SHA256": "f5e9b6c302a3d38f53461208521bba4a3e6081ea2f4fc3fa1d5251a84a01956b",
+      "Bytes": 42324
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Live.Types.cs",
+      "SHA256": "4cfff3415e3e987475fd594e42d7dda9916b7a1d9d2aee17d597645c9421a126",
+      "Bytes": 6524
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Live.UI.ps1",
+      "SHA256": "1514f0be4cd88c60822660d0f4cdd44f643bd6f8dd6a8cd6951fe83323f599fa",
+      "Bytes": 69848
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Migration.UI.ps1",
+      "SHA256": "8998983aec38359c01d1877b52d2088696f5d2933faf6bacf2d26173d4365fcd",
+      "Bytes": 22588
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Migration.Worker.ps1",
+      "SHA256": "6a361ec210dd38a269ad544980449c6d05e73dc4a6cc553ec4d3537f14a6ae5d",
+      "Bytes": 57239
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Operations.xaml",
+      "SHA256": "160f370aed71dd74cdd87c3496fb7e4daccdbe461f53713539fff78f34705bec",
+      "Bytes": 4434
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Park.Model.ps1",
+      "SHA256": "91a4cc09c315b45286cf1db3af62329f7cccb3ee46a0b222cf8f48141a822594",
+      "Bytes": 6929
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Park.UI.ps1",
+      "SHA256": "6800d7276e0bc7926b5c33e2c2f46ef8414c3e9079379fa663bf142d574db6c9",
+      "Bytes": 21276
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Probes.Model.ps1",
+      "SHA256": "9df125208a21b7ee474c8380047eda5ebfd96563e37d05b46c427e34314592bf",
+      "Bytes": 24868
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Query.Model.ps1",
+      "SHA256": "a6086863c2477238fa854d76f1e3e6b46dbfd735b7a946b6e7b8a73eabedb7cd",
+      "Bytes": 63902
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Query.UI.ps1",
+      "SHA256": "55222edfa2be2ee20df918b4622fd3009d38e6954330095a545c36db6bda8ddb",
+      "Bytes": 50773
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Query.Worker.ps1",
+      "SHA256": "8a40bca4b66c23b7b4c97a7d6a05a3e1f44e05d589f8130c2491570668093520",
+      "Bytes": 4986
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Query.xaml",
+      "SHA256": "f660659d790f5c8a39e84308577d95f22a38de30f43500479acfbd5cceb53a30",
+      "Bytes": 22551
+    },
+    {
+      "File": "dev/wad/modules/Domenia-QueryTargets.UI.ps1",
+      "SHA256": "cad98fea95f3ff6e804b55ee320c45e6caa3128cf93b1aca29237150dabd2e10",
+      "Bytes": 10516
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Receipts.Worker.ps1",
+      "SHA256": "d44a9dfb7b8eb7ab9db3f1806ce697c9236117121e2c5e054da1788c87b19a8d",
+      "Bytes": 8225
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Reconcile.UI.ps1",
+      "SHA256": "3cf22706b2aca92bb71467bc1122ee155a2ebbc47c350cf5dc2aa8987021f9f7",
+      "Bytes": 11138
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Relations.Model.ps1",
+      "SHA256": "a9a84746ae9e39a55b91c1ca4a015184b49dc43de3c43d61bbf22e4c6f2ed796",
+      "Bytes": 50255
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Relations.UI.ps1",
+      "SHA256": "5f7c8e7b3608df3ae7ff5b99517fe6556f4cd27f4074f165aff956294a71ed11",
+      "Bytes": 160029
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Release.Model.ps1",
+      "SHA256": "c47fcc6f008dbb513280bfee5b641e06d946360238eb95eccaef4f4bc2360545",
+      "Bytes": 138582
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Safety.Model.ps1",
+      "SHA256": "00bcb6545d59458c727cc9dfb91f60a561d2a8dae01642fe438f9b6d3924d5e3",
+      "Bytes": 86651
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Search.Model.ps1",
+      "SHA256": "5fb57090d4e4c3f58cd18bd46758e589f45ae0fb1bb238229902df781e4f6a0e",
+      "Bytes": 47599
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Search.UI.ps1",
+      "SHA256": "267eb5d4b05afcabc9f5dee74fd632c0b5ea6bfd0aa15d4af8bc710a195b306a",
+      "Bytes": 54713
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Secrets.UI.ps1",
+      "SHA256": "d885e02dde01d288f3f5f4c2bbf16851d5c675608fe3501005614d41726ee656",
+      "Bytes": 19550
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Secrets.Worker.ps1",
+      "SHA256": "8f5b009eea769a9c81dc01b1ebd070f43dda1838908cc3476f8181165acb0f9e",
+      "Bytes": 9900
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Selection.UI.ps1",
+      "SHA256": "9f216fbe3765dc4f6aa929e0c017b2d91ca456aa2712203371d002799287fa80",
+      "Bytes": 20509
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Sessions.Native.cs",
+      "SHA256": "c70c809dba96d7651c90947e6af3c61f101c876c429ba7b0ff4ea884f21704f5",
+      "Bytes": 6851
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Sessions.UI.ps1",
+      "SHA256": "61ff96da919dede8dbe956ccff814750fc2f986a3c61b597f9d869fae0f56809",
+      "Bytes": 9988
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Shell.Model.ps1",
+      "SHA256": "685c73e9f81f2513800798ee2dc6b5d61c0b750bf6aa57f8becdde538aec9d74",
+      "Bytes": 87771
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Startup.UI.ps1",
+      "SHA256": "a9f9d4c997b315c3d185cb6b62a2d80c4660c5cdee7d9cd3755d8f0765351805",
+      "Bytes": 5768
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Storage.UI.ps1",
+      "SHA256": "c811e13f34df19d7de60bb8b20480a47bfa2c7cdd8871857eb7e217909215ea7",
+      "Bytes": 59334
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Storage.Worker.ps1",
+      "SHA256": "9627d0dc9cf8c110898908db2fd94c8de25a0085b5f716efaa9354d272d2c134",
+      "Bytes": 80969
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Support.Model.ps1",
+      "SHA256": "dc86fbe76c2a30663223b3ac11d29ccc38db3f6080d2e4be3569e25a8406b3a6",
+      "Bytes": 25825
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Support.UI.ps1",
+      "SHA256": "4e468d6396eea16c46228a787733bbbf0e1d8378f7730289fd6640b8cd90dff2",
+      "Bytes": 21764
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Support.xaml",
+      "SHA256": "8126bc5968458d7b2d81977b36f76c2be66c035cdf0e6ab9ad54855f83a62620",
+      "Bytes": 12890
+    },
+    {
+      "File": "dev/wad/modules/Domenia-UX.UI.ps1",
+      "SHA256": "5e4d3db4cce3eefca6fc1e1de18680dfe91c923d5c264127ebe7a07bba24c6ea",
+      "Bytes": 95869
+    },
+    {
+      "File": "dev/wad/modules/Domenia-UX.help.json",
+      "SHA256": "189dff2628ac80e06f14e98a2b6066677d1fefd4f31df9bfbbeeab420d54627c",
+      "Bytes": 133559
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Widgets.UI.ps1",
+      "SHA256": "55da60c9887d129411f9c5457fb8330c1b7f6d9fefb54883d606ae0087a61e38",
+      "Bytes": 91730
+    },
+    {
+      "File": "dev/wad/modules/Domenia-WindowsLifecycle.json",
+      "SHA256": "278fcb9733ddf1117ac984a99dfc98dc925abdd37e1edf6f999a9a8e7daaf50c",
+      "Bytes": 4811
+    },
+    {
+      "File": "dev/wad/modules/Domenia-Workstation.Model.ps1",
+      "SHA256": "f9bdf0580b09964af9bdc9d229b28e683c6691897399a97c68563395b2788cf3",
+      "Bytes": 132228
+    },
+    {
+      "File": "dev/wad/modules/Domenia.Native.dll",
+      "SHA256": "aa610389684a1415e0cefef0fc33fe0ce961b57b921c1a6319cae06f2eca1aad",
+      "Bytes": 20992
+    },
+    {
+      "File": "dev/wad/modules/M4D.Admin.Common.Query.dll",
+      "SHA256": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca",
+      "Bytes": 17408
+    },
+    {
+      "File": "dev/wad/modules/SupportSuite.UI.json",
+      "SHA256": "6344bce415c26cf50d725e6adc70bf669cc54746cc59482155a9c37e80e6e3be",
+      "Bytes": 2676
+    },
+    {
+      "File": "dev/wad/tests/Test-Domenia.ps1",
+      "SHA256": "106306e7ac1f2585bf18f33e585996156f546813793fc3f3a828085dfdc290f5",
+      "Bytes": 133410
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaAccounts.ps1",
+      "SHA256": "50b00242b4217fa732d866506e619a216a5ea09d74084d83de60d46c49e9dcce",
+      "Bytes": 25149
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaAcl.ps1",
+      "SHA256": "41e9d7a75d458486b3eef4903278a749451bcfefc4e6235ff64e4e927e1f9333",
+      "Bytes": 14296
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaActivityLayout.ps1",
+      "SHA256": "44aa129146e9c4ae8b9ee35d51be6627ce629aa0296524a45ff15c7a56709109",
+      "Bytes": 14733
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaBoardRefresh.ps1",
+      "SHA256": "7feb5040713317d39e65dc94fc2c0e34c3be276fa50a1356ef63da99534524fc",
+      "Bytes": 8998
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaBoards.ps1",
+      "SHA256": "db887f58f0010d16cdb277e3acee3cdda45dcb00ff7a8f208ec6194029456eb1",
+      "Bytes": 98901
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaCandidate.ps1",
+      "SHA256": "18f4ae0657947088e32ef168a3d73980bbb01866f7b9ac6e6802640632d5c6d1",
+      "Bytes": 13340
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaCompactUi.ps1",
+      "SHA256": "f6addc77b9e03978c462e16bc60b33e6dfc6ea94b710f69d3fe36ee3bffb990e",
+      "Bytes": 6529
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaDnScopes.ps1",
+      "SHA256": "4d5cfb9806b76d5c5020832952c1223cbe26e3d864a38406989881e7624f6085",
+      "Bytes": 10547
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaEmbeddedUi.ps1",
+      "SHA256": "b13cc7041e602b18c9d810418b31142dbd7d05e78d120d0d4b27d9bd4b112e0a",
+      "Bytes": 30964
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaEngineLoad.ps1",
+      "SHA256": "1f3899a71b8319052669158c89f6a046220b1cef63df6ade8abc3a601bc3ee91",
+      "Bytes": 21222
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaEngineResilience.ps1",
+      "SHA256": "4e5cb21927562b26634f855352e0b58dfdb65e51fa9df37ac9af79b696145d81",
+      "Bytes": 31528
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaExperience.ps1",
+      "SHA256": "7e560a4e5acacf4a12efd1d8d2a836a4b29866c3ff6dca4010b7ce3eefcb4e8f",
+      "Bytes": 15187
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaFaults.ps1",
+      "SHA256": "f0a54f49c1be88a37a4206c4fbb8617c6d3690f3a460258254993eb7e8efed99",
+      "Bytes": 48491
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaGeometry.ps1",
+      "SHA256": "a45395e41e08e332615ee61e364554129aa1cc8dbf68193c5d93a66aa9d25ebe",
+      "Bytes": 25020
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaIndexActions.ps1",
+      "SHA256": "952278b7da126fcdf932ea0f8dc18d5c46ad8e56d4d9d8a558caddde6b515d51",
+      "Bytes": 5206
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaIndexPersistence.ps1",
+      "SHA256": "1f210fd693977427d82d5ecf46f67aa8c3f9dc4d93bbb3f77bd17a92b42b75f3",
+      "Bytes": 38363
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaIndexSorting.ps1",
+      "SHA256": "7f0eceb43ddef315524654da9a5deb57bb80b2cb1053faacf41d24d8624a1035",
+      "Bytes": 13596
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaInstaller.ps1",
+      "SHA256": "9d38b8792c3d64ca59ded0d4f5a1f7169ce86a00cedbe873505ed8e1c049a238",
+      "Bytes": 28333
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaInterface.ps1",
+      "SHA256": "6a4984fd1681ac94fea89da791e6bdafa513b84661712ddec8ea6d92a1c83768",
+      "Bytes": 251
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaInterfaceTelemetry.ps1",
+      "SHA256": "8e30c1dddf723659c4546cf9a4f3a1c210385343fe1387e450716a4ace8e3a9b",
+      "Bytes": 6266
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaLastUser.ps1",
+      "SHA256": "ba24a2cd457bcc3d69545b3ec19aefe703c9cc1f6707212285034d2bff7b349d",
+      "Bytes": 16175
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaLiveSearchView.ps1",
+      "SHA256": "75ea2ccd02788a8d4e877200aa2b31f6aeb6bc80c6fc434a3d3012cfc7e711b5",
+      "Bytes": 20605
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaLogin.ps1",
+      "SHA256": "f306f888a1de498de6d17a7c58d869be1e06aacf8cddd74d5ec5019360299266",
+      "Bytes": 30692
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaLoginForeground.ps1",
+      "SHA256": "6f99b746b3c164c2ba4ad2735c8f6d30daffac4e5f37e952f9ee821b418d89a1",
+      "Bytes": 9302
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaModules.ps1",
+      "SHA256": "0b3a5eb84770cae9f44e042d1a843b78af3167384320a1d268ef0332487639f7",
+      "Bytes": 23085
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaNative.ps1",
+      "SHA256": "81d9ea4a15455089699dd5971c4194e75d19517e09f34627a8c05b1c36308848",
+      "Bytes": 9170
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaParkDetection.ps1",
+      "SHA256": "e3d67804a8da9e562574d0cf1f4b6fa1e28b39e7c4177da1b1cbb84212e0b798",
+      "Bytes": 14884
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaPreload.ps1",
+      "SHA256": "45e6202ecd3afc2dca89395dfbaae920e763d4ae4071821e9c023ce0120789c2",
+      "Bytes": 27353
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaQuery.ps1",
+      "SHA256": "15058c9977d0590e2b36534bccbcb77c0cdd22a0e692aea437beb218034be545",
+      "Bytes": 25023
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaQueryTargets.ps1",
+      "SHA256": "70f11b0715d2831cf04bef84e93fab0a2c4b1c2f206cf4c7ec65d423533c39bd",
+      "Bytes": 20445
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaQueryTemplates.ps1",
+      "SHA256": "329b4cc97ed73a31b60bdac08146b09fad8943760de9bf55d745c7001c03ad09",
+      "Bytes": 10341
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaRegressions.ps1",
+      "SHA256": "8e5571ad7aef37bfac145b0bc27518a076137d069c2b3408a288f18c40be822e",
+      "Bytes": 27159
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaRelationsAlignment.ps1",
+      "SHA256": "640475cfbd75dcf7c88f49e137530b47229bc8734b36db16f2fae36a402e66e2",
+      "Bytes": 35350
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaRelease.ps1",
+      "SHA256": "6972e8e4ba7964bd5364e004232149b76ba5a32ca4696c2812b3d24519bbf1c4",
+      "Bytes": 39116
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaRemote.ps1",
+      "SHA256": "f8431b400754078ec451e4d13b455554a6bc4af536a794167091210d8b9194fd",
+      "Bytes": 30721
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaRules.ps1",
+      "SHA256": "c12a6e7185a3ab30556a0c0c0c704dbbcdd8f594862ffaebfbc22d0717648272",
+      "Bytes": 4130
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaScale.ps1",
+      "SHA256": "4407956ccfb6a20c14b93aec4ad8a55dc37e69fe63baf6d1614535a21c8dcb58",
+      "Bytes": 12927
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaSearchPresence.ps1",
+      "SHA256": "136443a0ed1ca3902436d0680598216c0d3480366fd436aeeadf1c404c9615da",
+      "Bytes": 29372
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaSearchQueries.ps1",
+      "SHA256": "eee013fe06656be9854d558dbb788c3bbc83893414de81e1fb74213e959d6d96",
+      "Bytes": 23582
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaSearchScope.ps1",
+      "SHA256": "26a3be8dcc769c46eede09d8b722ecc77d795793aaf5d1ee0e6a7b94517d2948",
+      "Bytes": 19699
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaSelection.ps1",
+      "SHA256": "de2f0d87bb1930af19779784107ea69f709f7e631b924239d84a98023ed58c3c",
+      "Bytes": 25360
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaSelectionIdentity.ps1",
+      "SHA256": "f999d55d53f1c13cc00065086e582d48a87575f950da16e39bcc5d20cace8f7c",
+      "Bytes": 7569
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaStableUi.ps1",
+      "SHA256": "4894e307f4d44790ff2225f4a44cd0ebf1f637d7b6455c6ee40211c518199bac",
+      "Bytes": 16713
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaStartupLogin.ps1",
+      "SHA256": "10ceb229e92426eba6894939c688ef78077062f77b950e31e767a9bf90bf5fa1",
+      "Bytes": 16430
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaStreaming.ps1",
+      "SHA256": "3b4947cbc9834996ccbc30e52e163fda8f7571e2f223633efedefc718b5822e6",
+      "Bytes": 37778
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaSupport.ps1",
+      "SHA256": "926a4e9085898882f0e7d77ac7bf031edeb929d7ef42a9a547304b16d7d34f8d",
+      "Bytes": 25784
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaTheme.ps1",
+      "SHA256": "65dcafe0bccb0a29488e68912c26b5f13e99c7dc694afc4d43a5104c5f6ee86a",
+      "Bytes": 14875
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaUxRefinements.ps1",
+      "SHA256": "6c9dc05201ba1bf20c68f04c3e8ef603fcd017da0cfe4ef6b35b24158eba9873",
+      "Bytes": 31775
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaUxStateSafety.ps1",
+      "SHA256": "f8092b4b51459de435e496594d1226cd3be33c464ffe70d26cf3df0829c47222",
+      "Bytes": 42742
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringAcces.ps1",
+      "SHA256": "869a0df8745ac6f82d070752143f6dde7a906485c3af660059d259ca6ac214ea",
+      "Bytes": 50761
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringCache.ps1",
+      "SHA256": "a4ecaa18dfad982c0a91f8abcaa2ce2e908c5c5d2bf117cb54359126305ef685",
+      "Bytes": 263271
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringEcritures.ps1",
+      "SHA256": "8473c62861c28966edfd4cbe93f7b371d064ddbd63c2a30b31a9704530c2f010",
+      "Bytes": 115734
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringInline.ps1",
+      "SHA256": "bbc19445880161eff5ab2ada331b9723b787a974a6d7e5b3ab55da7052195109",
+      "Bytes": 17962
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringInterface.ps1",
+      "SHA256": "497ddbbf7e550ea22460292db1807bfb7b690c4ce9ab418a1c9dd7939293f3d9",
+      "Bytes": 60942
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringMoteur.ps1",
+      "SHA256": "3871e9cadebe6b5c14c082a6b882d987d12d0ad950a9cc9469097d6d532c576a",
+      "Bytes": 112268
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringRecherche.ps1",
+      "SHA256": "a776b0a60923daa766cd938986b51f8775e9f54006ae6f0285dda79a34853bb8",
+      "Bytes": 84284
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringRelations.ps1",
+      "SHA256": "50b566a7b5f7b5e30e804c69d915619b4e21f3b23aea74b9dd9edc1d4426633a",
+      "Bytes": 99152
+    },
+    {
+      "File": "dev/wad/tests/Test-DomeniaWiringSuites.ps1",
+      "SHA256": "8c12f28acd67e309879d408481ea93a0adb4eda55ca2b2ec19964a2ac45a2471",
+      "Bytes": 27905
+    },
+    {
+      "File": "dev/wad/tests/audit_compact_ui.py",
+      "SHA256": "46fe1b9b2ae42bcb958d2638d21cb4739be11bcaaf6a40776185d259a3757aa9",
+      "Bytes": 11341
+    },
+    {
+      "File": "dev/wad/tests/audit_login.py",
+      "SHA256": "9293579c3b571ae5c73bd06169fc1ee18bd155fd5daf66f78ed674051b7ddc09",
+      "Bytes": 8749
+    },
+    {
+      "File": "dev/wad/tests/audit_login_native.py",
+      "SHA256": "183924c7ef2b978357a3aa5446e523628a9258b8540571d81dd438b5c1992c26",
+      "Bytes": 10627
+    },
+    {
+      "File": "dev/wad/tests/audit_project.py",
+      "SHA256": "c7fca56c3d3535f49610a72861d547d353801ff4d0447c537e2a697f86f0e461",
+      "Bytes": 16329
+    },
+    {
+      "File": "dev/wad/tests/audit_search_scope.py",
+      "SHA256": "8dfecba001f56fb898103e3417a211dad9e393b42b578ac2e0e298afd3f43f1f",
+      "Bytes": 10472
+    },
+    {
+      "File": "dev/wad/tests/audit_support.py",
+      "SHA256": "d5591c85cc6fe6183fbdb04210e090074af43399f10391ff7633740e8bcbbec3",
+      "Bytes": 14137
+    },
+    {
+      "File": "dev/wad/tests/audit_theme.py",
+      "SHA256": "a81f926bb61f1c9cae0c7075f40af926bc1f63df844934de6619a157a49eafab",
+      "Bytes": 10348
+    },
+    {
+      "File": "dev/wad/tests/audit_ui.py",
+      "SHA256": "987249055003c1251b6dd1bf49cde56d82fe8dd22840a75b037ab761229aa3a0",
+      "Bytes": 19674
+    },
+    {
+      "File": "dev/wad/tests/fixtures/AuthProbe-R1.7.1.ps1",
+      "SHA256": "bf0ab379b1404d578ea0fc81611dcda2f89865df52a9d0c32769579b9600167c",
+      "Bytes": 34650
+    },
+    {
+      "File": "dev/wad/tests/fixtures/AuthProbe-R1.7.ps1",
+      "SHA256": "3ef4646a519b361efcbf3fb42a63ed2f9ce7ed50dff1bade24230c22a504d116",
+      "Bytes": 27880
+    },
+    {
+      "File": "dev/wad/tests/fixtures/Domenia-AdFixtures.ps1",
+      "SHA256": "fbb0d35480ce45e2a8f740710c2e30ca85d8421e5abf1b6241bec4bc2747d60f",
+      "Bytes": 41619
+    },
+    {
+      "File": "dev/wad/tests/fixtures/RC1.1-ModuleImports.ps1",
+      "SHA256": "7f8f402e3b28f9bda9731a93f9208e618e041d4818c9470f974ce535bd325c77",
+      "Bytes": 1013
+    },
+    {
+      "File": "dev/wad/tests/fixtures/RC1.4-Initialize-AsyncEngine.txt",
+      "SHA256": "25844ce132adc462dadba9efcfaa44395d3c457bafcbbdabf2d3d453559bc8f1",
+      "Bytes": 2006
+    },
+    {
+      "File": "dev/wad/tests/fixtures/RC1.6-PageHeader.xaml.txt",
+      "SHA256": "e7aefbe01ff9eda2f45b932a156185d9c56d8cd964d4be32788710b2449935ee",
+      "Bytes": 5518
+    },
+    {
+      "File": "dev/wad/tests/powershell_lex.py",
+      "SHA256": "bc5c7dd9df98a74a3f69b615f474202598302d8f5dab680af95e66f54beef78a",
+      "Bytes": 2844
+    },
+    {
+      "File": "dev/wad/tests/rules/Access.Tests.ps1",
+      "SHA256": "4c12c08deb6adcf0023966443ca16d4bb070f7768b6d167f583746d455ebe31e",
+      "Bytes": 19599
+    },
+    {
+      "File": "dev/wad/tests/rules/BoardFleet.Tests.ps1",
+      "SHA256": "3c59f5cb1946d320a2e631e85d2db18263c543d4b929c41000210d20932698e4",
+      "Bytes": 41553
+    },
+    {
+      "File": "dev/wad/tests/rules/BoardSoftware.Tests.ps1",
+      "SHA256": "715e7e15c5774969924d4644fc0cba4cde47d205dcf634eecd85dcc9d639a416",
+      "Bytes": 31985
+    },
+    {
+      "File": "dev/wad/tests/rules/Boards.Tests.ps1",
+      "SHA256": "8fc12fd286aacded804080c79c373169f8a7f698c5e5cce1ab174b92da5774d3",
+      "Bytes": 36789
+    },
+    {
+      "File": "dev/wad/tests/rules/Cache.Tests.ps1",
+      "SHA256": "53a751f63bf0844478f7ff060e88f1c58a1997bf8214a649acfb2a9b61f3037c",
+      "Bytes": 22149
+    },
+    {
+      "File": "dev/wad/tests/rules/Directory.Tests.ps1",
+      "SHA256": "e430cc0ce8f690667d3597bc3fb643e5d0f8b74b8f394668dbb270f7445282c8",
+      "Bytes": 14894
+    },
+    {
+      "File": "dev/wad/tests/rules/Engine.Tests.ps1",
+      "SHA256": "bf3cf7e486d895c4f53dcba7188c7f5ee74848cb3ceaab90c83b4f0d34ad459a",
+      "Bytes": 32065
+    },
+    {
+      "File": "dev/wad/tests/rules/Fixtures.Tests.ps1",
+      "SHA256": "2f19e812027c99adbb243c851b76a5149385bf69da3d8d7889989570d882e415",
+      "Bytes": 47758
+    },
+    {
+      "File": "dev/wad/tests/rules/Insight.Tests.ps1",
+      "SHA256": "23b4ca2de1dce79a69de4e8f1ffc71f3685015a631370ef5798de404c3bfa2ff",
+      "Bytes": 9432
+    },
+    {
+      "File": "dev/wad/tests/rules/Live.Tests.ps1",
+      "SHA256": "5d871e5170f93be2cf24a72507b70274612fddd29412af5d72c9047002fb77e2",
+      "Bytes": 8917
+    },
+    {
+      "File": "dev/wad/tests/rules/Probes.Tests.ps1",
+      "SHA256": "ac1fbe359f32cb04387aab50807e6385ffffa9b95e152c2df356943a0962b5b9",
+      "Bytes": 11110
+    },
+    {
+      "File": "dev/wad/tests/rules/Races.Tests.ps1",
+      "SHA256": "9053aef52ab3c679541cf1ccb8d066541da432de267ced5e057e3111456cbb48",
+      "Bytes": 30691
+    },
+    {
+      "File": "dev/wad/tests/rules/Relations.Tests.ps1",
+      "SHA256": "a5b373ec003417a8a6546feb5d8a1141de7dec9c0fd062d5417ee857d658c0ad",
+      "Bytes": 28912
+    },
+    {
+      "File": "dev/wad/tests/rules/Release.Tests.ps1",
+      "SHA256": "52cae2ec922b32134d905b9b8b1e5ba1c3730dc57bcd02db9af68f639607061e",
+      "Bytes": 104368
+    },
+    {
+      "File": "dev/wad/tests/rules/Safety.Tests.ps1",
+      "SHA256": "e50854b5d5a3c453f7f5cf893d0846d1faa01caae6fb3a54ee8447209c63f566",
+      "Bytes": 55135
+    },
+    {
+      "File": "dev/wad/tests/rules/Search.Tests.ps1",
+      "SHA256": "d58ccb1b5650eaa3e3d51e425d61e13b78e41597779cb0dd81969dc25156855b",
+      "Bytes": 26216
+    },
+    {
+      "File": "dev/wad/tests/rules/Shell.Tests.ps1",
+      "SHA256": "f7e851d90f3b011e2f914f26d5db2726295487b1904a77a6cef3f6ffce77a651",
+      "Bytes": 64501
+    },
+    {
+      "File": "dev/wad/tests/rules/Workstation.Tests.ps1",
+      "SHA256": "8899b6151821a748405ea55fe1d8eb7dbcf433ee5a3774b3110088973b9c0226",
+      "Bytes": 70450
+    },
+    {
+      "File": "dev/wad/package-manifest.json",
+      "SHA256": "ceb9cbe8740930b21528937d4915148c3735c17ecab0b3862d909900206ab063",
+      "Bytes": 88619
+    }
+  ]
+}

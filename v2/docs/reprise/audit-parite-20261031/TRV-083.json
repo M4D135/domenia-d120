@@ -1,0 +1,15 @@
+{
+  "id": "TRV-083",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Shell/ShellActivity.cs:78 — Interval = TimeSpan.FromMinutes(1) ; lignes 126-146 — une écriture par signature (kind|route|place) par minute au plus, les occurrences intermédiaires comptées dans Silenced et jointes à la ligne suivante (« une même signature n’écrit qu’une ligne par minute avec un compteur »)",
+    "src/Domenia.Bridge/Operations/ShellOperations.cs:123-140 — opération shell.fault (LocalWrite) : nature fermée (error/rejection/nested/swallowed), écran, place identifiant de code borné, compteur ; description « une fois par minute au plus », jamais un message de la page",
+    "tests/Domenia.Tests/ShellTests.cs:406-418 — ShellFaultTracer testé ; IsPlace refuse le texte libre (« mot de passe=x ») et 65 caractères",
+    "src/Domenia.Core/Screens/Assistance/SupportIncidents.cs:33-34 — mémoire bornée : 200 incidents (Limit), texte borné à 8 192 ; lignes 137-144 — message adjacent identique (même texte, zone, niveau) sous 2 secondes ignoré ; lignes 146-156 — filtre littéral sur titre, codes et zone",
+    "web/js/shell/notify.js:33 — le centre de notifications extrait un code INC-[0-9A-F]{4} déjà présent dans le texte de la bannière (consommateur seulement)"
+  ],
+  "manque": "Le code incident INC-XXXX n’est produit nulle part : aucune génération dans repo/v2/src (aucun « INC- » dans src/, ni New-DomeniaIncidentCode ni Register-DomeniaErrorOccurrence équivalents) ; la regex de web/js/shell/notify.js:33 ne fait que lire un code absent en pratique (seule occurrence réelle : la bannière de démonstration notify.js:262). Faute de générateur, rien ne garantit qu’une même erreur affiche le même code à l’écran, dans Domenia.log et dans l’incident Support (l’identifiant d’incident est un Guid N brut, src/Domenia.Core/Screens/Assistance/SupportWorkshop.cs:322, les Codes de SupportIncident.Create sont des codes de règles type ACCESS_DENIED, SupportIncidents.cs:133), ni que deux erreurs différentes ne partagent jamais un code. Le regroupement par minute existe (ShellFaultTracer) mais sur la signature (nature, écran, endroit), pas (type, message, source), et aucune ligne groupée du journal ne porte de code incident.",
+  "effort": "M",
+  "depend": ["TRV-081 (écriture des lignes groupées dans le journal technique)", "notifications de la coque (web/js/shell/notify.js)", "incidents Support (SupportWorkshop/SupportIncidents)"],
+  "risque": "ecriture-locale"
+}

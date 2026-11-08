@@ -1,0 +1,28 @@
+{
+  "id": "TRV-249",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Operations/OperationsPersistence.cs:30 — BeginCollectionAsync écrit le plan (périmètre, mode, cibles) au démarrage de la campagne",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:15 — version du plan : « Domenia.CampaignPlan/1 »",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:162 — cibles compressées en GZip",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:163 — empreinte SHA-256 des cibles jointe au plan",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:147 — l'empreinte est revérifiée à la relecture, plan rejeté sinon",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:98 — avancement tenu par champ « done » (bits des cibles faites) avec Count et Failed",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:18 — MaxCampaignBytes = 900 * 1024",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:107 — liste trop longue signalée : « Plan de campagne supérieur à 900 Kio ; aucune troncature. »",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:173 — même refus à l'écriture, jamais de troncature",
+    "src/Domenia.Core/Screens/Operations/OperationsDocumentCodec.cs:109 — plan d'une version non prise en charge refusé",
+    "src/Domenia.Core/Screens/Operations/OperationsPersistence.cs:73 — « Deux plans durables simultanés sont interdits. » : un plan à la fois",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.cs:31 — magasin, domaine et révision consécutifs vérifiés avant écriture du journal",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.cs:51 — le plan est écrit dans la table domenia_v2_operations du journal SQLite",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.cs:54 — relecture après écriture : transaction annulée si le journal relu diffère",
+    "src/Domenia.Ad/Screens/AdOperationsReader.Collection.cs:105 — la progression durable est écrite après chaque cible confirmée",
+    "src/Domenia.Ad/Screens/AdOperationsReader.Collection.cs:62 — plan remis à null quand il ne reste plus de cible : plan complet supprimé",
+    "src/Domenia.Ad/Screens/AdOperationsReader.Collection.cs:70 — échec d'enregistrement final dit, progression conservée pour reprise",
+    "src/Domenia.Core/Screens/Search/SearchSurvey.cs:9 — modes de campagne lecture seule : Ping, Console, Analyse"
+  ],
+  "manque": "Le plan durable n'est pas dans le dossier de préférences : il vit dans le journal d'opérations SQLite (DomeniaDatabase.Operations.cs:48). L'avancement n'est pas rafraîchi toutes les 10 s mais à chaque cible confirmée (AdOperationsReader.Collection.cs:105) ; le seul « 10 s » de ce fichier est un délai d'exécution WMI (ligne 96).",
+  "effort": "S",
+  "depend": ["LocalStore"],
+  "risque": "ecriture-locale"
+}

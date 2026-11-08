@@ -1,0 +1,29 @@
+{
+  "id": "TRV-238",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:178,180 — les deux marqueurs sont bien lus : IsProtected = « entry.Int32(\"adminCount\") == 1 », IsCritical = « entry.First(\"isCriticalSystemObject\") == \"TRUE\" » (sans casse)",
+    "src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:162-164 — Protect : SID finissant par « -502 » ou isCriticalSystemObject TRUE → « Objet système protégé ; aucune écriture depuis cette fiche. »",
+    "src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:167-169 — adminCount = 1 au moment de l'exige la saisie du nom, sinon refus Stale « Protection ou nom du compte modifié ; confirmation à préparer de nouveau. »",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:648-655 — suppression : IsCritical refusé, IsProtected refusé (« Objet protégé (adminCount = 1) : suppression bloquée. Aucune écriture préparée. »)",
+    "src/Domenia.Ad/Writes/AdObjectDeleteExecutor.cs:69-74 — même garde à l'exécution, élargie au conteneur, au compte de session et à l'ordinateur contrôleur ; userAccountControl non lu est traité comme protégé (fail closed)",
+    "src/Domenia.Ad/Writes/AdAccountWriteExecutors.cs:113-116 — « Un attribut nécessaire du compte est illisible ; aucune valeur absente n'est interprétée comme zéro. » (userAccountControl, objectGUID, attribut requis, lockoutTime), puis isCriticalSystemObject TRUE refusé pour réinitialisation, activation, désactivation et expiration",
+    "src/Domenia.Ad/Writes/AdFicheStructureExecutors.cs:110-117 — appartenance de groupe : groupe non reconnu, groupType non lu ou privilégié → « Groupe protégé ou type illisible ; aucune appartenance modifiée. »",
+    "src/Domenia.Ad/Writes/AdPosteGroupExecutor.cs:102-103 — « Identité ou type du groupe illisible ; aucune appartenance modifiée. » et isCriticalSystemObject TRUE refusé",
+    "src/Domenia.Ad/AdFicheObjects.cs:153-157 — ValidateDn : DN mal formé ou vide → « Nom distinctif invalide : aucune lecture lancée. » ; src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:19 — ValidateDn appelé avant toute préparation de plan",
+    "src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:107-113 — la cible est relue par GUID sous la racine du domaine : zéro ligne = null, plusieurs lignes ou GUID différent = AdAttributeRange.Incomplete (refus, pas de parti pris)",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:808-816 — cible non relue → Stale « L'objet n'existe plus dans l'annuaire : rien n'a été envoyé. » (sauf suppression, déjà absente), GUID différent → Stale ; src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:55-56 — aucun envoi si le précontrôle échoue",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:458-465 — Note() consigne l'issue au journal des opérations avec le libellé du plan et le nom de la cible (les erreurs restent traçables)",
+    "tests/Domenia.Tests/AdFicheWriteTests.cs:345-350 — adminCount = 1 puis isCriticalSystemObject = TRUE : plan de suppression refusé, « aucune mutation » (ldap.Writes == 0)",
+    "tests/Domenia.Tests/AdAccountWriteTests.cs:231-233 — isCriticalSystemObject = TRUE refusé, puis attributs retirés : refus d'attribut illisible ; tests/Domenia.Tests/AdFicheWriteTests.cs:79-80 — adminCount apparu après le plan : exécution refusée"
+  ],
+  "manque": "Le garde-fou « marqueurs de protection illisibles comptent comme protégés » n'est pas appliqué : les deux marqueurs sont lus en fail open. src/Domenia.Core/Writes/Objects/ObjectWrites.cs:178,180 teste « Int32(\"adminCount\") == 1 » et « First(\"isCriticalSystemObject\") == \"TRUE\" », et src/Domenia.Core/Screens/Fiche/FicheEntry.cs:59-60 rend null pour une valeur absente, vide ou non numérique — un objet dont adminCount ou isCriticalSystemObject n'est pas lu est donc traité comme NON protégé, aux mêmes lignes dans AdFicheWriteExecutors.cs:163,168, AdObjectDeleteExecutor.cs:69, AdPosteGroupExecutor.cs:43 et ObjectWrites.cs:599. Rien ne l'exige à la lecture : AdFicheObjects.cs:11-12 (Identity) ne contient ni adminCount ni isCriticalSystemObject et la fiche demande « allowedAttributes » (AdFicheObjects.cs:25-29) ; une ACL restrictive ou un filtrage RODC qui masque ces deux attributs produit silencieusement « non protégé », sans message — contrairement à userAccountControl, dont l'absence est refusée (src/Domenia.Core/Writes/Objects/ObjectWrites.cs:822-823 et src/Domenia.Ad/Writes/AdObjectDeleteExecutor.cs:72). Le test consacre ce comportement : tests/Domenia.Tests/AdFicheWriteTests.cs:514-515 retire isCriticalSystemObject de l'objet puis exécute l'écriture, qui réussit (« appartenance autorisée explicitement confirmée »). Aucun test ne couvre non plus le refus sur marqueur absent (les tests existants posent la valeur TRUE ou 1, tests/Domenia.Tests/AdFicheWriteTests.cs:345-347, AdAccountWriteTests.cs:231) ni l'écriture sur un objet dont le DN est illisible au sens « relisible par GUID mais pas par nom ».",
+  "effort": "M",
+  "depend": [
+    "TRV-239 (même chemin de cible : DN validé puis relu avant le plan, src/Domenia.Ad/AdFicheObjects.cs:153-164)",
+    "TRV-236 (verrous par cible : l'état « écriture en cours » doit compter comme protecteur pendant la relecture)",
+    "sujet « Écritures de la fiche » (AdFicheWriteExecutors.Protect, src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:161-171)",
+    "PAR-045 (Security.BlockProtectedObjects, clé annoncée mais jamais lue — la protection est aujourd'hui inconditionnelle)"
+  ],
+  "risque": "ecriture-AD"
+}

@@ -1,0 +1,10 @@
+{
+    "Build":  "RC1.17.20",
+    "StartedUtc":  "2026-10-18T10:00:37.2135934Z",
+    "Passed":  false,
+    "UserRemoved":  false,
+    "ProfileRemoved":  false,
+    "Error":  "Source fixture already exists",
+    "Stack":  "at \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\Test-DisposableProfile.ps1: line 16",
+    "FinishedUtc":  "2026-10-18T10:00:37.3020446Z"
+}

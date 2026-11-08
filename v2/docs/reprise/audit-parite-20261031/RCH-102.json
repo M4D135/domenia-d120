@@ -1,0 +1,30 @@
+{
+  "id": "RCH-102",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:16 — RecipeAsync : Rechercher exécute bien une recette enregistrée ; ligne 19 : limite bornée 1 à SearchLimits.MaxLimit (20 000) et verdict limité à match/unknown/noMatch/all avant tout calcul",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:27-28 — la révision et l'empreinte venues du catalogue sont exigées (recette modifiée = refus explicite) ; ligne 29 : QueryEngine.Compile de la recette enregistrée, donc le moteur partagé de l'atelier ; ligne 30-31 : cible postes et empreinte qualifiée obligatoires",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:33-35 — le jeu de données vient de IQueryWorkshopReader (copie locale) et un autre domaine est refusé ; aucune lecture annuaire n'est possible (l'opération est LocalRead)",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:46-48 — mêmes InPopulation et Evaluate que l'atelier (src/Domenia.Core/Screens/Requetes/QueryWorkshop.cs:152-153) ; les trois verdicts sont comptés séparément",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:54-57 — « Tous » est trié correspondants d'abord, puis inconnus, puis non correspondants, puis nom et GUID ; plafond SearchLimits.MaxLimit",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:58-61 — après la lecture des données, la révision est revalidée et la session requalifiée : « La recette a changé pendant le calcul : aucun résultat publié. »",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:64-69 — couverture annoncée (copie d'annuaire complète ou partielle du [date], « observations et SELECT mémorisés évalués avec leurs dates ; aucune collecte lancée ») et totaux des trois verdicts",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:74-77 — le résultat porte la vue « recipe:<id> » et la recette figée, la liste est de type LocalQuery (donc colonne et choix des verdicts affichés côté écran)",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:78 — première page bornée à 10 000 ; lignes 89-92 et 99-103 — « Charger la suite » prolonge le même calcul figé par tranches de 10 000 jusqu'à 20 000, sans réévaluation ; lignes 115-121 — session, domaine et compte revalidés avant chaque page",
+    "src/Domenia.Core/Screens/Search/SearchService.Recipes.cs:111 — texte de continuation « 20 000 postes au maximum ; réduisez le périmètre. »",
+    "src/Domenia.Bridge/Operations/SearchRecipeOperations.cs:17-19 — les recettes de postes enregistrées de l'atelier sont publiées dans le catalogue de Rechercher (« Recettes enregistrées », « au plus 20 000 lignes affichées ») avec révision et empreinte ; ligne 22 — note « sans collecte »",
+    "src/Domenia.Bridge/Operations/SearchRecipeOperations.cs:30-43 — search.recipe.run est LocalRead et vérifie id, révision, empreinte, domaine et session avant de calculer ; lignes 49-53 — search.recipe.more : « Page suivante du même résultat figé, sans réévaluation ni lecture distante. »",
+    "web/js/pages/rechercher.js:298-304 — runRecipe envoie id, révision, empreinte et domaine sur l'OU choisie, ou le domaine entier sur choix explicite ; rechercher.js:919 — changer de verdict relance la même recette figée",
+    "web/js/pages/rechercher/results.js:806-809 — les quatre choix Correspondants / Inconnus / Non correspondants / Tous avec leurs totaux ; results.js:821-824 — verdicts et ligne de couverture affichés sur la notice de la recette",
+    "tests/Domenia.Tests/SearchRecipeTests.cs:17 — le catalogue réel exécute la révision enregistrée et la page suivante reste figée",
+    "tests/Domenia.Tests/SearchRecipeTests.cs:67-78 — SELECT mémorisé : positif, zéro réellement complet, ancien ou absent reste inconnu, « aucun SELECT distant relancé »",
+    "tests/Domenia.Tests/SearchRecipeTests.cs:82-97 — 20 000 lignes = deux pages d'une seule population, sans doublon, session remplacée refusée"
+  ],
+  "manque": "Rien de fonctionnel. Deux précisions vérifiées : le sélecteur de verdict du catalogue (web/js/pages/rechercher/library.js:75) n'est rendu que pour les requêtes locales ; pour une recette, les trois verdicts et « Tous » se choisissent sur l'écran de résultat (results.js:806-809, 824 → rechercher.js:919). Et le mode « SearchOutput » de Domenia 1 n'existe pas sous ce nom : le calcul passe par SearchService.Recipes.cs sur la copie locale, ce qui est le contrat retenu (aucune lecture réseau possible).",
+  "effort": "S",
+  "depend": [
+    "atelier de requêtes (requetes : bibliothèque de recettes, moteur QueryEngine)",
+    "REQ-048 (sélection figée atelier → Recherche)"
+  ],
+  "risque": "lecture"
+}

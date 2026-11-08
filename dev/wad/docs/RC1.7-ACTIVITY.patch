@@ -1,0 +1,99 @@
+--- RC1.6/wad/Domenia-Core.ps1
++++ RC1.7/wad/Domenia-Core.ps1
+@@ -4116,7 +4116,7 @@
+           <Grid x:Name="UxPageHeader" Grid.Row="1" Margin="2,0,0,12">
+             <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+-              <RowDefinition Height="Auto"/>
++              <RowDefinition x:Name="UxActivityRow" Height="44" MinHeight="44" MaxHeight="44"/>
+             </Grid.RowDefinitions>
+             <Grid>
+               <Grid.ColumnDefinitions>
+@@ -4137,30 +4137,27 @@
+                 </ComboBox>
+               </WrapPanel>
+             </Grid>
+-            <WrapPanel Grid.Row="1" Margin="0">
++            <!-- The activity row always exists. Busy/idle only changes visibility inside its fixed slots. -->
++            <Grid x:Name="UxActivityStrip" Grid.Row="1" Height="44" MinHeight="44" MaxHeight="44" Margin="0" ClipToBounds="True">
++              <Grid.ColumnDefinitions>
++                <ColumnDefinition Width="252"/>
++                <ColumnDefinition Width="*" MinWidth="0"/>
++                <ColumnDefinition Width="144"/>
++                <ColumnDefinition Width="96"/>
++              </Grid.ColumnDefinitions>
+               <TextBlock x:Name="LblStatus" Text="" Visibility="Collapsed" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis"/>
+               <TextBlock x:Name="LblPrivilegeTop" Text="" Visibility="Collapsed" Foreground="{DynamicResource PrivilegeFg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+-              <Border x:Name="WriteModeBanner" Background="#B91C1C" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="10" Padding="12,7" Margin="0,4,10,0" Visibility="Collapsed" VerticalAlignment="Center">
++              <Border x:Name="WriteModeBanner" Grid.Column="0" Width="240" Height="32" Background="#B91C1C" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="10" Padding="8,4" Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center">
+                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+-                  <TextBlock Text="🔴" FontFamily="Segoe UI Emoji" Foreground="White" FontSize="14" FontWeight="Bold" Margin="0,0,7,0"/>
+-                  <TextBlock x:Name="LblWriteMode" Text="MODE ECRITURE AD ACTIF" Foreground="White" FontWeight="Bold"/>
++                  <TextBlock Text="🔴" FontFamily="Segoe UI Emoji" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,7,0"/>
++                  <TextBlock x:Name="LblWriteMode" Text="MODE ECRITURE AD ACTIF" Foreground="White" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                 </StackPanel>
+               </Border>
+-              <TextBlock x:Name="LblTaskElapsed" Text="" Foreground="{DynamicResource MutedColor}" FontSize="11" VerticalAlignment="Center" Margin="0,4,10,0" MaxWidth="420" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}">
+-                <TextBlock.Style>
+-                  <Style TargetType="TextBlock">
+-                    <Style.Triggers>
+-                      <Trigger Property="Text" Value="">
+-                        <Setter Property="Visibility" Value="Collapsed"/>
+-                      </Trigger>
+-                    </Style.Triggers>
+-                  </Style>
+-                </TextBlock.Style>
+-              </TextBlock>
+-              <ProgressBar x:Name="PbTop" Width="130" Height="8" Visibility="Collapsed" IsIndeterminate="True" VerticalAlignment="Center" Margin="0,4,10,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
+-              <Button x:Name="BtnCancelTask" ToolTip="Interrompt l operation en cours." Content="Annuler" Visibility="Collapsed" Margin="0,4,10,0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler" AutomationProperties.HelpText="Interrompt l operation en cours."/>
++              <TextBlock x:Name="LblTaskElapsed" Grid.Column="1" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
++              <ProgressBar x:Name="PbTop" Grid.Column="2" Width="130" MinWidth="130" MaxWidth="130" Height="8" MinHeight="8" MaxHeight="8" Visibility="Hidden" IsIndeterminate="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,14,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
++              <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" MinWidth="96" MaxWidth="96" Height="32" MinHeight="32" MaxHeight="32" Padding="10,4" ToolTip="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force." Content="Annuler" Visibility="Hidden" Margin="0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la lecture" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force."/>
+               <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/>
+-            </WrapPanel>
++            </Grid>
+           </Grid>
+           <Grid x:Name="UxContentGrid" Grid.Row="2">
+             <Grid.ColumnDefinitions>
+@@ -9061,11 +9058,12 @@
+ 
+     try {
+         $progress = Get-DomeniaControl -Name "PbTop"
+-        if ($null -ne $progress) { $progress.Visibility = if ($count -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } }
++        if ($null -ne $progress) { $progress.IsIndeterminate = ($count -gt 0); $progress.Visibility = if ($count -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden } }
+         $cancel = Get-DomeniaControl -Name "BtnCancelTask"
+-        if ($null -ne $cancel) { $cancel.Visibility = if ($count -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } }
++        if ($null -ne $cancel) { $cancel.Visibility = if ($count -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden } }
+         $elapsedLabel = Get-DomeniaControl -Name "LblTaskElapsed"
+         if ($null -ne $elapsedLabel) {
++            $elapsedLabel.Visibility = if ($count -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden }
+             if ($count -gt 0) {
+                 $latest = $null
+                 if (-not [string]::IsNullOrWhiteSpace([string]$script:LatestTaskId) -and $script:AsyncJobs.Contains($script:LatestTaskId)) { $latest = $script:AsyncJobs[$script:LatestTaskId] }
+@@ -19745,7 +19743,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.6-STABLEUI"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.7-FIXEDACTIVITY"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -22317,7 +22315,7 @@
+     Initialize-DomeniaGuard
+     Initialize-DomeniaLive
+     Initialize-DomeniaReconcile
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.6 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.7 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -23447,7 +23445,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1.6"
++$script:DomeniaBuild = "Domenia 1.0 RC1.7"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null

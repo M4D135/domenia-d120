@@ -1,0 +1,21 @@
+{
+  "id": "TRV-228",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:134 — à l'exécution, l'empreinte est recalculée depuis le plan tel qu'il est : un plan modifié après scellement ne correspond plus à son jeton (write.planChanged, :148)",
+    "repo/v2/src/Domenia.Core/Writes/ConfirmationTokens.cs:19 — jeton lié au plan exact et à son empreinte, expire avec le plan ; :35 — Issue lie empreinte et expiration",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:274 — session relue avant envoi ; :277 — plan d'une autre session = refus Stale, rien n'est envoyé ; :294 — session changée pendant les préconditions = refus",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:284 — préconditions relues par l'exécuteur juste avant l'envoi ; :286-289 — préconditions changées = rien n'est envoyé et le motif est dit",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:70-103 — l'empreinte couvre opération (kind), cible (DN, GUID, SAM), destinataire (controller), compte opérateur, mode et changements ordonnés avec valeurs brutes",
+    "repo/v2/src/Domenia.Ad/Writes/AdAccountWriteExecutors.cs:122 — compte opérateur différent du plan = Stale ; :151 — EnsureController : contrôleur absent ou différent du plan = refus, aucune écriture envoyée",
+    "repo/v2/src/Domenia.Ad/Writes/AdAccountWriteExecutors.cs:39 — cible relue au DN du plan avant envoi ; :86 — recherche par GUID : plusieurs lignes ou DN hors périmètre = refus (déplacement/alias détectés)",
+    "repo/v2/src/Domenia.Ad/Writes/AdPosteLocationExecutors.cs:31 — poste renommé ou déplacé depuis la préparation = précheck Stale, rien n'est envoyé",
+    "repo/v2/src/Domenia.Ad/Writes/AdAccountWriteExecutors.cs:137 — ValidatePlan refuse plan.Simulated et mode non annuaire : un plan de simulation n'est jamais exécutable en mode annuaire",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:161 — le jeton est consommé : seconde exécution = write.tokenUsed, rien ne repart",
+    "repo/v2/tests/Domenia.Tests/WriteCircuitTests.cs:142 — test : plan préparé dans une ancienne session = Stale ; :169 — test : session changée pendant la relecture = refus avant reçu et envoi ; :448 — test : précheck Stale = rien n'est envoyé"
+  ],
+  "manque": "Deux garde-fous de l'énoncé absents : 1) âge du plan non réglable — durée figée à 5 minutes (repo/v2/src/Domenia.Core/Writes/WritePlans.cs:17, Lifetime constant), aucun réglage 0–1440 min ni désactivation explicite à 0 ; 2) aucune garde d'horloge : ni horloge absente ni horloge incohérente (date future/dérive) n'arrête l'exécution dans le circuit d'écriture (aucun contrôle trouvé dans WriteCircuit/WritePlans ; seul SharedParkMerge.cs compare des dates distantes). Le délai de 15 min de l'énoncé est couvert, plus strict (5 min).",
+  "effort": "S",
+  "depend": ["TRV-227"],
+  "risque": "ecriture-AD"
+}

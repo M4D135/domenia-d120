@@ -1,0 +1,32 @@
+{
+  "id": "OPE-019",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Operations/OperationActivity.cs:542-569 — RowLocked construit les phases dans l'ordre du temps : « Demande » (544), « File d'attente du canal d'écriture et contrôles du plan » (547), « Traitement dans le moteur » quand aucune étape séquentielle n'a été publiée (549-553), les étapes publiées une par une (555-561), « Publication dans l'interface » (564), « Fin » avec le libellé du résultat (568)",
+    "src/Domenia.Core/Screens/Operations/OperationActivity.cs:570-572 — étape dominante calculée sur les phases mesurées (queue/step/work) et total donné à part dans la ligne de texte (« · total … »), hors des phases",
+    "src/Domenia.Core/Screens/Operations/OperationActivity.cs:564 — la phase « Publication dans l'interface » porte t.PublicationMs et n'est dite « non mesurée » que quand PublicationMs est null, avec le détail de l'intervalle (attente de rendu incluse, pas une mesure CPU)",
+    "web/js/bridge.js:86-93 — point d'accroche désormais présent dans bridge.js : après résolution d'une réponse, requestAnimationFrame mesure performance.now() - received et appelle operations.publication.report ; une page masquée ne mesure rien (le publication reste « non mesurée » plutôt qu'un zéro inventé)",
+    "src/Domenia.Bridge/Operations/OperationsOperations.cs:80-87 — opération operations.publication.report (OperationClass.Local) qui refuse un id hors 1-64 ou une mesure hors bornes puis appelle OperationActivity.RecordPublication",
+    "src/Domenia.Core/Screens/Operations/OperationActivity.Measurements.cs:24-40 — RecordPublication n'accepte qu'une requête terminée et corrélée, une seule fois, mesure finie bornée 0-60000 ms, et alimente les lenteurs « Publication »",
+    "tests/Domenia.Tests/OperationsMeasurementsTests.cs:9-25 — test de la phase publication mesurée (42 ms), doublon refusé, NaN et 60001 refusés, texte cohérent",
+    "web/js/pages/operations/tasks.js:396-404 — bloc totals du panneau : Total (mesuré dans le moteur), Volume avec « au moins, à ce stade » pour une tâche ouverte et « non mesuré » quand volume est null, Étape dominante",
+    "web/js/pages/operations/tasks.js:406-408 — section « Étapes de l'opération » (liste ordonnée) et note « une étape non mesurée est dite non mesurée, jamais comptée comme nulle »",
+    "web/js/pages/operations/tasks.js:397 — bloc « Suite possible » rendu depuis t.advice ?? t.next ; src/Domenia.Core/Screens/Operations/ActivityRules.cs:565-591 — ActivityRules.Next (conseil de fin, sinon ce qui suit un succès, jamais une relance proposée par le moteur)",
+    "web/js/pages/operations/tasks.js:274-293 — refreshTrace : redessin en place seulement si la signature de la tâche change (état, fin, phases, conseil), sinon seule la durée vivante bouge ; focus et défilement conservés, annonce faite sur le changement",
+    "web/js/pages/operations/tasks.js:64,145 — région live aria-live=\"polite\" de la section « En cours », réécrite seulement quand le libellé change",
+    "src/Domenia.Core/Screens/Operations/ActivityRules.cs:17 — MaxEvents = 32 ; src/Domenia.Core/Screens/Operations/OperationActivity.cs:433-437 — au-delà de MaxEvents - 3 l'événement n'est pas ajouté et t.Dropped est incrémenté (ligne 573-575, « N événement(s) non conservé(s) »)",
+    "src/Domenia.Bridge/OperationTracking.cs:83-89 — les étapes ne viennent que du pont : WriteStageEvent en séquentiel, sinon « Étape « nom » » en non séquentiel",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:72-77 — seuls libellés d'étapes séquentielles mesurées du produit : « Relecture de l'objet avant l'envoi », « Reçu enregistré, envoi du changement », « Relecture après l'écriture »",
+    "tests/Domenia.Tests/OperationsRulesTests.cs:454-461 — ordre des phases testé : lecture request/work/publish/end, écriture request/queue/step×3/publish/end, « le total n'est pas une étape »",
+    "tests/e2e/operations/taches-verification.json:16-19 — scénario qui ouvre le panneau d'une tâche et vérifie « Étapes de l'opération », « Traitement dans le moteur », « Publication dans l'interface » et « Suite possible »"
+  ],
+  "manque": "Trois points du texte d'origine restent absents. (1) Les phases nommées « Lecture partagée », « Collecte », « Validation » et « Lecture locale » ne sont publiées par aucune opération : les seules étapes séquentielles mesurées du produit sont les trois étapes du circuit d'écriture (src/Domenia.Core/Writes/WriteCircuit.cs:72-77) ; toute autre étape publiée devient « Étape « nom » » non mesurée (src/Domenia.Bridge/OperationTracking.cs:87-89) et une lecture n'a qu'une seule phase « Traitement dans le moteur » (src/Domenia.Core/Screens/Operations/OperationActivity.cs:549-553), donc pas de mesure propre de la lecture partagée, de la collecte, de la validation ni de la lecture locale. (2) Le garde-fou « les lots consécutifs fusionnés » n'est pas implémenté : src/Domenia.Core/Screens/Operations/OperationActivity.cs:433-438 ajoute chaque événement sans jamais regrouper les consécutifs identiques (aucun champ de répétition dans StepEvent, aucune règle de fusion dans ActivityRules) et se contente de compter les événements non conservés. (3) Le volume « au moins » n'est jamais produit par le moteur : ActivityRules.cs:158-165 prévoit le mot « au moins » pour complete=false mais aucun appelant ne passe ce paramètre (OperationsOperations.cs:876, OperationActivity.cs:553/586/591, ActivityRules.cs:457) ; le « au moins, à ce stade » n'est qu'un texte d'écran pour les tâches ouvertes (web/js/pages/operations/tasks.js:404).",
+  "effort": "M",
+  "depend": [
+    "Domenia.Engine / ordonnanceur des lectures partagées (publier des étapes séquentielles « Lecture partagée » et « Validation »)",
+    "Domenia.Inventory (étape séquentielle « Collecte »)",
+    "Domenia.Store (étape séquentielle « Lecture locale »)",
+    "OPE-030 (mesures de l'interface, même intervalle de publication)"
+  ],
+  "risque": "lecture"
+}

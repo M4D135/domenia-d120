@@ -1,0 +1,62 @@
+[
+  {
+    "File": "Test-DomeniaFreshness-process.json",
+    "Bytes": 1406,
+    "Sha256": "1adafd4b476b91efb5a254c0d341fec3e2e04ce6dc98a5d244d329bd4cd4bd54"
+  },
+  {
+    "File": "Test-DomeniaFreshness-started.json",
+    "Bytes": 826,
+    "Sha256": "24695c4aefc2f017415ffd9ce140cb6d9138d23debc5de14df415d92534b2cb4"
+  },
+  {
+    "File": "Test-DomeniaFreshness.json",
+    "Bytes": 4310,
+    "Sha256": "0e762380e8450b519ada458570bc0f4f1199f10db832c7e3f3acdec36f2a3a90"
+  },
+  {
+    "File": "Test-DomeniaFreshness.stderr.txt",
+    "Bytes": 0,
+    "Sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "File": "Test-DomeniaFreshness.stdout.txt",
+    "Bytes": 4307,
+    "Sha256": "5f4c70933f044914a4c421a17d85d207c1a9d0623178c9fd7314c107c6ed2870"
+  },
+  {
+    "File": "executed-source-plan.json",
+    "Bytes": 3411,
+    "Sha256": "41cfe60e32ac14db289a7e9d6c215e154a3176fdd2acc6be874ad00051b9d9ef"
+  },
+  {
+    "File": "plan.json",
+    "Bytes": 5697,
+    "Sha256": "c2ebea042a85ca4051525883b75f37401c88082fac61a5f0a9a1eff189c63005"
+  },
+  {
+    "File": "runner-complete.json",
+    "Bytes": 4682,
+    "Sha256": "587cc0ec6c9a5bb8ace8f3f6a12100019f412fde03ae5340af7bb2989abac809"
+  },
+  {
+    "File": "runner-start.json",
+    "Bytes": 1551,
+    "Sha256": "1e1f97ac9390f5833ec3e8fe68c32d98cad52234ccc1e80ba19054399f0ee210"
+  },
+  {
+    "File": "runner-status.json",
+    "Bytes": 163,
+    "Sha256": "2ddcae6ef8e6d8e578921ecdcfc5eb6d32444f5f8f4bcdae9b981fc463a7cb2b"
+  },
+  {
+    "File": "runner-status.json.writing",
+    "Bytes": 139,
+    "Sha256": "45f53f68c53de3a206fe7cd2f69d09067cb35635ebebb75b75e8f15957735180"
+  },
+  {
+    "File": "source-before.json",
+    "Bytes": 104828,
+    "Sha256": "98e5f8607a336a02a525c76a96e065087762af779a089c6600a1248e5cec9feb"
+  }
+]

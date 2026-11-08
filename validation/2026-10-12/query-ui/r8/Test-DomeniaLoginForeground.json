@@ -1,0 +1,111 @@
+{
+    "Suite":  "Login foreground lifecycle",
+    "PowerShell":  "5.1.26100.6584",
+    "Session":  0,
+    "Passed":  8,
+    "Failed":  0,
+    "Assertions":  74,
+    "Complete":  true,
+    "ADAccessed":  false,
+    "InteractiveForegroundValidated":  false,
+    "Scope":  "Real native WPF standalone and embedded login; foreground properties/lifecycle only, no interactive cross-application Alt-Tab claim",
+    "CoreSHA256":  "ACD93B7A6C7F97E9990348A904B52B33B274222E75DA254F131FD0C1885E7DE4",
+    "Results":  [
+                    {
+                        "Name":  "Standard / Cancel",
+                        "Passed":  true,
+                        "Error":  "",
+                        "Observed":  {
+                                         "Topmost":  true,
+                                         "ShowActivated":  true,
+                                         "IsVisible":  true,
+                                         "NativeHandleCreated":  true,
+                                         "MainTopmost":  false,
+                                         "MonitorTopmost":  false,
+                                         "ActivationAttempts":  1
+                                     }
+                    },
+                    {
+                        "Name":  "Standard / Success",
+                        "Passed":  true,
+                        "Error":  "",
+                        "Observed":  {
+                                         "Topmost":  true,
+                                         "ShowActivated":  true,
+                                         "IsVisible":  true,
+                                         "NativeHandleCreated":  true,
+                                         "MainTopmost":  false,
+                                         "MonitorTopmost":  false,
+                                         "ActivationAttempts":  1
+                                     }
+                    },
+                    {
+                        "Name":  "Standard / HostError",
+                        "Passed":  true,
+                        "Error":  "",
+                        "Observed":  null
+                    },
+                    {
+                        "Name":  "Standard / EmbeddedCancel",
+                        "Passed":  true,
+                        "Error":  "",
+                        "Observed":  {
+                                         "Topmost":  false,
+                                         "ShowActivated":  true,
+                                         "IsVisible":  false,
+                                         "NativeHandleCreated":  false,
+                                         "MainTopmost":  false,
+                                         "MonitorTopmost":  false,
+                                         "ActivationAttempts":  0
+                                     }
+                    },
+                    {
+                        "Name":  "Debug / Cancel",
+                        "Passed":  true,
+                        "Error":  "",
+                        "Observed":  {
+                                         "Topmost":  true,
+                                         "ShowActivated":  true,
+                                         "IsVisible":  true,
+                                         "NativeHandleCreated":  true,
+                                         "MainTopmost":  false,
+                                         "MonitorTopmost":  false,
+                                         "ActivationAttempts":  1
+                                     }
+                    },
+                    {
+                        "Name":  "Debug / Success",
+                        "Passed":  true,
+                        "Error":  "",
+                        "Observed":  {
+                                         "Topmost":  true,
+                                         "ShowActivated":  true,
+                                         "IsVisible":  true,
+                                         "NativeHandleCreated":  true,
+                                         "MainTopmost":  false,
+                                         "MonitorTopmost":  false,
+                                         "ActivationAttempts":  1
+                                     }
+                    },
+                    {
+                        "Name":  "Debug / HostError",
+                        "Passed":  true,
+                        "Error":  "",
+                        "Observed":  null
+                    },
+                    {
+                        "Name":  "Debug / EmbeddedCancel",
+                        "Passed":  true,
+                        "Error":  "",
+                        "Observed":  {
+                                         "Topmost":  false,
+                                         "ShowActivated":  true,
+                                         "IsVisible":  false,
+                                         "NativeHandleCreated":  false,
+                                         "MainTopmost":  false,
+                                         "MonitorTopmost":  false,
+                                         "ActivationAttempts":  0
+                                     }
+                    }
+                ]
+}

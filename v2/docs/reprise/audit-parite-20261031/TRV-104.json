@@ -1,0 +1,18 @@
+{
+  "id": "TRV-104",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Inventory/WmiFleetProbeReader.cs:64 — le collecteur applique lui-même le budget d'instances et le délai par sonde : session.Read(definition.Id, definition.Namespace, query, 2000, TimeSpan.FromSeconds(12)) — plafond de 2 000 instances et 12 s par sonde",
+    "src/Domenia.Inventory/CimSession.cs:154-157 et :190 — maxItems borné (<=0 ou > 20 000 refusé, « aucune instance demandée ») et plafond appliqué pendant l'énumération (instances.Count == maxItems → Partiel) ; :216-239 WithinLimits borne le détail d'une instance (128 propriétés, chaîne ≤ 32 768, tableau ≤ 2 048, total ≤ 8 Mio) et la refuse au-delà",
+    "src/Domenia.Inventory/CimBudgets.cs:75 et :113 — Query = 10 s (le délai minimal demandé) ; Bound() encadre tout budget entre Minimum 500 ms et Maximum 5 min ; CimSession.cs:274 Bound() plancher réel 200 ms et plafond CimBudgets.Maximum",
+    "src/Domenia.Inventory/CimSession.Isolation.cs:12 — NativeMilliseconds(...) clampé à 300 000 ms : la tâche native ne dépasse jamais 300 s ; src/Domenia.Inventory/NativeReadProtocol.cs:33 — BudgetMs < 1 ou > 300 000 → « Lecture native hors contrat. » (refus avant envoi)",
+    "src/Domenia.Inventory/NativeReadProcess.cs:25-46 — plan d'isolement réel : processus auxiliaire (propre exécutable, arguments fermés), pipe privé CurrentUserOnly, AssignProcessToJobObject avec ActiveProcessLimit = 1 et ProcessMemory = 512 Mio, place physique retenue jusqu'à la sortie OS confirmée",
+    "src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:539-541 — contrat affiché à l'opérateur : « Isolement : moteur de Domenia, hors interface. Aucun code fourni par la sonde… délai de requête d'au moins 10 s, tâche plafonnée à 300 s ; détails bornés à 2 000 instances et 256 Kio… Non garanti : le fournisseur WMI du poste exécute la requête avec les droits du compte utilisé ; aucun bac à sable PowerShell. »",
+    "src/Domenia.Inventory/CimSession.cs:145-149 et CimQuery.cs:19-29 —IsReadOnlySelect refuse toute requête non SELECT avant tout contact (garde de lecture seule) ; aucun appel de méthode",
+    "tests/Domenia.Tests/PersonalProbeNativeTests.cs:81 et tests/Domenia.Tests/AdRelationProbeTests.cs:149-231 — statut Partiel/Stop annoncé, jamais une liste vide ; tests/Domenia.Tests/NativeReadWorkerTests.cs:97-132 — enfant natif tué, place rendue seulement après sortie OS confirmée, aucun rejeu"
+  ],
+  "manque": "Trois chiffres du contrat ne sont pas appliqués tels que décrits. (1) Les 256 Kio de détails : aucune constante 256*1024 dans le chemin CIM — le plafond réel est WithinLimits à 8 Mio (CimSession.cs:223 bytes > 8_388_608) ; les seuls 256 Kio du dépôt sont le programme distant PsExec (RemotePsExecPlan.cs:30), la taille du catalogue de sondes personnelles (PersonalProbeCatalog.cs:51) et le document de sondes, pas le détail d'une lecture. (2) « tâche 30 s + 12 s par sonde jusqu'à 300 s » : seul le plafond 300 s est codé ; aucune formule 30 s + 12 s × nombre de sondes nulle part (le budget de sondes embarquées est la constante CimBudgets.Probes = 60 s, CimBudgets.cs:57). (3) Le plan d'isolement n'est pas conditionné par Features.IsolatedReads : la clé est déclarée dans ConfigurationReport.cs:115 (« désactivé par défaut ») mais le processus auxiliaire borné est systématiquement utilisé (NativeReadClient.cs:64 appelle NativeReadProcess.Start sans consulter ce réglage) — le réglage est décoratif.",
+  "effort": "M",
+  "depend": ["TRV-105 (collecteur qui applique ces budgets)", "TRV-103 (budget moteur global)"],
+  "risque": "lecture"
+}

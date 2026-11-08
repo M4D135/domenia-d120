@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "release": "RC1.17.4",
+  "productEdition": "Domenia 1.0",
+  "status": "READY_NOT_EXECUTED",
+  "reason": "Windows capture execution was not performed because the PC was powered off. The user chose to test on Windows later; guides are finalized with applicable existing screenshots and native explanatory tables.",
+  "harness": {
+    "path": "guides/captures/capture-guides.ps1",
+    "sha256": "fb8812dee1c6d420badd4bdb8c15bbf8abf7ec1188974de22954017a9165aec5",
+    "syntaxCheck": {
+      "result": "PASS",
+      "host": "macOS",
+      "engine": "PowerShell 7.4.20",
+      "scope": "Parser only; no WPF execution or Windows qualification"
+    }
+  },
+  "fixture": {
+    "kind": "synthetic",
+    "domain": "example.local",
+    "computers": 226,
+    "active": 223,
+    "disabled": 3,
+    "selectedOu": "OU=Postes,OU=Lyon,DC=example,DC=local",
+    "longOu": "OU=Postes administratifs du site de Lyon,OU=Services administratifs,OU=Lyon,DC=example,DC=local",
+    "externalReads": false,
+    "databaseAccess": false,
+    "adAgeMinutes": 35,
+    "presenceReadingAgeMinutes": [
+      10,
+      20
+    ],
+    "inventoryAgeDays": [
+      2,
+      3
+    ],
+    "coverageDepth": "Subtree"
+  },
+  "expectedOutputs": {
+    "documentaryImages": 36,
+    "viewportDiagnostics": 2,
+    "minimumDocumentaryPixels": [
+      1920,
+      1080
+    ],
+    "toolTipsEnabled": false,
+    "newImages": [
+      "actualisation-ou.png",
+      "recherche-actualisation-ou.png"
+    ],
+    "reports": [
+      "capture-checks.json",
+      "capture-layouts.json",
+      "capture-provenance.json"
+    ],
+    "captureMustSucceed": true,
+    "allChecksMustPass": true
+  },
+  "requiredChecks": [
+    "OU subtree coverage represented by complete;depth=Subtree, not a legacy unknown-depth record",
+    "Separate AD, presence-reading and WMI dates displayed by real runtime formatter",
+    "A local recomputation advances only its computation date",
+    "Fleet refresh controls and Recalculer la vue entirely visible at 1080p",
+    "Search refresh controls entirely visible with a long selected OU; clipped ancestor bounds included",
+    "Search tree visible height at least 80 pixels",
+    "Global search remains global with its seven rows while OU refresh targets the separately selected OU and descendants",
+    "Native images without upscaling and all tooltips disabled",
+    "Synthetic fixture and limits declared in provenance and final guides"
+  ],
+  "documentation": {
+    "renderStatus": "COMPLETE_RETAINED_APPLICABLE_IMAGES",
+    "existingDocxPdf": "Existing delivered guides retain the preceding validated captures. They are not a validation of RC1.17.4.",
+    "sourceHashes": {
+      "guides/technicien.md": "7d26aa99bccebd94ba66afeb631c69197ee500f2c1c4710fec2e87f0f550ced9",
+      "guides/administrateur.md": "e8e25314504d9a3890b8a0f9d843c7b785d7f19ebdd67d7ba8d3c0f1126de463",
+      "guides/technicien.json": "ce2d098fc0d4942bf03887057df1e0beef64c13bb5d242614f9105c56fae476e",
+      "guides/administrateur.json": "e89ec137b342b64d1243ebc188d6e1e9ce7ec6d1ed91d56f6867fe560b89e013"
+    },
+    "remaining": [
+      "Optional future execution of this capture plan on Windows; current user-authorized documentation delivery is complete."
+    ],
+    "mode": "Existing applicable screenshots only; no new Windows screenshot generated.",
+    "qa": {
+      "path": "validation/2026-10-13/ou-refresh/documentation-qa.json",
+      "sha256": "319399a2329d1de008ea5a0e76ffc6687d02b1611f6dd431e9f6cb3f6d0fc61d",
+      "pagesVisuallyReviewed": 97,
+      "figuresPerGuide": 29
+    }
+  }
+}

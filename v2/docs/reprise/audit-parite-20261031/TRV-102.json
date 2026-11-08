@@ -1,0 +1,18 @@
+{
+  "id": "TRV-102",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Bridge/BridgeScheduling.cs:153-156 — le cachet de session du pont intègre session.Epoch, MachineAccountService.From(context).Generation et AccountAccess.From(context).SelectionVersion : l'identité « époque + générations » est calculée côté serveur, jamais fournie par la page",
+    "src/Domenia.Bridge/BridgeAdmission.cs:228-236 — RevalidateAsync : avant le départ réel, le cachet est recapturé et comparé ; différent → refus « Session, source ou identité modifiée avant le départ réel ; aucun envoi » (l.234) ; le même cachet retire les lectures en attente obsolètes (l.177-178, « Lecture remplacée/retirée de la file avant envoi »)",
+    "src/Domenia.Core/Screens/Requetes/QueryReaders.cs:13-19 — la collecte préparée (QueryMeasureRequest) porte ExpectedEpoch, ExpectedAccountVersion, ExpectedMachineGeneration et ExpectedIdentities (identité de chaque poste du plan) : l'action préparée garde bien époque de session, génération de sélection et identités",
+    "src/Domenia.Ad/Screens/AdQueryWorkshopReader.cs:68 — avant tout contact : « Session modifiée depuis le plan ; aucun contact. » ; l.74-78 ConfirmAccounts refuse si la sélection des comptes a changé (« Sélection des comptes modifiée depuis le plan ; aucune nouvelle source contactée. ») ; l.80-82 ConfirmExpected refuse tout poste dont l'identité diffère du plan (« Identité différente de celle du plan ; aucun contact avec ce poste. ») ; l.118 et l.213 : réévaluation de l'époque et des générations pendant et après la boucle, réponse tardive écartée",
+    "src/Domenia.Core/Screens/Assistance/SupportWorkshop.cs:68-73 et 106-113 — clé d'atelier = domaine + compte + Epoch de session ; EnsureSameSessionAsync ignore la réponse d'une lecture commencée dans une autre session ; AssistanceOperations.cs:558 l'applique avant d'enregistrer le résultat de l'étape ; DN porté par record.Dn serveur (AssistanceOperations.cs:537-549), jamais par la page",
+    "src/Domenia.Ad/Ldap/AdAuthenticationGate.cs:20-23 — une sélection plus ancienne (époque/version) est refusée : « Ancienne sélection des comptes ; aucune nouvelle connexion LDAP. »",
+    "src/Domenia.Core/Writes/ConfirmationTokens.cs:16-21 et WritePlans.cs:69-80 — côté écritures : le jeton est lié à l'empreinte du plan (cible exacte, DN, changements) et la confirmation ne s'applique que si rien n'a changé (plan modifié = Invalid, l.68-70) ; src/Domenia.Store/Sqlite/SqliteDirectoryCache.cs:26 — revérification de courantéité à l'exécution, refus write.stale",
+    "tests/Domenia.Tests/AssistanceSessionTests.cs:148-149 — « réponse tardive » ignorée avec code SessionChanged ; tests/Domenia.Tests/DirectoryReadAccessTests.cs:36 — « résultat ancien écarté » (EpochChanged) ; tests/Domenia.Tests/QueryRefreshTests.cs:28 et QueryPersonalProbeNativeTests.cs:251 — époque attendue transportée avec le plan de collecte"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

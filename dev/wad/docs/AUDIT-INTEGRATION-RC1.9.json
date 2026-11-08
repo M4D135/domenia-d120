@@ -1,0 +1,648 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.9-INTEGRATED",
+  "Environment": "Linux/Python",
+  "Passed": 124,
+  "Failed": 0,
+  "CoreFunctionsChanged": [
+    "Show-DomeniaDialog",
+    "Show-DomeniaFormDialog",
+    "Get-MainXaml",
+    "Show-DomeniaObjectPicker",
+    "Show-DomeniaOuPicker",
+    "Import-LinksCsv",
+    "Export-CurrentResults",
+    "Show-DomeniaRimotteDialog",
+    "Show-DomeniaCommandPalette",
+    "Confirm-DomeniaOperationImpact",
+    "Get-DomeniaWorkerOperationHashes",
+    "Assert-DomeniaWorkerRegistry",
+    "Get-WorkerContext",
+    "Initialize-DomeniaPresentation",
+    "Export-SelfCheckReport",
+    "Complete-DomeniaFastLoginSuccess",
+    "Show-LoginWindow"
+  ],
+  "NoWindowsExecution": true,
+  "Checks": [
+    {
+      "Name": "No original main functions lost",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Core changes stay within reviewed set",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Invoke-DomeniaInProcessAuthProbe",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Start-DomeniaFastLoginAttempt",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Update-DomeniaFastLoginAttempt",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Start-DomeniaLoginAuthRunspace",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Invoke-GlobalSearch",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Assert-DomeniaCapability",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Start-DomeniaWriteTask",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Assert-WriteAllowed",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Set-DomeniaFastLoginBusy",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Sensitive function preserved: Add-SelectedLink",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "New module definition-only (no invoked host)",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Surface module exports exactly twenty unique functions",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/Domenia-Core.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/Domenia-Modules.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/Domenia-Start.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Support.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Live.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Reconcile.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Relations.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Access.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Guard.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Continuity.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Guard.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Experience.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Continuity.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Storage.Worker.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Sessions.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Storage.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Dossier.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Accounts.Async.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Dossier.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Support.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Embedded.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-Experience.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/modules/Domenia-UX.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/tests/Test-DomeniaEmbeddedUi.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lexical only: wad/tests/Test-DomeniaRelationsAlignment.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Layer is sibling overlay, no new flow row",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Explicit user selector in Relations",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "All original named controls retained",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Tooltip/accessibility: BtnRelationSelectUser",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Same-window route: Show-DomeniaDialog",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Same-window route: Show-DomeniaFormDialog",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Same-window route: Show-DomeniaCommandPalette",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Same-window route: Show-DomeniaRimotteDialog",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Same-window route: Show-LoginWindow",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Async inline picker route: Show-DomeniaObjectPicker",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Async inline picker route: Show-DomeniaOuPicker",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Native Window.ShowDialog kept only for main; other calls are integrated file requests",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Core.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Support.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Live.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Reconcile.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Relations.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Access.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Guard.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Continuity.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Receipts.Worker.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Guard.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Experience.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Continuity.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Storage.Worker.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Sessions.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Storage.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Dossier.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Accounts.Async.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Dossier.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Support.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Embedded.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-Experience.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No native Win32 file/message popup in Domenia-UX.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Only prehost fallback may call native ShowDialog",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No EnsureHandle or native window generation",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Content transferred rather than shown",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Decision default remains refusal",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Duplicate sheet rejected not stacked",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Dispatcher frame pumps, no polling wait",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Keyboard page shortcuts held and restored",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Underlying page disabled then restored",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Source cleanup fires Closed handler",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Focus restored without implicit new selection",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Password fields cleared on close",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Session or shutdown invalidates pending choice",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Theme is inherited as resources",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "No value reflected into help",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Outstanding file error not presented as bad AD credential",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Access prompt waits while current sheet active",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Guards and contract: Show-DomeniaInlinePicker",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Guards and contract: Get-DomeniaEmbeddedLookupCode",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Guards and contract: Complete-DomeniaEmbeddedLookup",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Guards and contract: Show-DomeniaInlineFilePicker",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Guards and contract: Get-DomeniaEmbeddedPathCode",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Guards and contract: Complete-DomeniaEmbeddedPath",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "AD binary getter does not unroll bytes",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "GUID parser validates 16 byte bounds",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Full Relations fixtures now carry actual binary GUID",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "First Relations failure is visible",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Binary unchanged: Domenia.exe",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Binary unchanged: wad/PsExec.exe",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Binary unchanged: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Binary unchanged: wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Support.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Live.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Reconcile.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Guard.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Continuity.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Guard.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Continuity.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Storage.Worker.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Sessions.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Storage.UI.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Dossier.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Accounts.Async.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Business module unchanged: wad/modules/Domenia-Experience.Model.ps1",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Closed loader includes every new function",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "New suite required before install copy",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

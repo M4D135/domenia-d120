@@ -1,0 +1,143 @@
+{
+    "Suite":  "SearchTimeout",
+    "Passed":  true,
+    "Total":  26,
+    "Failed":  0,
+    "Assertions":  87,
+    "PowerShellVersion":  "5.1.26100.6584",
+    "Cases":  [
+                  {
+                      "Name":  "The former 45-second wall limit does not stop an advancing LDAP search",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "5000 raw arrivals over ten minutes remain admissible while progressing",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Idle deadline starts at dispatch when no first row has arrived",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A stalled search expires after the last raw arrival and retains the diagnostic count",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Strict greater-than comparison preserves the former deadline boundary",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "The hard total cap wins even with a fresh row on every tick",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "The total cap wins when both idle and total deadlines are exceeded",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Configured total duration replaces the default and remains an absolute cap",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Missing total duration defaults to 900 seconds",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A missing idle duration defaults to 120 seconds for searches",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Zero or non-finite deadline settings do not disable bounded operation",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Cached queue growth is never treated as raw LDAP progress",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Missing or wrong-type progress uses the old elapsed timeout",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Malformed, missing and fractional progress fields fail back to a bounded legacy deadline",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Future start and future last-row clocks do not reset the deadline",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Backwards last-row clocks and inconsistent count/timestamp pairs use bounded fallback",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Invalid monotonic now or frequency uses elapsed fallback",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "The monotonic dispatch clock supersedes wall-clock jumps while valid",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A raw arrival during the snapshot cannot be mistaken for a future clock",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Actual dispatch timing excludes time previously spent in the scheduler queue",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ordinary jobs retain the former total elapsed deadline and exact message",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Writes, queued, cancelled and completed work receive no new expiration effect",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "The shared progress dictionary is read-only to the decision function",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Concurrent session progress dictionaries remain independent",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Generic dictionaries and synchronized hashtables follow the same rule",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A null job is inert and progress is not inferred from unrelated job members",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Limitations":  [
+                        "Deterministic pure deadline rules only. No Windows UI, live LDAP, network timing, cancellation or worker integration executed."
+                    ]
+}

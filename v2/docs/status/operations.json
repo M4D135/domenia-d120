@@ -1,0 +1,56 @@
+{
+  "fait": [
+    "OPE-001",
+    "OPE-002",
+    "OPE-004",
+    "OPE-006",
+    "OPE-007",
+    "OPE-010",
+    "OPE-011",
+    "OPE-013",
+    "OPE-014",
+    "OPE-015",
+    "OPE-016",
+    "OPE-017",
+    "OPE-018",
+    "OPE-019",
+    "OPE-020",
+    "OPE-021",
+    "OPE-025",
+    "OPE-026",
+    "OPE-027",
+    "OPE-029",
+    "OPE-030",
+    "OPE-032",
+    "OPE-033",
+    "OPE-034",
+    "OPE-035",
+    "OPE-036"
+  ],
+  "ameliore": [
+    "OPE-003",
+    "OPE-005",
+    "OPE-008",
+    "OPE-009",
+    "OPE-012",
+    "OPE-022",
+    "OPE-023",
+    "OPE-024",
+    "OPE-028",
+    "OPE-031"
+  ],
+  "partiel": [],
+  "notes": [
+    "Relève OpenCode (22/10/2026) : tour 1 du critique traité par e0385ab (blocage global des écritures tant qu’un reçu attend, suivi des lectures qui rendent un reçu, battement de toute l’interface, pseudonymes complets, classes LocalRead, motifs d’exemple réservés au mode exemple, statut réévalué) ; vérifié dans le code.",
+    "Ajouts de la relève : transitions limitées à transform (operations.css), espaces insécables (guillemets, point-virgule).",
+    "À l’intégration : la coque a déjà Ctrl L (journal) et le panneau « Opérations de la session » ; vérifier qu’ils lisent operations.center et operations?onglet=journal (OPE-014, OPE-015).",
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests écrits sans être exécutés.",
+    "Intégration (22/10) : Ctrl L ouvre l’onglet Journal en profil Expert (OPE-014) ; « Opérations de la session » de la coque lit operations.center (tâches du moteur, durée vivante, compteurs, arrêt d’une lecture) et dit le reçu le plus ancien (OPE-015, OPE-026).",
+    "Intégration (22/10) : le bouton « Opérations de la session » de la barre supérieure dit « N opérations à vérifier » et le reçu le plus ancien au survol (operations.center, OPE-025, OPE-026) ; le battement de l’interface démarre avec l’application (startPulse dans app.js, OPE-030)."
+  ],
+  "reprise_L21_20261101": {
+    "OPE-001": "Attentes réellement mesurées à l’admission, par classe explicite/sélection/fond/écriture, promotions effectives, séries bornées à 512 et P95 seulement après 20 mesures. CollectionQueueMeasurementsTests ; qualification Windows L21 en attente.",
+    "OPE-019": "Intervalles des vrais lecteurs LDAP/CIM/local et du handler partagé observés ; attente d’admission séparée du temps moteur, répétitions de lots compactées et volume partiel conservé comme minimum connu. Intervalles cumulatifs/imbriqués explicités, aucun temps inventé sur les chemins non instrumentés. OperationPhaseTests ; qualification Windows L21 en attente.",
+    "OPE-032": "Le délai SQLite configuré est appliqué aux connexions de la base de session ; lecture/index, écrivain de fond, sauvegardes et changement de base conservent ce propriétaire. Santé affiche cette valeur et les refus Busy/Locked comptés sans rejeu. SqliteSessionMeasurementsTests ; qualification Windows L21 en attente."
+  }
+}

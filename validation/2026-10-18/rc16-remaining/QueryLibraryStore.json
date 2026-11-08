@@ -1,0 +1,100 @@
+{
+  "Suite": "QueryLibraryStore",
+  "Passed": true,
+  "Total": 17,
+  "Failed": 0,
+  "Assertions": 66,
+  "SQLiteVersion": "3.51.0",
+  "PowerShell": "7.4.6",
+  "Platform": "Unix 26.4.0",
+  "Cases": [
+    {
+      "Name": "Commit publishes canonical recipes separately from directory rows",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Imported provenance survives durable reads, edits and rollback without the journal",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Revision conflict rolls back an earlier valid recipe in the same batch",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Update creates immutable historical revision and preserves original creation time",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Batch retry keeps identity and revision; changed wire with same id refuses",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Real SQL trigger proves callback is a SELECT instead of input echo",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Dependency blocks archive until explicitly detached at the known revision",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "New recipe and dependency can commit in one transaction",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Read omits archived by default and IncludeArchived preserves their IDs for migration",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "SQL search is accent normalized and literal for percent underscore quote",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Read pagination is stable and refuses a superseded snapshot",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Migration marker requires every ID and rolls back the final batch on omission",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 68: operator category is stored, read back and filterable",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 68: an archived recipe is restored with a new revision checked by SQLite",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Admission rejects altered hash, executable properties, wrong domain and metadata",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Worker independently checks hash and metadata even if wire hash is recomputed",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Receipt failure rolls back recipe revisions and dependencies",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "Limitations": [
+    "Synthetic local SQLite fixtures; no AD or remote workstation; no WPF."
+  ]
+}

@@ -1,0 +1,243 @@
+{
+ "uncovered_ids": [
+  "AVERTISSEMENT DE PORTÉE : seules 3 des 10 cartes me sont parvenues : Moteur, Démarrage/démo et Recherche. La carte Recherche est tronquée au milieu de D039 (restauration). Les 7 autres cartes (Cache, Relations, Accès, Annuaire, Sélection D012, Release, Poste/Shell/Sûreté/Insight) sont absentes du texte reçu. La liste ci-dessous porte donc sur les cartes REÇUES ; il faut la recroiser avec les 7 cartes manquantes.",
+  "D001 : parseur natif. Aucun site ; seul le scénario parser.ps51 est cité.",
+  "D005 : un test par régression. Aucun site.",
+  "D006 : géométrie et visuel. Aucun site ; limite de la session 0 seulement mentionnée.",
+  "D010 : aucune carte ne le couvre. Déjà fait sur master hors cartes (commit 0de97bb : release-contract.json, MasterBuild, DomeniaBuild, pied XAML, journal 'pret' passés à RC1.11.0), mais le Suivi le marque encore NON_CLOTURE.",
+  "D012 : SelectionIdentity, Get-DomeniaSelectionContext. Aucun site.",
+  "D013 : découpage du cœur. Aucun site ; cité seulement pour le nombre de fichiers.",
+  "D016 : processus auxiliaire. Aucun site.",
+  "D021 à D030 : cache. Aucun site. Les P0 sont D025 et D028 ; D028 (écrivain SQLite unique) recoupe les chaînes A1 à A5 de D014 sans y être relié.",
+  "D040 : précédent/suivant, Select-DomeniaWorkspace l.9062. Partie tronquée de la carte Recherche ; aucun site visible.",
+  "D041 à D050 : relations. Aucun site. Les P0 sont D041, D042, D044, D045 et D047.",
+  "D051 : seulement en accompagnement de D018 (table de besoins d'identifiants dans Get-WorkerContext). Aucun site propre pour Set-DomeniaTargetCredentialContext (Sessions.UI l.64) ni pour Get-DomeniaAccessScope (Access.UI l.10).",
+  "D052 à D060 : accès et secrets. Aucun site. Les P0 sont D052, D053, D057 et D059.",
+  "D061 à D070 : annuaire. Aucun site.",
+  "D071 à D080 : poste. Aucun site ; modèles encore vides (2 lignes chacun).",
+  "D081 à D088 : Shell. Aucun site. Les P0 sont D082, D083 et D085.",
+  "D090 : seulement relevé comme défaut (contraste de ChkRemember). Aucun site de raccordement.",
+  "D091 à D100 : sûreté. Aucun site, alors que D091, D093, D094, D095 et D096 sont P0 et touchent Start-DomeniaWriteTask (critique, épinglée).",
+  "D101 à D110 : Insight. Aucun site. D106 n'est cité qu'en passant (« une fois D106 raccordé »).",
+  "D111 à D120 : distribution. Aucun site de raccordement. D111 et D116 n'apparaissent que dans des risques ou des défauts. D113, D114 et D115 sont P0 (Import-DomeniaLegacyStoreIfNeeded, Initialize-DomeniaDatabase, INSTALLER-MISE-A-JOUR.ps1)."
+ ],
+ "doubtful_claims": [
+  {
+   "claim": "Carte Moteur, écarts : « Les numéros de ligne de REPRISE §3, §7.2 et §7.3 sont exacts sur cet arbre » (Start-UiTask 20285, Complete-UiTasks 20467, etc.). Les deux autres cartes reprennent les mêmes numéros.",
+   "verdict": "PÉRIMÉ. Les cartes ont été lues sur 5775aba (23 775 lignes). Master (28866a5) a reçu 0de97bb et 28866a5 entre 16:37 et 16:39 ; le cœur fait 23 809 lignes. Décalage de +7 après Load-AppConfig, de +34 après New-DefaultConfig. Numéros réels : Get-CfgValue 1041 ; Set-DomeniaItemsSource 1551 ; Update-TaskUi 8886 ; Select-DomeniaWorkspace 9062 ; Get-BranchQueryData 9251 ; Invoke-GlobalSearch 9456 ; New-DefaultConfig 18903 ; Get-DomeniaStartupXaml 19176 (Topmost l.19180) ; New-DomeniaWorkerRunspace 20137 ; Start-UiTask 20319 (refus l.20374 et 20378, catch l.20400-20401) ; Request-UiTaskStop 20419 ; Detach 20476 ; Complete-UiTasks 20501 ($nonDirectory l.20625) ; Dispose-AsyncEngine 20648 (liste des minuteurs l.20659) ; Get-WorkerContext 20713 (listes l.20720-20725) ; Initialize-Window 22530 ; Complete-DomeniaFastLoginSuccess 22823 ; Start-DomeniaFastLoginAttempt 23086 ; Show-LoginWindow 23435 ; Invoke-DomeniaSelfTest 23565. Avant toute édition, relire depuis master."
+  },
+  {
+   "claim": "Carte Moteur, site D011 : « Aucun *.Model.ps1 D120 n'est déclaré ; Domenia-Identity.Types.cs n'est chargé nulle part dans le runtime » ; il faut ajouter Phase et Requires et valider par Test-DomeniaStartupPlan.",
+   "verdict": "FAUX sur master, déjà fait par 0de97bb. Domenia-Modules.ps1 déclare Common.Model et Engine.Model en Phase='Bootstrap', puis Cache, Search, Relations, Access et Directory en 'Modules' (l.10-167). Get-DomeniaRuntimeTypePlan (l.526-531) compile Identity.Types.cs par Add-Type (l.592). Test-DomeniaStartupPlan est appelé après l'import de la phase Bootstrap (l.614) et non dans une portée jetable, puis l'import suit $script:DomeniaStartupPlan.Order. Le site D011 de la carte est donc à réécrire en simple vérification de l'existant."
+  },
+  {
+   "claim": "Carte Moteur : Access.Model requiert Common, Engine et Relations, et Directory requiert Common et Search (dépendances mesurées par scan).",
+   "verdict": "EXACT dans le code, mais master déclare autre chose. Access.Model l.22 et l.44 appellent ConvertTo-DomeniaAccountIdentity, défini dans Relations.Model l.279. Directory.Model l.53 appelle Split-DomeniaDn, défini dans Search.Model l.320. Or le plan de master déclare Requires=@(Common, Engine) pour Access (l.138) comme pour Directory (l.167). Le graphe déclaré est donc incomplet, et Test-DomeniaStartupPlan ne peut pas détecter un ordre fautif. Sans effet à l'exécution aujourd'hui, puisque la résolution se fait à l'appel."
+  },
+  {
+   "claim": "Carte Démarrage : le plan compte « 21 entrées {File; DotSource; Functions} » aux lignes 6-300, avec Assert l.302-322 et import l.324-358.",
+   "verdict": "FAUX, même sur 5775aba. Ce commit compte 23 entrées, Assert-DomeniaRuntimeImports à la l.335 et ParseFile à la l.373 : la carte Moteur avait raison. Master compte 30 entrées de modules plus 1 entrée de types, soit 445 fonctions déclarées."
+  },
+  {
+   "claim": "Cartes Moteur et Démarrage, défaut F5 : Load-AppConfig l.993-994 stocke une section inconnue en PSCustomObject, donc Get-DomeniaFeatureFlag lit toujours le défaut. Il faut ajouter Features, Demo et Streaming à New-DefaultConfig.",
+   "verdict": "Exact sur 5775aba, CORRIGÉ sur master (28866a5). Load-AppConfig l.993-1000 convertit maintenant en [ordered]. New-DefaultConfig contient Auth.DemoProvider=$false (l.18925), Features (l.18928, avec en plus ReadTrace=$false), Demo (l.18941) et Streaming (l.18945). Il reste à faire : Async.MaxQueued, ReservedForeground et MaxQueueWaitSeconds sont absents (aucune occurrence dans le cœur), ainsi que les interrupteurs proposés par les cartes, Features.IdlePolicy et Features.SearchRanking."
+  },
+  {
+   "claim": "Carte Moteur, D014 A1 : busy_timeout vaut LocalStore.DatabaseBusyTimeoutMs, « défaut 1000 ms ». Le test de preuve annonce « aujourd'hui on attend environ 1000 ms ».",
+   "verdict": "INEXACT. 1000 n'est que le repli de Get-CfgValue (l.19435). New-DefaultConfig fixe DatabaseBusyTimeoutMs = 2500 (l.19115), donc l'attente effective sur la base verrouillée est d'environ 2,5 s par frappe. Le constat (TxtIndexSearch.Add_TextChanged l.18764 → Search-DomeniaIndexUi, sans anti-rebond) est confirmé ; seul le chiffre attendu par le test est à corriger."
+  },
+  {
+   "claim": "Carte Moteur, défaut : un refus d'identifiants sur SessionsList suspend tout le canal AD, parce que $nonDirectory (Complete-UiTasks) omet SessionsList.",
+   "verdict": "CONFIRMÉ, avec une condition. La liste l.20625 omet bien SessionsList, LocalStore, ReceiptStore, DocumentStore et EmbeddedPathBrowse, alors que Get-WorkerContext l.20720-20722 les classe hors annuaire. Le disjoncteur n'est évité que si $separate est vrai (l.20626), c'est-à-dire si Get-DomeniaRetryCredential renvoie un compte de reprise du périmètre 'Remote' (Access.UI l.21-30). Sans compte alternatif, DirectoryCredentialFaulted passe bien à $true."
+  },
+  {
+   "claim": "Carte Moteur, défaut : la réconciliation reste éteinte après une annulation, car $r.Job n'est jamais remis à zéro.",
+   "verdict": "CONFIRMÉ. Reconcile.UI l.57 sort si $r.Job est renseigné. Seuls Complete-DomeniaReconcile (l.25), Fail-DomeniaReconcile (l.41) et le catch (l.65) le remettent à ''. Complete-UiTasks fait `continue` sur CancelRequested sans aucun callback (l.20590-20593), et Detach met OnError à $null (l.20493). Aucun contrôle de vivacité, contrairement à Continuity."
+  },
+  {
+   "claim": "Carte Moteur : règles Engine.Model à corriger. Get-DomeniaTaskClass cite ReconcileScope, StartupWarmup, IndexRefresh et ObjectChanges ; Get-DomeniaOperationProvider renvoie Directory pour GpUpdate, Restart, RimotteRun et UserComputerProbe ; Get-DomeniaTaskState(Detached) ignore StopHandle ; Release-DomeniaResources n'a pas de -Kind.",
+   "verdict": "CONFIRMÉ point par point. Engine.Model l.119 (liste Background), l.267-279 (repli final 'Directory' ; ces opérations ne sont dans aucune liste), l.226-231 (seul Handle.IsCompleted est lu, alors que le cœur l.254-257 exige aussi StopHandle) et l.387-389 (param Registry, Owner, Id uniquement)."
+  },
+  {
+   "claim": "Carte Recherche, défaut A : Set-DomeniaItemsSource applique TxtSuiteResultFilter même en mode Global.",
+   "verdict": "CONFIRMÉ, l.1556-1560 sur master : aucune lecture de Get-DomeniaSearchMode. Le chemin progressif, lui, neutralise bien ce filtre (Live.UI l.173)."
+  },
+  {
+   "claim": "Carte Recherche, défaut B : Invoke-DomeniaObjectChanges revalide avec Get-BranchQueryData, qui impose toujours le périmètre OU.",
+   "verdict": "CONFIRMÉ. Continuity.UI l.209 appelle Get-BranchQueryData, et le cœur l.9251-9261 utilise Get-DomeniaSearchScope -Mode OU et Get-SearchLdapFilter (texte d'OU). Conflit à noter : la même fonction est modifiée par le site D020 (l.202) de la carte Moteur."
+  },
+  {
+   "claim": "Carte Recherche, D032 : Continuity.UI l.129 et 141 lisent TxtGlobalSearch pour une restauration d'OU ; Test-DomeniaSelection:139 et Test-DomeniaCompactUi:53 épinglent le comportement.",
+   "verdict": "CONFIRMÉ. Get-DomeniaScopeLabel (Search.Model l.166-167) renvoie bien 'sous-OU incluses' et 'enfants directs' en minuscules, alors que CompactUi:53 teste Contains('Enfants directs')."
+  },
+  {
+   "claim": "Carte Recherche, D034 : ResultRow.Allowed ne contient ni Rank ni Admin ; Get-DomeniaSearchRank lit 'Display'.",
+   "verdict": "CONFIRMÉ : Live.Types.cs l.19 et Search.Model l.177."
+  },
+  {
+   "claim": "Carte Démarrage : le catch du bloc principal ne fait aucun exit hors self-test ; Domenia-Start.ps1 n'envoie aucun paramètre au cœur.",
+   "verdict": "CONFIRMÉ sur master. Le catch se termine par Show-ErrorBox sans exit (exit 2 seulement pour le self-test). Domenia-Start l.99 (et non plus l.86) appelle `& (Join-Path $PSScriptRoot 'Domenia-Core.ps1')` sans argument."
+  },
+  {
+   "claim": "Carte Démarrage, défaut n°1 : Test-DomeniaStartupLogin.ps1:61, ConvertFrom-Json sous @() ; « 57 » est épinglé aux lignes 67 et 108.",
+   "verdict": "CONFIRMÉ dans le code (l.61, 67 et 108). La cause liée à 5.1 reste déduite du message d'erreur, sans réexécution."
+  },
+  {
+   "claim": "Carte Démarrage : python tools/audit_preload.py donne 150 réussis et 0 échec.",
+   "verdict": "PÉRIMÉ. Sur master, j'obtiens 158 réussis et 1 échec : 'Unchanged payload: wad/Domenia-Start.ps1', provoqué par l'ajout des Model à la liste required (0de97bb). C'est le blocage du build que la carte Moteur annonçait ; il est déjà réel."
+  },
+  {
+   "claim": "Carte Moteur, site Domenia-Start : il manque Selection.UI et Relations.UI dans required ; il faut y ajouter les 12 Model et le .cs.",
+   "verdict": "Partiellement appliqué sur master, de façon INCOHÉRENTE. Les 12 Model et le .cs sont ajoutés (l.48-60), mais Selection.UI et Relations.UI manquent toujours. Surtout, Workstation, Shell, Safety, Insight et Release.Model (fichiers de 2 lignes) sont exigés par Domenia-Start sans être déclarés au chargeur. tools/audit_function_names.py échoue donc sur master : FAIL, 5 problèmes 'Module present mais ni declare ni exclu'."
+  },
+  {
+   "claim": "Carte Démarrage : « Aucune nouvelle fonction dans le cœur : audit_preload exige un ensemble de noms inchangé ». La carte Moteur propose au contraire, dans le cœur, Initialize-DomeniaEngineState, Invoke-DomeniaUiTaskDispatch, Update-DomeniaIdlePolicy et Initialize-DomeniaIdlePolicy.",
+   "verdict": "La contrainte est RÉELLE. audit_preload.py l.22 impose set(spans)==set(baseline['CoreFunctions']), si bien que les nouvelles fonctions du cœur proposées par la carte Moteur font échouer le build sans mise à jour de la référence. Il faut les placer dans un module, par exemple un Domenia-Engine.UI.ps1 déclaré au chargeur, ou décider explicitement de régénérer la référence."
+  },
+  {
+   "claim": "Carte Démarrage : Get-DomeniaFeatureFlag est défini aux l.94-107 de Common.Model.",
+   "verdict": "Inexact : la fonction commence l.98 (la carte Moteur donne 98-111, ce qui est juste). Common.Model compte bien 9 fonctions."
+  }
+ ],
+ "conflicts": [
+  "ÉTAT DU DÉPÔT : les cartes datent de 5775aba, alors que master (28866a5) a déjà appliqué D011, D010 et F5. Tout plan qui rejoue les sites D011 et F5 de la carte Moteur entre en conflit avec ce qui a été commité : il faut repartir de master.",
+  "Start-UiTask (cœur l.20319). La carte Moteur y met la file, l'admission, le partage, BusyApplied et le paramètre -TaskClass, et en extrait le corps des l.20349-20371 dans Invoke-DomeniaUiTaskDispatch. La carte Démo modifie ce même corps (avant New-DomeniaWorkerRunspace) pour substituer DemoDirectory et refuser les écritures. Prévisions sans carte reçue : Accès (D051, identifiants par cible) et Sûreté (D095/D097, admission des écritures) le toucheront aussi. Résolution : la substitution démo doit vivre dans la fonction de dispatch commune, sinon une entrée mise en file puis promue part en LDAP réel.",
+  "Complete-UiTasks (cœur l.20501). Moteur : promotion de la file, Register-DomeniaProviderOutcome, remplacement de $nonDirectory (l.20625), statut d'annulation. Accès (D051/D052, prévu) : même disjoncteur et Get-DomeniaStructuredError. Une seule table Get-DomeniaOperationCredentialNeeds doit servir aux deux.",
+  "Get-WorkerContext (cœur l.20713). Moteur : table de besoins d'identifiants. Démo : appel avec l'opération d'origine, puis ConvertTo-DomeniaDemoWorkerContext ; l'appel n'est pas modifié mais dépend du contenu de la table. Accès (D051, prévu). Des littéraux sont exigés par audit_search_presence.py:77 et audit_release.py:74.",
+  "Initialize-Window (cœur l.22530). Moteur D020 : Initialize-DomeniaIdlePolicy, avec Add_Activated, Add_Deactivated et Add_StateChanged. Démo : étape 'Mode demonstration' après 'Etat initial de securite' et message de ContentRendered. D089 : Request-DomeniaWindowActivation 'LoginToMain' dans ContentRendered. Trois éditions dans la même fonction : à regrouper. Le gestionnaire Activated de D020 et l'activation de D089 doivent être conçus ensemble (une activation ne doit pas relancer de travail de fond).",
+  "Get-DomeniaWorkerOperationHashes et Assert-DomeniaWorkerRegistry (cœur l.20027 et 20090, critiques pour audit_preload), avec tools/operation-contracts.json. Ils changent pour : DemoDirectory (Démo) ; IndexSearch et ParkSharedSync (Moteur D014) ; le re-épinglage de GlobalSearch (Recherche D037) ; la lecture d'OU par GUID (Recherche D039 étape 2) ; ReadBitLockerKey (Accès, selon REPRISE) ; PasswordPolicyRead, LockoutDiagnosis, GroupPathRead, AdConsistencyScan et DcCompareRead (Annuaire). Chaque ajout recalcule l'empreinte globale et casse les tests qui comptent les opérations : à faire en série, une passe --apply à la fois.",
+  "Invoke-GlobalSearch (cœur l.9456, critique). La carte Recherche y fait cinq modifications : assertion D031, jetons D033, repli multi-mots D035, identifiants D036, ViewId D038. D037 réépingle son here-string (LiteralIndex 0). Aucune autre carte ne la modifie, mais il faut une seule passe et une seule mise à jour de preload-baseline.json, sans here-string ajoutée avant $code.",
+  "Update-TaskUi (cœur l.8886). D017 : résumé d'états et barre pendant le nettoyage. D020 : Experience -Force seulement si visible, et tableau de bord soumis à la politique de repos. Les deux sont dans la même carte, mais doivent former une seule édition.",
+  "Invoke-DomeniaObjectChanges (Continuity.UI l.168-216). Moteur D020 remplace la garde IsActive de la l.202. Recherche D031-B change la requête de la l.209. Recherche D032 change les l.129 et 141 du même fichier. Même fonction et même fichier pour deux cartes.",
+  "Domenia-Live.UI.ps1, payload épinglé par audit_preload. Moteur D020 : garde de repos dans Start-DomeniaLiveBackgroundWork, l.520-583. Recherche D034 : rang et marque admin dans Add-DomeniaLiveRow et Begin-DomeniaLiveSearch. Recherche D037 : libellés d'Invoke-DomeniaLiveTick, l.649-656. Une seule régénération de l'empreinte de payload.",
+  "New-DefaultConfig et Load-AppConfig. Les cartes Moteur et Démo proposaient toutes deux d'y ajouter Features et Demo : déjà fait sur master. Reste l'ajout d'Async.MaxQueued, ReservedForeground et MaxQueueWaitSeconds (Moteur), à éditer une seule fois.",
+  "Invoke-DomeniaSelfTest (cœur l.23565). Moteur : ajout de Test-DomeniaTaskAdmission, Get-DomeniaTaskStateSummary et Test-DomeniaStartupPlan à requiredFunctions. Démo : quatre contrôles et cinq fonctions requises. Même liste requiredFunctions.",
+  "Ensemble des fonctions du cœur. La carte Moteur crée Initialize-DomeniaEngineState, Invoke-DomeniaUiTaskDispatch, Update-DomeniaIdlePolicy et Initialize-DomeniaIdlePolicy dans le cœur. La carte Démo pose « aucune nouvelle fonction dans le cœur ». audit_preload l.22 exige l'égalité des ensembles : choisir un module UI du moteur, ou une régénération décidée de la référence.",
+  "Domenia-Modules.ps1, plan. Chaque carte ajoute des entrées : Démo (Demo.Model, Demo.Worker, Demo.UI, Shell.UI), Moteur (Engine.UI s'il est créé), et les cinq Model en cours d'écriture. audit_preload (regex l.74), audit_function_names et Domenia-Start (required) doivent bouger ensemble. Aujourd'hui, master est incohérent : 5 Model exigés par Start mais non déclarés.",
+  "Get-MainXaml (cœur l.3449, here-string). Recherche y ajoute LblSearchHint, BtnSearchMore et un RowStyle Admin. D010 a déjà modifié le pied. Les cartes Shell (D082, D084, D087), non reçues, le toucheront certainement. À regrouper par lot XAML."
+ ],
+ "wiring_order": [
+  {
+   "step": "P0-0 : réaligner master et ses portes, sans logique nouvelle",
+   "ids": "D011 (fin), D010 (constat), D009 support",
+   "core_functions_touched": [
+    "aucune fonction du cœur"
+   ],
+   "rationale": "Master est aujourd'hui rouge sur deux portes : audit_preload ('Unchanged payload: wad/Domenia-Start.ps1') et audit_function_names (5 Model exigés par Start mais non déclarés). (1) Déclarer les 5 Model vides comme exclus avec motif dans NOT_PLANNED, ou les retirer de required tant qu'ils sont vides. (2) Ajouter Selection.UI et Relations.UI à required. (3) Compléter Requires : Access ajoute Relations, Directory ajoute Search. (4) Mettre à jour preload-baseline.json pour Domenia-Start, sur décision écrite. (5) Corriger les harnais : Test-DomeniaStartupLogin l.61, 67 et 108 ; Test-DomeniaModules (totaux tirés du plan, copie des *.cs) ; comptes 47/48 → contrats. Aucun conflit d'édition dans le cœur."
+  },
+  {
+   "step": "P0-1 : corriger les règles pures avant tout branchement",
+   "ids": "D015, D017, D018, D019 (règles), D039 (Split-DomeniaDn), D034 (Get-DomeniaSearchRank)",
+   "core_functions_touched": [
+    "aucune fonction du cœur"
+   ],
+   "rationale": "Engine.Model : noms d'opérations réels dans Get-DomeniaTaskClass ; classe passée par l'appelant ; GpUpdate, Restart, RimotteRun, UserComputerProbe et RemoteCredentialCheck hors Directory ; StopHandle pris en compte dans Get-DomeniaTaskState ; -Kind dans Release-DomeniaResources. Ajouter la table pure Get-DomeniaOperationCredentialNeeds (Engine ou Access.Model) avec son test doré sur les 57 opérations. Search.Model : Split-DomeniaDn avec les séparateurs échappés et l'hexadécimal UTF-8. Créer le module Domenia-Engine.UI.ps1, qui portera Initialize-DomeniaEngineState, Invoke-DomeniaUiTaskDispatch et Update-DomeniaIdlePolicy, pour ne pas toucher à l'ensemble des fonctions du cœur."
+  },
+  {
+   "step": "P0-2 : correctifs de défauts isolés, chacun avec son test d'abord",
+   "ids": "D031 (défauts A et B), D032, D020 (vivacité de Reconcile), D017 (BusyApplied), D018 (disjoncteur SessionsList)",
+   "core_functions_touched": [
+    "Set-DomeniaItemsSource",
+    "Start-UiTask (catch, drapeau BusyApplied seulement)",
+    "Complete-UiTasks ($nonDirectory → table de besoins)"
+   ],
+   "rationale": "Petits diffs, non critiques pour audit_preload sauf Invoke-GlobalSearch, qui n'est pas touchée ici. Continuity.UI (l.129, 141 et 209) et Reconcile.UI (vivacité de $r.Job) sont édités une seule fois, en y incluant dès maintenant la garde de repos de la l.202 (repli ouvert si la politique est nulle), pour ne pas rouvrir ces fichiers en P1."
+  },
+  {
+   "step": "P0-3 : moteur, refonte du dispatch et états exacts, Features.Scheduler encore désactivé",
+   "ids": "D017, D019 (ressources par job), D014 (audit statique seulement)",
+   "core_functions_touched": [
+    "Start-UiTask",
+    "Request-UiTaskStop",
+    "Detach-DomeniaReadUiTask",
+    "Complete-UiTasks",
+    "Update-TaskUi",
+    "Dispose-AsyncEngine",
+    "Invoke-DomeniaSelfTest (requiredFunctions)"
+   ],
+   "rationale": "Un seul responsable pour le bloc l.20319-20700 du cœur. Extraire le corps de lancement vers Invoke-DomeniaUiTaskDispatch (module) avant toute autre greffe, pour que la démo comme la file s'y branchent au même endroit. Ajouter les statuts Get-DomeniaCancelStatusText, Get-DomeniaTaskStateSummary dans Update-TaskUi, et le registre de ressources dans Dispose. Les tests LastUser et ActivityLayout passent au chargeur réel. L'audit D014 (dev/tools, AST) est hors cœur et n'entre pas en conflit."
+  },
+  {
+   "step": "P0-4 : mode démonstration (prérequis de D002 et D003)",
+   "ids": "D002, D003, D004 (jeu de données), D089 (moniteur Topmost et activation)",
+   "core_functions_touched": [
+    "Get-DomeniaWorkerOperationHashes",
+    "Assert-DomeniaWorkerRegistry",
+    "Invoke-DomeniaInProcessAuthProbe",
+    "Start-DomeniaFastLoginAttempt",
+    "Complete-DomeniaFastLoginSuccess",
+    "Set-DomeniaFastLoginBusy",
+    "Show-LoginWindow",
+    "New-DomeniaAccountAuthRequest",
+    "Assert-WriteAllowed",
+    "Assert-DomeniaRemoteWriteAllowed",
+    "Invoke-ComputerTool",
+    "Wire-Events (ChkReadOnlyMode)",
+    "Get-DomeniaStartupXaml",
+    "Initialize-Window",
+    "bloc principal (DemoMode, exit 3)",
+    "Invoke-DomeniaSelfTest"
+   ],
+   "rationale": "DemoDirectory est la seule opération ajoutée au registre dans ce palier, avec un seul --apply. La substitution se branche dans Invoke-DomeniaUiTaskDispatch (P0-3), sans nouvelle édition de Start-UiTask. Initialize-Window est édité une seule fois pour l'étape démo et l'activation 'LoginToMain' ; les gestionnaires de D020 sont ajoutés dans le même commit, encore inactifs (politique nulle, repli ouvert), pour ne pas rouvrir la fonction en P1. Une seule mise à jour de preload-baseline.json couvre les cinq fonctions critiques et le registre."
+  },
+  {
+   "step": "P1-1 : file prioritaire, partage et budgets par fournisseur, activés par Features.Scheduler",
+   "ids": "D015, D018, D051 (identifiants par cible, en lien avec la table de besoins)",
+   "core_functions_touched": [
+    "Start-UiTask (admission, entrée Queued, partage, -TaskClass)",
+    "Complete-UiTasks (promotion, Register-DomeniaProviderOutcome, abonnés)",
+    "Request-UiTaskStop (branche Queued)",
+    "Get-WorkerContext (lecture de la table de besoins)",
+    "New-DefaultConfig (Async.MaxQueued, ReservedForeground, MaxQueueWaitSeconds)"
+   ],
+   "rationale": "Mêmes fonctions qu'en P0-3, donc même responsable, en commits distincts une fois le dispatch stabilisé. Il faut d'abord classer les appelants des modules (Live, Reconcile, Continuity, Storage, Guard, Embedded, Relations) qui comptent sur l'exception de saturation. La carte Accès (non reçue) doit être fusionnée ici, et pas à part, puisqu'elle touche le même disjoncteur."
+  },
+  {
+   "step": "P1-2 : repos réel et vues cachées",
+   "ids": "D020, D014 (anti-rebond TxtIndexSearch)",
+   "core_functions_touched": [
+    "Request-DomeniaDashboardRefresh",
+    "Update-Dashboard (suppression du Get-Command inutile)",
+    "Update-TaskUi (Experience -Force seulement si visible)",
+    "Search-DomeniaIndexUi (anti-rebond)"
+   ],
+   "rationale": "Les gestionnaires de fenêtre sont déjà posés en P0-4 : il ne reste qu'à activer la politique (Features.IdlePolicy, à décider) et à raccorder les ticks des modules. Live.UI est édité ici une seule fois, en y incluant les changements de Recherche D034 et D037 (compteur), puisque l'empreinte du payload n'est régénérée qu'une fois."
+  },
+  {
+   "step": "P1-3 : recherche, édition unique d'Invoke-GlobalSearch et du XAML de recherche",
+   "ids": "D031 (assertion), D033, D035, D036, D034 (tri et marque admin), D037 (compteur et bouton Charger plus par relance), D038 (vues de travail), D039 (étape 1), D040",
+   "core_functions_touched": [
+    "Invoke-GlobalSearch",
+    "Start-DomeniaSearchFor",
+    "Test-DomeniaSearchStateCurrent (ViewId)",
+    "Get-MainXaml (LblSearchHint, BtnSearchMore, RowStyle)",
+    "Select-DomeniaWorkspace (D040, carte tronquée à vérifier)"
+   ],
+   "rationale": "Invoke-GlobalSearch et Test-DomeniaSearchStateCurrent sont critiques : une seule passe, une seule régénération de la référence, aucune here-string avant $code. Live.Types.cs (Rank, Admin) est modifié ici, avec la liste de repli de Live.Model. Le XAML de recherche est regroupé, idéalement avec les lots XAML des cartes Shell (D082, D084, D087) une fois reçues."
+  },
+  {
+   "step": "P2-1 : lot des nouvelles opérations épinglées, en série",
+   "ids": "D037 (vraie continuation), D039 (étape 2), D014 (IndexSearch, ParkSharedSync), D058 (ReadBitLockerKey), D062, D063, D064, D069, D070",
+   "core_functions_touched": [
+    "Get-DomeniaWorkerOperationHashes",
+    "Assert-DomeniaWorkerRegistry",
+    "Invoke-GlobalSearch (here-string GlobalSearch)",
+    "Get-WorkerContext et table de besoins (classement de chaque opération)",
+    "Sync-DomeniaParkShared, Complete-DomeniaParkSweepUi, Complete-DomeniaLogonHarvestUi (passage en worker)"
+   ],
+   "rationale": "Chaque opération modifie le registre, l'empreinte globale, operation-contracts.json, la table de besoins et les suites qui comptent les opérations. Il faut une file d'édition strictement séquentielle, avec --apply puis relecture à chaque fois, pour éviter les conflits d'empreinte entre branches parallèles."
+  },
+  {
+   "step": "P2-2 : domaines sans carte reçue, après réception des 7 cartes manquantes",
+   "ids": "D012, D021-D030, D041-D050, D052-D060, D061-D070, D071-D088, D090-D120 (côté runtime), D013, D016",
+   "core_functions_touched": [
+    "à établir : Start-DomeniaWriteTask (critique ; Sûreté D091-D097)",
+    "Fill-UserObject, AddOrRemoveObjectGroup, Start-PermissionAnalysis (Annuaire)",
+    "Start-LoadComputerSecrets, Complete-DomeniaSecretLoadUi, Update-DomeniaSecretActionUi (Accès)",
+    "Initialize-DomeniaDatabase, Import-DomeniaLegacyStoreIfNeeded (D028, D113, D115)",
+    "Add-UserMachineLinkIfMissing, ConvertTo-DomeniaCanonicalLinks, Start-ComputerUserLinkProbe (Relations)"
+   ],
+   "rationale": "Plusieurs de ces points sont P0 (D025, D028, D041, D042, D044, D045, D047, D052, D053, D057, D059, D082, D083, D085, D091, D093-D096, D113-D115), mais aucune des trois cartes reçues ne leur donne de site. Ils ne peuvent pas être ordonnés sans conflit avant de recroiser leurs cartes avec les fonctions ci-dessus. Start-DomeniaWriteTask (Sûreté) et Start-UiTask (admission des écritures, D095/D097) seront les prochains points de collision avec le moteur."
+  }
+ ]
+}

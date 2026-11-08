@@ -1,0 +1,16 @@
+{
+ "id": "TRV-098",
+ "verdict": "fait",
+ "preuves": [
+  "src/Domenia.Bridge/BridgeMessages.cs:26-41 — la table des opérations déclare l'effet de chaque opération : Local, LocalRead, NetworkRead (« lecture AD/WMI/DNS/ping »), LocalWrite, Write « plan, confirmation, reçu et relecture requis » ; les effets (action distante, écriture locale, lecture) viennent bien de cette table",
+  "src/Domenia.Bridge/BridgeDispatcher.cs:52-58 — un identifiant inconnu (nom absent du registre) est refusé avant exécution : « Opération inconnue : rien n'a été exécuté » ; il n'est jamais traité comme une lecture",
+  "src/Domenia.Bridge/AdmissionGuards.cs:43-45 — fail closed par classe : « Any other Write, and any class added later, is refused until this guard says otherwise » ; l.50-55 — la porte unique des écritures : seule write.execute est admise en classe Write (WriteCircuit.cs:25), un nom dupliqué est refusé à la composition ; l.58-59 « no operation is ever admitted without a rule »",
+  "src/Domenia.Core/Writes/WriteCircuit.cs:15-17 — reçu exigé et verrou d'écriture : écritures une à la fois, un reçu à vérifier retient toute nouvelle écriture (Assert-WriteAllowed de D1), reçu écrit avant envoi, cible relue après ; l.20 « Nothing is ever retried or replayed »",
+  "src/Domenia.Bridge/EngineSelfTest.cs:67 — banc « write.closed-door » : une opération ordinaire promue OperationClass.Write est refusée par ReadOnlyDirectory",
+  "tests/Domenia.Tests/BridgeTests.cs:33,68-69 — bancs operation.unknown (nom bien formé signalé, nom mal formé jamais recopié) ; tests/web/shell/bridge-queue.test.mjs:64 — « nom fermé » côté interface"
+ ],
+ "manque": "Rien de fonctionnel : la règle littérale D1 « identifiant Write<Nom> = écriture AD » n'existe pas (la classe déclarée à l'enregistrement gouverne seule, et la porte write.execute est la seule écriture admise) ; « inconnu = traité comme modification » est réalisé plus strictement par « inconnu = refusé avant exécution », le verrou d'écriture (reçu incertain bloque les écritures) étant par ailleurs en place.",
+ "effort": "S",
+ "depend": [],
+ "risque": "ecriture-locale"
+}

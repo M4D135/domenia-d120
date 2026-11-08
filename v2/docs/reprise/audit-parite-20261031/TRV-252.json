@@ -1,0 +1,22 @@
+{
+  "id": "TRV-252",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Ad/Screens/AdPosteReader.Network.cs:147 — l'inventaire est écrit (SaveFleetAsync avec MapInventory) dès la confirmation, avant la construction des lignes affichées",
+    "src/Domenia.Ad/Screens/AdPosteReader.Network.cs:342 — les sessions sont enregistrées par SaveFleetAsync avant le retour à l'écran",
+    "src/Domenia.Ad/Screens/AdPosteReader.Probes.cs:52 — les mesures de sondes sont enregistrées par SaveFleetAsync (WorkstationProbes)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Fleet.cs:53 — un relevé d'un poste inconnu ou d'un autre domaine est refusé : identité du poste vérifiée avant écriture",
+    "src/Domenia.Core/Screens/Poste/PosteSessionCache.cs:13 — WorkstationSessionMemory sépare Latest (tentative) et LastComplete (dernière réussite)",
+    "src/Domenia.Core/Screens/Poste/PosteReadingModels.cs:17 — ProbeStatus conserve LastSuccess et LastAttempt distincts : un échec date la tentative sans effacer la réussite",
+    "src/Domenia.Core/Screens/Requetes/QueryReadingRules.cs:44 — les valeurs acceptées sont limitées aux propriétés de la définition (liste blanche de champs)",
+    "src/Domenia.Inventory/CimSession.Metadata.cs:167 — les propriétés évoquant un secret (WqlRules.IsSecret) et les attributs système sont retirées et comptées (hidden)",
+    "src/Domenia.Ad/Screens/AdPosteReader.Network.cs:231 — les logiciels ne vont que dans Recent(...) : mémoire de session, aucun SaveFleetAsync",
+    "src/Domenia.Ad/Screens/AdPosteReader.Network.cs:235 — ServicesAsync retourne le relevé sans aucun enregistrement durable",
+    "src/Domenia.Ad/Screens/AdPosteReader.Diagnostics.cs:25 — QuickDiagnosticAsync retourne les faits sans les enregistrer",
+    "src/Domenia.Ad/Screens/AdPosteReader.Wmi.cs:47 — WmiQueryAsync (explorateur WMI du poste) retourne le résultat sans l'enregistrer"
+  ],
+  "manque": "Sur les six lectures détaillées, trois seulement sont durables (inventaire, sessions, sondes) : logiciels, services, diagnostic rapide et explorateur WMI restent en mémoire de session. Le retrait et le comptage des lignes dont la propriété évoque un secret sont faits sur les métadonnées WMI (CimSession.Metadata), pas sur les lignes au moment du stockage.",
+  "effort": "M",
+  "depend": ["TRV-251", "LocalStore"],
+  "risque": "ecriture-locale"
+}

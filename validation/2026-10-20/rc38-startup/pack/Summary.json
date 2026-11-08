@@ -1,0 +1,17 @@
+﻿{
+    "Passed":  true,
+    "PS":  "5.1.26100.6584",
+    "Archives":  [
+                     {
+                         "SHA256":  "580F04B4A93D7999221BD44DBD8EED898B3A050DF6E6720A05DB9482BF921C1B",
+                         "Edition":  "DEV"
+                     },
+                     {
+                         "SHA256":  "19C112238EAD05DA65172DA564BA5D272089AB7C048805F5E1BF074FFBA52152",
+                         "Edition":  "PROD"
+                     }
+                 ],
+    "Cases":  [
+
+              ]
+}

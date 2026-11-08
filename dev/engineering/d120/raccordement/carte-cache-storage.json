@@ -1,0 +1,364 @@
+{
+ "area": "CACHE, STOCKAGE, SQLITE, MIGRATION (D021-D030, D113, D115, D118) - plan de raccordement en lecture seule. Rien n'a été exécuté : ni PowerShell (aucun pwsh sur ce Mac), ni réseau, ni modification de fichier. Sources : dev/wad/Domenia-Core.ps1 (23 775 lignes), les modules dev/wad/modules/*, Domenia-Modules.ps1, INSTALLER-MISE-A-JOUR.ps1, tools/audit_preload.py, tools/preload-baseline.json, tools/operation-contracts.json, les tests wad/tests/*, et les rapports réels r3-baseline (Windows PowerShell 5.1.26100.9549). Numéros de ligne vérifiés sur l'arbre actuel. Les numéros cités par REPRISE pour mon périmètre sont exacts : Get-DomeniaDatabasePath 19282, Initialize-DomeniaDatabase 19548, Import-DomeniaLegacyStoreIfNeeded 19639, fin du bloc SQLite 19735, Get-WorkerContext 20679. Domenia-Release.Model.ps1 est encore vide (2 lignes) : les signatures de Get-DomeniaStorageLayout, Test-DomeniaSchemaCompatibility et Test-DomeniaMigrationIdempotent ci-dessous sont des PROPOSITIONS.",
+ "sites": [
+  {
+   "ids": "socle (prérequis à D021-D030, D113, D115, D118)",
+   "function": "Get-DomeniaRuntimeModulePlan",
+   "location": "dev/wad/Domenia-Modules.ps1:6-332 (entrée Selection.UI en :8, Live.Model en :168, Storage.UI en :268)",
+   "current": "Plan fermé de 21 modules. Aucune entrée pour Domenia-Common.Model.ps1, Domenia-Cache.Model.ps1 ni Domenia-Release.Model.ps1. Format de chaque entrée : [pscustomobject]@{ File='...'; DotSource=$true; Functions=@(...) }.",
+   "change": "Ajouter Domenia-Common.Model.ps1 (9 fonctions : Get-DomeniaMember, Test-DomeniaGuidText, ConvertTo-DomeniaGuidText, ConvertTo-DomeniaSidText, Get-DomeniaTextHash, ConvertTo-DomeniaUtcDate, Get-DomeniaFeatureFlag, New-DomeniaFact, ConvertTo-DomeniaFlatText) avant tout consommateur. Ajouter ensuite Domenia-Cache.Model.ps1 (28 fonctions) et Domenia-Release.Model.ps1 une fois écrit. Tous en DotSource=$true. Vérifié : aucun de ces noms n'est déjà défini dans le cœur ni dans un autre module.",
+   "risks": "(1) tools/audit_preload.py:73-79 analyse le plan avec la regex File='..';\\s*DotSource=\\$true;\\s*Functions=@\\((.*?)\\)\\s*}. Ajouter Phase et Requires comme le demande REPRISE §7.3 casse cette correspondance, et le contrôle 'Closed exports match' devient muet. (2) Test-DomeniaModules.ps1 n'a produit aucun rapport à la ligne de base (arrêt ligne 105). (3) build_packages.py embarque déjà tout wad/modules et réécrit les manifestes.",
+   "proof_test": "Test-DomeniaModules : cas 'Get-DomeniaCacheKey provient de Domenia-Cache.Model.ps1', via Assert-DomeniaRuntimeImports. Cas fixture : retirer Domenia-Cache.Model.ps1 doit produire DOMENIA_MODULE_MISSING. Cas fixture : renommer une fonction doit produire DOMENIA_MODULE_EXPORT."
+  },
+  {
+   "ids": "D021",
+   "function": "Invoke-GlobalSearch -> Get-DomeniaProjection 'List' + Test-DomeniaProjectionMinimal",
+   "location": "Domenia-Core.ps1:9614-9619 ($props) ; charge utile 'Properties = $props' vers :9770 ; le worker lit @($Payload.Properties) (:9675)",
+   "current": "$props = @(\"name\",\"distinguishedName\",\"objectClass\",\"objectCategory\",\"sAMAccountName\",\"userPrincipalName\",\"mail\",\"dNSHostName\",\"description\",\"displayName\",\"whenChanged\",\"objectGUID\",\"userAccountControl\",\"lockoutTime\",\"msDS-User-Account-Control-Computed\",\"operatingSystem\",\"lastLogonTimestamp\"). La liste est déjà minimale (ni memberOf, ni nTSecurityDescriptor). La fiche (Open-AdObject :21060) lit Get-DomeniaSafeObjectPropertyNames (:8988), qui contient member, memberOf, directReports et userCertificate : c'est une lecture unitaire à la sélection.",
+   "change": "$props=@(Get-DomeniaProjection -Kind List), puis if(-not (Test-DomeniaProjectionMinimal $props).Minimal){throw 'Projection de liste trop lourde.'}. AVANT raccordement, corriger la règle : ajouter uSNChanged à 'List', nécessaire à D025/D026 (objectCategory peut disparaître : New-WBranchRow ne lit qu'objectClass, Core:8059). NE PAS utiliser 'Detail' pour Open-AdObject : ce cas renvoie @(), et Get-WAllProperties lève 'Liste explicite de proprietes AD requise.' (Core:8119). Aucun interrupteur Features.",
+   "risks": "Invoke-GlobalSearch et Get-BranchQueryData figurent dans la liste 'Unchanged critical function' de tools/audit_preload.py:25. Le build (build_packages.py:41) échoue tant que tools/preload-baseline.json n'est pas mis à jour par une décision documentée. Le contrat GlobalSearch (BC118AD7...) reste inchangé, car la projection passe par la charge utile.",
+   "proof_test": "Nouveau cas (modèle Test-DomeniaSearchScope) : extraire par AST le vrai Invoke-GlobalSearch, remplacer Start-UiTask par un double qui capture $Payload.Properties, puis remplacer Get-DomeniaProjection par un espion qui renvoie une liste sentinelle. Le test exige que la charge utile soit exactement la sentinelle et ne contienne pas memberOf. Il échoue si la liste codée en dur reste en place."
+  },
+  {
+   "ids": "D022",
+   "function": "Complete-DomeniaReconcile -> Get-DomeniaRowUpdatePlan",
+   "location": "modules/Domenia-Reconcile.UI.ps1:23-38 ; exécutant Add-DomeniaLiveRow modules/Domenia-Live.UI.ps1:213-275 ; filtre Update-DomeniaLiveFilter Live.UI:165-198 (Refresh :195, déclencheur :660)",
+   "current": "Chaque ligne reçue est mise en file (Reconcile.UI:30-33 : $script:Reconcile.Events.Enqueue(Kind='Row')), puis appliquée cellule par cellule par Set-DomeniaLiveRowValue. Domenia.Live.ResultRow.Set ne notifie que si la valeur change (Domenia-Live.Types.cs:14) : le critère D022 est donc déjà largement couvert. Reste $view.Refresh() à chaque RefreshNeeded dès qu'un filtre local est actif (Live.UI:660).",
+   "change": "Dans Complete-DomeniaReconcile, construire $plan=Get-DomeniaRowUpdatePlan -Existing @($s.Rows) -Incoming @(lignes converties par ConvertTo-DomeniaLiveSnapshot) -KeyProperty 'Guid' -Properties @('Name','Login','UPN','State','OS','LastLogon','Description','Changed','DN'). Ne mettre en file que $plan.Updates et $plan.Inserts, et ne poser $s.RefreshNeeded que si une colonne filtrée change. Mode 'Replace' seulement si le contexte change (nouvelle recherche). Aucun interrupteur.",
+   "risks": "Domenia-Live.UI.ps1 est épinglé octet par octet : contrôle 'Unchanged payload' de audit_preload.py:28, appuyé sur preload-baseline.json Files. Ne modifier que Reconcile.UI si possible. Test-DomeniaModules 'Initialisation reelle du module Reconcile sous WPF'. Le contrat ScopeReconcile est inchangé si seule la partie UI bouge.",
+   "proof_test": "Test WPF (STA) : DataGrid réel lié à une ObservableCollection de Domenia.Live.ResultRow (100 lignes), ligne 50 sélectionnée puis ScrollIntoView. Injecter un résultat de réconciliation où une seule ligne change d'État. Exiger : même SelectedItem (ReferenceEquals), même SelectedIndex, même instance de collection, et 1 seul événement en file (espion sur Events.Enqueue). Aujourd'hui, 100 événements sont mis en file : le test échoue si l'on débranche."
+  },
+  {
+   "ids": "D023",
+   "function": "Begin-DomeniaLiveSearch / Add-DomeniaLiveRow -> New-DomeniaPageBuffer, Add-DomeniaPageRows",
+   "location": "modules/Domenia-Live.UI.ps1:102-131 (création), :224-237 (quota) ; limite issue de Get-BranchQueryData Domenia-Core.ps1:9250-9252 (500 au plus)",
+   "current": "Le quota est [int]$s.State.Limit. Les lignes venues du cache sont évincées au profit des lignes AD fraîches (:229-234). La virtualisation de DgObjects est vérifiée par audit_preload ('Result row virtualisation preserved'). Le cache de visite est borné par MaxEntries=500, MemoryQueries à 20.",
+   "change": "Raccordement de faible valeur. Si on le fait : $s.Buffer=New-DomeniaPageBuffer -PageSize 40 -MaxRowsInMemory ([Math]::Max(10,[int]$s.State.Limit)). La borne max(10, ...) est obligatoire : ValidateRange(10,50000) lève une exception pour une limite saisie entre 1 et 9. Utiliser Add-DomeniaPageRows seulement pour comptabiliser les lignes fraîches (Limited, Complete), afin d'alimenter le libellé 'limite atteinte' ou 'liste complète'. Conserver l'éviction existante.",
+   "risks": "Doublon avec la logique de quota existante. Test-DomeniaStreaming 'Les nouveaux résultats AD remplacent un cache plein'. Live.UI épinglé par audit_preload.",
+   "proof_test": "Test WPF : 2 000 lignes de fixture, limite 500. Exiger moins de 100 DataGridRow réalisés (VisualTreeHelper), Buffer.Limited=$true et LblBranchCount contenant 'limite'. Un espion sur Add-DomeniaPageRows doit être appelé."
+  },
+  {
+   "ids": "D024",
+   "function": "Get-DomeniaCachedPresenceState / Set-DomeniaResultRowPresence -> Get-DomeniaFreshness, Get-DomeniaFreshnessPolicy, Get-DomeniaDataNatures",
+   "location": "Domenia-Core.ps1:2312-2328 et 2330-2350 ; TTL : $script:PresenceCacheSeconds=120 en :7864 ; appelant Show-ObjectRows :17744",
+   "current": "Lecture : $age = ((Get-Date) - [datetime]$entry.Updated).TotalSeconds; if ($age -le [double]$script:PresenceCacheSeconds) { return [string]$entry.State }. Écriture : Updated = $now (heure locale), clé DN en minuscules.",
+   "change": "Stocker UpdatedUtc=[datetime]::UtcNow. Décider par (Get-DomeniaFreshness -Nature 'Presence' -ObservedUtc $entry.UpdatedUtc).State -eq 'Fresh' (la politique Presence vaut 120 s : comportement identique). Retirer $script:PresenceCacheSeconds.",
+   "risks": "Faible. Effet sur Show-ObjectRows (présence initiale). La file Queue-DomeniaMetadata Presence garde son format.",
+   "proof_test": "Extraire par AST les deux fonctions et charger Common.Model et Cache.Model. Remplacer Get-DomeniaFreshnessPolicy par un espion renvoyant FreshSeconds=10. Une entrée vieille de 30 s ne doit pas être renvoyée. Le test échoue si le 120 codé en dur reste."
+  },
+  {
+   "ids": "D024",
+   "function": "ConvertTo-DomeniaLiveObservation + worker LiveCache -> Set-DomeniaObservationTime, Get-DomeniaRecordFreshness",
+   "location": "modules/Domenia-Live.Model.ps1:48-89 (CheckedUtc=$NowUtc en :83), :90-112 (vue) ; worker LiveCache même fichier : lecture :380, écriture :411, rétention :428",
+   "current": "Un paquet PresenceOnly (ping) remet CheckedUtc à l'heure courante. UserCheckedUtc et ObservedUtc sont bien conservés, mais le worker enregistre checked_utc=CheckedUtc, filtre la relecture sur 'checked_utc>= -30 days' et purge sur la même colonne. Conséquence : un ping rajeunit la ligne, et un ancien utilisateur console reste rechargé et conservé au-delà de 30 jours.",
+   "change": "Ajouter Times par nature : Set-DomeniaObservationTime $obs 'Presence' ... pour un PresenceOnly ; Set-DomeniaObservationTime $obs 'Console' ... -Succeeded:($outcome -in 'Observed','NoConsole') pour une lecture CIM. Les vues utilisent Get-DomeniaRecordFreshness 'Console' et 'Presence'. Dans le worker : checked_utc = UserCheckedUtc (date de la nature Console).",
+   "risks": "Le hash LiveCache (F1F7240E...) change : update_worker_contracts.py --apply, Get-DomeniaWorkerOperationHashes (Core:19993) et contrôle audit_streaming.py:39. Test-DomeniaStreaming : 5 cas 'Echec ... conserve la dernière observation sans rafraîchir sa date', 'Observation en cache explicitement marquée cache', 'Cache SQLite roundtrip'. Limite JSON de 16384 octets par observation, ConvertTo-Json -Depth 3 suffisant.",
+   "proof_test": "Avec le vrai ConvertTo-DomeniaLiveObservation et le vrai code LiveCache sur une base temporaire : Observed à T0, puis PresenceOnly à T0+40 j. Relecture avec now=T0+40 j : l'utilisateur console ne doit pas être rechargé comme observation récente. Aujourd'hui il l'est (checked_utc rajeuni) : le test échoue si l'on débranche."
+  },
+  {
+   "ids": "D024",
+   "function": "Show-AdObjectResult -> Set-DomeniaObservationTime (nature Attributes)",
+   "location": "Domenia-Core.ps1:21093-21102 (LoadedAt=Get-Date) ; rendu depuis le cache en :21048-21050 ; consommateur Get-DomeniaSafetyDescriptor :20895-20899",
+   "current": "$script:SelectedObject = [pscustomobject]@{ ... LoadedAt=Get-Date ... } est posé aussi lorsque $script:ShowingCachedObject vaut $true. Une copie en cache (TTL 45 s) reçoit donc une date d'observation actuelle.",
+   "change": "LoadedAt = date de l'élément de cache (Created) lors d'un rendu depuis le cache. Il faut qu'Open-AdObject transmette cette date, car Get-VisitCacheValue ne renvoie que Value. Appeler Set-DomeniaObservationTime $script:SelectedObject 'Attributes' $observedUtc -Succeeded:$isLiveRead.",
+   "risks": "audit_preload exige dans Show-AdObjectResult les motifs suivants : 'finally { $script:RenderingObjectWithoutProbes=$oldProbeGuard }', exactement un 'Sync-DomeniaIndexEntry', 'if (-not $NoNavigate)', 'ReadContent'. Get-DomeniaSafetyDescriptor doit garder \"Phase -ne 'Ready'\". Impact réel faible : la relecture fraîche démarre toujours et le worker revérifie l'USN.",
+   "proof_test": "Extraire Open-AdObject et Show-AdObjectResult par AST, avec des doubles pour Fill-*. Élément de cache Created=now-10 min. Exiger SelectedObject.LoadedAt à environ now-10 min. Aujourd'hui il vaut now : le test échoue."
+  },
+  {
+   "ids": "D025",
+   "function": "Get-DomeniaObjectCacheKey -> Get-DomeniaCacheKey",
+   "location": "modules/Domenia-Selection.UI.ps1:73-79 ; appelants Domenia-Core.ps1:21028 (Open-AdObject) et :20955 (Complete-DomeniaOpenObjectUi, Set-VisitCacheValue)",
+   "current": "return ('object-v2|{0}|{1}|{2}' -f $hash,$Guid.ToLowerInvariant(),$DN.ToLowerInvariant()). $hash est le SHA-256 de Get-DomeniaObjectReadIdentity (epoch|BaseDn|Server|BindUser|référence du credential). Hors sélection, Open-AdObject passe $expectedGuid='' (:21015-21017) : la clé repose alors sur le DN seul.",
+   "change": "Garder la signature, car Test-DomeniaPreload l'appelle en positionnel. Corps : Get-DomeniaCacheKey -Domain ([string]$script:Conn.BaseDn) -Guid $Guid -Reader $Identity -Dc ([string]$script:Conn.Server) -Nature 'Attributes'. Passer l'identité complète comme Reader conserve la sévérité actuelle (epoch, référence du credential). Ne pas mettre InvocationId dans la clé : il est inconnu avant la lecture. Si la clé est vide : Open-AdObject ne lit pas le cache, et Complete-DomeniaOpenObjectUi recalcule la clé avec Get-DomeniaObjectResultGuid ou n'écrit rien. Sans ce garde-fou, toutes les lectures sans GUID partagent la clé ''. Aucun interrupteur (pas de parcours remplacé).",
+   "risks": "(1) audit_preload.py:65 exige 'SHA256' et 'object-v2|' dans Selection.UI : audit à mettre à jour. (2) Test-DomeniaPreload :167-168 utilise 'g', 'a', 'b' (pas des GUID) : les deux clés deviennent '' et ces cas échouent ; les remplacer par de vrais GUID (décision documentée). (3) Test-DomeniaPreload ne charge que Selection.UI et Experience.Model (:40-41) et sert de porte à l'installateur (INSTALLER-MISE-A-JOUR.ps1:153-160, Passed>=40, Failed=0) : il doit charger Common.Model et Cache.Model. (4) L'invalidation par DN de Continuity.UI casse (site suivant).",
+   "proof_test": "Test-DomeniaPreload : ouverture hors sélection de 'CN=A' alors que le cache contient une entrée de même DN sous un autre GUID. Exiger Renders.Count=0 et Requests.Count=1. Exiger aussi une clé préfixée 'cache-v3|' et deux clés différentes pour deux lecteurs. Avec object-v2 (clé DN seule), le cache est servi : le test échoue."
+  },
+  {
+   "ids": "D025",
+   "function": "Invoke-DomeniaObjectChanges (invalidation du cache de détail)",
+   "location": "modules/Domenia-Continuity.UI.ps1:189-191",
+   "current": "foreach($cacheKey in @($script:VisitCache.Keys)){ if(([string]$cacheKey).IndexOf([string]$row.DN,[StringComparison]::OrdinalIgnoreCase) -ge 0){[void]$script:VisitCache.Remove($cacheKey)} }. Cela repose sur le DN présent en clair dans la clé object-v2.",
+   "change": "Invalider par GUID : $g=([string]$row.Guid).ToLowerInvariant(). Retirer les clés qui contiennent '|'+$g+'|' (Get-DomeniaCacheKey met l'identité en minuscules).",
+   "risks": "audit_release.py:92 exige 'VisitCache.Remove' et l'absence d'appel à Open-AdObject dans Invoke-DomeniaObjectChanges : conserver les deux.",
+   "proof_test": "Entrée cache-v3 pour un GUID G, puis ChangeEvents avec Status='Changed' sur ce GUID : l'entrée doit être retirée. Avec la recherche par DN, l'entrée survit, car la clé v3 ne contient pas de DN : le test échoue."
+  },
+  {
+   "ids": "D025",
+   "function": "Open-AdObject (lecture du cache) et Complete-DomeniaOpenObjectTaskUi -> Test-DomeniaCacheEntryValid",
+   "location": "Domenia-Core.ps1:21038-21053 (lecture), :20973-20991 (résultat frais), :20955 (stockage)",
+   "current": "La valeur en cache est le résultat brut ; il est seulement validé par Assert-DomeniaObjectResultIdentity (DN, GUID attendu). Aucune métadonnée Domaine, Lecteur, DC ou USN n'accompagne l'entrée. La table domenia_provenance (Core:19612) est créée mais jamais écrite.",
+   "change": "Stocker une enveloppe {Result; Guid; Domain=BaseDn; Reader=identité; Dc=Server; InvocationId=''; Usn=uSNChanged}. À la lecture : Test-DomeniaCacheEntryValid $meta ([pscustomobject]@{Guid=$expectedGuid;Domain=..;Reader=$identity}). À l'arrivée du résultat frais : comparer l'enveloppe et le résultat (même DC, Usn) et afficher 'cache périmé' si 'Version differente'. Ajouter InvocationId dans le worker OpenAdObject (Get-WDirectoryVersionSource, Core:7937) coûterait 2 lectures LDAP par ouverture et un nouvel épinglage : ne pas le faire en RC1.11.0.",
+   "risks": "Test-DomeniaPreload remplace Get-VisitCacheValue et Complete-DomeniaOpenObjectUi (:66, :73) et attend un résultat brut : les fixtures doivent suivre. Get-DomeniaEffectiveWorkerResult reçoit désormais une enveloppe.",
+   "proof_test": "Cache : Usn=10 sur dc1. Résultat frais : Usn=12 sur dc1. Exiger que LblObjectReadStatus mentionne 'Version differente' et qu'un espion sur Test-DomeniaCacheEntryValid soit appelé. Le test échoue si l'on débranche."
+  },
+  {
+   "ids": "D026",
+   "function": "Complete-DomeniaReconcile + worker ScopeReconcile -> Resolve-DomeniaIncrementalSync",
+   "location": "modules/Domenia-Reconcile.UI.ps1:3-22 (worker épinglé ScopeReconcile 538B302B...), :34-36 (absences)",
+   "current": "if(-not $r.Capped){ ... Kind='Missing' ... } pour toute ligne affichée absente du retour. Le worker ne renvoie ni DC ni invocationId. Aucune suppression n'a lieu (le libellé indique seulement 'Absent du dernier retour : a reverifier'), mais un changement de DC produit quand même ce libellé.",
+   "change": "Dans le worker, ajouter Source=(Get-WDirectoryVersionSource $Context), une fois par passe toutes les 180 s : à réépingler. Dans l'interface, conserver $script:Reconcile.Checkpoint et appeler Resolve-DomeniaIncrementalSync avec {Dc; InvocationId; ScopeDn=BaseDn|Scope|Filter; ScopeComplete=(-not Capped); Rows; KnownGuids=GUID affichés; KnownDnByGuid}. Ne marquer 'Missing' que pour $sync.NotSeen, signaler les déplacements avec $sync.Moves, et n'avancer le repère qu'avec CheckpointNext.",
+   "risks": "Test-DomeniaModules 'Corps ScopeReconcile toujours conforme au contrat' compare le hash de operation-contracts.json : mise à jour nécessaire. Changement de comportement voulu : la première passe (sans repère) ne marque plus rien. Le repli 'unknown-<guid>' de Get-WDirectoryVersionSource ne donne jamais la même instance, donc aucune absence (sûr).",
+   "proof_test": "Repère dc1/i1, résultat dc2/i2 non tronqué auquel il manque une ligne : aucune ligne ne doit porter 'Absent du dernier retour'. Aujourd'hui le libellé est posé : le test échoue."
+  },
+  {
+   "ids": "D026",
+   "function": "Get-DomeniaIndexWorkerCode / Start-DomeniaIndexRefresh / Complete-DomeniaIndexRefreshUi -> Resolve-DomeniaIncrementalSync",
+   "location": "Domenia-Core.ps1:14860-15012 (worker IndexBuild ; $sameServer en :14873 ; Truncated en :14902/:15006), :13871-13911 (charge utile LastServer/LastUsn), :13827-13869 (application) ; Storage.Worker.ps1:175 (DELETE)",
+   "current": "Le delta USN n'est utilisé que si Payload.LastServer -ieq Context.Server : comparaison de nom, sans invocationId. En cas de passe non incrémentale, la fin d'exécution appelle Save-DomeniaIndex (ReplaceAll=$true, donc 'DELETE FROM ad_objects;'), même si le worker signale Truncated=$true (MaxObjects 60000 ou BudgetMs dépassé). Les objets non atteints sont alors effacés de l'index.",
+   "change": "Le worker renvoie InvocationId (Get-WDirectoryVersionSource) et teste la même instance (LastInvocationId en charge utile). La fin d'exécution appelle Resolve-DomeniaIncrementalSync. ReplaceAll seulement si ScopeComplete (= -not Truncated) et même périmètre ; sinon Update-DomeniaIndexDatabaseRows en upsert. Stocker l'invocationId dans sync_state.details ('inv=<guid>', colonne existante, aujourd'hui 'async') pour éviter toute évolution de schéma.",
+   "risks": "Hash IndexBuild (BEA2AF0C...) à réépingler. Load-DomeniaIndexMetadata doit lire details. Get-DomeniaIndexWorkerCode n'est pas dans la liste critique d'audit_preload.",
+   "proof_test": "Complete-DomeniaIndexRefreshUi avec effective={Incremental=$false;Truncated=$true;Rows=@(1 ligne)}, Save-DomeniaIndex et Update-DomeniaIndexDatabaseRows remplacés par des espions : exiger aucun appel avec ReplaceAll. Aujourd'hui Save-DomeniaIndex est appelé : le test échoue."
+  },
+  {
+   "ids": "D027",
+   "function": "Start-DomeniaLiveBackgroundWork / Complete-DomeniaLiveProbe / Initialize-DomeniaLive / Reset-DomeniaLiveIdentity -> New-DomeniaNegativeCache, Get-DomeniaNegativeTtlSeconds, Register-DomeniaFailure, Clear-DomeniaFailure, Test-DomeniaNegativeCache",
+   "location": "modules/Domenia-Live.UI.ps1:564-575 (avant Start-UiTask), :412-462, :28-35, :63-67",
+   "current": "Chaque nouvelle intention de sélection relance un ping, puis CIM (délai de 14 s). Resélectionner un poste éteint le sollicite à nouveau. Seul AuthRejected suspend tout, et de façon globale (RemoteFaulted, :432-434).",
+   "change": "Ajouter $script:Live.NegativeCache=New-DomeniaNegativeCache à l'initialisation et à la remise à zéro d'identité. Avant Start-UiTask : $neg=Test-DomeniaNegativeCache $script:Live.NegativeCache $item.Computer 'Cim' -Explicit:([bool]$intent.Manual). Si Suppressed : pas de tâche, SessionState=$neg.Reason, observation conservée (-Cached). Dans Complete-DomeniaLiveProbe : Register-DomeniaFailure avec la correspondance Timeout->'Timeout', Unavailable->'Unreachable', Denied->'AccessDenied', AuthRejected->'CredentialRejected' ; Clear-DomeniaFailure si Observed ou NoConsole. Interrupteur facultatif Features.NegativeCache (défaut true), non prévu par REPRISE : à décider, et dépendant du défaut de lecture de config décrit plus bas.",
+   "risks": "Live.UI épinglé par audit_preload. Recouvrement avec D018 (Register-DomeniaProviderOutcome, Engine.Model:301) : risque de double suppression, il faut une source de vérité. Test-DomeniaStreaming 'Rejet distant coupe les nouvelles sondes'.",
+   "proof_test": "Probe Timeout sur PC1, puis resélection de PC1 (intention non manuelle) : exiger qu'aucun Start-UiTask LiveConsole ou LiveSelectedPing ne parte et que SessionState contienne 'Echec recent'. Puis Request-DomeniaLiveRecheck (Manual) : Start-UiTask doit être appelé. Aujourd'hui la resélection relance la sonde : le test échoue."
+  },
+  {
+   "ids": "D028",
+   "function": "Domenia-Storage.UI.ps1 (file d'écriture) -> New-DomeniaWriteQueue, Add-DomeniaWriteRequest, Get-DomeniaWriteBatch",
+   "location": "modules/Domenia-Storage.UI.ps1:4-10 (Pending=@{}), :11-18, :23-40, :41-53 (lot par Path en :45-46), :68-74 (remise en file en :71), :75-85",
+   "current": "Pending est une table de hachage indexée par QueueKey, de capacité 256. Le lot regroupe jusqu'à 64 éléments du MÊME chemin de base : $items=@($script:Persistence.Pending.Values|Where-Object{$_.Path -ceq $path}|Select-Object -First 64). En cas d'échec, un élément n'est remis en file que s'il est absent : if(-not $script:Persistence.Pending.ContainsKey($i.QueueKey)).",
+   "change": "Remplacer Pending par New-DomeniaWriteQueue -Capacity 256 et l'ajout par Add-DomeniaWriteRequest -Table ($Kind+'|'+$Path) -Key $Key -BaseVersion $Expected -Payload $item. AVANT raccordement, compléter la règle : (a) un lot partitionné par Path (paramètre -Partition, ou une file par base), sans quoi un lot mélangerait deux bases après changement de domaine ; (b) un ajout 'seulement si absent' pour la remise en file, car Add-DomeniaWriteRequest écrase la charge utile la plus récente.",
+   "risks": "Test-DomeniaModules contrôle que $script:Persistence vaut $null à l'import (module 'pur'). audit_candidate.py:86 (BEGIN IMMEDIATE/ROLLBACK/COMMIT dans le worker). Le contrat LocalStore est inchangé.",
+   "proof_test": "Deux éléments pour deux bases (changement de domaine) : le premier lot ne doit contenir que la base A. Un 257e élément doit être refusé (Accepted=$false, statut 'File locale pleine'). Après échec, la remise en file ne doit pas écraser une requête plus récente sur la même clé."
+  },
+  {
+   "ids": "D028",
+   "function": "Worker LiveCache (second écrivain de user_machine_links) + Merge-DomeniaLiveLinkMemory -> Resolve-DomeniaWriteConflict",
+   "location": "modules/Domenia-Live.Model.ps1:414-425 ; modules/Domenia-Live.UI.ps1:367-389 ; contrôle optimiste du writer unique dans Storage.Worker.ps1:141-146",
+   "current": "LiveCache écrit 'INSERT OR REPLACE INTO user_machine_links ... WHERE NOT EXISTS(... Manual ... ou plus récent)' sans passer par le contrôle LinkHash de LocalStore. Merge-DomeniaLiveLinkMemory modifie le lien en mémoire mais pas $script:LinkBaseline (ConvertTo-DomeniaLinkRecord, Guard.Model:40, fait une copie).",
+   "change": "Retirer l'écriture de user_machine_links de LiveCache (réépinglage) et passer les liens console observés par la file unique (Queue-DomeniaLinkChanges par clé, Expected=empreinte de référence). Le worker ne peut pas appeler une fonction de module : garder le test LinkHash en ligne, qui reproduit exactement Resolve-DomeniaWriteConflict, ou injecter la règle comme Get-DomeniaStructuredError (New-DomeniaWorkerRunspace, Core:20161). Solution minimale : mettre à jour LinkBaseline dans Complete-DomeniaLiveCache pour les clés écrites.",
+   "risks": "Hash LiveCache. audit_selection.py:57 exige 'Live.SaveQueue' dans Complete-DomeniaLiveProbe. Test-DomeniaStreaming 'Cache SQLite écrit les projections et observations'.",
+   "proof_test": "Base temporaire avec le vrai schéma (extrait d'Initialize-DomeniaDatabase), vrai LiveCache et vrai LocalStore. Lien console PC1 enregistré par LiveCache, puis modification manuelle d'un autre poste (Queue-DomeniaLinkChanges). Exiger que result.Conflicts ne contienne pas PC1. Aujourd'hui PC1 est en conflit (Expected = ancienne empreinte) : le test échoue."
+  },
+  {
+   "ids": "D028",
+   "function": "Libellés d'enregistrement -> Get-DomeniaPersistenceLabel",
+   "location": "modules/Domenia-Guard.UI.ps1:181-182 (LblGuardMetrics) ; modules/Domenia-Live.UI.ps1:665 ($save) ; Storage.UI :14, :34, :38, :72-73, :82 (Set-Status)",
+   "current": "'Cache en attente : '+$queue et des textes ad hoc ('cache uniquement en mémoire', 'mémoire locale non enregistrée').",
+   "change": "Get-DomeniaPersistenceLabel -Pending $q -Failed ([int]$script:Persistence.Failures) -Suspended ($script:Persistence.Failures -ge 3), même règle pour Live (SaveFault).",
+   "risks": "Live.UI épinglé. Simples textes, aucun test existant ne les vérifie à la lettre (à confirmer suite par suite).",
+   "proof_test": "Tick Guard avec Persistence.Failures=3 et l'onglet TabGuard sélectionné : LblGuardMetrics doit contenir 'suspendu'."
+  },
+  {
+   "ids": "D029",
+   "function": "Rétention et purge -> Get-DomeniaRetentionPolicy, Get-DomeniaPurgePlan, Format-DomeniaSize",
+   "location": "modules/Domenia-Storage.Worker.ps1:187 ; modules/Domenia-Live.Model.ps1:428 ; Domenia-Core.ps1:19526-19529 (rotation des sauvegardes), :16453 (journal 5 Mo) ; onglet XAML TabIndex 'Base autonome' (:5741) ; Get-WorkerContext :20686-20688",
+   "current": "Le code applique : operation_runs 10000 et user_machine_history 20000 à chaque lot LocalStore ; adcc_live_* : 20 requêtes et 5000 observations par périmètre, 30 jours ; 7 sauvegardes ; journal tourné à 5 Mo. Aucune purge pilotable : BtnDashClearCache (Core:18837) vide seulement la mémoire.",
+   "change": "Nouvelles opérations épinglées StorageUsage et StoragePurge (Engine.Model:271 les classe déjà en 'Storage'), affichées dans TabIndex avec Format-DomeniaSize. Plan par Get-DomeniaPurgePlan ; afficher la liste Refused. Correspondance catégorie -> table à ajouter, absente de la règle : Observations = adcc_live_observations, presence_cache, park_state ; Snapshots = adcc_live_queries ; History = user_machine_history, user_scan_history, operation_runs ; Index = ad_objects, sync_state, domenia_provenance. Jamais : user_machine_links dont la source est Manual ou 'Saisie manuelle' (les liens observés vivent dans la même table), le dossier Receipts, la configuration et les préférences.",
+   "risks": "Les nouvelles opérations doivent entrer dans $nonDirectoryOperations de Get-WorkerContext (:20688), sinon elles exigent et reçoivent le credential AD. Le nombre d'opérations augmente (57 aujourd'hui). La disponibilité de dbstat dans winsqlite3 est inconnue : se replier sur nombre de lignes et taille du fichier. Les chiffres de la politique divergent du code : décision requise.",
+   "proof_test": "Base temporaire peuplée dans toutes les tables, plus un dossier Receipts et un Domenia.settings.json. Plan avec toutes les catégories, puis exécution du worker StoragePurge. Exiger : liens manuels, reçus et réglages inchangés à l'octet ; observations réduites. Exiger aussi qu'un espion Get-DomeniaPurgePlan soit appelé avant tout worker."
+  },
+  {
+   "ids": "D030",
+   "function": "Update-DomeniaSelectionReadUi + Get-DomeniaSafetyDescriptor -> Get-DomeniaCacheReadPolicy",
+   "location": "modules/Domenia-Selection.UI.ps1:106-109 ; Domenia-Core.ps1:20894-20899",
+   "current": "$contentHost.IsEnabled = $ready (Phase 'Ready') ; bouton Réessayer : IsEnabled = ($load.Phase -eq 'Failed' -and -not (Test-DomeniaAccessBusyWrite)). Les écritures sont refusées hors 'Ready' et au-delà de 15 min. Le critère est donc déjà partiellement tenu.",
+   "change": "$p=Get-DomeniaCacheReadPolicy -HasSnapshot $hasData -IdentityMatches (GUID affiché = GUID de sélection) -FreshReadConfirmed ($load.Phase -eq 'Ready') -Offline (DirectoryCredentialFaulted, ou dernière erreur Unreachable) -WriteUncertain ($script:WriteState -in 'Unknown','UnknownPending'). Puis IsEnabled=$p.CanEdit, Réessayer=$p.CanRetry, ToolTip=$p.Reason. Get-DomeniaSafetyDescriptor lève une exception si -not CanEdit.",
+   "risks": "audit_preload exige \"Phase -eq 'Ready'\" dans Selection.UI. Test-DomeniaPreload 'A matching cache is shown...' attend IsEnabled=$false : cohérent. Désactiver Réessayer hors ligne change le comportement, et la détection 'hors ligne' est approximative : à décider.",
+   "proof_test": "Rendu depuis le cache, puis échec 'Serveur indisponible' avec WriteState='Unknown'. Exiger : contenu visible, IsEnabled=$false, Réessayer désactivé, info-bulle 'Operation a verifier'. Aujourd'hui Réessayer est actif : le test échoue."
+  },
+  {
+   "ids": "D030",
+   "function": "Explorateur de cache -> Get-DomeniaCacheCatalogRows",
+   "location": "Aucun site aujourd'hui. Hôte : TabIndex. Données : adcc_live_queries (Live.Model:395) et sync_state. Requête sauvegardée construite en modules/Domenia-Live.UI.ps1:642 et modules/Domenia-Continuity.UI.ps1:199",
+   "current": "La requête mémorisée contient {QueryKey (hash), ObservedUtc, Rows} sans aucune description du périmètre. scope_key est un hash du lecteur. Impossible d'afficher 'Périmètre' et 'Lecteur'.",
+   "change": "Ajouter Scope=[pscustomobject]@{BaseDn;Scope;TypeFilter;Search} à l'objet requête (charge utile, sans effet sur le hash). Lecture en worker : nouvelle opération CacheCatalogRead, ou LiveCache Mode='Catalog' (réépinglage), limitée au scope_key courant ('Lecteur' = compte courant). Rendu par Get-DomeniaCacheCatalogRows.",
+   "risks": "Live.UI épinglé. Bornes de payload 8 Mo. Aucune lecture SQLite sur le thread WPF.",
+   "proof_test": "Après une recherche finalisée, le catalogue doit contenir une ligne avec Perimetre=BaseDn, une date Observé et un Usage contenant 'historique'. Un espion sur Get-DomeniaCacheCatalogRows doit être appelé."
+  },
+  {
+   "ids": "D113",
+   "function": "Import-DomeniaLegacyStoreIfNeeded / Invoke-DomeniaDatabaseMaintenance / installateur / Read-DomeniaPreference -> Test-DomeniaMigrationIdempotent (Release.Model, à écrire)",
+   "location": "Domenia-Core.ps1:19639-19710 et :19713-19735 ; INSTALLER-MISE-A-JOUR.ps1:127-136 ; Domenia-Core.ps1:2737-2742",
+   "current": "Import-DomeniaLegacyStoreIfNeeded est INATTEIGNABLE : son seul appelant, Invoke-DomeniaDatabaseMaintenance, n'est appelé nulle part (vérifié par grep sur tout dev/). Même appelée, elle pose plusieurs problèmes : le seul garde est 'table vide' ; les écritures sont faites ligne à ligne sur le thread WPF, hors transaction (park, scan, secret) ; Save-DomeniaIndex reçoit -BaseDn '' (:19654), ce qui écrit sync_state.base_dn='' et empêche ensuite Get-DomeniaDatabasePath (:19307) d'adopter la base ; les liens passent par Queue-DomeniaLinkChanges, qui exige $script:Window (Storage.UI:9). La migration ADCC réelle aujourd'hui : l'installateur copie wad/ADCC.* vers wad/Domenia.* si absent ('Conserve' sinon), Read-DomeniaPreference relit ADCC.* sans trace, ADCC.db est adoptée sur place.",
+   "change": "Test-DomeniaMigrationIdempotent -ExistingConfigPresent -LegacyConfigPresent -ExistingLinkKeys -LegacyLinks -ImportMarker renvoie {CopyConfig; LinksToInsert; LinksSkipped; HistoryToInsert; Trace}. Rendre la migration explicite (bouton dans TabIndex) : Invoke-DomeniaDatabaseMaintenance -Backup -ImportLegacy, sauvegarde d'abord. Faire l'import dans le worker LocalStore (nouveau Kind 'LegacyImport', réépinglage), en une transaction, avec un marqueur schema_info 'legacy_import:<sha256 source>'. Passer le vrai BaseDn. Tracer chaque nom historique repris (Write-AppLog). Dans l'installateur, charger Common et Release depuis le paquet source pour la décision de copie.",
+   "risks": "La porte de l'installateur (Test-DomeniaPreload) et audit_candidate.py ('Updater preserves existing configuration' : 'SourceOverride', 'ADCC.', 'PreserveExisting'). Une migration interrompue n'est jamais reprise tant que le garde reste 'table vide'.",
+   "proof_test": "%LOCALAPPDATA% redirigé vers un bac à sable avec fixtures TSV/CSV ADCC. Import exécuté deux fois : nombres identiques pour ad_objects, user_machine_links et user_machine_history ; Domenia.settings.json existant inchangé à l'octet ; journal mentionnant les sources ADCC. Variante : exception injectée après N lignes, puis reprise jusqu'à un import complet. Aujourd'hui la fonction est inatteignable et une reprise reste partielle : le test échoue."
+  },
+  {
+   "ids": "D115",
+   "function": "Initialize-DomeniaDatabase + Backup-DomeniaDatabase -> Test-DomeniaSchemaCompatibility (Release.Model, à écrire)",
+   "location": "Domenia-Core.ps1:19553-19562 (contrôles), :19563-19615 ($schema), :19619-19620 (transaction), :19489-19540 (sauvegarde ; rotation :19526-19529)",
+   "current": "if($version.Count -ne 1 -or [string]$version[0].value -ne '11'){throw 'Version de base incompatible. Source conservee ; migration explicite requise.'} ; une domenia_schema autre que '1' donne 'Schema Domenia incompatible'. Sauvegarde seulement si schema_info existe sans domenia_schema (base ADCC). Une base héritée SANS schema_info mais avec des tables reçoit 'schema_version=11' (INSERT OR IGNORE) sans sauvegarde. Les sauvegardes s'appellent 'Domenia-<stamp>.db' et la rotation (Remove-Item au-delà de 7) peut supprimer la sauvegarde de migration.",
+   "change": "Faits sondés : HasSchemaInfo, SchemaVersion, DomeniaSchema, HasUserTables. Décision de Test-DomeniaSchemaCompatibility : Create, Current, UpgradeFromAdcc, UpgradeLegacy, RefuseFuture ou RefuseUnknown, avec RequiresBackup. RefuseFuture : exception explicite ('base créée par une version plus récente, schéma X ; aucune écriture') AVANT tout PRAGMA ou CREATE. RequiresBackup : Backup-DomeniaDatabase -Purpose PreMigration doit réussir, sinon abandon ; nom 'Migration-v<de>-<stamp>.db', hors du filtre 'Domenia-*.db', donc hors rotation et hors -IfNeeded ; chemin noté dans schema_info hors du here-string $schema. RC1.11.0 peut rester en '11'/'1' si D026 range l'invocationId dans sync_state.details. Toute évolution ultérieure passe en domenia_schema '2' : RC1.10.7 refuse déjà tout ce qui n'est pas '1' (refus explicite, pas de rétrogradation silencieuse). Les reçus sont des fichiers jamais touchés par la restauration de l'installateur (:65-100).",
+   "risks": "audit_candidate.py:108-121 exige les chaînes 'Version de base incompatible' et 'Schema Domenia incompatible', Backup-DomeniaDatabase avant '$schema =', et un schema_info égal à {'schema_version':'11','domenia_schema':'1'} sur base neuve. Sauvegarder-Cache.ps1 extrait Backup-DomeniaDatabase par AST : aucune nouvelle dépendance, ou l'ajouter à $wanted. Test-Domenia remplace Initialize-DomeniaDatabase par un double et extrait Backup et Get-DomeniaDatabasePath. BEGIN IMMEDIATE sur le thread WPF (attente busy_timeout jusqu'à 2,5 s).",
+   "proof_test": "Nouvelle suite, SQLite réel, bac à sable. (a) Base en schema_version=12 : exception 'plus recente', SHA-256 du fichier inchangé, aucune table créée. (b) Base héritée avec ad_objects sans schema_info : Migration-*.db présent et quick_check ok avant le marquage. (c) 8 sauvegardes de routine : la sauvegarde de migration subsiste. (d) Exception injectée après BEGIN : version inchangée. (b) et (c) échouent aujourd'hui."
+  },
+  {
+   "ids": "D115",
+   "function": "Workers LocalStore et LiveCache (contrôle de version côté worker)",
+   "location": "modules/Domenia-Storage.Worker.ps1:130-133 ; modules/Domenia-Live.Model.ps1:393-398",
+   "current": "LocalStore refuse déjà schema_version différent de '11' et domenia_schema différent de '1' ('Schema stockage incompatible.'). LiveCache exécute 'CREATE TABLE IF NOT EXISTS adcc_live_*' et écrit user_machine_links sur n'importe quelle base, y compris une base future.",
+   "change": "LiveCache : si schema_info existe et que la version n'est pas prise en charge, lever 'Schema de cache incompatible : base plus recente.' avant tout CREATE. Si schema_info est absent, comportement inchangé (la fixture de Test-DomeniaStreaming n'a pas de schema_info). Versions prises en charge : charge utile calculée côté interface avec la même règle, ou règle injectée dans le runspace comme Get-DomeniaStructuredError (Core:20161). Réépingler LiveCache, et LocalStore si son message change.",
+   "risks": "Hashes de contrat ; Test-DomeniaStreaming 'Empreinte du worker cache réelle' (Assert-DomeniaWorkerOperationCode) ; audit_streaming.py:39.",
+   "proof_test": "Vrai code LiveCache, Mode='Write', sur une base temporaire en schema_version=12 : exception attendue, et sqlite_master sans adcc_live_*. Aujourd'hui les tables sont créées : le test échoue."
+  },
+  {
+   "ids": "D118",
+   "function": "Initialize-DomeniaDataStore -> Get-DomeniaStorageLayout (Release.Model, à écrire)",
+   "location": "Domenia-Core.ps1:19088-19122 ; défauts LocalStore :19075-19084 ; appelée tôt par le point d'entrée :23678",
+   "current": "Modes Compatible, UserLocal et Portable. Compatible bascule en <wad>\\data dès que ce dossier n'est pas vide (:19093-19095), sinon %LOCALAPPDATA%\\Domenia\\Data. Réseau et liens refusés. DACL privée en UserLocal. Test d'écriture : throw ('Stockage non inscriptible : '+$dir+'. Aucun repli silencieux. Configurez UserLocal.'). Création de Logs, Backups, Diagnostics, Exports et Legacy. CreateDirectory (:19100) précède le test d'écriture : en cas d'échec, l'erreur .NET brute remonte.",
+   "change": "$layout=Get-DomeniaStorageLayout -Mode $mode -RootDir $script:RootDir -LocalAppData ([Environment]::GetFolderPath('LocalApplicationData')) -PortableHasData $hasLegacy. Résultat : {Effective; Reason; catégories Configuration (lecture seule), Preferences, Cache, Backups, Logs, Receipts}. Test d'écriture pour chaque catégorie MustBeWritable, erreur nommant la catégorie et le chemin, $script:StorageLayout exposé, mode effectif et raison journalisés au démarrage. Recommandation à trancher : une surcharge par utilisateur du mode, car un compte standard ne peut pas éditer wad\\Domenia.config.json sous Program Files.",
+   "risks": "Test-DomeniaAcl (38 contrôles, Complete exigé) : exactement un SetSecurityDescriptorSddlForm à 2 arguments avec [Security.AccessControl.AccessControlSections]::Access ; 'DOMENIA_STORE_DACL' avant le texte exact '$script:DataStoreValidated=$true' ; 'throw [InvalidOperationException]::new'. Également audit_candidate ('DriveType', 'ReparsePoint') et audit_acl_hotfix et audit_module_hotfix.",
+   "proof_test": "Bac à sable, mode Portable, refus d'écriture (ACE deny) sur le dossier data de test, %LOCALAPPDATA% redirigé. Exiger une exception nommant la catégorie, %LOCALAPPDATA% du bac à sable vide, et un espion Get-DomeniaStorageLayout appelé une fois."
+  },
+  {
+   "ids": "D118",
+   "function": "Write-DomeniaPreference / Get-DomeniaPreferencePath",
+   "location": "Domenia-Core.ps1:2759-2773 ; :2710-2730",
+   "current": "foreach ($candidate in @($paths.User,$paths.Legacy)) { try { Write-DomeniaAtomicText ...; return $true } catch { } } : si DataDir n'est pas inscriptible, les préférences sont écrites EN SILENCE dans <wad> (RootDir). Get-DomeniaPreferencePath se replie sur la racine de %LOCALAPPDATA% (Domenia.settings.json sans sous-dossier) quand DataDir est vide.",
+   "change": "Écrire uniquement dans $script:StorageLayout Preferences ; en cas d'échec, renvoyer $false avec un journal explicite. Legacy devient une liste en lecture seule (repli .bak et noms ADCC.* conservés, tracés). Exception si DataDir n'est pas initialisé.",
+   "risks": "audit_experience.py:129 exige '$written=Write-DomeniaPreference' et 'if(-not $written){throw' dans Save-DomeniaSettings : à conserver. Test-Domenia 'Preferences : repli sur JSON .bak valide' (lecture inchangée). Installations en lecture seule : les préférences ne sont plus enregistrées, avec un avertissement visible (voulu).",
+   "proof_test": "DataDir en lecture seule (ACE deny), RootDir inscriptible : Write-DomeniaPreference doit renvoyer $false, et RootDir\\Domenia.settings.json ne doit pas exister. Aujourd'hui le fichier est créé : le test échoue."
+  },
+  {
+   "ids": "D118",
+   "function": "Get-WorkerContext (ReceiptRoot) / Get-DomeniaFastLoginLogPath / Write-DomeniaBootstrapTrace",
+   "location": "Domenia-Core.ps1:20720 ; :22614-22623 ; :346-359 ; dev/wad/Domenia-Start.ps1:91",
+   "current": "ReceiptRoot = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Domenia\\Receipts'), quel que soit le mode. Journal de connexion : DataDir\\Logs, sinon %LOCALAPPDATA%\\DOMENIA\\Logs, sinon <wad>\\Logs. Journal d'amorçage : %LOCALAPPDATA%\\DOMENIA\\Logs, sinon %TEMP%. Erreur de démarrage : %TEMP%\\Domenia-startup-error.log.",
+   "change": "ReceiptRoot = $script:StorageLayout Receipts, même valeur. NE PAS déplacer les reçus en mode Portable : des reçus non résolus deviendraient introuvables, ReceiptReady resterait faux et les écritures seraient bloquées. Journal de connexion : catégorie Logs, sans repli vers <wad>. Amorçage : documenté comme journal pré-configuration, hors catégories.",
+   "risks": "Show-DomeniaUnavailableReasons et ReceiptReady. Test-DomeniaAcl 'Racine des recus' appelle Get-WReceiptRoot avec un chemin explicite : non affecté.",
+   "proof_test": "Get-WorkerContext extrait par AST avec un layout de bac à sable : Context.ReceiptRoot doit valoir le chemin du layout. Le test échoue si le chemin reste codé en dur."
+  },
+  {
+   "ids": "D118 (et interrupteurs Features.* de F5)",
+   "function": "Load-AppConfig / Get-CfgValue / New-DefaultConfig",
+   "location": "Domenia-Core.ps1:982-1023 (section inconnue en :993, catch {} en :998), :1034-1044, :18896-19086",
+   "current": "Une section absente de New-DefaultConfig est stockée sous forme de PSCustomObject : $default[$section.Name] = $section.Value. Get-CfgValue appelle ensuite $script:Config[$Section].Contains($Name) : PSCustomObject n'a pas cette méthode, l'exception est avalée et la valeur par défaut est renvoyée. New-DefaultConfig ne contient ni Features, ni Streaming, ni ParkSweep. Le JSON livré ({Auth, Streaming}) a donc sa section Streaming ignorée, et un JSON invalide est ignoré en silence.",
+   "change": "Ajouter Features=[ordered]@{}, Streaming=[ordered]@{} et ParkSweep=[ordered]@{} dans New-DefaultConfig, ou convertir toute section inconnue en dictionnaire ordonné dans Load-AppConfig. Journaliser un avertissement explicite si le JSON est invalide.",
+   "risks": "Réactive des valeurs jusque-là ignorées. Streaming.AutoDetectLoggedUser=false n'est lu nulle part. ParkSweep.SharedPath, s'il est configuré, activerait la synchronisation du parc sur partage réseau : à auditer. audit_preload épingle wad/Domenia.config.json : ne pas modifier le fichier livré, seulement les valeurs par défaut du cœur.",
+   "proof_test": "Config {\"Features\":{\"Scheduler\":false}}, puis Load-AppConfig : Get-DomeniaFeatureFlag 'Scheduler' doit renvoyer $false. Aujourd'hui il renvoie $true : le test échoue."
+  },
+  {
+   "ids": "D115 / D029 (outillage)",
+   "function": "Sauvegarder-Cache.ps1",
+   "location": "dev/wad/maintenance/Sauvegarder-Cache.ps1:15-24",
+   "current": "Extrait par AST Initialize-DomeniaWinSqliteNative, New-DomeniaUtf8Ptr, ConvertFrom-DomeniaUtf8Ptr, Open-DomeniaDatabase, Close-DomeniaDatabase, Invoke-DomeniaDbQuery, Get-DomeniaStoreBackupDirectory et Backup-DomeniaDatabase, puis redéfinit Get-DomeniaDatabasePath et Get-CfgValue.",
+   "change": "Si Backup-DomeniaDatabase obtient -Purpose ou de nouvelles dépendances (layout, règle), garder une valeur par défaut 'Routine' et ajouter chaque dépendance à $wanted, ou charger Common et Release. Sauvegarder une base future reste permis (lecture seule).",
+   "risks": "CommandNotFound à l'exécution de la maintenance si une dépendance manque.",
+   "proof_test": "Exécuter le script (-Confirm:$false) sur une base temporaire : une sauvegarde 'Domenia-*.db' vérifiée (quick_check ok) doit être créée. Le test échoue si une fonction appelée n'est pas extraite."
+  }
+ ],
+ "defects": [
+  {
+   "test": "Aucun test existant. Proposé : 'Config : section Features lue depuis Domenia.config.json'",
+   "classification": "Défaut réel, bloquant pour F5 (confiance élevée par lecture du code, non exécuté)",
+   "cause": "Load-AppConfig (Core:993) stocke une section inconnue en PSCustomObject ; Get-CfgValue (Core:1037) appelle .Contains dessus ; l'exception est avalée et la valeur par défaut est toujours renvoyée. New-DefaultConfig ne contient ni Features, ni Streaming, ni ParkSweep.",
+   "fix": "Ajouter ces sections (dictionnaires ordonnés vides) à New-DefaultConfig, ou convertir les sections inconnues dans Load-AppConfig. Journaliser un JSON invalide au lieu de catch {}."
+  },
+  {
+   "test": "Aucun. Proposé : 'Lien console observé ne crée pas de faux conflit'",
+   "classification": "Défaut réel probable, D028 (confiance modérée)",
+   "cause": "Le worker LiveCache (Live.Model:414-425) écrit user_machine_links hors du writer unique. Merge-DomeniaLiveLinkMemory (Live.UI:367-389) ne met pas LinkBaseline à jour. À la prochaine Queue-DomeniaLinkChanges, Expected vaut l'ancienne empreinte : 'Association modifiee ailleurs' à tort, et à répétition.",
+   "fix": "Faire passer les liens observés par la file LocalStore, ou mettre LinkBaseline à jour après l'écriture LiveCache. Supprimer l'INSERT de LiveCache (réépinglage)."
+  },
+  {
+   "test": "Aucun. Proposé : 'Index : passe complète tronquée ne supprime rien'",
+   "classification": "Défaut réel, D026 (confiance élevée)",
+   "cause": "Complete-DomeniaIndexRefreshUi (Core:13833-13836) ignore effective.Truncated et appelle Save-DomeniaIndex avec ReplaceAll : 'DELETE FROM ad_objects;' (Storage.Worker:175). Le test de même DC se fait sur le nom (Core:14873), sans invocationId.",
+   "fix": "Resolve-DomeniaIncrementalSync : ReplaceAll seulement si le périmètre est complet sur la même instance ; sinon upsert. InvocationId fourni par Get-WDirectoryVersionSource et rangé dans sync_state.details."
+  },
+  {
+   "test": "Aucun. Proposé : 'Préférences : aucune bascule vers le dossier d installation'",
+   "classification": "Défaut réel, D118 (confiance élevée)",
+   "cause": "Write-DomeniaPreference (Core:2763-2768) essaie DataDir, puis RootDir (<wad>) sans le signaler. Get-DomeniaPreferencePath (Core:2719) se replie sur la racine de %LOCALAPPDATA%.",
+   "fix": "Une seule destination (catégorie Preferences du layout), échec explicite. Les anciens emplacements restent en lecture seule."
+  },
+  {
+   "test": "Aucun. Proposé : 'Migration ADCC atteignable, transactionnelle et idempotente'",
+   "classification": "Code mort, avec défauts latents (D113)",
+   "cause": "Import-DomeniaLegacyStoreIfNeeded (Core:19639) n'a pas d'appelant effectif (Invoke-DomeniaDatabaseMaintenance n'est appelé nulle part). Elle écrit sync_state.base_dn='' (Core:19654), ce qui empêche l'adoption de la base. Le seul garde est 'table vide', donc une reprise reste partielle. Les liens dépendent de $script:Window (Storage.UI:9).",
+   "fix": "Action explicite précédée d'une sauvegarde, import en worker LocalStore dans une transaction avec marqueur, vrai BaseDn, décisions par Test-DomeniaMigrationIdempotent."
+  },
+  {
+   "test": "Aucun. Proposé : 'Base héritée sans schema_info sauvegardée avant marquage v11'",
+   "classification": "Défaut réel, D115 (confiance élevée)",
+   "cause": "Initialize-DomeniaDatabase (Core:19553-19562) ne sauvegarde que lorsque schema_info existe sans domenia_schema. Sans schema_info, la base reçoit 'INSERT OR IGNORE schema_version 11' sans sauvegarde.",
+   "fix": "Test-DomeniaSchemaCompatibility : UpgradeLegacy avec RequiresBackup, abandon si la sauvegarde échoue."
+  },
+  {
+   "test": "Aucun. Proposé : 'La rotation conserve la sauvegarde de migration'",
+   "classification": "Défaut réel, D115 (confiance élevée)",
+   "cause": "Backup-DomeniaDatabase nomme toutes les sauvegardes 'Domenia-*.db' et supprime au-delà de 7 (Core:19526-19529). La sauvegarde prise avant migration peut disparaître. -IfNeeded peut aussi renvoyer une sauvegarde de routine à la place.",
+   "fix": "-Purpose PreMigration : préfixe 'Migration-' hors du filtre de rotation."
+  },
+  {
+   "test": "Aucun. Proposé : 'LiveCache refuse une base future'",
+   "classification": "Défaut réel, D115 (confiance élevée)",
+   "cause": "Le worker LiveCache (Live.Model:393-398) crée des tables et écrit sans lire schema_info. LocalStore, lui, contrôle la version (Storage.Worker:130-133).",
+   "fix": "Garde de version avant CREATE (tolérer l'absence de schema_info), réépinglage de LiveCache."
+  },
+  {
+   "test": "Aucun. Proposé : 'Un ping ne rajeunit pas l observation console'",
+   "classification": "Défaut réel, D024 (confiance modérée)",
+   "cause": "ConvertTo-DomeniaLiveObservation pose CheckedUtc=now même pour PresenceOnly (Live.Model:83). LiveCache s'en sert pour checked_utc, la fenêtre de 30 jours et la purge (:380, :411, :428).",
+   "fix": "Dates par nature (Set-DomeniaObservationTime). checked_utc = date de la nature Console."
+  },
+  {
+   "test": "Aucun. Proposé : 'Rendu depuis le cache garde la date d observation réelle'",
+   "classification": "Défaut réel mineur, D024 (impact faible)",
+   "cause": "Show-AdObjectResult (Core:21094) pose LoadedAt=Get-Date même lorsque ShowingCachedObject vaut $true.",
+   "fix": "LoadedAt = Created de l'élément de cache ; nature Attributes datée seulement lors d'une lecture réelle."
+  },
+  {
+   "test": "Aucun. Proposé : 'Ouverture hors sélection : pas de cache indexé par DN seul'",
+   "classification": "Risque latent, D025 (faible : relecture toujours lancée, DN vérifié)",
+   "cause": "Open-AdObject (Core:21015-21028) passe ExpectedGuid='' hors sélection, et la clé object-v2 repose alors sur le DN seul.",
+   "fix": "Clé cache-v3 vide sans GUID : aucun cache lu, stockage sous le GUID du résultat."
+  },
+  {
+   "test": "Cache.Tests.ps1 (règle non couverte) : Get-DomeniaProjection 'Detail'",
+   "classification": "Défaut de la règle non raccordée",
+   "cause": "ValidateSet accepte 'Detail', mais le switch n'a pas de cas correspondant et renvoie @(). Raccordé à Open-AdObject, Get-WAllProperties lèverait 'Liste explicite de proprietes AD requise.' (Core:8119). 'List' n'inclut pas uSNChanged.",
+   "fix": "Définir 'Detail', ou retirer ce cas du ValidateSet. Ajouter uSNChanged à 'List'. Ajouter un test."
+  },
+  {
+   "test": "Cache.Tests.ps1 D028 'File bornee...' (règle)",
+   "classification": "Défaut de la règle non raccordée",
+   "cause": "Get-DomeniaWriteBatch ne partitionne pas par base, alors que le code réel le fait (Storage.UI:45-46). Add-DomeniaWriteRequest écrase la charge utile, alors que la remise en file réelle préserve la plus récente (Storage.UI:71).",
+   "fix": "Ajouter une partition (Path) et un mode 'ajout si absent', avec les tests correspondants, avant le raccordement."
+  },
+  {
+   "test": "Test-DomeniaStreaming 'Registre fermé de 48 opérations' (échec à la ligne de base)",
+   "classification": "Suite historique désynchronisée",
+   "cause": "Le registre compte 57 opérations (Get-DomeniaWorkerOperationHashes, Core:19993 ; operation-contracts.json : 57).",
+   "fix": "Comparer au nombre d'entrées d'operation-contracts.json, pas à une constante."
+  },
+  {
+   "test": "Test-DomeniaStreaming 'Vérification dédupliquée dans la file' (échec à la ligne de base)",
+   "classification": "Suite historique désynchronisée",
+   "cause": "Request-DomeniaLiveProbe exige désormais une intention (Test-DomeniaLiveProbeIntent, Live.UI:288-297, 326) ; le test l'appelle sans Select-DomeniaLiveResult préalable.",
+   "fix": "Créer l'intention par la vraie sélection avant les deux appels, puis vérifier PendingKeys.Count -eq 1."
+  },
+  {
+   "test": "Test-Domenia 'Registre ferme : 47 corps et rejet d un corps modifie' (échec à la ligne de base)",
+   "classification": "Suite historique désynchronisée",
+   "cause": "Le test vérifie 47 opérations (Test-Domenia.ps1:138) alors que le registre en compte 57.",
+   "fix": "Même correction : se caler sur operation-contracts.json."
+  }
+ ],
+ "discrepancies_with_reprise": [
+  "§7.4 présente Import-DomeniaLegacyStoreIfNeeded (Core:19639) comme site de migration. Elle est inatteignable : son seul appelant, Invoke-DomeniaDatabaseMaintenance (Core:19713), n'est appelé nulle part. La migration ADCC effective se fait par l'installateur (INSTALLER-MISE-A-JOUR.ps1:127-136), par Read-DomeniaPreference (Core:2737-2742), par l'adoption de ADCC.db (Core:19290-19317) et par la sauvegarde avec marquage domenia_schema (Core:19561-19613).",
+  "F5 et §7.3 placent les interrupteurs Features.* dans wad/Domenia.config.json : ils sont aujourd'hui illisibles (Load-AppConfig :993 + Get-CfgValue :1037 ; aucune section Features dans New-DefaultConfig). La section Streaming du fichier livré est ignorée pour la même raison.",
+  "§7.2 décrit Domenia.config.json comme « fichier préservé, non haché ». Or tools/audit_preload.py:28 vérifie son SHA-256 (preload-baseline.json Files, contrôle 'Unchanged payload'), et cet audit est exécuté par build_packages.py:41.",
+  "§7.3 ne signale pas que modules/Domenia-Live.UI.ps1 (présence, file Live) et Domenia-Relations.UI.ps1 sont épinglés octet par octet par audit_preload. Toute modification casse le build sans mise à jour documentée de preload-baseline.json.",
+  "§7.3 Cache : audit_preload.py:65 exige les littéraux 'object-v2|' et 'SHA256' dans Selection.UI, et Invoke-GlobalSearch et Get-BranchQueryData figurent dans la liste critique 'inchangée' (:25). D025 et D021 imposent donc de mettre l'audit à jour.",
+  "§7.3 demande d'« ajouter Phase et Requires » au plan de modules : la regex d'audit_preload.py:73 ne reconnaîtra plus les entrées (contrôle 'Closed exports match' muet).",
+  "§4.2 annonce une « clé de cache v3 » : Get-DomeniaCacheKey n'inclut pas le DN, ce qui casse l'invalidation de Continuity.UI:189-191, qui cherche le DN dans la clé. De plus Test-DomeniaPreload :167-168 passe des valeurs qui ne sont pas des GUID.",
+  "§4.2 Cache.Model : 'Detail' figure dans le ValidateSet de Get-DomeniaProjection sans implémentation (renvoie @()). La règle D028 omet la partition par base et la préservation du plus récent lors d'une remise en file, deux comportements du code réel (Storage.UI:45-46, :71).",
+  "§4.2 Cache.Model, rétention : les valeurs de Get-DomeniaRetentionPolicy (History 100000/730 j, Observations 90 j, Snapshots 180 j/5000, Logs 60 j) diffèrent de celles du code (Storage.Worker:187 : 20000 historiques et 10000 mesures ; Live.Model:428 : 30 j, 20 requêtes, 5000 observations ; journal tourné à 5 Mo, Core:16453 ; 7 sauvegardes, Core:19526). Il faut décider lesquelles font foi. La règle ne précise pas non plus quelles tables relèvent de quelle catégorie, alors que liens manuels et liens observés partagent user_machine_links.",
+  "§7.1 D118 : « dossier non inscriptible -> erreur explicite » est déjà en place pour le dossier de données (Core:19118, 'Aucun repli silencieux'). Les vraies bascules silencieuses restantes concernent les préférences (Core:2763), le journal de connexion (Core:22617), le chemin des préférences sans DataDir (Core:2719) et l'amorçage (Core:350).",
+  "Les reçus ne suivent pas LocalStore.Mode : %LOCALAPPDATA%\\Domenia\\Receipts en dur (Core:20720), y compris en mode Portable.",
+  "La table domenia_provenance (Core:19612), prévue pour D025, est créée mais jamais écrite. D025 est aussi partiellement déjà réalisé : le worker LiveDirectoryCheck tamponne server|invocationId|usn (Continuity.Model:43, 66), et Get-WDirectoryVersionSource (Core:7937) existe dans WorkerCommon.",
+  "Engine.Model:271 déclare les opérations StorageUsage, StoragePurge et LinkHistoryStore, qui n'existent pas encore. Elles devront aussi figurer dans $nonDirectoryOperations de Get-WorkerContext (Core:20688), sinon elles recevront le credential AD.",
+  "Test-DomeniaPreload, porte de l'installateur (Passed>=40, Failed=0), ne charge que Selection.UI et Experience.Model (:40-41). Raccorder Selection.UI à Cache.Model impose de faire charger aussi Common.Model et Cache.Model par cette porte.",
+  "Domenia-Release.Model.ps1 (D113, D115, D118) est vide (2 lignes). Aucune des fonctions citées par §7.1 n'existe encore."
+ ],
+ "design_notes": "Ordre recommandé : (1) socle : déclarer Common et Cache dans le chargeur, corriger la lecture des sections de configuration (sinon aucun Features.* n'est lisible), et faire charger Common et Cache par la porte de l'installateur Test-DomeniaPreload ; (2) points P0 : D115 (Initialize-DomeniaDatabase, sauvegarde de migration hors rotation, garde de version dans LiveCache), puis D113 (rendre la migration atteignable et transactionnelle), D028 (supprimer le second écrivain de user_machine_links) et D025 (clé cache-v3 + invalidation par GUID, en même temps) ; (3) points P1 : D026 (index et réconciliation), D027, D024, D030, D029, D118 ; (4) D022 et D023 en dernier, car déjà largement couverts et de faible valeur. Contraintes transverses à chaque étape : (a) tools/audit_preload.py, exécuté par le build, épingle Live.UI, Relations.UI, Domenia.config.json et Domenia-Start.ps1, impose les littéraux de Selection.UI et exige que la liste des fonctions du cœur reste identique : ne jamais ajouter de fonction au cœur, les mettre dans les modules ; mettre à jour preload-baseline.json par une décision documentée ; (b) toute modification d'une opération worker (OpenAdObject, LiveCache, LocalStore, IndexBuild, ScopeReconcile, ajouts StorageUsage, StoragePurge, CacheCatalogRead) impose update_worker_contracts.py --apply, la mise à jour de Get-DomeniaWorkerOperationHashes, de la liste $nonDirectoryOperations et des notes de version ; (c) les workers n'ont pas accès aux fonctions de module : soit on reproduit la règle en ligne, soit on l'injecte dans la définition du runspace comme Get-DomeniaStructuredError (New-DomeniaWorkerRunspace, Core:20161 ; WorkerCommon n'est pas haché, seul le code métier l'est) ; (d) audit_candidate, audit_release, audit_selection et audit_acl_hotfix ne sont pas lancés par le build mais vérifient des chaînes à conserver (messages de version, ordre sauvegarde puis schéma, VisitCache.Remove, DACL). Tests d'intégration : une nouvelle suite wad/tests/Test-DomeniaStorageWiring.ps1 (Windows PowerShell 5.1, -STA pour les cas WPF), sur le modèle de Test-DomeniaPreload : vraies fonctions du cœur extraites par AST, modules chargés en dot-source, winsqlite3 réel sur des bases temporaires dans un bac à sable, %LOCALAPPDATA% redirigé, ACE deny posés uniquement sur le bac à sable. Chaque cas vérifie (i) un comportement qui diffère du code actuel et (ii) un espion appelé : capturer ${function:Nom} puis redéfinir Nom pour compter les appels et déléguer. Interrupteurs : aucun interrupteur de REPRISE ne concerne le cache ou le stockage ; seul Features.NegativeCache (défaut true, D027) est envisageable, et il ne sera lisible qu'une fois la configuration corrigée. Une question à trancher (recommandation : oui) : RC1.11.0 garde-t-il schema_version '11' et domenia_schema '1' en rangeant l'invocationId de D026 dans sync_state.details (colonne existante) ? Cela éviterait une évolution de schéma ; RC1.10.7 refuse déjà toute version différente de '11' ou de '1', donc un retour à cet exécutable ne rétrograde jamais la base en silence. Disposition actuelle des données : configuration dans <wad>\\\\Domenia.config.json et dans les fichiers *.cfg (préservés), plus HKCU:\\\\Software\\\\DOMENIA (RememberLogin, LastLogin) ; préférences dans DataDir\\\\Domenia.settings.json (+ .bak), avec lecture de repli dans <wad> et sous les anciens noms ADCC.* ; données dans DataDir = <wad>\\\\data (Portable, ou Compatible si ce dossier n'est pas vide) ou %LOCALAPPDATA%\\\\Domenia\\\\Data ; base Domenia.db (ou ADCC.db adoptée), ou Domains\\\\<sha256(baseDn)[0:32]>\\\\Domenia.db, tables adcc_live_* comprises ; sauvegardes dans <dossier de la base>\\\\Backups ; reçus dans %LOCALAPPDATA%\\\\Domenia\\\\Receipts ; journaux dans DataDir\\\\Logs (Domenia.log, -startup.log, -login.log), amorçage dans %LOCALAPPDATA%\\\\DOMENIA\\\\Logs, erreur de démarrage dans %TEMP%\\\\Domenia-startup-error.log. Confiance élevée sur l'état du code (lecture directe, lignes vérifiées). Confiance modérée sur les défauts qui n'ont jamais été exécutés (conflit de liens, rajeunissement par le ping)."
+}

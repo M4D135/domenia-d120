@@ -1,0 +1,17 @@
+{
+ "id": "TRV-096",
+ "verdict": "partiel",
+ "preuves": [
+  "src/Domenia.Ad/Ldap/AdAuthenticationErrors.cs:9 — Kind(diagnostic) parse le sous-code « data 52e/775… » (regex data [0-9a-f]{1,8}) et classe 0x525 unknownAccount, 0x532 passwordExpired, 0x533 disabled, 0x701 accountExpired, 0x773 mustChange, 0x775 locked, 0x52f/530/531 restricted, défaut badCredentials",
+  "src/Domenia.Core/Screens/Accounts/Access/WindowsAuthenticationErrors.cs:7 — IsRejected lit HRESULT 0x8009030C (SEC_E_LOGON_DENIED) et codes natifs Win32 1326…1909 (décodage 0x8007xxxx)",
+  "src/Domenia.Inventory/CimSession.cs:245 — Classify(exception) mappe la chaîne d'exceptions vers SourceStatus : Interrupted (annulation/délai), Refused (0x80070005, authent refusée), Unavailable (0x80041010/0x8004100E classe/espace de noms absents = module indisponible), Unreachable (0x800706BA/6BE/35), Error",
+  "src/Domenia.Bridge/BridgeScheduling.cs:180 — table codes domenia (account.rejected, account.locked, account.paused, accounts.credentialRejected, machine.accountPaused) → BridgeProviderOutcome.CredentialRejected ; énumérée ligne 22 Success/Failure/Timeout/CredentialRejected/AccessDenied/Cancelled/Refused",
+  "src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:282 — FailureText(kind) : phrase courte + prochaine étape par kind (locked, accessDenied, unreachable, timeout…), code technique hors de la phrase",
+  "tests/Domenia.Tests/AdAccountsAccessTests.cs:174 — banc sur les sous-codes data 525…52e et refus des diagnostics invalides ; tests/Domenia.Tests/CollectionReadRetryNativeTests.cs:43 — « un délai ne devient pas un refus d'identifiants »",
+  "src/Domenia.Ad/Screens/AdPosteReader.LastUser.cs:124 — sur timeout/auth refusée/compte en pause : « aucun autre compte essayé » ; garde délai≠mauvais identifiants appliquée à la lecture"
+ ],
+ "manque": "Aucun classifieur unifié couvrant les 9 catégories nommées de D1 (CredentialPaused, AccountLocked, AccountUnavailable, LogonFailure, AccessDenied, Unavailable réessayable, Uncertain, ModuleUnavailable, Unknown) : le marqueur [DOMENIA:Kind;natif;0xcode] n'existe nulle part dans repo/v2 (rg « DOMENIA:Kind » = 0 occurrence hors docs) ; la classification est dispersée (AdAuthenticationErrors, WindowsAuthenticationErrors, CimSession.Classify, BridgeScheduling) sans chaîne d'exceptions lue de bout en bout par un seul composant ; aucun champ/indicateur « un autre compte peut être proposé » exposé — seul le texte « aucun autre compte essayé » apparaît localement, sans décision structurée pour les cas timeout/module absent (la proposition d'un autre compte reste portée par des messages épars, non par une table testée).",
+ "effort": "M",
+ "depend": ["TRV-098 (table des effets et classes d'opération)", "sujet erreurs machine (MachineErrors, codes CimSession)"],
+ "risque": "lecture"
+}

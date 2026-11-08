@@ -1,0 +1,1 @@
+32 passed, 0 failed. No WPF or network.

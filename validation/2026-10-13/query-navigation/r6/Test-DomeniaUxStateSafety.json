@@ -1,0 +1,684 @@
+{
+    "Suite":  "Domenia UX state safety",
+    "Mode":  "Windows WPF and pure",
+    "Passed":  true,
+    "Count":  34,
+    "WindowsQualified":  true,
+    "NoNetwork":  true,
+    "Results":  [
+                    {
+                        "Name":  "Viewport : le zoom utilise la place utile, sans le pied de fenêtre",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Viewport : minimums identiques au shell, et réduction à 80 %",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Viewport : ouverture avant mesure, préférence de zoom absente",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Disposition : la largeur logique pilote le plan avant les contrôles WPF",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Disposition : options de requête réservées aux hauteurs inférieures à 560",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Disposition : options compactes selon largeur et hauteur, indépendantes des marges très basses",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Sélecteur : admission refusée, contrôles utilisables et motif affiché",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Sélecteur : ancien gestionnaire après fermeture sans nouvelle soumission",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Complete-DomeniaEmbeddedLookup : retour ignoré pour Closed",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Complete-DomeniaEmbeddedLookup : retour ignoré pour RequestId",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Complete-DomeniaEmbeddedLookup : retour ignoré pour Epoch",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Complete-DomeniaEmbeddedLookup : retour ignoré pour BaseDn",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Fail-DomeniaEmbeddedLookup : retour ignoré pour Closed",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Fail-DomeniaEmbeddedLookup : retour ignoré pour RequestId",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Fail-DomeniaEmbeddedLookup : retour ignoré pour Epoch",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Fail-DomeniaEmbeddedLookup : retour ignoré pour BaseDn",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Complete-DomeniaOuPickerRead : retour ignoré pour Closed",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Complete-DomeniaOuPickerRead : retour ignoré pour RequestId",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Complete-DomeniaOuPickerRead : retour ignoré pour Epoch",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Complete-DomeniaOuPickerRead : retour ignoré pour BaseDn",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Fail-DomeniaOuPickerRead : retour ignoré pour Closed",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Fail-DomeniaOuPickerRead : retour ignoré pour RequestId",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Fail-DomeniaOuPickerRead : retour ignoré pour Epoch",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Fail-DomeniaOuPickerRead : retour ignoré pour BaseDn",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Sélecteur : un retour courant remplit la liste sans valider automatiquement",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "OU : annulation invalide la réponse avant de stopper le worker",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "OU : admission refusée restaure la branche pour un nouvel essai",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "OU : connexion changée avant clic, aucune lecture admise",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "WPF : les boutons de zoom recalculent la disposition, une seule fois par geste",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "WPF : réouverture du shell, nouveaux boutons reliés et zoom restauré",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "WPF : compacité des requêtes sans imposer de largeur au Grid",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "WPF : navigation OU française, validation réservée aux vraies OU",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "WPF : options compactes, clavier, choix conservés et restauration sans lecture",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "WPF : Recherche réelle, barre de requêtes accessible et six lignes complètes",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ],
+    "Geometry":  [
+                     {
+                         "Scenario":  "Compact query options with long active scope",
+                         "Control":  "BtnSearchQueryOptions",
+                         "Width":  108,
+                         "Height":  28,
+                         "VisibleWidth":  108,
+                         "VisibleHeight":  28,
+                         "FullyVisible":  true,
+                         "WindowWidth":  1000,
+                         "WindowHeight":  700,
+                         "Rendering":  "Presented native WPF HWND; synthetic routed key events, no OS input injection"
+                     },
+                     {
+                         "Scenario":  "Compact query options with long active scope",
+                         "Control":  "BtnQueryClearSearch",
+                         "Width":  58,
+                         "Height":  28,
+                         "VisibleWidth":  58,
+                         "VisibleHeight":  28,
+                         "FullyVisible":  true,
+                         "WindowWidth":  1000,
+                         "WindowHeight":  700,
+                         "Rendering":  "Presented native WPF HWND; synthetic routed key events, no OS input injection"
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "TxtSearchQueryFilter",
+                         "X":  588,
+                         "Y":  299,
+                         "Width":  190,
+                         "Height":  30,
+                         "VisibleWidth":  190,
+                         "VisibleHeight":  30,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "ChkSearchQueryFavorites",
+                         "X":  790,
+                         "Y":  305,
+                         "Width":  56,
+                         "Height":  17,
+                         "VisibleWidth":  56,
+                         "VisibleHeight":  17,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "CmbWorkView",
+                         "X":  522,
+                         "Y":  333,
+                         "Width":  900,
+                         "Height":  34,
+                         "VisibleWidth":  900,
+                         "VisibleHeight":  34,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "BtnWorkView",
+                         "X":  1428,
+                         "Y":  333,
+                         "Width":  72,
+                         "Height":  34,
+                         "VisibleWidth":  72,
+                         "VisibleHeight":  34,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "BtnSearchQueryFavorite",
+                         "X":  1506,
+                         "Y":  333,
+                         "Width":  34,
+                         "Height":  34,
+                         "VisibleWidth":  34,
+                         "VisibleHeight":  34,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "BtnSearchQueryWorkshop",
+                         "X":  1546,
+                         "Y":  333,
+                         "Width":  34,
+                         "Height":  34,
+                         "VisibleWidth":  34,
+                         "VisibleHeight":  34,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "LblSearchQueryDetails",
+                         "X":  522,
+                         "Y":  370,
+                         "Width":  1058,
+                         "Height":  15,
+                         "VisibleWidth":  1058,
+                         "VisibleHeight":  15,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "LblSearchQuery",
+                         "X":  522,
+                         "Y":  394,
+                         "Width":  438,
+                         "Height":  17,
+                         "VisibleWidth":  438,
+                         "VisibleHeight":  17,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "CmbSearchQueryResult",
+                         "X":  968,
+                         "Y":  388,
+                         "Width":  165,
+                         "Height":  30,
+                         "VisibleWidth":  165,
+                         "VisibleHeight":  30,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "BtnQueryClearSearch",
+                         "X":  1139,
+                         "Y":  388,
+                         "Width":  121,
+                         "Height":  30,
+                         "VisibleWidth":  121,
+                         "VisibleHeight":  30,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "DgObjects",
+                         "X":  524,
+                         "Y":  613,
+                         "Width":  1054,
+                         "Height":  256,
+                         "VisibleWidth":  1054,
+                         "VisibleHeight":  256,
+                         "FullyVisibleRows":  6,
+                         "Rows":  [
+                                      {
+                                          "Index":  0,
+                                          "Y":  643,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  1,
+                                          "Y":  677,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  2,
+                                          "Y":  711,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  3,
+                                          "Y":  745,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  4,
+                                          "Y":  779,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  5,
+                                          "Y":  813,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  6,
+                                          "Y":  847,
+                                          "Height":  34,
+                                          "VisibleHeight":  4,
+                                          "FullyVisible":  false
+                                      },
+                                      {
+                                          "Index":  7,
+                                          "Y":  881,
+                                          "Height":  34,
+                                          "VisibleHeight":  0,
+                                          "FullyVisible":  false
+                                      }
+                                  ],
+                         "HostWidth":  1920,
+                         "HostHeight":  1080,
+                         "WindowWidth":  1044,
+                         "WindowHeight":  788,
+                         "Rendering":  "Native off-screen WPF; real XAML and ancestor clips; no scaling"
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "TxtSearchQueryFilter",
+                         "X":  804,
+                         "Y":  250.5,
+                         "Width":  285,
+                         "Height":  42,
+                         "VisibleWidth":  285,
+                         "VisibleHeight":  42,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "ChkSearchQueryFavorites",
+                         "X":  1107,
+                         "Y":  259.5,
+                         "Width":  84,
+                         "Height":  25.5,
+                         "VisibleWidth":  84,
+                         "VisibleHeight":  25.5,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "CmbWorkView",
+                         "X":  705,
+                         "Y":  297,
+                         "Width":  945,
+                         "Height":  48,
+                         "VisibleWidth":  945,
+                         "VisibleHeight":  48,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "BtnWorkView",
+                         "X":  1659,
+                         "Y":  300,
+                         "Width":  108,
+                         "Height":  42,
+                         "VisibleWidth":  108,
+                         "VisibleHeight":  42,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "BtnSearchQueryFavorite",
+                         "X":  1776,
+                         "Y":  297,
+                         "Width":  51,
+                         "Height":  48,
+                         "VisibleWidth":  51,
+                         "VisibleHeight":  48,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "BtnSearchQueryWorkshop",
+                         "X":  1836,
+                         "Y":  300,
+                         "Width":  51,
+                         "Height":  42,
+                         "VisibleWidth":  51,
+                         "VisibleHeight":  42,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "LblSearchQueryDetails",
+                         "X":  705,
+                         "Y":  349.5,
+                         "Width":  1182,
+                         "Height":  22.5,
+                         "VisibleWidth":  1182,
+                         "VisibleHeight":  22.5,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "LblSearchQuery",
+                         "X":  705,
+                         "Y":  385.5,
+                         "Width":  657,
+                         "Height":  25.5,
+                         "VisibleWidth":  657,
+                         "VisibleHeight":  25.5,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "CmbSearchQueryResult",
+                         "X":  1374,
+                         "Y":  376.5,
+                         "Width":  247.5,
+                         "Height":  43.5,
+                         "VisibleWidth":  247.5,
+                         "VisibleHeight":  43.5,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  150,
+                         "Control":  "BtnQueryClearSearch",
+                         "X":  1630.5,
+                         "Y":  376.5,
+                         "Width":  181.5,
+                         "Height":  42,
+                         "VisibleWidth":  181.5,
+                         "VisibleHeight":  42,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "TxtSearchQueryFilter",
+                         "X":  588,
+                         "Y":  299,
+                         "Width":  190,
+                         "Height":  30,
+                         "VisibleWidth":  190,
+                         "VisibleHeight":  30,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "ChkSearchQueryFavorites",
+                         "X":  790,
+                         "Y":  305,
+                         "Width":  56,
+                         "Height":  17,
+                         "VisibleWidth":  56,
+                         "VisibleHeight":  17,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "CmbWorkView",
+                         "X":  522,
+                         "Y":  333,
+                         "Width":  900,
+                         "Height":  34,
+                         "VisibleWidth":  900,
+                         "VisibleHeight":  34,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "BtnWorkView",
+                         "X":  1428,
+                         "Y":  333,
+                         "Width":  72,
+                         "Height":  34,
+                         "VisibleWidth":  72,
+                         "VisibleHeight":  34,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "BtnSearchQueryFavorite",
+                         "X":  1506,
+                         "Y":  333,
+                         "Width":  34,
+                         "Height":  34,
+                         "VisibleWidth":  34,
+                         "VisibleHeight":  34,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "BtnSearchQueryWorkshop",
+                         "X":  1546,
+                         "Y":  333,
+                         "Width":  34,
+                         "Height":  34,
+                         "VisibleWidth":  34,
+                         "VisibleHeight":  34,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "LblSearchQueryDetails",
+                         "X":  522,
+                         "Y":  370,
+                         "Width":  1058,
+                         "Height":  15,
+                         "VisibleWidth":  1058,
+                         "VisibleHeight":  15,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "LblSearchQuery",
+                         "X":  522,
+                         "Y":  394,
+                         "Width":  438,
+                         "Height":  17,
+                         "VisibleWidth":  438,
+                         "VisibleHeight":  17,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "CmbSearchQueryResult",
+                         "X":  968,
+                         "Y":  388,
+                         "Width":  165,
+                         "Height":  30,
+                         "VisibleWidth":  165,
+                         "VisibleHeight":  30,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "BtnQueryClearSearch",
+                         "X":  1139,
+                         "Y":  388,
+                         "Width":  121,
+                         "Height":  30,
+                         "VisibleWidth":  121,
+                         "VisibleHeight":  30,
+                         "FullyVisible":  true
+                     },
+                     {
+                         "Zoom":  100,
+                         "Control":  "DgObjects",
+                         "X":  524,
+                         "Y":  613,
+                         "Width":  1054,
+                         "Height":  256,
+                         "VisibleWidth":  1054,
+                         "VisibleHeight":  256,
+                         "FullyVisibleRows":  6,
+                         "Rows":  [
+                                      {
+                                          "Index":  0,
+                                          "Y":  643,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  1,
+                                          "Y":  677,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  2,
+                                          "Y":  711,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  3,
+                                          "Y":  745,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  4,
+                                          "Y":  779,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  5,
+                                          "Y":  813,
+                                          "Height":  34,
+                                          "VisibleHeight":  34,
+                                          "FullyVisible":  true
+                                      },
+                                      {
+                                          "Index":  6,
+                                          "Y":  847,
+                                          "Height":  34,
+                                          "VisibleHeight":  4,
+                                          "FullyVisible":  false
+                                      },
+                                      {
+                                          "Index":  7,
+                                          "Y":  881,
+                                          "Height":  34,
+                                          "VisibleHeight":  0,
+                                          "FullyVisible":  false
+                                      }
+                                  ],
+                         "HostWidth":  1920,
+                         "HostHeight":  1080,
+                         "WindowWidth":  1044,
+                         "WindowHeight":  788,
+                         "Rendering":  "Native off-screen WPF; real XAML and ancestor clips; no scaling"
+                     }
+                 ]
+}

@@ -1,0 +1,148 @@
+{
+    "Build":  "2026.10.02-DOMENIA-1.0-RC1.11.0-D120-ACCOUNTS",
+    "Mode":  "NativePowerShellWithMocks",
+    "PowerShell":  "5.1.26100.6584",
+    "RunAt":  "2026-10-13T02:49:57.1610546+02:00",
+    "LiveAdExecuted":  false,
+    "WpfExecuted":  false,
+    "DispatcherPumped":  false,
+    "Passed":  27,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Requete : meme identite qualifiee et meme contexte que le login",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Requete : UPN conserve sans transformation",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SecureString : copie distincte, lecture seule, espaces et caracteres conserves",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Contexte incomplet refuse avant tout appel au worker",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Mot de passe vide refuse sans authentification",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Succes : un seul worker de login, lecture et nettoyage",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Aucune attente bloquante (M15)",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Identite canonique du worker retournee telle quelle",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Refus : aucun repli de compte, aucun retry",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Timeout : resultat non lu, second essai bloque tant que le natif tourne",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Apres timeout termine : nouvel essai volontaire possible",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Echec demarrage : aucun faux etat de test actif",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Resultat vide refuse et worker nettoye",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Resultat sans nom valide refuse",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un resultat sous identite Windows ne valide pas le compte saisi",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Activation Remote : nom valide, seul identifiant persiste, AD intact",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Activation Secrets : identite propre, compte distant inchange",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Activation refusee : ancien compte et formulaire conserves",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Activation en timeout : aucune modification meme apres retour tardif",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Test compte AD : nom modifie refuse sans envoyer le mot de passe actif",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Test compte AD : nom court du meme domaine accepte avec identite active exacte",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Test compte AD : session Windows seule ne remplace pas le compte saisi",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Worker LAPS : nom et mot de passe du compte Secrets restent ensemble",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Worker BitLocker : compte Secrets explicite et repli AD coherents",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dernier utilisateur : compte machine distinct du compte annuaire",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Validation de compte : ne promet pas les droits sur les ressources, pas de secret dans les logs",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecriture en cours : aucun compte ne peut etre change",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  }
+              ]
+}

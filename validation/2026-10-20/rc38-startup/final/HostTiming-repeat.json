@@ -1,0 +1,38 @@
+﻿[
+    {
+        "Value":  "ReadyRepeat",
+        "ElapsedMs":  24.87,
+        "Utc":  "2026-10-20T18:36:13.9002210Z",
+        "MaxPollingGapMs":  8
+    },
+    {
+        "Value":  "AfterIdle3|Start",
+        "ElapsedMs":  107238.52,
+        "Utc":  "2026-10-20T18:38:01.1068810Z",
+        "MaxPollingGapMs":  326
+    },
+    {
+        "Value":  "AfterIdle3|Login",
+        "ElapsedMs":  128567.45,
+        "Utc":  "2026-10-20T18:38:22.4356893Z",
+        "MaxPollingGapMs":  298
+    },
+    {
+        "Value":  "AfterIdle3|Main",
+        "ElapsedMs":  216038.49,
+        "Utc":  "2026-10-20T18:39:49.9075525Z",
+        "MaxPollingGapMs":  315
+    },
+    {
+        "Value":  "AfterIdle3|Done",
+        "ElapsedMs":  262895.26,
+        "Utc":  "2026-10-20T18:40:36.7639903Z",
+        "MaxPollingGapMs":  299
+    },
+    {
+        "Value":  "Complete",
+        "ElapsedMs":  263226.85,
+        "Utc":  "2026-10-20T18:40:37.0958448Z",
+        "MaxPollingGapMs":  115
+    }
+]

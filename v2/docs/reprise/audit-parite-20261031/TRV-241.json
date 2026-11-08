@@ -1,0 +1,25 @@
+{
+  "id": "TRV-241",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.App/Poste/PosteHostServices.cs:182-184 — la copie des secrets du poste pose les trois formats d'exclusion : « ExcludeClipboardContentFromMonitorProcessing », « CanIncludeInClipboardHistory » = 0, « CanUploadToCloudClipboard » = 0",
+    "src/Domenia.App/Poste/PosteHostServices.cs:185 — Clipboard.SetDataObject(data, copy: true, retryTimes: 5, retryDelay: 100) : écriture unique avec reprise sur presse-papiers occupé",
+    "src/Domenia.App/Poste/PosteHostServices.cs:189 — échec rendu par un refus (« Copie protégée refusée par le presse-papiers », sans la valeur) et Copy renvoie false",
+    "src/Domenia.App/Poste/SecretWindowForm.cs:183 — l'opérateur voit le refus : « Copie refusée par le presse-papiers »",
+    "src/Domenia.App/Poste/PosteHostServices.cs:192-197 — effacement programmé : la valeur copiée est retenue et un System.Windows.Forms.Timer d'interval ClipboardClearMilliseconds est armé",
+    "src/Domenia.App/Poste/PosteHostServices.cs:215-217 — le presse-papiers n'est vidé que s'il contient encore cette valeur (comparaison Ordinal), sinon la copie de l'opérateur est laissée en place",
+    "src/Domenia.App/Secrets/PasswordWindow.cs:400-417 — ClipboardGuard.ClearLater : effacement différé comparé par SHA-256 (le texte n'est pas conservé), délai borné par Math.Clamp(seconds, 5, 300), Clipboard.Clear() seulement si le hash correspond",
+    "src/Domenia.Core/Screens/Poste/PosteSecrets.cs:109 — la limite hors de contrôle est écrite : « Les gestionnaires de presse-papiers tiers et l'historique Windows peuvent conserver une copie hors de Domenia. »",
+    "src/Domenia.App/Poste/SecretWindowForm.cs:97 — cette mention est bien affichée à l'opérateur dans la fenêtre sécurisée (avec secret.Notice)",
+    "src/Domenia.App/Poste/SecretWindowForm.cs:102,183 — compte à rebours annoncé : « Copier (presse-papiers vidé après 30 s) »",
+    "docs/ops/poste.md:183-185 — la copie protégée PST-058 (formats d'exclusion, vidage seulement si la valeur y est encore, journalisation sans la valeur) est documentée comme implémentée"
+  ],
+  "manque": "1) Aucune borne de longueur ni refus du vide : Copy (src/Domenia.App/Poste/PosteHostServices.cs:176-191) n'a ni plafond 8192 caractères ni plafond 1024 pour une clé BitLocker, et accepte une valeur vide ; SecretWindowForm.cs:177-183 appelle copy(ValueText()) sans aucune validation de longueur. Aucune occurrence de 8192 ou 1024 lié au presse-papiers dans src/ (la seule valeur 81920, PosteHostServices.cs:314, est une taille de buffer de lecture de fichier). 2) La copie du mot de passe généré n'est pas exclue de l'historique ni du cloud : src/Domenia.App/Secrets/PasswordWindow.cs:286 fait un simple Clipboard.SetText(text), sans les trois formats utilisés pour les secrets du poste (PosteHostServices.cs:182-184) ; les formats d'exclusion n'existent que dans ce seul endroit. 3) Pas d'écrivain natif : aucun fichier ni DllImport presse-papiers équivalent à « Domenia-Clipboard.Native.cs » / « ClipboardWriter.Set » dans src/ (les DllImport sont dans Domenia.Inventory, Store, App/Shell, aucun pour OpenClipboard/SetClipboardData). 4) Fenêtre propriétaire non obligatoire : PosteHostServices.cs:100-107 retombe sur form.Show() sans propriétaire quand MainWindow() est null, et PasswordWindow.cs:405-412 abandonne silencieusement l'effacement programmé si l'owner est null ou disposé (simple TechnicalLog.Warning ligne 423) — l'effacement automatique peut ne jamais avoir lieu sans que l'opérateur soit prévenu. 5) Le délai d'effacement des secrets du poste est la constante 30 s (src/Domenia.Core/Screens/Poste/PosteSecrets.cs:108, utilisée dans SecretWindowForm.cs:102,183) et ne suit pas le réglage Security.AutoClearSecretClipboardSeconds (voir PAR-045). 6) Aucun test : aucune occurrence de « ExcludeClipboardContentFromMonitorProcessing », « CanIncludeInClipboardHistory », « CanUploadToCloudClipboard », « ClipboardGuard » ni « SetDataObject » dans tests/ ; ces fichiers n'apparaissent que dans des contrôles statiques de forme (tests/Domenia.Tests/ShellStaticChecksTests.cs:82-83,89).",
+  "effort": "M",
+  "depend": [
+    "sujet « Secrets LAPS/BitLocker du poste » (Copy et fenêtre sécurisée, src/Domenia.App/Poste/PosteHostServices.cs:176-217, src/Domenia.App/Poste/SecretWindowForm.cs:177-183)",
+    "sujet « Réinitialisation de mot de passe » (copie non exclue de l'historique, src/Domenia.App/Secrets/PasswordWindow.cs:286-287)",
+    "PAR-045 (Security.AutoClearSecretClipboardSeconds lu mais non appliqué aux secrets du poste, src/Domenia.Core/Screens/Poste/PosteSecrets.cs:108)"
+  ],
+  "risque": "ecriture-locale"
+}

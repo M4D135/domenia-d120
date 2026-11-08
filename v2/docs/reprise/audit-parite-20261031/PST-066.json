@@ -1,0 +1,22 @@
+{
+  "id": "PST-066",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Ad/Screens/AdPosteReader.SecretIndex.cs:10,21 — SecretIndexCap = 50_000 appliqué à la recherche des postes de l'OU (SizeLimit = cap + 1, ligne 54 partial = raw.Count > cap)",
+    "src/Domenia.Ad/Screens/AdPosteReader.SecretIndex.cs:144-166 — une ligne par poste (clés comptées, dates, LAPS) puis sauvegarde durable FleetCachePatch avec WorkstationSecrets ; ligne 152 PosteSecretCache.Merge(StoredSecrets(...), ...) avant écriture",
+    "src/Domenia.Ad/Screens/AdPosteReader.SecretIndex.cs:154-162 — retained = current.Keys > 0 ? current : metadata.LastPositive ?? current : le zéro d'une lecture qui ne voit rien ne remplace pas un compte déjà lu, et la ligne garde sa date d'origine (BitLockerReadAt) avec la mention « Dernière présence positive conservée à sa date d'origine »",
+    "src/Domenia.Core/Screens/Poste/PosteSecretCache.cs:10-19 — Merge garde la dernière tentative BitLocker, le dernier constat positif (Keys > 0) et fusionne LAPS indépendamment : une lecture LAPS seule conserve le compte BitLocker connu",
+    "src/Domenia.Ad/Screens/AdPosteReader.Secrets.cs:10-11 — seules les métadonnées sont demandées : msLAPS-PasswordExpirationTime, ms-Mcs-AdmPwdExpirationTime, msFVE-RecoveryGuid, msFVE-VolumeGuid ; ligne 132 « msFVE-RecoveryPassword n'est jamais demandé par cette liste »",
+    "src/Domenia.Ad/Screens/AdPosteReader.SecretIndex.cs:134-138 — sur échec du fournisseur seul ex.Code est retenu (Refused/Unavailable) et le motif stocké est une phrase fermée (ligne 138) ; aucun message du fournisseur n'est enregistré",
+    "src/Domenia.Ad/Screens/AdPosteReader.SecretIndex.cs:94-108 — après le balayage de sous-arborescence les identités parentes sont relues : un ancien détenteur du même DN (GUID ou whenCreated différent) est écarté et ne reçoit aucun comptage",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.FleetRows.cs:173,211 — l'index est persisté dans la base locale : ComputerRow inclut fleet.WorkstationSecrets et WriteFleetRow l'écrit dans la table des lignes de parc ; relecture ligne 133",
+    "src/Domenia.Bridge/Operations/PosteOperations.cs:410-416 — opération poste.secrets.index : OU de travail obligatoire, 50 000 postes au plus, « aucune clé, aucune valeur »",
+    "web/js/pages/poste/secrets.js:293-308 — carte « Index des secrets » avec export et grille (clés BitLocker, état de lecture, date du constat, expiration LAPS, type LAPS)",
+    "tests/Domenia.Tests/PosteSecretCacheTests.cs:25 — « ancien constat non remplacé par zéro » ; ligne 37 « présence plus récente intacte » et ligne 37 « LAPS fusionné indépendamment » ; ligne 75 « constat positif conservé après relecture SQL »",
+    "tests/Domenia.Tests/AdPosteSecretIndexTests.cs:45 — aucune requête ne demande msFVE-RecoveryPassword, msFVE-KeyPackage, msLAPS-Password, msLAPS-EncryptedPassword ou ms-Mcs-AdmPwd ; ligne 86 « aucun faux zéro après ambiguïté », ligne 139 « ni compte positif ni faux zéro »"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["Domenia.Store (lignes de parc, src/Domenia.Store/Sqlite/DomeniaDatabase.FleetRows.cs)", "OU de travail de l'Accueil (scope.CurrentAsync)"],
+  "risque": "lecture"
+}

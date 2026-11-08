@@ -1,0 +1,1074 @@
+﻿# Directory rules for users, groups and the domain: support summary, effective password policy,
+# lockout diagnosis, membership paths, user comparison, group deltas, ACE reading, account life cycle,
+# inconsistency review and comparison between domain controllers.
+# Pure decisions on data already read: no LDAP request is sent from this module.
+
+function Get-DomeniaAttr {
+    # First value of an attribute from a property bag, whatever the key casing and whether the value is a collection.
+    param($Properties,[Parameter(Mandatory=$true)][string]$Name,$Default='')
+    if ($null -eq $Properties) { return $Default }
+    $value = $null; $found = $false
+    if ($Properties -is [Collections.IDictionary]) {
+        foreach ($key in @($Properties.Keys)) { if ([string]$key -ieq $Name) { $value = $Properties[$key]; $found = $true; break } }
+    } else {
+        foreach ($property in @($Properties.PSObject.Properties)) { if ([string]$property.Name -ieq $Name) { $value = $property.Value; $found = $true; break } }
+    }
+    if (-not $found -or $null -eq $value) { return $Default }
+    # A byte array (GUID, SID) must leave the function whole: without the comma PowerShell would unroll it.
+    if ($value -is [byte[]]) { return ,$value }
+    if ($value -is [string]) { return $value }
+    if ($value -is [Collections.IEnumerable]) {
+        foreach ($item in $value) {
+            if ($item -is [byte[]]) { return ,$item }
+            return $item
+        }
+        return $Default
+    }
+    return $value
+}
+
+function Get-DomeniaAttrAll {
+    param($Properties,[Parameter(Mandatory=$true)][string]$Name)
+    if ($null -eq $Properties) { return @() }
+    $value = $null
+    if ($Properties -is [Collections.IDictionary]) { foreach ($key in @($Properties.Keys)) { if ([string]$key -ieq $Name) { $value = $Properties[$key]; break } } }
+    else { foreach ($property in @($Properties.PSObject.Properties)) { if ([string]$property.Name -ieq $Name) { $value = $property.Value; break } } }
+    if ($null -eq $value) { return @() }
+    if ($value -is [string] -or $value -is [byte[]]) { return @(,$value) }
+    if ($value -is [Collections.IEnumerable]) { return @($value) }
+    return @(,$value)
+}
+
+function ConvertTo-DomeniaAdInt64 {
+    # Reads an AD large integer whatever its shape: Int64 or numeric text, a one-value collection, or the
+    # IADsLargeInteger COM object returned by DirectoryEntry (HighPart/LowPart are only reachable through
+    # InvokeMember). Returns $null when the value cannot be read: a value that was not read is never zero.
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [long]) { return [long]$Value }
+    if (($Value -is [int]) -or ($Value -is [uint32]) -or ($Value -is [int16]) -or ($Value -is [byte])) { return [long]$Value }
+    if (($Value -is [decimal]) -or ($Value -is [double])) {
+        try { return [long]$Value } catch { return $null }
+    }
+    if ($Value -is [string]) {
+        $number = 0L
+        if ([long]::TryParse($Value.Trim(),[Globalization.NumberStyles]::AllowLeadingSign,[Globalization.CultureInfo]::InvariantCulture,[ref]$number)) { return $number }
+        return $null
+    }
+    if ($Value -is [byte[]]) { return $null }
+    if ($Value.GetType().FullName -eq 'System.__ComObject') {
+        try {
+            $type = $Value.GetType()
+            $flags = [Reflection.BindingFlags]::GetProperty
+            $high = [long]$type.InvokeMember('HighPart',$flags,$null,$Value,$null)
+            $low = [long]$type.InvokeMember('LowPart',$flags,$null,$Value,$null)
+            if ($low -lt 0) { $low += 4294967296L }
+            return (($high -shl 32) -bor $low)
+        } catch { return $null }
+    }
+    if ($Value -is [Collections.IEnumerable]) {
+        # Exactly one value: a collection of several values names no single number.
+        $items = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($item in $Value) { $items.Add($item); if ($items.Count -gt 1) { return $null } }
+        if ($items.Count -ne 1) { return $null }
+        return (ConvertTo-DomeniaAdInt64 $items[0])
+    }
+    return $null
+}
+
+function ConvertTo-DomeniaAdDate {
+    # An AD time value (FILETIME large integer, generalized time or DateTime) as a UTC date, or $null.
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [datetime]) { return (ConvertTo-DomeniaUtcDate $Value) }
+    $number = ConvertTo-DomeniaAdInt64 $Value
+    if ($null -ne $number) { return (ConvertTo-DomeniaUtcDate $number) }
+    if ($Value -is [string]) { return (ConvertTo-DomeniaUtcDate $Value) }
+    return $null
+}
+
+function Get-DomeniaAdIntervalState {
+    # AD stores durations as negative 100-nanosecond counts. 0 and Int64.MinValue mean "never" (no limit).
+    # State: Value (Span set), Never (explicit no limit) or Unread (absent or unreadable: nothing is deduced).
+    param($Value)
+    $ticks = ConvertTo-DomeniaAdInt64 $Value
+    if ($null -eq $ticks) { return [pscustomobject]@{State='Unread';Span=$null} }
+    if (($ticks -eq 0) -or ($ticks -eq [long]::MinValue)) { return [pscustomobject]@{State='Never';Span=$null} }
+    return [pscustomobject]@{State='Value';Span=[TimeSpan]::FromTicks([Math]::Abs($ticks))}
+}
+
+function ConvertFrom-DomeniaAdInterval {
+    # AD stores durations as negative 100-nanosecond counts. 0 and Int64.MinValue mean "never".
+    # $null for "never" and for a value that could not be read (see Get-DomeniaAdIntervalState to tell them apart).
+    param($Value)
+    $interval = Get-DomeniaAdIntervalState $Value
+    if ($interval.State -ne 'Value') { return $null }
+    return $interval.Span
+}
+
+function Get-DomeniaCnFromDn {
+    param([AllowEmptyString()][string]$Dn)
+    $first = @(Split-DomeniaDn $Dn | Select-Object -First 1)
+    if (-not $first.Count) { return '' }
+    return (([string]$first[0] -replace '^(?i)(CN|OU)=','') -replace '\\(.)','$1')
+}
+
+function Get-DomeniaAccountState {
+    # $Uac = userAccountControl, $Computed = msDS-User-Account-Control-Computed (may be unreadable).
+    param($Uac,$Computed=$null,$LockoutTime=$null)
+    $flags = 0L
+    if ($null -eq $Uac -or -not [long]::TryParse([string]$Uac,[ref]$flags)) { return [pscustomobject]@{Known=$false;Disabled=$false;Locked=$null;PasswordExpired=$null;NeverExpires=$false;Label='Etat non determine'} }
+    $computedFlags = 0L
+    $hasComputed = ($null -ne $Computed -and [long]::TryParse([string]$Computed,[ref]$computedFlags))
+    $disabled = (($flags -band 2) -ne 0)
+    $locked = $null; $expired = $null
+    if ($hasComputed) { $locked = (($computedFlags -band 16) -ne 0); $expired = (($computedFlags -band 8388608) -ne 0) }
+    $label = 'Actif'
+    if ($disabled) { $label = 'Desactive' }
+    if ($locked -eq $true) { $label += ' · verrouille' }
+    elseif ($null -eq $locked) {
+        $lock = ConvertTo-DomeniaAdInt64 $LockoutTime
+        if (($null -ne $lock) -and ($lock -gt 0)) { $label += ' · verrouillage a verifier' }
+    }
+    if ($expired -eq $true) { $label += ' · mot de passe expire' }
+    return [pscustomobject]@{Known=$true;Disabled=$disabled;Locked=$locked;PasswordExpired=$expired;NeverExpires=(($flags -band 65536) -ne 0);SmartcardRequired=(($flags -band 262144) -ne 0);PasswordNotRequired=(($flags -band 32) -ne 0);Label=$label}
+}
+
+# ---------------------------------------------------------------- D061 support-oriented user summary
+function Get-DomeniaUserSupportSummary {
+    # A short, readable context for a technician. Technical attributes stay in the advanced view.
+    param($Properties,[string]$Reader='',[string]$Source='Lecture AD',[datetime]$NowUtc=[datetime]::UtcNow,$ReadUtc=$null)
+    $facts = New-Object 'System.Collections.Generic.List[object]'
+    $add = {
+        param([string]$group,[string]$label,[string]$value,[string]$limit='')
+        if ([string]::IsNullOrWhiteSpace($value)) { return }
+        $fact = New-DomeniaFact -Fait $label -Valeur $value -Source $Source -Limite $limit -Date $ReadUtc -Lecteur $Reader
+        $fact | Add-Member -NotePropertyName Rubrique -NotePropertyValue $group
+        $facts.Add($fact)
+    }
+    & $add 'Identite' 'Nom affiche' ([string](Get-DomeniaAttr $Properties 'displayName' (Get-DomeniaAttr $Properties 'name' '')))
+    & $add 'Identite' 'Identifiant' ([string](Get-DomeniaAttr $Properties 'sAMAccountName' ''))
+    & $add 'Identite' 'Nom de connexion' ([string](Get-DomeniaAttr $Properties 'userPrincipalName' ''))
+    & $add 'Service' 'Service' ([string](Get-DomeniaAttr $Properties 'department' ''))
+    & $add 'Service' 'Fonction' ([string](Get-DomeniaAttr $Properties 'title' ''))
+    & $add 'Service' 'Societe' ([string](Get-DomeniaAttr $Properties 'company' ''))
+    & $add 'Service' 'Bureau' ([string](Get-DomeniaAttr $Properties 'physicalDeliveryOfficeName' ''))
+    & $add 'Service' 'Responsable' (Get-DomeniaCnFromDn ([string](Get-DomeniaAttr $Properties 'manager' '')))
+    & $add 'Contact' 'Messagerie' ([string](Get-DomeniaAttr $Properties 'mail' ''))
+    & $add 'Contact' 'Telephone' ([string](Get-DomeniaAttr $Properties 'telephoneNumber' ''))
+    & $add 'Contact' 'Mobile' ([string](Get-DomeniaAttr $Properties 'mobile' ''))
+    $state = Get-DomeniaAccountState (Get-DomeniaAttr $Properties 'userAccountControl' $null) (Get-DomeniaAttr $Properties 'msDS-User-Account-Control-Computed' $null) (Get-DomeniaAttr $Properties 'lockoutTime' $null)
+    $stateLimit = ''
+    if ($state.Known -and $null -eq $state.Locked) { $stateLimit = 'Etat calcule du controleur non lu : verrouillage et expiration non confirmes.' }
+    & $add 'Compte' 'Etat du compte' $state.Label $stateLimit
+    $expires = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $Properties 'accountExpires' $null)
+    if ($null -ne $expires) {
+        $text = $expires.ToLocalTime().ToString('dd/MM/yyyy')
+        if ($expires -lt $NowUtc) { $text += ' (echu)' }
+        & $add 'Compte' 'Expiration du compte' $text
+    }
+    $created = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $Properties 'whenCreated' $null)
+    if ($null -ne $created) { & $add 'Dates' 'Cree le' $created.ToLocalTime().ToString('dd/MM/yyyy') }
+    $pwdRaw = Get-DomeniaAttr $Properties 'pwdLastSet' $null
+    $pwd = ConvertTo-DomeniaAdDate $pwdRaw
+    if ($null -ne $pwd) { & $add 'Dates' 'Mot de passe change le' $pwd.ToLocalTime().ToString('dd/MM/yyyy HH:mm') }
+    elseif ((ConvertTo-DomeniaAdInt64 $pwdRaw) -eq 0L) { & $add 'Dates' 'Mot de passe' 'A changer a la prochaine ouverture de session' }
+    $logon = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $Properties 'lastLogonTimestamp' $null)
+    if ($null -ne $logon) { & $add 'Dates' 'Derniere ouverture de session (approx.)' $logon.ToLocalTime().ToString('dd/MM/yyyy') 'Valeur repliquee avec un retard pouvant atteindre 14 jours.' }
+    return $facts.ToArray()
+}
+
+# ---------------------------------------------------------------- D062 effective password policy
+function Resolve-DomeniaPasswordPolicy {
+    # $ResultantPsoState: 'Applies' (a fine-grained policy was read), 'None' (attribute readable and empty: the domain
+    # policy applies) or 'Unreadable' (the policy stays unknown: nothing is assumed from the domain).
+    param($User,[ValidateSet('Applies','None','Unreadable')][string]$ResultantPsoState='Unreadable',$Pso=$null,$DomainPolicy=$null,[string]$Reader='',[datetime]$NowUtc=[datetime]::UtcNow)
+    $facts = New-Object 'System.Collections.Generic.List[object]'
+    $known = $false; $sourceLabel = ''; $bag = $null; $prefix = ''
+    if ($ResultantPsoState -eq 'Applies' -and $null -ne $Pso) { $known = $true; $bag = $Pso; $prefix = 'msDS-'; $sourceLabel = 'Strategie fine : ' + [string](Get-DomeniaAttr $Pso 'name' (Get-DomeniaCnFromDn ([string](Get-DomeniaAttr $Pso 'distinguishedName' '')))) }
+    elseif ($ResultantPsoState -eq 'None' -and $null -ne $DomainPolicy) { $known = $true; $bag = $DomainPolicy; $sourceLabel = 'Strategie du domaine' }
+    $maxAge = $null; $maxAgeState = [pscustomobject]@{State='Unread';Span=$null}
+    if (-not $known) {
+        $facts.Add((New-DomeniaFact -Fait 'Strategie applicable' -Valeur 'Inconnue' -Etat Inconnu -Source 'msDS-ResultantPSO' -Limite 'Strategie non lisible avec ce compte : aucune valeur n est deduite de la strategie du domaine.' -Lecteur $Reader))
+    } else {
+        $facts.Add((New-DomeniaFact -Fait 'Strategie applicable' -Valeur $sourceLabel -Source 'msDS-ResultantPSO' -Lecteur $Reader))
+        if ($prefix) {
+            $minLength = [string](Get-DomeniaAttr $bag 'msDS-MinimumPasswordLength' ''); $history = [string](Get-DomeniaAttr $bag 'msDS-PasswordHistoryLength' '')
+            $complex = [string](Get-DomeniaAttr $bag 'msDS-PasswordComplexityEnabled' ''); $threshold = [string](Get-DomeniaAttr $bag 'msDS-LockoutThreshold' '')
+            $maxAgeState = Get-DomeniaAdIntervalState (Get-DomeniaAttr $bag 'msDS-MaximumPasswordAge' $null)
+            $lockState = Get-DomeniaAdIntervalState (Get-DomeniaAttr $bag 'msDS-LockoutDuration' $null)
+            $complexText = if ($complex -match '^(?i:true|1)$') { 'Oui' } elseif ($complex) { 'Non' } else { '' }
+        } else {
+            $minLength = [string](Get-DomeniaAttr $bag 'minPwdLength' ''); $history = [string](Get-DomeniaAttr $bag 'pwdHistoryLength' '')
+            $threshold = [string](Get-DomeniaAttr $bag 'lockoutThreshold' '')
+            $maxAgeState = Get-DomeniaAdIntervalState (Get-DomeniaAttr $bag 'maxPwdAge' $null)
+            $lockState = Get-DomeniaAdIntervalState (Get-DomeniaAttr $bag 'lockoutDuration' $null)
+            $properties = 0L; $complexText = ''
+            if ([long]::TryParse([string](Get-DomeniaAttr $bag 'pwdProperties' ''),[ref]$properties)) { $complexText = if (($properties -band 1) -ne 0) { 'Oui' } else { 'Non' } }
+        }
+        $maxAge = $maxAgeState.Span
+        if ($minLength) { $facts.Add((New-DomeniaFact -Fait 'Longueur minimale' -Valeur ($minLength + ' caracteres') -Source $sourceLabel -Lecteur $Reader)) }
+        if ($complexText) { $facts.Add((New-DomeniaFact -Fait 'Complexite exigee' -Valeur $complexText -Source $sourceLabel -Lecteur $Reader)) }
+        if ($history) { $facts.Add((New-DomeniaFact -Fait 'Historique' -Valeur ($history + ' mots de passe') -Source $sourceLabel -Lecteur $Reader)) }
+        # An absent or unreadable duration is not "no limit": only an explicit 0 (or Int64.MinValue) means never.
+        switch ($maxAgeState.State) {
+            'Value' { $facts.Add((New-DomeniaFact -Fait 'Duree de validite' -Valeur ([string][int]$maxAge.TotalDays + ' jours') -Source $sourceLabel -Lecteur $Reader)) }
+            'Never' { $facts.Add((New-DomeniaFact -Fait 'Duree de validite' -Valeur 'Sans limite' -Source $sourceLabel -Lecteur $Reader)) }
+            default { $facts.Add((New-DomeniaFact -Fait 'Duree de validite' -Valeur 'Non lue' -Etat Inconnu -Source $sourceLabel -Limite 'Duree absente de la lecture ou illisible : aucune absence de limite n est deduite.' -Lecteur $Reader)) }
+        }
+        if ($threshold) {
+            $lockText = if ($threshold -eq '0') { 'Aucun verrouillage' } else { $threshold + ' echecs' }
+            $lockEtat = 'Constate'; $lockLimit = ''
+            if ($threshold -ne '0') {
+                switch ($lockState.State) {
+                    'Value' { $lockText += ', duree ' + [string][int]$lockState.Span.TotalMinutes + ' min' }
+                    'Never' { $lockText += ', deverrouillage par un administrateur' }
+                    default { $lockText += ', duree de verrouillage non lue'; $lockEtat = 'Inconnu'; $lockLimit = 'lockoutDuration absent de la lecture ou illisible.' }
+                }
+            }
+            $facts.Add((New-DomeniaFact -Fait 'Verrouillage' -Valeur $lockText -Etat $lockEtat -Source $sourceLabel -Limite $lockLimit -Lecteur $Reader))
+        }
+    }
+    # Expiration: the controller's computed value first; otherwise only when the policy is known.
+    $state = Get-DomeniaAccountState (Get-DomeniaAttr $User 'userAccountControl' $null) (Get-DomeniaAttr $User 'msDS-User-Account-Control-Computed' $null)
+    $expiryUtc = $null; $expiryText = ''; $expiryState = 'Constate'; $expiryLimit = ''
+    $computed = ConvertTo-DomeniaAdInt64 (Get-DomeniaAttr $User 'msDS-UserPasswordExpiryTimeComputed' $null)
+    $pwdLastSetValue = Get-DomeniaAttr $User 'pwdLastSet' $null
+    $pwdLastSetNumber = ConvertTo-DomeniaAdInt64 $pwdLastSetValue
+    if ($state.Known -and $state.NeverExpires) { $expiryText = 'N expire jamais (option du compte)' }
+    elseif (($null -ne $pwdLastSetNumber) -and ($pwdLastSetNumber -eq 0L)) { $expiryText = 'A changer a la prochaine ouverture de session' }
+    elseif (($null -ne $computed) -and ($computed -ne 0L)) {
+        if ($computed -eq [long]::MaxValue) { $expiryText = 'N expire pas' }
+        else { $expiryUtc = ConvertTo-DomeniaUtcDate $computed; if ($null -ne $expiryUtc) { $expiryText = $expiryUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm') } }
+    } elseif ($known) {
+        $pwdLastSet = ConvertTo-DomeniaAdDate $pwdLastSetValue
+        if ($maxAgeState.State -eq 'Never') { $expiryText = 'N expire pas (strategie sans limite)' }
+        elseif (($maxAgeState.State -eq 'Value') -and ($null -ne $pwdLastSet)) { $expiryUtc = $pwdLastSet.Add($maxAge); $expiryText = $expiryUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm'); $expiryState = 'Estime'; $expiryLimit = 'Calcule a partir de la strategie lue ; valeur du controleur non disponible.' }
+    }
+    if (-not $expiryText) { $expiryText = 'Inconnue'; $expiryState = 'Inconnu'; $expiryLimit = 'Strategie ou date de changement non lisible.' }
+    elseif ($null -ne $expiryUtc -and $expiryUtc -lt $NowUtc) { $expiryText += ' (echu)' }
+    $facts.Add((New-DomeniaFact -Fait 'Expiration du mot de passe' -Valeur $expiryText -Etat $expiryState -Source 'Compte utilisateur' -Limite $expiryLimit -Lecteur $Reader))
+    $reasons = New-Object 'System.Collections.Generic.List[string]'
+    if ($state.Known) {
+        if ($state.SmartcardRequired) { $reasons.Add('Carte a puce exigee : le mot de passe n est pas utilisable pour ouvrir une session interactive.') }
+        if ($state.PasswordNotRequired) { $reasons.Add('Mot de passe non requis (PASSWD_NOTREQD) : a revoir.') }
+        if ($state.Disabled) { $reasons.Add('Compte desactive.') }
+    }
+    foreach ($reason in $reasons) { $facts.Add((New-DomeniaFact -Fait 'Restriction' -Valeur $reason -Source 'userAccountControl' -Lecteur $Reader)) }
+    return [pscustomobject]@{PolicyKnown=$known;PolicySource=$sourceLabel;ExpiresUtc=$expiryUtc;Facts=$facts.ToArray()}
+}
+
+# ---------------------------------------------------------------- D063 lockout diagnosis on demand
+function Get-DomeniaLockoutDiagnosis {
+    # $User: attributes read on the controller named $Dc. $Events: lockout events {TimeUtc, CallerComputer} or $null when not read.
+    # $DomeniaFailures: refusals recorded by the credential guard {Key, Kind, AtUtc}; $AccountKeys: aliases of $User.
+    param($User,[string]$Dc='',[object[]]$Events=$null,[string]$EventReadState='NotRequested',[TimeSpan]$LockoutDuration=[TimeSpan]::Zero,[bool]$PolicyKnown=$false,[string]$Reader='',[datetime]$NowUtc=[datetime]::UtcNow,[object[]]$DomeniaFailures=$null,[string[]]$AccountKeys=@())
+    $facts = New-Object 'System.Collections.Generic.List[object]'
+    $source = 'Controleur ' + $Dc
+    $state = Get-DomeniaAccountState (Get-DomeniaAttr $User 'userAccountControl' $null) (Get-DomeniaAttr $User 'msDS-User-Account-Control-Computed' $null) (Get-DomeniaAttr $User 'lockoutTime' $null)
+    $lockoutUtc = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $User 'lockoutTime' $null)
+    $verdict = 'Inconnu'
+    if ($state.Locked -eq $true) { $verdict = 'Verrouille' ; $facts.Add((New-DomeniaFact -Fait 'Etat calcule par le controleur' -Valeur 'Verrouille' -Source $source -Date $NowUtc -Lecteur $Reader)) }
+    elseif ($state.Locked -eq $false) { $verdict = 'NonVerrouille'; $facts.Add((New-DomeniaFact -Fait 'Etat calcule par le controleur' -Valeur 'Non verrouille' -Source $source -Date $NowUtc -Lecteur $Reader)) }
+    else { $facts.Add((New-DomeniaFact -Fait 'Etat calcule par le controleur' -Valeur 'Non lu' -Etat Inconnu -Source $source -Limite 'Sans cet etat, un lockoutTime non nul ne prouve pas un verrouillage actuel.' -Lecteur $Reader)) }
+    if ($null -ne $lockoutUtc) {
+        $text = $lockoutUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss')
+        $limit = 'Date du dernier verrouillage enregistre, pas son etat actuel.'
+        if ($PolicyKnown -and $LockoutDuration -gt [TimeSpan]::Zero -and $state.Locked -ne $true -and $lockoutUtc.Add($LockoutDuration) -lt $NowUtc) { $text += ' (duree de verrouillage ecoulee)' }
+        $facts.Add((New-DomeniaFact -Fait 'Dernier verrouillage' -Valeur $text -Source $source -Limite $limit -Lecteur $Reader))
+    }
+    $badCount = [string](Get-DomeniaAttr $User 'badPwdCount' '')
+    if ($badCount) { $facts.Add((New-DomeniaFact -Fait 'Echecs de mot de passe' -Valeur $badCount -Source $source -Limite 'Compteur propre a ce controleur : il n est pas replique.' -Lecteur $Reader)) }
+    $badTime = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $User 'badPasswordTime' $null)
+    if ($null -ne $badTime) { $facts.Add((New-DomeniaFact -Fait 'Dernier echec' -Valeur $badTime.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') -Source $source -Limite 'Valeur propre a ce controleur.' -Lecteur $Reader)) }
+    $recurrence = 0; $origins = @(); $timeline = $null
+    switch ($EventReadState) {
+        'Read' {
+            $list = @(@($Events) | Where-Object { $null -ne $_ })
+            $recurrence = $list.Count
+            $origins = @($list | ForEach-Object { [string](Get-DomeniaMember $_ 'CallerComputer' '') } | Where-Object { $_ } | Group-Object | Sort-Object Count -Descending | ForEach-Object { $_.Name + ' (' + $_.Count + ')' })
+            if ($recurrence) {
+                $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur ([string]$recurrence + ' evenement(s) 4740') -Source ('Journal Securite de ' + $Dc) -Limite 'Fenetre et volume bornes ; un journal recycle peut ne plus contenir les evenements anciens.' -Lecteur $Reader))
+                if ($origins.Count) { $facts.Add((New-DomeniaFact -Fait 'Postes a l origine' -Valeur ($origins -join ', ') -Source ('Journal Securite de ' + $Dc) -Hypothese 'Un poste recurrent suggere une session, un lecteur reseau ou un service utilisant un ancien mot de passe.' -Lecteur $Reader)) }
+                if ($null -ne $DomeniaFailures) {
+                    $timeline = Get-DomeniaLockoutTimeline -Events $list -DomeniaFailures $DomeniaFailures -AccountKeys $AccountKeys
+                    if ($timeline.NearCount) {
+                        $facts.Add((New-DomeniaFact -Fait 'Refus de Domenia avant un verrouillage' -Valeur ([string]$timeline.NearCount + ' sur ' + [string]$recurrence) -Source 'Protection des comptes de Domenia' -Hypothese 'Domenia a essuye un refus d authentification pour ce compte juste avant : verifier d abord le mot de passe saisi dans Domenia.' -Limite ('Rapprochement horaire a ' + [string]$timeline.ToleranceSeconds + ' s, horloges du poste et du controleur non comparees.') -Lecteur $Reader))
+                    } else {
+                        $facts.Add((New-DomeniaFact -Fait 'Refus de Domenia avant un verrouillage' -Valeur 'Aucun' -Source 'Protection des comptes de Domenia' -Limite 'Refus enregistres pendant cette execution de Domenia seulement.' -Lecteur $Reader))
+                    }
+                }
+            } else {
+                $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur 'Aucun dans la fenetre lue' -Source ('Journal Securite de ' + $Dc) -Limite 'Absence dans la fenetre lue seulement.' -Lecteur $Reader))
+            }
+        }
+        'Refused' { $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur 'Lecture refusee' -Etat Refuse -Source ('Journal Securite de ' + $Dc) -Limite 'Un refus de lecture ne signifie pas qu aucun verrouillage n a eu lieu.' -Lecteur $Reader)) }
+        'Unavailable' { $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur 'Journal injoignable' -Etat Indisponible -Source ('Journal Securite de ' + $Dc) -Limite 'Aucune conclusion sur les verrouillages passes.' -Lecteur $Reader)) }
+        default { $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur 'Non demandes' -Etat Inconnu -Source 'Journal Securite' -Limite 'La lecture du journal se demande explicitement.' -Lecteur $Reader)) }
+    }
+    return [pscustomobject]@{Verdict=$verdict;Recurrence=$recurrence;Origins=$origins;Facts=$facts.ToArray();Timeline=$timeline}
+}
+
+function ConvertTo-DomeniaLockoutUtc {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime() }
+    $parsed = [datetime]::MinValue
+    if ([datetime]::TryParse([string]$Value, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsed)) { return $parsed.ToUniversalTime() }
+    return $null
+}
+
+function Get-DomeniaLockoutTimeline {
+    # Point 47: each 4740 event beside the authentication refusals Domenia itself recorded for the same account.
+    # A refusal just before a lockout is a lead to check, never proof that Domenia caused it.
+    param([object[]]$Events=@(),[object[]]$DomeniaFailures=@(),[string[]]$AccountKeys=@(),[ValidateRange(1,3600)][int]$ToleranceSeconds=120)
+    $keys = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($k in @($AccountKeys)) { if (-not [string]::IsNullOrWhiteSpace([string]$k)) { [void]$keys.Add(([string]$k).Trim()) } }
+    $own = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($f in @($DomeniaFailures)) {
+        if ($null -eq $f) { continue }
+        $at = ConvertTo-DomeniaLockoutUtc (Get-DomeniaMember $f 'AtUtc' $null)
+        if ($null -eq $at) { continue }
+        $key = [string](Get-DomeniaMember $f 'Key' '')
+        # A refusal whose account could not be attributed stays a lead, flagged as such.
+        if ((-not $key) -or ($keys.Contains($key))) { $own.Add([pscustomobject]@{AtUtc=$at;Kind=[string](Get-DomeniaMember $f 'Kind' '');Ambiguous=(-not $key)}) }
+    }
+    $parsed = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($e in @($Events)) {
+        if ($null -eq $e) { continue }
+        $t = ConvertTo-DomeniaLockoutUtc (Get-DomeniaMember $e 'TimeUtc' $null)
+        if ($null -ne $t) { $parsed.Add([pscustomobject]@{TimeUtc=$t;Event=$e}) }
+    }
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $near = 0
+    foreach ($p in @($parsed | Sort-Object TimeUtc -Descending)) {
+        $best = $null
+        foreach ($f in $own) {
+            $delta = ($p.TimeUtc - $f.AtUtc).TotalSeconds
+            # The refusal precedes the lockout; 5 s of clock skew between this computer and the controller is tolerated.
+            if (($delta -ge -5) -and ($delta -le $ToleranceSeconds)) {
+                if (($null -eq $best) -or ([Math]::Abs($delta) -lt [Math]::Abs($best.Delta))) { $best = [pscustomobject]@{Delta=$delta;Failure=$f} }
+            }
+        }
+        $caller = [string](Get-DomeniaMember $p.Event 'CallerComputer' '')
+        if (-not $caller) { $caller = 'non renseigné' }
+        $domenia = 'aucun refus Domenia à ' + [string]$ToleranceSeconds + ' s'
+        if ($null -ne $best) {
+            $near++
+            $domenia = 'refus Domenia ' + [string][int][Math]::Round([Math]::Max(0,$best.Delta)) + ' s avant'
+            if ($best.Failure.Ambiguous) { $domenia += ' (compte non attribué)' }
+        }
+        $rows.Add([pscustomobject]@{TimeUtc=$p.TimeUtc;Heure=$p.TimeUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss');Poste=$caller;Controleur=[string](Get-DomeniaMember $p.Event 'Dc' '');Domenia=$domenia;DomeniaProche=($null -ne $best)})
+    }
+    return [pscustomobject]@{Rows=$rows.ToArray();NearCount=$near;FailureCount=$own.Count;ToleranceSeconds=$ToleranceSeconds}
+}
+
+# ---------------------------------------------------------------- D064 membership paths
+function Get-DomeniaPrimaryGroupSid {
+    param([AllowEmptyString()][string]$UserSid,[AllowEmptyString()][string]$PrimaryGroupId)
+    $sid = ConvertTo-DomeniaSidText $UserSid
+    $rid = 0L
+    if (-not $sid -or -not [long]::TryParse([string]$PrimaryGroupId,[ref]$rid) -or $rid -le 0) { return '' }
+    return ($sid.Substring(0,$sid.LastIndexOf('-')) + '-' + $rid)
+}
+
+function Find-DomeniaMembershipPath {
+    # Breadth-first walk of memberOf edges with cycle protection and explicit limits.
+    # $Edges: hashtable DN -> array of group DNs it is a direct member of.
+    param([Collections.IDictionary]$Edges,[Parameter(Mandatory=$true)][string]$Start,[Parameter(Mandatory=$true)][string]$Target,[ValidateRange(1,64)][int]$MaxDepth=16,[ValidateRange(1,100000)][int]$MaxNodes=5000)
+    $comparer = [StringComparer]::OrdinalIgnoreCase
+    $visited = New-Object 'System.Collections.Generic.HashSet[string]' $comparer
+    $parent = New-Object 'System.Collections.Generic.Dictionary[string,string]' $comparer
+    $depth = New-Object 'System.Collections.Generic.Dictionary[string,int]' $comparer
+    $queue = New-Object 'System.Collections.Generic.Queue[string]'
+    $lookup = New-Object 'System.Collections.Generic.Dictionary[string,object]' $comparer
+    if ($null -ne $Edges) { foreach ($key in @($Edges.Keys)) { $lookup[[string]$key] = $Edges[$key] } }
+    [void]$visited.Add($Start); $depth[$Start] = 0; $queue.Enqueue($Start)
+    $truncated = $false; $cycle = $false
+    while ($queue.Count -gt 0) {
+        $node = $queue.Dequeue()
+        if ($comparer.Equals($node,$Target) -and -not $comparer.Equals($node,$Start)) {
+            $path = New-Object 'System.Collections.Generic.List[string]'
+            $cursor = $node
+            while ($null -ne $cursor) { $path.Insert(0,$cursor); if ($parent.ContainsKey($cursor)) { $cursor = $parent[$cursor] } else { $cursor = $null } }
+            return [pscustomobject]@{Found=$true;Path=$path.ToArray();Direct=($path.Count -eq 2);Truncated=$truncated;CycleSeen=$cycle;Visited=$visited.Count}
+        }
+        if ($depth[$node] -ge $MaxDepth) { $truncated = $true; continue }
+        if (-not $lookup.ContainsKey($node)) { continue }
+        # Enumerate the parents without @(): under 5.1, @() on a List[object] built by New-Object (wrapped in a
+        # PSObject) throws 'Argument types do not match'. A single DN text is one parent, not a list of characters.
+        $parents = New-Object 'System.Collections.Generic.List[string]'
+        $edgeValue = $lookup[$node]
+        if ($edgeValue -is [string]) { $parents.Add($edgeValue) }
+        elseif ($edgeValue -is [Collections.IEnumerable]) { foreach ($item in $edgeValue) { if ($null -ne $item) { $parents.Add([string]$item) } } }
+        elseif ($null -ne $edgeValue) { $parents.Add([string]$edgeValue) }
+        foreach ($next in $parents) {
+            $name = [string]$next
+            if (-not $name) { continue }
+            if (-not $visited.Add($name)) { $cycle = ($cycle -or $comparer.Equals($name,$Start) -or $parent.ContainsKey($name)); continue }
+            if ($visited.Count -gt $MaxNodes) { $truncated = $true; break }
+            $parent[$name] = $node; $depth[$name] = $depth[$node] + 1; $queue.Enqueue($name)
+        }
+        if ($visited.Count -gt $MaxNodes) { break }
+    }
+    return [pscustomobject]@{Found=$false;Path=@();Direct=$false;Truncated=$truncated;CycleSeen=$cycle;Visited=$visited.Count}
+}
+
+function Resolve-DomeniaMembershipAnswer {
+    # $ServerAnswer: $true / $false from the controller's transitive test, or $null when it was not obtained.
+    # A truncated local walk never concludes that a member is absent.
+    param($ServerAnswer=$null,$LocalPath=$null,[bool]$ListTruncated=$false)
+    if ($ServerAnswer -eq $true) { return [pscustomobject]@{Member=$true;Certain=$true;Text='Membre : confirme par le controleur (appartenance directe ou imbriquee).'} }
+    if ($ServerAnswer -eq $false) { return [pscustomobject]@{Member=$false;Certain=$true;Text='Non membre : confirme par le controleur pour ce compte de lecture.'} }
+    if ($null -ne $LocalPath -and [bool](Get-DomeniaMember $LocalPath 'Found' $false)) { return [pscustomobject]@{Member=$true;Certain=$true;Text='Membre : chemin d appartenance trouve.'} }
+    $truncated = ($ListTruncated -or ($null -ne $LocalPath -and [bool](Get-DomeniaMember $LocalPath 'Truncated' $false)))
+    if ($truncated) { return [pscustomobject]@{Member=$null;Certain=$false;Text='Indetermine : la liste lue est tronquee. Demandez le test au controleur.'} }
+    return [pscustomobject]@{Member=$false;Certain=$false;Text='Aucun chemin dans les appartenances lues. Appartenance au groupe principal et groupes d autres domaines non couverts.'}
+}
+
+# ---------------------------------------------------------------- D065 comparing two users
+function Test-DomeniaPrivilegedGroup {
+    param($Group)
+    $sid = [string](Get-DomeniaMember $Group 'Sid' '')
+    $name = [string](Get-DomeniaMember $Group 'Name' '')
+    if ([string](Get-DomeniaMember $Group 'AdminCount' '') -eq '1') { return $true }
+    if ($sid -match '^S-1-5-32-(544|548|549|550|551)$') { return $true }
+    if ($sid -match '-(512|516|517|518|519|520|526|527)$') { return $true }
+    return ($name -match '(?i)^(Admins du domaine|Domain Admins|Administrateurs de l.entreprise|Enterprise Admins|Administrateurs du sch.ma|Schema Admins|Administrateurs|Administrators|Op.rateurs de compte|Account Operators|Op.rateurs de serveur|Server Operators|Op.rateurs de sauvegarde|Backup Operators|Propri.taires cr.ateurs de la strat.gie de groupe|Group Policy Creator Owners|DnsAdmins)$')
+}
+
+function Compare-DomeniaUserAccess {
+    # Read-only comparison. The result carries no "apply" action: nothing is copied from one user to the other.
+    param($Left,$Right,[string[]]$Attributes=@('department','title','company','physicalDeliveryOfficeName','manager'))
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $labels = @{department='Service';title='Fonction';company='Societe';physicalDeliveryOfficeName='Bureau';manager='Responsable'}
+    foreach ($attribute in $Attributes) {
+        $l = [string](Get-DomeniaAttr (Get-DomeniaMember $Left 'Attributes' $null) $attribute ''); $r = [string](Get-DomeniaAttr (Get-DomeniaMember $Right 'Attributes' $null) $attribute '')
+        if ($attribute -eq 'manager') { $l = Get-DomeniaCnFromDn $l; $r = Get-DomeniaCnFromDn $r }
+        $label = $attribute; if ($labels.ContainsKey($attribute)) { $label = $labels[$attribute] }
+        $rows.Add([pscustomobject]@{Rubrique='Organisation';Element=$label;Gauche=$l;Droite=$r;Identique=($l -ceq $r);Privilegie=$false;Alerte=''})
+    }
+    $index = @{}
+    foreach ($side in @('Left','Right')) {
+        $user = if ($side -eq 'Left') { $Left } else { $Right }
+        foreach ($group in @(Get-DomeniaMember $user 'Groups' @())) {
+            if ($null -eq $group) { continue }
+            $key = ([string](Get-DomeniaMember $group 'Dn' (Get-DomeniaMember $group 'Name' ''))).ToLowerInvariant()
+            if (-not $key) { continue }
+            if (-not $index.ContainsKey($key)) { $index[$key] = [pscustomobject]@{Group=$group;Left=$false;Right=$false} }
+            $index[$key].$side = $true
+        }
+    }
+    foreach ($key in @($index.Keys | Sort-Object)) {
+        $entry = $index[$key]
+        $privileged = Test-DomeniaPrivilegedGroup $entry.Group
+        $alert = ''
+        if ($privileged) { $alert = 'Groupe a privileges : toute attribution se decide et se justifie au cas par cas.' }
+        $rows.Add([pscustomobject]@{Rubrique='Groupes';Element=[string](Get-DomeniaMember $entry.Group 'Name' $key);Gauche=$(if ($entry.Left) { 'Membre' } else { '' });Droite=$(if ($entry.Right) { 'Membre' } else { '' });Identique=($entry.Left -eq $entry.Right);Privilegie=$privileged;Alerte=$alert})
+    }
+    $different = @($rows | Where-Object { -not $_.Identique })
+    return [pscustomobject]@{Rows=$rows.ToArray();Differences=$different.Count;PrivilegedDifferences=@($different | Where-Object { $_.Privilegie }).Count;CanApply=$false;Note='Comparaison en lecture. Aucune difference n est appliquee automatiquement.'}
+}
+
+# ---------------------------------------------------------------- D066 group changes as a delta
+function New-DomeniaGroupDelta {
+    # Only the chosen additions and removals. The full membership list in memory is never written back.
+    param([string[]]$CurrentGroups=@(),[string[]]$Add=@(),[string[]]$Remove=@(),[string]$MemberDn='')
+    $comparer = [StringComparer]::OrdinalIgnoreCase
+    $current = New-Object 'System.Collections.Generic.HashSet[string]' $comparer
+    foreach ($group in @($CurrentGroups)) { if ($group) { [void]$current.Add($group) } }
+    $operations = New-Object 'System.Collections.Generic.List[object]'
+    $notes = New-Object 'System.Collections.Generic.List[string]'
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' $comparer
+    foreach ($group in @($Add)) {
+        if (-not $group -or -not $seen.Add('+' + $group)) { continue }
+        if (@($Remove) -contains $group) { $notes.Add((Get-DomeniaCnFromDn $group) + ' : demande d ajout et de retrait a la fois, ignoree.'); continue }
+        if ($current.Contains($group)) { $notes.Add((Get-DomeniaCnFromDn $group) + ' : deja membre d apres la derniere lecture ; l ajout sera revérifie sur le controleur.') }
+        $operations.Add([pscustomobject]@{Action='Add';GroupDn=$group;MemberDn=$MemberDn;Label=('Ajouter a ' + (Get-DomeniaCnFromDn $group));Expected=$true})
+    }
+    foreach ($group in @($Remove)) {
+        if (-not $group -or -not $seen.Add('-' + $group)) { continue }
+        if (@($Add) -contains $group) { continue }
+        if (-not $current.Contains($group)) { $notes.Add((Get-DomeniaCnFromDn $group) + ' : non membre d apres la derniere lecture ; le retrait sera revérifie sur le controleur.') }
+        $operations.Add([pscustomobject]@{Action='Remove';GroupDn=$group;MemberDn=$MemberDn;Label=('Retirer de ' + (Get-DomeniaCnFromDn $group));Expected=$false})
+    }
+    return [pscustomobject]@{Operations=$operations.ToArray();Notes=$notes.ToArray();WritesFullList=$false;Effects=@($operations | ForEach-Object { $_.Label })}
+}
+
+function Test-DomeniaGroupDeltaPostcondition {
+    # $Observed: hashtable groupDn -> $true/$false/$null (membership re-read on the controller after the change).
+    param($Delta,[Collections.IDictionary]$Observed)
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($operation in @($Delta.Operations)) {
+        $seen = $null
+        if ($null -ne $Observed) { foreach ($key in @($Observed.Keys)) { if ([string]$key -ieq [string]$operation.GroupDn) { $seen = $Observed[$key]; break } } }
+        $status = 'A verifier'
+        if ($null -ne $seen) { $status = if ([bool]$seen -eq [bool]$operation.Expected) { 'Verifie' } else { 'Echec' } }
+        $rows.Add([pscustomobject]@{Label=$operation.Label;GroupDn=$operation.GroupDn;Status=$status})
+    }
+    $all = $rows.ToArray()
+    $overall = 'Verifie'
+    if (@($all | Where-Object { $_.Status -eq 'Echec' }).Count) { $overall = 'Partiel' }
+    elseif (@($all | Where-Object { $_.Status -eq 'A verifier' }).Count) { $overall = 'A verifier' }
+    if (-not $all.Count) { $overall = 'Aucun changement' }
+    return [pscustomobject]@{Overall=$overall;Rows=$all}
+}
+
+# ---------------------------------------------------------------- D067 reading delegations
+function ConvertTo-DomeniaAceView {
+    # Shows what an ACE says and where it comes from. An observed ACE is not a verified capability.
+    param([object[]]$Aces=@(),[Collections.IDictionary]$GuidNames=$null)
+    foreach ($ace in @($Aces)) {
+        if ($null -eq $ace) { continue }
+        $inherited = [bool](Get-DomeniaMember $ace 'IsInherited' $false)
+        $scope = switch ([string](Get-DomeniaMember $ace 'InheritanceType' 'None')) {
+            'All' { 'Cet objet et tous ses descendants' } 'Descendents' { 'Descendants uniquement' } 'Children' { 'Enfants directs uniquement' }
+            'SelfAndChildren' { 'Cet objet et ses enfants directs' } default { 'Cet objet uniquement' }
+        }
+        $objectType = [string](Get-DomeniaMember $ace 'ObjectType' '')
+        $on = ''
+        if ($objectType -and $objectType -ne '00000000-0000-0000-0000-000000000000') {
+            $on = $objectType
+            if ($null -ne $GuidNames) { foreach ($key in @($GuidNames.Keys)) { if ([string]$key -ieq $objectType) { $on = [string]$GuidNames[$key]; break } } }
+        }
+        [pscustomobject]@{
+            Beneficiaire=[string](Get-DomeniaMember $ace 'IdentityReference' '')
+            Type=$(if ([string](Get-DomeniaMember $ace 'AccessControlType' 'Allow') -eq 'Deny') { 'Refus' } else { 'Autorisation' })
+            Droits=[string](Get-DomeniaMember $ace 'ActiveDirectoryRights' '')
+            Cible=$on
+            Origine=$(if ($inherited) { 'Heritee d un conteneur parent' } else { 'Posee sur cet objet' })
+            Portee=$scope
+            Statut='ACE observee'
+            Limite='Lecture de la liste de controle d acces. Le droit effectif depend aussi des groupes, des refus et des privileges du compte.'
+        }
+    }
+}
+
+# ---------------------------------------------------------------- D068 account life cycle
+function New-DomeniaLifecyclePlan {
+    # A prepared sequence. Each sensitive step needs its own confirmation; nothing deletes or migrates.
+    param([Parameter(Mandatory=$true)][ValidateSet('Arrivee','ChangementService','Suspension')][string]$Kind,[Parameter(Mandatory=$true)]$User,$Template=$null)
+    $steps = New-Object 'System.Collections.Generic.List[object]'
+    $add = { param([string]$title,[string]$operation,[bool]$sensitive,$parameters) $steps.Add([pscustomobject]@{Id=($steps.Count + 1);Title=$title;Operation=$operation;Sensitive=$sensitive;Parameters=$parameters;State='Pending';Note=''}) }
+    $groupsAdd = @(Get-DomeniaMember $Template 'AddGroups' @()); $groupsRemove = @(Get-DomeniaMember $Template 'RemoveGroups' @())
+    $targetOu = [string](Get-DomeniaMember $Template 'TargetOu' '')
+    switch ($Kind) {
+        'Arrivee' {
+            & $add 'Verifier la fiche (service, responsable, bureau)' 'Review' $false $null
+            if ($groupsAdd.Count) { & $add ('Ajouter aux groupes du modele (' + $groupsAdd.Count + ')') 'GroupDelta' $true ([pscustomobject]@{Add=$groupsAdd;Remove=@()}) }
+            & $add 'Activer le compte' 'EnableAccount' $true $null
+        }
+        'ChangementService' {
+            & $add 'Mettre a jour service, fonction et responsable' 'Attributes' $true (Get-DomeniaMember $Template 'Attributes' $null)
+            if ($groupsAdd.Count -or $groupsRemove.Count) { & $add 'Ajuster les groupes choisis' 'GroupDelta' $true ([pscustomobject]@{Add=$groupsAdd;Remove=$groupsRemove}) }
+            if ($targetOu) { & $add 'Deplacer vers la nouvelle OU' 'Move' $true ([pscustomobject]@{TargetOu=$targetOu}) }
+        }
+        'Suspension' {
+            & $add 'Desactiver le compte' 'DisableAccount' $true $null
+            & $add 'Consigner le motif dans la description' 'Attributes' $true (Get-DomeniaMember $Template 'Attributes' $null)
+            if ($targetOu) { & $add 'Deplacer vers l OU des comptes suspendus' 'Move' $true ([pscustomobject]@{TargetOu=$targetOu}) }
+        }
+    }
+    return [pscustomobject]@{Kind=$Kind;User=$User;Steps=$steps.ToArray();Deletes=$false;Migrates=$false;Blocked=$false;BlockReason=''}
+}
+
+function Set-DomeniaLifecycleStep {
+    # Records the outcome of one step. An uncertain outcome blocks the following steps and is never replayed.
+    param($Plan,[int]$StepId,[Parameter(Mandatory=$true)][ValidateSet('Verified','Failed','Uncertain','Skipped','Resolved')][string]$Outcome,[string]$Note='')
+    $step = @($Plan.Steps | Where-Object { $_.Id -eq $StepId })
+    if (-not $step.Count) { return $Plan }
+    if ($Outcome -eq 'Resolved') {
+        if ($step[0].State -eq 'Uncertain') { $step[0].State = 'Verified'; $step[0].Note = $Note; $Plan.Blocked = $false; $Plan.BlockReason = '' }
+        return $Plan
+    }
+    $step[0].State = $Outcome; $step[0].Note = $Note
+    if ($Outcome -eq 'Uncertain') { $Plan.Blocked = $true; $Plan.BlockReason = ('Etape ' + $StepId + ' a verifier avant de poursuivre. Elle ne sera pas rejouee.') }
+    if ($Outcome -eq 'Failed') { $Plan.Blocked = $true; $Plan.BlockReason = ('Etape ' + $StepId + ' en echec : decidez de la reprendre ou d arreter.') }
+    return $Plan
+}
+
+function Get-DomeniaLifecycleNextStep {
+    param($Plan)
+    if ($null -eq $Plan -or [bool]$Plan.Blocked) { return $null }
+    return @($Plan.Steps | Where-Object { $_.State -eq 'Pending' } | Select-Object -First 1)[0]
+}
+
+# ---------------------------------------------------------------- D069 inconsistencies on a chosen perimeter
+function Find-DomeniaDirectoryInconsistencies {
+    # $Objects: rows {Guid, Name, Type, Mail, Upn, EmployeeId, Description, ManagerDn, Disabled, LastLogonUtc, PwdLastSet}.
+    # Every finding is "to review". Nothing is ever declared removable.
+    param([object[]]$Objects=@(),[string[]]$KnownDns=@(),[ValidateRange(30,3650)][int]$StaleDays=180,[datetime]$NowUtc=[datetime]::UtcNow,[bool]$Truncated=$false)
+    $findings = New-Object 'System.Collections.Generic.List[object]'
+    $limit = 'Perimetre choisi uniquement.'
+    if ($Truncated) { $limit = 'Perimetre lu partiellement : la liste des constats est incomplete.' }
+    foreach ($field in @(@('Mail','Adresse de messagerie'),@('Upn','Nom de connexion'),@('EmployeeId','Matricule'))) {
+        $groups = @(@($Objects) | Where-Object { [string](Get-DomeniaMember $_ $field[0] '') } | Group-Object { ([string](Get-DomeniaMember $_ $field[0] '')).ToLowerInvariant() } | Where-Object { $_.Count -gt 1 })
+        foreach ($group in $groups) {
+            $findings.Add([pscustomobject]@{Categorie='Valeur en double';Element=$field[1] + ' : ' + $group.Name;Objets=(@($group.Group | ForEach-Object { [string](Get-DomeniaMember $_ 'Name' '') }) -join ', ');Conclusion='A revoir';Limite=$limit + ' Un doublon visible ne designe pas l objet a corriger.'})
+        }
+    }
+    $known = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($dn in @($KnownDns)) { if ($dn) { [void]$known.Add($dn) } }
+    foreach ($object in @($Objects)) {
+        if ($null -eq $object) { continue }
+        $name = [string](Get-DomeniaMember $object 'Name' '')
+        $type = [string](Get-DomeniaMember $object 'Type' '')
+        $manager = [string](Get-DomeniaMember $object 'ManagerDn' '')
+        if ($type -eq 'Utilisateur' -and -not [string](Get-DomeniaMember $object 'Description' '') -and -not [string](Get-DomeniaMember $object 'Department' 'x')) {
+            $findings.Add([pscustomobject]@{Categorie='Information manquante';Element='Service et description absents';Objets=$name;Conclusion='A revoir';Limite=$limit})
+        }
+        if ($manager -and $known.Count -gt 0 -and -not $known.Contains($manager)) {
+            $findings.Add([pscustomobject]@{Categorie='Responsable a verifier';Element=(Get-DomeniaCnFromDn $manager);Objets=$name;Conclusion='A revoir';Limite='Responsable hors du perimetre lu : son existence n est pas verifiee ici.'})
+        }
+        $lastLogon = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $object 'LastLogonUtc' $null)
+        if ($null -ne $lastLogon -and ($NowUtc - $lastLogon).TotalDays -gt $StaleDays -and -not [bool](Get-DomeniaMember $object 'Disabled' $false)) {
+            $findings.Add([pscustomobject]@{Categorie='Objet peu utilise';Element=('Derniere ouverture de session il y a ' + [int]($NowUtc - $lastLogon).TotalDays + ' jours');Objets=$name;Conclusion='A revoir';Limite='Date approximative (replication differee). Une date ancienne ne suffit pas a declarer un objet supprimable.'})
+        }
+        if ($type -eq 'Utilisateur' -and [string](Get-DomeniaMember $object 'PwdLastSet' 'x') -eq '0' -and $null -eq $lastLogon) {
+            $findings.Add([pscustomobject]@{Categorie='Compte jamais utilise';Element='Mot de passe jamais defini par l utilisateur';Objets=$name;Conclusion='A revoir';Limite=$limit})
+        }
+    }
+    return $findings.ToArray()
+}
+
+# ---------------------------------------------------------------- D070 comparing a target between controllers
+function ConvertFrom-DomeniaReplMetadata {
+    # Parses msDS-ReplAttributeMetaData values (one XML fragment per attribute).
+    param([string[]]$Values=@())
+    foreach ($value in @($Values)) {
+        if ([string]::IsNullOrWhiteSpace($value)) { continue }
+        $document = New-Object Xml.XmlDocument
+        # Fragments come from a directory attribute: no DTD and no external entity is ever resolved.
+        $document.XmlResolver = $null
+        try { $document.LoadXml(([string]$value).Trim([char]0)) } catch { continue }
+        $node = $document.DocumentElement
+        if ($null -eq $node) { continue }
+        $get = { param([string]$name) $child = $node.SelectSingleNode($name); if ($null -ne $child) { return [string]$child.InnerText }; return '' }
+        $dsa = & $get 'pszLastOriginatingDsaDN'
+        $origin = ''
+        if ($dsa -match '(?i)CN=NTDS Settings,CN=([^,]+),') { $origin = $Matches[1] }
+        [pscustomobject]@{
+            Attribute=(& $get 'pszAttributeName');Version=(& $get 'dwVersion')
+            ChangedUtc=(ConvertTo-DomeniaUtcDate (& $get 'ftimeLastOriginatingChange'))
+            OriginatingDc=$origin;LocalUsn=(& $get 'usnLocalChange');OriginatingUsn=(& $get 'usnOriginatingChange')
+        }
+    }
+}
+
+function Compare-DomeniaDcReadings {
+    # $Readings: {Dc, Reachable, Error, Attributes (hashtable), Metadata (from ConvertFrom-DomeniaReplMetadata)} for ONE object GUID.
+    # Differences are dated per controller. Local USNs are shown but never compared across controllers.
+    param([object[]]$Readings=@(),[string[]]$Attributes=@())
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $read = @(@($Readings) | Where-Object { $null -ne $_ -and [bool](Get-DomeniaMember $_ 'Reachable' $false) })
+    $names = @($Attributes)
+    if (-not $names.Count) { $names = @($read | ForEach-Object { @((Get-DomeniaMember $_ 'Attributes' @{}).Keys) } | ForEach-Object { [string]$_ } | Sort-Object -Unique) }
+    foreach ($attribute in $names) {
+        $values = New-Object 'System.Collections.Generic.List[string]'
+        $cells = [ordered]@{}
+        foreach ($reading in $read) {
+            $dc = [string](Get-DomeniaMember $reading 'Dc' '')
+            $value = (@(Get-DomeniaAttrAll (Get-DomeniaMember $reading 'Attributes' $null) $attribute) | ForEach-Object { [string]$_ } | Sort-Object) -join ' | '
+            $meta = @(@(Get-DomeniaMember $reading 'Metadata' @()) | Where-Object { [string](Get-DomeniaMember $_ 'Attribute' '') -ieq $attribute } | Select-Object -First 1)
+            $stamp = ''
+            if ($meta.Count -and $null -ne $meta[0].ChangedUtc) { $stamp = ' [v' + $meta[0].Version + ', ' + $meta[0].ChangedUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') + ', origine ' + $meta[0].OriginatingDc + ']' }
+            $cells[$dc] = $value + $stamp
+            $values.Add($value)
+        }
+        $distinct = @($values.ToArray() | Select-Object -Unique)
+        $rows.Add([pscustomobject]@{Attribut=$attribute;Identique=($distinct.Count -le 1);ParControleur=$cells;Lus=$read.Count})
+    }
+    $unreachable = @(@($Readings) | Where-Object { $null -ne $_ -and -not [bool](Get-DomeniaMember $_ 'Reachable' $false) } | ForEach-Object { [string](Get-DomeniaMember $_ 'Dc' '') + ' : ' + [string](Get-DomeniaMember $_ 'Error' 'non lu') })
+    $note = 'Les USN sont locaux a chaque controleur : ils ne constituent pas une horloge commune. Les dates sont celles de la derniere modification d origine.'
+    $comparable = ($read.Count -ge 2)
+    return [pscustomobject]@{Rows=$rows.ToArray();Differences=@($rows | Where-Object { -not $_.Identique }).Count;Comparable=$comparable;NotRead=$unreachable;Note=$note}
+}
+
+# ---------------------------------------------------------------- MO-04 domain totals from the local copy
+function Get-DomeniaLocalTotalsSummary {
+    # MO-04: the totals of the domain come from the local copy (ad_objects counted by type and state, as the
+    # LocalIndexRead FleetStats action returns them) with the date of its last directory synchronisation. No count of
+    # the whole directory is ever sent. $Types: rows {t; s; n}. $LastSyncUtc: sync_state.last_sync of the 'directory'
+    # scope, '' when the copy was never synchronised (the totals then say so instead of showing zeros).
+    param([object[]]$Types=@(),[AllowEmptyString()][AllowNull()][string]$LastSyncUtc='',$NowUtc=$null)
+    $culture = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $order = @('Utilisateur','Machine','Groupe','OU','Conteneur')
+    $labels = @{Utilisateur=@('utilisateur','utilisateurs');Machine=@('poste','postes');Groupe=@('groupe','groupes');OU=@('OU','OU');Conteneur=@('conteneur','conteneurs')}
+    $counts = @{}; $disabled = @{}; $total = 0L
+    foreach ($row in @($Types)) {
+        if ($null -eq $row) { continue }
+        $type = [string](Get-DomeniaMember $row 't' '')
+        $count = 0L
+        try { $count = [long](Get-DomeniaMember $row 'n' 0) } catch { $count = 0L }
+        if ((-not $type) -or ($count -le 0)) { continue }
+        if (-not $counts.ContainsKey($type)) { $counts[$type] = 0L; $disabled[$type] = 0L }
+        $counts[$type] += $count; $total += $count
+        if ([string](Get-DomeniaMember $row 's' '') -eq 'Desactive') { $disabled[$type] += $count }
+    }
+    $when = ''
+    if ($LastSyncUtc) { $when = Format-DomeniaRelationWhen $LastSyncUtc $NowUtc }
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $known = @($order) + @($counts.Keys | Where-Object { $order -notcontains $_ } | Sort-Object)
+    foreach ($type in $known) {
+        if (-not $counts.ContainsKey($type)) { continue }
+        $n = [long]$counts[$type]
+        $words = $labels[$type]
+        if ($null -eq $words) { $words = @($type,$type) }
+        $text = $n.ToString('N0',$culture) + ' ' + $(if ($n -gt 1) { $words[1] } else { $words[0] })
+        $off = [long]$disabled[$type]
+        if ($off -gt 0) { $text += ' (dont ' + $off.ToString('N0',$culture) + ' désactivé' + $(if ($off -gt 1) { 's' } else { '' }) + ')' }
+        $parts.Add($text)
+    }
+    if ($total -eq 0) {
+        return [pscustomobject]@{Known=$false;Total=0L;When=$when;Text='Totaux du domaine : la copie locale ne contient encore aucun objet. Mettez-la à jour depuis Base autonome ; aucun dénombrement nʼest lancé sur lʼannuaire.'}
+    }
+    $head = 'Totaux de la copie locale au ' + $when
+    if (-not $when) { $head = 'Totaux de la copie locale, date de synchronisation inconnue' }
+    return [pscustomobject]@{Known=[bool]$when;Total=$total;When=$when;Text=($head + ' : ' + ($parts.ToArray() -join ' · ') + '.')}
+}
+
+# ---------------------------------------------------------------- UI-06 readable memberships and « Pourquoi membre ? »
+function Get-DomeniaDnDisplayName {
+    # Display name of a DN: the value of its first RDN, escapes decoded ('CN=Dupont\, Jean,OU=X' -> 'Dupont, Jean').
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = ([string]$Dn).Trim()
+    $parts = @(Split-DomeniaDn $text)
+    if (-not $parts.Count) { return $text }
+    $first = [string]$parts[0]
+    $equals = $first.IndexOf('=')
+    if ($equals -lt 1) { return $first }
+    return (ConvertFrom-DomeniaDnValue ($first.Substring($equals + 1)))
+}
+
+function ConvertTo-DomeniaMembershipRows {
+    # UI-06: the members of a group, or the groups of an object, as readable rows: Name (first RDN), Type, Ou (readable
+    # path of the parent, same separator as the OU explorer) and Dn (tooltip, copy, actions). -Kind MemberOf: every row
+    # is a group (memberOf only lists groups). Members: the type comes from the local copy ($Types: DN -> type, a
+    # case-insensitive dictionary such as @{}) and is
+    # 'Non lu' when the copy does not know the DN; it is never guessed from a name. Duplicates are dropped, $Max rows kept.
+    param([string[]]$Dns=@(),[ValidateSet('Members','MemberOf')][string]$Kind='Members',$Types=$null,[int]$Max=2000)
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($dn in @($Dns)) {
+        $text = ([string]$dn).Trim()
+        if ((-not $text) -or (-not $seen.Add($text))) { continue }
+        if ($rows.Count -ge [Math]::Max(1,$Max)) { break }
+        $type = 'Non lu'
+        if ($Kind -eq 'MemberOf') { $type = 'Groupe' }
+        elseif (($Types -is [Collections.IDictionary]) -and $Types.Contains($text)) {
+            $known = [string]$Types[$text]
+            if ($known) { $type = $known }
+        }
+        $rows.Add([pscustomobject]@{Name=(Get-DomeniaDnDisplayName $text);Type=$type;Ou=(Get-DomeniaOuDisplayPath (Get-DomeniaDnParent $text));Dn=$text;Membership='Directe';Depth=1;Via=''})
+    }
+    return ,$rows.ToArray()
+}
+
+function Test-DomeniaMembershipRow {
+    # UI-06: local filter of the membership grids. Every word must appear in the name, type, OU, DN or path (no request).
+    param($Row,[AllowEmptyString()][AllowNull()][string]$Text)
+    if ($null -eq $Row) { return $false }
+    $words = @(([string]$Text).Trim() -split '\s+' | Where-Object { $_ })
+    if (-not $words.Count) { return $true }
+    $haystack = (@('Name','Type','Ou','Dn','Membership','Via') | ForEach-Object { [string](Get-DomeniaMember $Row $_ '') }) -join ' '
+    foreach ($word in $words) { if ($haystack.IndexOf([string]$word,[StringComparison]::OrdinalIgnoreCase) -lt 0) { return $false } }
+    return $true
+}
+
+function ConvertTo-DomeniaMembershipEdges {
+    # UI-06: memberOf edges of a GroupPathRead answer (DN -> parent DNs) as a dictionary, whether they arrive as a
+    # hashtable or as an object (isolated read, JSON). A single parent stays one DN, never a list of characters.
+    param($Value)
+    $edges = @{}
+    if ($null -eq $Value) { return $edges }
+    $pairs = @()
+    if ($Value -is [Collections.IDictionary]) { $pairs = @($Value.Keys | ForEach-Object { [pscustomobject]@{Name=[string]$_;Value=$Value[$_]} }) }
+    else { $pairs = @($Value.PSObject.Properties | ForEach-Object { [pscustomobject]@{Name=[string]$_.Name;Value=$_.Value} }) }
+    foreach ($pair in $pairs) {
+        if (-not $pair.Name) { continue }
+        $parents = New-Object 'System.Collections.Generic.List[string]'
+        if ($pair.Value -is [string]) { if ($pair.Value) { $parents.Add([string]$pair.Value) } }
+        elseif ($pair.Value -is [Collections.IEnumerable]) { foreach ($item in $pair.Value) { if ($item) { $parents.Add([string]$item) } } }
+        $edges[$pair.Name] = $parents.ToArray()
+    }
+    return $edges
+}
+
+function ConvertTo-DomeniaGroupPathEdges {
+    # UI-06 / point 103: the memberOf edges (DN -> parent DNs) of a GroupPathRead answer: the object to its direct
+    # groups (StartParents), then each group read to its own parents (Nodes). The DNs keep their case, so that the
+    # rows built from them show the names as read; a group not read has no entry (its parents are unknown).
+    param($Read)
+    $pairs = @{}
+    if ($null -eq $Read) { return $pairs }
+    $dn = [string](Get-DomeniaMember $Read 'Dn' '')
+    if ($dn) { $pairs[$dn] = @(Get-DomeniaMember $Read 'StartParents' @()) }
+    foreach ($node in @(Get-DomeniaMember $Read 'Nodes' @())) {
+        if ($null -eq $node) { continue }
+        $nodeDn = [string](Get-DomeniaMember $node 'Dn' '')
+        if ($nodeDn) { $pairs[$nodeDn] = @(Get-DomeniaMember $node 'Parents' @()) }
+    }
+    return (ConvertTo-DomeniaMembershipEdges $pairs)
+}
+
+function Get-DomeniaNestedMembershipRows {
+    # UI-06: the groups reached only through other groups (depth 2 or more), from one breadth-first walk of the edges:
+    # Via names the direct group the shortest path goes through, Depth counts the levels. Direct groups are not repeated.
+    param([Collections.IDictionary]$Edges,[Parameter(Mandatory=$true)][string]$ObjectDn,[ValidateRange(1,64)][int]$MaxDepth=16,[int]$Max=2000)
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    if ($null -eq $Edges) { return ,$rows.ToArray() }
+    $comparer = [StringComparer]::OrdinalIgnoreCase
+    $lookup = New-Object 'System.Collections.Generic.Dictionary[string,object]' $comparer
+    foreach ($key in @($Edges.Keys)) { $lookup[[string]$key] = $Edges[$key] }
+    $depth = New-Object 'System.Collections.Generic.Dictionary[string,int]' $comparer
+    $via = New-Object 'System.Collections.Generic.Dictionary[string,string]' $comparer
+    $queue = New-Object 'System.Collections.Generic.Queue[string]'
+    $depth[$ObjectDn] = 0; $queue.Enqueue($ObjectDn)
+    while ($queue.Count -gt 0) {
+        $node = $queue.Dequeue()
+        if ($depth[$node] -ge $MaxDepth) { continue }
+        if (-not $lookup.ContainsKey($node)) { continue }
+        $value = $lookup[$node]
+        $parents = New-Object 'System.Collections.Generic.List[string]'
+        if ($value -is [string]) { $parents.Add($value) } elseif ($value -is [Collections.IEnumerable]) { foreach ($item in $value) { if ($item) { $parents.Add([string]$item) } } }
+        foreach ($parent in $parents) {
+            if ($depth.ContainsKey($parent)) { continue }
+            $depth[$parent] = $depth[$node] + 1
+            $via[$parent] = $(if ($depth[$node] -eq 0) { $parent } else { $via[$node] })
+            $queue.Enqueue($parent)
+            if ($depth[$parent] -ge 2) {
+                if ($rows.Count -ge [Math]::Max(1,$Max)) { break }
+                $rows.Add([pscustomobject]@{Name=(Get-DomeniaDnDisplayName $parent);Type='Groupe';Ou=(Get-DomeniaOuDisplayPath (Get-DomeniaDnParent $parent));Dn=$parent;Membership='Imbriquée';Depth=$depth[$parent];Via=(Get-DomeniaDnDisplayName $via[$parent])})
+            }
+        }
+    }
+    return ,$rows.ToArray()
+}
+
+function Get-DomeniaMembershipWhy {
+    # UI-06 / D064: « Pourquoi membre ? » for one group of an object. A direct group needs no reading; otherwise the path
+    # comes from the memberOf edges read on demand (Find-DomeniaMembershipPath) and, when it was asked, from the
+    # controller's transitive answer. A truncated or partial walk never concludes that the object is not a member.
+    param([Collections.IDictionary]$Edges=$null,[Parameter(Mandatory=$true)][string]$ObjectDn,[Parameter(Mandatory=$true)][string]$GroupDn,
+        [bool]$Direct=$false,[bool]$Read=$false,[bool]$Truncated=$false,[int]$Unread=0,$ServerAnswer=$null)
+    $object = Get-DomeniaDnDisplayName $ObjectDn
+    $group = Get-DomeniaDnDisplayName $GroupDn
+    if ($Direct) {
+        return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$true;Path=@($object,$group);Text=('« ' + $object + ' » est membre direct de « ' + $group + ' » : lʼattribut member du groupe le nomme.')}
+    }
+    if (-not $Read) {
+        return [pscustomobject]@{Known=$false;NeedsRead=$true;Member=$null;Path=@();Text=('Lecture des groupes imbriqués nécessaire pour expliquer lʼappartenance à « ' + $group + ' ».')}
+    }
+    $found = $null
+    if ($null -ne $Edges) { $found = Find-DomeniaMembershipPath -Edges $Edges -Start $ObjectDn -Target $GroupDn }
+    $answer = Resolve-DomeniaMembershipAnswer -ServerAnswer $ServerAnswer -LocalPath $found -ListTruncated ($Truncated -or ($Unread -gt 0))
+    $server = ''
+    if ($ServerAnswer -eq $true) { $server = ' Le contrôleur confirme lʼappartenance (directe ou imbriquée).' }
+    elseif ($ServerAnswer -eq $false) { $server = ' Le contrôleur indique que ce compte nʼen est pas membre.' }
+    if (($null -ne $found) -and [bool]$found.Found) {
+        $names = @($found.Path | ForEach-Object { Get-DomeniaDnDisplayName $_ })
+        $levels = $names.Count - 1
+        $text = '« ' + $object + ' » est membre de « ' + $group + ' » par imbrication : ' + ($names -join ' → ') + ' (' + $levels + ' niveaux).' + $server
+        return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$true;Path=$names;Text=$text}
+    }
+    if ($answer.Member -eq $true) { return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$true;Path=@();Text=('« ' + $object + ' » est membre de « ' + $group + ' », mais aucun chemin nʼa été trouvé dans les groupes lus (groupe principal, autre domaine ou groupe non lisible).' + $server)} }
+    if ($null -eq $answer.Member) {
+        $missing = ''
+        if ($Unread -gt 0) { $missing = ' ' + $Unread + ' groupe(s) non lu(s).' }
+        return [pscustomobject]@{Known=$false;NeedsRead=$false;Member=$null;Path=@();Text=('Appartenance à « ' + $group + ' » indéterminée : la lecture des groupes imbriqués est incomplète.' + $missing + $server)}
+    }
+    if ($ServerAnswer -eq $false) { return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$false;Path=@();Text=('« ' + $object + ' » nʼest pas membre de « ' + $group + ' » pour ce compte de lecture.')} }
+    return [pscustomobject]@{Known=$false;NeedsRead=$false;Member=$false;Path=@();Text=('Aucun chemin vers « ' + $group + ' » dans les groupes lus ; le groupe principal et les groupes dʼautres domaines ne sont pas couverts.')}
+}
+
+# ---------------------------------------------------------------- R40 comparing the group access of two users
+function Get-DomeniaUserGroupAccessMap {
+    # R40: the groups a user belongs to, direct or nested, from one GroupPathRead answer (StartParents and Nodes).
+    # Breadth-first over memberOf edges, bounded by depth and count; a loop back to an ancestor is counted, never walked.
+    # The primary group (primaryGroupID, absent from memberOf) is added as a direct group when the worker resolved it.
+    param($Read,[AllowEmptyString()][string]$ObjectDn='',[ValidateRange(1,64)][int]$MaxDepth=16,[ValidateRange(1,100000)][int]$MaxGroups=5000)
+    $comparer = [StringComparer]::OrdinalIgnoreCase
+    $groups = New-Object 'System.Collections.Generic.Dictionary[string,object]' $comparer
+    $edges = ConvertTo-DomeniaGroupPathEdges $Read
+    $pathEdges = @{}
+    if ($null -ne $edges) { foreach ($key in @($edges.Keys)) { $pathEdges[[string]$key] = @($edges[[string]$key]) } }
+    if (-not $ObjectDn) { $ObjectDn = [string](Get-DomeniaMember $Read 'Dn' '') }
+    $primary = Get-DomeniaMember $Read 'PrimaryGroup' $null
+    $primaryDn = [string](Get-DomeniaMember $primary 'Dn' '')
+    # The path lookup sees the primary group as a direct edge of the user, as AD does.
+    if ($primaryDn) {
+        $startParents = @()
+        if ($pathEdges.ContainsKey($ObjectDn)) { $startParents = @($pathEdges[$ObjectDn]) }
+        $known = $false
+        foreach ($parent in $startParents) { if ($comparer.Equals([string]$parent,$primaryDn)) { $known = $true; break } }
+        if (-not $known) { $startParents = @($startParents) + @($primaryDn) }
+        $pathEdges[$ObjectDn] = @($startParents)
+    }
+    $metadata = New-Object 'System.Collections.Generic.Dictionary[string,object]' $comparer
+    foreach ($node in @(Get-DomeniaMember $Read 'Nodes' @())) {
+        if ($null -eq $node) { continue }
+        $dn = [string](Get-DomeniaMember $node 'Dn' '')
+        if ($dn) { $metadata[$dn] = $node }
+    }
+    if ($primaryDn -and (-not $metadata.ContainsKey($primaryDn))) {
+        $metadata[$primaryDn] = [pscustomobject]@{Dn=$primaryDn;Name=[string](Get-DomeniaMember $primary 'Name' '');Sid=[string](Get-DomeniaMember $primary 'Sid' '');AdminCount='';Primary=$true}
+    }
+    $visited = New-Object 'System.Collections.Generic.HashSet[string]' $comparer
+    $parentOf = New-Object 'System.Collections.Generic.Dictionary[string,string]' $comparer
+    $queue = New-Object 'System.Collections.Generic.Queue[object]'
+    if ($ObjectDn) { [void]$visited.Add($ObjectDn); $queue.Enqueue([pscustomobject]@{Dn=$ObjectDn;Depth=0}) }
+    $cycles = 0
+    $bounded = $false
+    while ($queue.Count -gt 0) {
+        $current = $queue.Dequeue()
+        $currentDn = [string](Get-DomeniaMember $current 'Dn' '')
+        $currentDepth = [int](Get-DomeniaMember $current 'Depth' 0)
+        if (-not $currentDn -or -not $pathEdges.ContainsKey($currentDn)) { continue }
+        foreach ($parent in @($pathEdges[$currentDn])) {
+            $name = [string]$parent
+            if (-not $name) { continue }
+            # A parent already on the chain back to the user closes a loop (self-loop included).
+            $cursor = $currentDn; $loop = $false; $guard = 0
+            while ($cursor -and ($guard -le $MaxDepth)) {
+                if ($comparer.Equals($cursor,$name)) { $loop = $true; break }
+                if ($parentOf.ContainsKey($cursor)) { $cursor = [string]$parentOf[$cursor] } else { $cursor = '' }
+                $guard++
+            }
+            if ($loop) { $cycles++; continue }
+            $nextDepth = $currentDepth + 1
+            if ($nextDepth -gt $MaxDepth) { $bounded = $true; continue }
+            if ($visited.Contains($name)) { continue }
+            if (($visited.Count - 1) -ge $MaxGroups) { $bounded = $true; continue }
+            [void]$visited.Add($name)
+            $parentOf[$name] = $currentDn
+            $info = $null
+            if ($metadata.ContainsKey($name)) { $info = $metadata[$name] }
+            $label = ''; $sid = ''; $admin = ''
+            if ($null -ne $info) {
+                $label = [string](Get-DomeniaMember $info 'Name' '')
+                $sid = [string](Get-DomeniaMember $info 'Sid' '')
+                $admin = [string](Get-DomeniaMember $info 'AdminCount' '')
+            }
+            if (-not $label) { $label = Get-DomeniaDnDisplayName $name }
+            $groups[$name] = [pscustomobject]@{Dn=$name;Name=$label;Sid=$sid;AdminCount=$admin;Depth=$nextDepth;Primary=$false}
+            $queue.Enqueue([pscustomobject]@{Dn=$name;Depth=$nextDepth})
+        }
+    }
+    if ($primaryDn -and $groups.ContainsKey($primaryDn)) { $groups[$primaryDn].Primary = $true }
+    $truncated = ([bool](Get-DomeniaMember $Read 'Truncated' $false) -or (-not [bool](Get-DomeniaMember $Read 'StartComplete' $true)) -or $bounded)
+    return [pscustomobject]@{
+        ObjectDn=$ObjectDn;Groups=$groups;PathEdges=$pathEdges;Cycles=$cycles;Truncated=$truncated
+        Unread=@(Get-DomeniaMember $Read 'Unread' @()).Count;PrimaryDn=$primaryDn
+        PrimaryKnown=[bool]$primaryDn;PrimaryError=[string](Get-DomeniaMember $primary 'Error' '')
+    }
+}
+
+function Compare-DomeniaUserGroupAccess {
+    # R40: differences between the group access of two users, from their GroupPathRead answers. Every row carries the
+    # category (only one side, common), the path from the side where the group exists and its privileges. Read-only:
+    # nothing is applied, and a bounded read never turns into a false "not a member".
+    param($Left,$Right,[AllowEmptyString()][string]$LeftDn='',[AllowEmptyString()][string]$RightDn='',
+        [AllowEmptyString()][string]$LeftLabel='A',[AllowEmptyString()][string]$RightLabel='B',
+        [ValidateRange(1,64)][int]$MaxDepth=16,[ValidateRange(1,100000)][int]$MaxGroups=5000)
+    $leftMap = Get-DomeniaUserGroupAccessMap -Read $Left -ObjectDn $LeftDn -MaxDepth $MaxDepth -MaxGroups $MaxGroups
+    $rightMap = Get-DomeniaUserGroupAccessMap -Read $Right -ObjectDn $RightDn -MaxDepth $MaxDepth -MaxGroups $MaxGroups
+    $leftDn = $leftMap.ObjectDn
+    $rightDn = $rightMap.ObjectDn
+    $all = @{}
+    foreach ($key in @($leftMap.Groups.Keys)) { $all[[string]$key] = $true }
+    foreach ($key in @($rightMap.Groups.Keys)) { $all[[string]$key] = $true }
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $leftOnly = 0; $rightOnly = 0; $common = 0
+    $leftName = Get-DomeniaDnDisplayName $leftDn
+    $rightName = Get-DomeniaDnDisplayName $rightDn
+    if (-not $LeftLabel) { $LeftLabel = $leftName }
+    if (-not $RightLabel) { $RightLabel = $rightName }
+    foreach ($key in @($all.Keys)) {
+        $inLeft = $leftMap.Groups.ContainsKey([string]$key)
+        $inRight = $rightMap.Groups.ContainsKey([string]$key)
+        $info = $null
+        if ($inLeft) { $info = $leftMap.Groups[[string]$key] } else { $info = $rightMap.Groups[[string]$key] }
+        $category = 'Commun'
+        $order = 2
+        if ($inLeft -and (-not $inRight)) { $category = 'Seulement chez ' + $LeftLabel; $order = 0; $leftOnly++ }
+        elseif ($inRight -and (-not $inLeft)) { $category = 'Seulement chez ' + $RightLabel; $order = 1; $rightOnly++ }
+        else { $common++ }
+        $pathNames = @()
+        $pathSide = ''
+        if ($inLeft) {
+            $found = Find-DomeniaMembershipPath -Edges $leftMap.PathEdges -Start $leftDn -Target ([string]$info.Dn) -MaxDepth $MaxDepth -MaxNodes $MaxGroups
+            if ([bool]$found.Found) { $pathNames = @($found.Path | ForEach-Object { Get-DomeniaDnDisplayName ([string]$_) }); $pathSide = $LeftLabel }
+        }
+        if ((-not $pathNames.Count) -and $inRight) {
+            $found = Find-DomeniaMembershipPath -Edges $rightMap.PathEdges -Start $rightDn -Target ([string]$info.Dn) -MaxDepth $MaxDepth -MaxNodes $MaxGroups
+            if ([bool]$found.Found) { $pathNames = @($found.Path | ForEach-Object { Get-DomeniaDnDisplayName ([string]$_) }); $pathSide = $RightLabel }
+        }
+        if ((-not $pathNames.Count) -and [bool]$info.Primary) {
+            $sideDn = $rightDn
+            if ($inLeft) { $sideDn = $leftDn }
+            $pathNames = @((Get-DomeniaDnDisplayName $sideDn), [string]$info.Name)
+            $pathSide = $RightLabel
+            if ($inLeft) { $pathSide = $LeftLabel }
+        }
+        $privileged = Test-DomeniaPrivilegedGroup ([pscustomobject]@{Name=[string]$info.Name;Sid=[string]$info.Sid;AdminCount=[string]$info.AdminCount})
+        $privilegeText = ''
+        if ($privileged) { $privilegeText = 'Oui' }
+        $alert = ''
+        if ($privileged) {
+            if ($category -eq 'Commun') { $alert = 'Groupe à privilèges, commun aux deux comptes.' }
+            else { $alert = 'Groupe à privilèges : vérifier lʼécart avant toute attribution.' }
+        }
+        $origin = 'memberOf'
+        if ([bool]$info.Primary) { $origin = 'Groupe principal' }
+        $rows.Add([pscustomobject]@{
+            Groupe=[string]$info.Name;Dn=[string]$info.Dn;Categorie=$category;Origine=$origin
+            Chemin=($pathNames -join ' → ');Profondeur=[int]$info.Depth;Principal=[bool]$info.Primary;Privilegie=$privileged;Privilege=$privilegeText;Alerte=$alert
+            Ordre=$order;Cote=$pathSide
+        })
+    }
+    $sorted = @($rows | Sort-Object Ordre, @{Expression={if ([bool]$_.Principal) { 0 } else { 1 }}}, Groupe)
+    $limits = New-Object 'System.Collections.Generic.List[string]'
+    if ($leftMap.Truncated -or $rightMap.Truncated) { $limits.Add('Lecture bornée (2 000 groupes, 16 niveaux ou 10 s) pour au moins un compte : la comparaison peut être incomplète.') }
+    $unread = [int]$leftMap.Unread + [int]$rightMap.Unread
+    if ($unread -gt 0) { $limits.Add([string]$unread + ' groupe(s) non lu(s) pendant les lectures : leur contenu nʼest pas comparé.') }
+    if (-not $leftMap.PrimaryKnown) { $limits.Add('Groupe principal du premier compte non résolu : il peut manquer dans la comparaison.') }
+    if (-not $rightMap.PrimaryKnown) { $limits.Add('Groupe principal du second compte non résolu : il peut manquer dans la comparaison.') }
+    $note = 'Lecture seule : aucune différence nʼest appliquée. Le groupe principal est inclus ; les groupes dʼautres domaines non lus ne le sont pas.'
+    $summary = [string]$leftOnly + ' groupe(s) seulement chez ' + $LeftLabel + ', ' + [string]$rightOnly + ' seulement chez ' + $RightLabel + ', ' + [string]$common + ' commun(s).'
+    if ($limits.Count -gt 0) { $summary = $summary + ' ' + ($limits.ToArray() -join ' ') }
+    return [pscustomobject]@{
+        Rows=$sorted;LeftOnly=$leftOnly;RightOnly=$rightOnly;Common=$common;Different=($leftOnly + $rightOnly)
+        LeftLabel=$LeftLabel;RightLabel=$RightLabel;LeftDn=$leftDn;RightDn=$rightDn;LeftName=$leftName;RightName=$rightName
+        Truncated=($leftMap.Truncated -or $rightMap.Truncated);Cycles=([int]$leftMap.Cycles + [int]$rightMap.Cycles);Unread=$unread
+        Summary=$summary;Limits=$limits.ToArray();Note=$note;CanApply=$false
+    }
+}
+
+function Format-DomeniaUserAccessDiffTicket {
+    # R40: plain text for a ticket from one comparison result. Repeats only what was read: no new request, no secret.
+    param([Parameter(Mandatory=$true)]$Comparison,[AllowEmptyString()][string]$When='')
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add('Comparaison des droits AD (lecture seule)')
+    $lines.Add('Premier utilisateur (' + [string]$Comparison.LeftLabel + ') : ' + [string]$Comparison.LeftDn)
+    $lines.Add('Second utilisateur (' + [string]$Comparison.RightLabel + ') : ' + [string]$Comparison.RightDn)
+    if ($When) { $lines.Add('Comparaison : ' + $When) }
+    $lines.Add('')
+    foreach ($category in @(('Seulement chez ' + [string]$Comparison.LeftLabel), ('Seulement chez ' + [string]$Comparison.RightLabel), 'Commun')) {
+        $rows = @($Comparison.Rows | Where-Object { [string]$_.Categorie -eq $category })
+        $lines.Add($category + ' : ' + [string]$rows.Count)
+        foreach ($row in @($rows | Sort-Object Groupe)) {
+            $line = '- ' + [string]$row.Groupe
+            if ([bool]$row.Principal) { $line = $line + ' (groupe principal)' }
+            $line = $line + ' [' + [string]$row.Dn + ']'
+            if ([string]$row.Chemin) { $line = $line + ' — chemin : ' + [string]$row.Chemin }
+            if ([bool]$row.Privilegie) { $line = $line + ' — groupe à privilèges' }
+            $lines.Add($line)
+        }
+    }
+    $lines.Add('')
+    if ($null -ne $Comparison.Limits -and @($Comparison.Limits).Count -gt 0) {
+        foreach ($limit in @($Comparison.Limits)) { $lines.Add('Limite : ' + [string]$limit) }
+    }
+    $lines.Add([string]$Comparison.Note)
+    return ($lines.ToArray() -join [Environment]::NewLine)
+}

@@ -1,0 +1,22 @@
+{
+  "id": "TRV-145",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/web/js/pages/rechercher.js:69,198,208 — compteur generation de la recherche : « if (!alive || my !== generation) return null; // an older answer is ignored »",
+    "repo/v2/web/js/pages/rechercher.js:166-167 — « Another list shown meanwhile: the answer belongs to the previous one and is ignored (Domenia 1) » via listId",
+    "repo/v2/web/js/shell/store.js:303-306 — sessionMark (compte|domaine|rootDn) : « A change closes the panels and withdraws the requests »",
+    "repo/v2/web/js/app.js:359-371 — lastSessionMark : le changement de session est détecté à chaque rafraîchissement et déclenche la fermeture des panneaux",
+    "repo/v2/web/js/shell/guards.js:116 — réponse d'une requête attendue arrivée après changement de session : retirée au lieu d'être appliquée",
+    "repo/v2/web/js/shell/pickers.js:131,301 — sélecteurs (OU, objets) : « if (sessionMark() !== mark) » l'ancienne réponse est jetée",
+    "repo/v2/web/js/pages/fiche/relations.js:16,92-100 — garde par jeton par panneau de fiche : « const my = ++token; … if (my !== token || !S.alive) return; » (même motif dans attributes.js:133-143, callsheet.js:95-104, actions.js:62-76)",
+    "repo/v2/web/js/pages/fiche.js:33,344 — la fiche est montée par route dn=… ; au démontage S.alive = false : une réponse sur l'objet précédent ne repeuple rien",
+    "repo/v2/web/js/pages/poste.js:220-221 — « A secret shown in the secure window never outlives the console (another workstation, another screen) » : poste.secret.hide appelé au changement",
+    "repo/v2/web/js/pages/poste/secrets.js:12,81-84 — lecture des secrets sous alive : réponse tardive ignorée (equivalent de Test-DomeniaSecretCallbackCurrent)",
+    "repo/v2/tests/web/recette-ui.test.mjs:355-385 — test « réponse tardive de l'ancienne OU rejetée » : la réponse obsolète résolue après changement de périmètre ne repeuple pas le widget",
+    "repo/v2/tests/web/rechercher-contract.test.mjs:103-142 — test : « réponse OU tardive … ne repeint pas le panneau fermé », aucune sélection ni préférence créée par la réponse tardive"
+  ],
+  "manque": "Rien de bloquant détecté. Les garde-fous des trois générations (sélection/objet, recherche, session) existent avec tests côté web ; le test de réponse tardive côté fiche (changement d'objet en cours de chargement) n'est pas individualisé, il repose sur le drapeau alive du montage.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

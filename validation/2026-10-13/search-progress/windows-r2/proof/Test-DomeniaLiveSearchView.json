@@ -1,0 +1,248 @@
+{
+    "Suite":  "DomeniaLiveSearchView",
+    "Passed":  false,
+    "Failed":  2,
+    "Cases":  11,
+    "Assertions":  61,
+    "PowerShell":  "5.1.26100.6584",
+    "SessionId":  0,
+    "Sta":  "STA",
+    "SyntheticOnly":  true,
+    "RealDispatcher":  true,
+    "LoaderScope":  "-File launcher then \u0026 application script (same as Domenia-Start)",
+    "LoadedFunctions":  [
+                            {
+                                "Name":  "Initialize-DomeniaLive",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Begin-DomeniaLiveSearch",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Update-DomeniaLiveFilter",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Add-DomeniaLiveRow",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Invoke-DomeniaLiveTick",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "New-DomeniaTimer",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Engine.UI.ps1"
+                            },
+                            {
+                                "Name":  "Invoke-DomeniaTimerTick",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Engine.UI.ps1"
+                            },
+                            {
+                                "Name":  "Test-DomeniaSearchQueryRow",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Query.UI.ps1"
+                            },
+                            {
+                                "Name":  "Get-DomeniaBoardSelectHandler",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Widgets.UI.ps1"
+                            },
+                            {
+                                "Name":  "Show-DomeniaFleetWidgetDetails",
+                                "File":  "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\modules\\Domenia-Query.UI.ps1"
+                            }
+                        ],
+    "Hashes":  [
+                   {
+                       "Path":  "Domenia-Modules.ps1",
+                       "Sha256":  "6C987E4D8135A0437AEE7CAE29DB970B33EDA067724246917AB6413A3BA6E4D9"
+                   },
+                   {
+                       "Path":  "Domenia-Core.ps1",
+                       "Sha256":  "AAA1383C7839AEBC4FFC12296783A25910CA4F7FD608C51E6B7775200FEACEB5"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Live.UI.ps1",
+                       "Sha256":  "C2E2F4ECD514B3F0DDF9289B78E75266BB1458E1BF180D8BE8DD4BDAEB61D772"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Query.UI.ps1",
+                       "Sha256":  "55222EDFA2BE2EE20DF918B4622FD3009D38E6954330095A545C36DB6BDA8DDB"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Widgets.UI.ps1",
+                       "Sha256":  "55DA60C9887D129411F9C5457FB8330C1B7F6D9FEFB54883D606AE0087A61E38"
+                   }
+               ],
+    "Results":  [
+                    {
+                        "Name":  "Real loader keeps application functions private to the script",
+                        "Passed":  true,
+                        "Milliseconds":  32,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Progressive arrivals without query survive three timer ticks",
+                        "Passed":  false,
+                        "Milliseconds":  1070,
+                        "Error":  "System.Management.Automation.RuntimeException: Progressive search lost or hid rows without a query"
+                    },
+                    {
+                        "Name":  "Real ApplySearch intersects native matching GUIDs and object types",
+                        "Passed":  true,
+                        "Milliseconds":  358,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "GUID normalization and later arrivals use the active predicate",
+                        "Passed":  true,
+                        "Milliseconds":  635,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Reapply recomputes GUID selection and explicit refresh preserves it",
+                        "Passed":  true,
+                        "Milliseconds":  618,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Active selection with empty or missing map fails closed",
+                        "Passed":  true,
+                        "Milliseconds":  61,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Disabled grid defers ApplySearch and ClearSearch until the next real tick",
+                        "Passed":  false,
+                        "Milliseconds":  1532,
+                        "Error":  "System.Management.Automation.RuntimeException: Pending ClearSearch was not rebuilt after enabling grid"
+                    },
+                    {
+                        "Name":  "Real ClearSearch restores rows then local text and presence filters work",
+                        "Passed":  true,
+                        "Milliseconds":  53,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Five thousand machines plus other object types remain complete and filterable",
+                        "Passed":  true,
+                        "Milliseconds":  81091,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "A fresh global search restarts and ignores residual local text and presence",
+                        "Passed":  true,
+                        "Milliseconds":  598,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Explicit Fleet chrome button opens the script-local workshop; chart click stays inert",
+                        "Passed":  true,
+                        "Milliseconds":  239,
+                        "Error":  ""
+                    }
+                ],
+    "Snapshots":  [
+                      {
+                          "Stage":  "no-query-three-arrivals",
+                          "Rows":  2,
+                          "Visible":  2,
+                          "Queued":  1,
+                          "TimerRuns":  2,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  2,
+                          "Counter":  "Chargement… · 2 / 2 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "applied-query",
+                          "Rows":  2,
+                          "Visible":  1,
+                          "Queued":  1,
+                          "TimerRuns":  2,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  2,
+                          "Counter":  "Chargement… · 1 / 2 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "filtered-incremental-arrivals",
+                          "Rows":  5,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  9,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  9,
+                          "Counter":  "Chargement… · 2 / 5 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "all-filters-cleared",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  31,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  31,
+                          "Counter":  "Chargement… · 5 / 5 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "5000-machines-plus-user-and-group",
+                          "Rows":  5002,
+                          "Visible":  5002,
+                          "Queued":  0,
+                          "TimerRuns":  942,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  943,
+                          "Counter":  "Chargement… · 5002 / 5002 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "2500-of-5000-machine-query",
+                          "Rows":  5002,
+                          "Visible":  2500,
+                          "Queued":  0,
+                          "TimerRuns":  942,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  943,
+                          "Counter":  "Chargement… · 2500 / 5002 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "fresh-global-search",
+                          "Rows":  2,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  948,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  949,
+                          "Counter":  "Chargement… · 2 / 2 lignes visibles · recherche globale sans filtre local"
+                      }
+                  ],
+    "Logs":  [
+
+             ]
+}

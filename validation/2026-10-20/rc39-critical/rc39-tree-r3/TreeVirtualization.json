@@ -1,0 +1,126 @@
+{
+    "Suite":  "DomeniaTreeVirtualization",
+    "Passed":  false,
+    "Failed":  3,
+    "Total":  8,
+    "RealWpf":  true,
+    "SyntheticOnly":  true,
+    "Cases":  [
+                  {
+                      "Name":  "Programme 8 Ten thousand loaded nodes are data, initial WPF generation is bounded",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Unloaded branch has a chevron and explicit expansion reads exactly once",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Far selection, recycling and favourite survive repeated scrolling with no search/read",
+                      "Passed":  false,
+                      "Error":  "Target reveal did not finish: {\"PendingLevel\":1,\"Path\":[{\"Node\":\"example.invalid\",\"Index\":0,\"Container\":true,\"Expanded\":true,\"Panel\":\"Domenia.Tree.DomeniaVirtualizingStackPanel\",\"PanelHeight\":317,\"Offset\":0},{\"Node\":\"item-05000\",\"Index\":5000,\"Container\":false,\"Expanded\":false,\"Panel\":\"missing\",\"PanelHeight\":-1,\"Offset\":-1}]} at Drain-Reveal, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 58\r\nat Select-TestNode, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 80\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 124\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 99\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 122"
+                  },
+                  {
+                      "Name":  "Programme 8 System-group descendant can be revealed through two virtualized levels",
+                      "Passed":  false,
+                      "Error":  "Target reveal did not finish: {\"PendingLevel\":1,\"Path\":[{\"Node\":\"example.invalid\",\"Index\":0,\"Container\":true,\"Expanded\":true,\"Panel\":\"Domenia.Tree.DomeniaVirtualizingStackPanel\",\"PanelHeight\":317,\"Offset\":0},{\"Node\":\"Conteneurs système (1)\",\"Index\":10000,\"Container\":false,\"Expanded\":false,\"Panel\":\"missing\",\"PanelHeight\":-1,\"Offset\":-1}]} at Drain-Reveal, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 58\r\nat Select-TestNode, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 80\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 130\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 99\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 129"
+                  },
+                  {
+                      "Name":  "Programme 8 Filter reaches a far node through data, excludes other children before container generation",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Selected unread leaf is found without reading its children",
+                      "Passed":  false,
+                      "Error":  "Target reveal did not finish: {\"PendingLevel\":1,\"Path\":[{\"Node\":\"example.invalid\",\"Index\":0,\"Container\":true,\"Expanded\":true,\"Panel\":\"Domenia.Tree.DomeniaVirtualizingStackPanel\",\"PanelHeight\":317,\"Offset\":0},{\"Node\":\"not-expanded\",\"Index\":10001,\"Container\":false,\"Expanded\":false,\"Panel\":\"missing\",\"PanelHeight\":-1,\"Offset\":-1}]} at Drain-Reveal, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 58\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 148\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 99\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaTreeVirtualization.ps1: line 144"
+                  },
+                  {
+                      "Name":  "Programme 8 Session replacement cancels a pending reveal without reading",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Previously generated containers are not retained in proportion to loaded data",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Measurements":  [
+                         {
+                             "Target":  "OU=item-00000,DC=example,DC=invalid",
+                             "Generated":  40
+                         },
+                         {
+                             "PendingLevel":  1,
+                             "Path":  [
+                                          {
+                                              "Node":  "example.invalid",
+                                              "Index":  0,
+                                              "Container":  true,
+                                              "Expanded":  true,
+                                              "Panel":  "Domenia.Tree.DomeniaVirtualizingStackPanel",
+                                              "PanelHeight":  317,
+                                              "Offset":  0
+                                          },
+                                          {
+                                              "Node":  "item-05000",
+                                              "Index":  5000,
+                                              "Container":  false,
+                                              "Expanded":  false,
+                                              "Panel":  "missing",
+                                              "PanelHeight":  -1,
+                                              "Offset":  -1
+                                          }
+                                      ]
+                         },
+                         {
+                             "PendingLevel":  1,
+                             "Path":  [
+                                          {
+                                              "Node":  "example.invalid",
+                                              "Index":  0,
+                                              "Container":  true,
+                                              "Expanded":  true,
+                                              "Panel":  "Domenia.Tree.DomeniaVirtualizingStackPanel",
+                                              "PanelHeight":  317,
+                                              "Offset":  0
+                                          },
+                                          {
+                                              "Node":  "Conteneurs système (1)",
+                                              "Index":  10000,
+                                              "Container":  false,
+                                              "Expanded":  false,
+                                              "Panel":  "missing",
+                                              "PanelHeight":  -1,
+                                              "Offset":  -1
+                                          }
+                                      ]
+                         },
+                         {
+                             "PendingLevel":  1,
+                             "Path":  [
+                                          {
+                                              "Node":  "example.invalid",
+                                              "Index":  0,
+                                              "Container":  true,
+                                              "Expanded":  true,
+                                              "Panel":  "Domenia.Tree.DomeniaVirtualizingStackPanel",
+                                              "PanelHeight":  317,
+                                              "Offset":  0
+                                          },
+                                          {
+                                              "Node":  "not-expanded",
+                                              "Index":  10001,
+                                              "Container":  false,
+                                              "Expanded":  false,
+                                              "Panel":  "missing",
+                                              "PanelHeight":  -1,
+                                              "Offset":  -1
+                                          }
+                                      ]
+                         }
+                     ],
+    "Limitations":  "Real bounded WPF layout and generated-container counts; synthetic directory data, no AD/network and no process-memory benchmark."
+}

@@ -1,0 +1,50 @@
+{
+    "Build":  "RC1.17.18",
+    "Stage":  "Final",
+    "Passed":  false,
+    "StartedUtc":  "2026-10-18T09:20:51.6960178Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-18T09:21:11.0678845Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-18T09:21:26.3651553Z",
+                      "Text":  "Authenticated main window visible"
+                  },
+                  {
+                      "Utc":  "2026-10-18T09:21:42.8207725Z",
+                      "Text":  "First launch closed normally: geometry, maximization and enabled 48h/5-copy policy saved; no backup yet"
+                  },
+                  {
+                      "Utc":  "2026-10-18T09:22:00.3827574Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-18T09:22:26.4550381Z",
+                      "Text":  "Authenticated main window visible"
+                  }
+              ],
+    "AppId":  4704,
+    "ArchiveSha256":  "BA61521BB83E0BC2DEB919CB673E5F7FCC667B004D2A34D9C5D1AA9920A842EC",
+    "FirstProcess":  6996,
+    "NormalBounds":  {
+                         "Left":  120,
+                         "Top":  80,
+                         "Width":  1320,
+                         "Height":  820
+                     },
+    "SecondProcess":  4704,
+    "ReopenedMaximized":  true,
+    "RestoredNormalBounds":  {
+                                 "Left":  120,
+                                 "Top":  80,
+                                 "Width":  1320,
+                                 "Height":  820
+                             },
+    "Error":  "Automatic backup checkbox lost on reopening",
+    "Stack":  "at Require, C:\\DomeniaLab\\d120-rc11718-final\\_Check-Final-d120-rc11718-final-35312-24593.ps1: line 15\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11718-final\\_Check-Final-d120-rc11718-final-35312-24593.ps1: line 93",
+    "FinishedUtc":  "2026-10-18T09:22:35.7415390Z"
+}

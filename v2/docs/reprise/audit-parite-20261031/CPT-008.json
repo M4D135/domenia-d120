@@ -1,0 +1,26 @@
+{
+  "id": "CPT-008",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:510-516 — contrat écrit de accounts.connection.correct : même identité seulement (clé de compte comparée), le source remplace le secret de la session et arrête les lectures parties avec l'ancien, la pause de ce compte seul est levée sauf autre copie du mot de passe refusé",
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:517 CorrectConnectionAsync ; ligne 521-525 refusé quand l'action n'est pas disponible (motif rendu) ; ligne 526 EnsureNoWriteAsync ; ligne 528 une seule validation, avec le login DÉJÀ en session (CredentialRequest(session.Account.Login, Directory))",
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:533-539 — identité différente : « Identité différente de celle de la session : rien n'est remplacé. », renvoi vers « Changer de compte »",
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:540 — reader.SwapConnectionPasswordAsync ; lignes 541-546 l'époque est recontrôlée sous verrou (« La session a changé pendant la correction : rien n'est remplacé. ») ; lignes 547-549 la pause du compte de connexion n'est levée que si aucune autre copie du secret refusé ne subsiste ; lignes 550-553 les validations en attente du périmètre annuaire sont écartées ; ligne 557-561 message avec le nombre de lectures arrêtées, pause conservée, journal",
+    "src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1189-1195 — indisponible en simulation (« la session n'utilise aucun mot de passe »), pour une session Windows (« son mot de passe se corrige dans Windows ») et sans lecteur d'annuaire, avec le motif affiché",
+    "src/Domenia.Ad/Screens/AdAccountsAccessReader.cs:41-49 — la preuve à usage unique est prise pendant la validation du même compte : la connexion candidate et le secret vérifié sont gardés pour la session explicite, 30 s au plus",
+    "src/Domenia.Ad/Screens/AdAccountsAccessReader.cs:83-97 — SwapConnectionPasswordAsync : la preuve est retirée en un seul exemplaire (ligne 86), un secret absent ou différent refuse tout remplacement (ligne 91-92), l'ancienne connexion LDAP est fermée et son époque invalidée (ligne 94), une autre copie en circulation du mot de passe refusé est détectée (ligne 95, SecureCredentialCopies)",
+    "web/js/pages/comptes/acces.js:537-547 — le champ mot de passe est vidé avant l'appel (ligne 541, « champ vidé après usage »), les affichages du secret sont masqués (ligne 542), l'écran est relu après succès (ligne 546)",
+    "tests/Domenia.Tests/AdAccountsAccessTests.cs:94-109 — la correction consomme le même secret vérifié sans second bind, l'ancien transport est fermé, la preuve est à usage unique",
+    "tests/Domenia.Tests/AdAccountsAccessTests.cs:112-122 — sans preuve, ou avec un secret différent, la connexion n'est jamais remplacée et la session reste inchangée",
+    "tests/Domenia.Tests/AdAccountsAccessTests.cs:181-196 — une copie encore vivante de l'ancien secret est signalée (OtherRefusedCopy), la pause est donc conservée",
+    "tests/Domenia.Tests/AccountsAccessTests.cs:196-200 — correction refusée en simulation avec le code accounts.correctionUnavailable"
+  ],
+  "manque": "Rien de bloquant, deux réserves vérifiées : (1) StoppedReads est toujours renvoyé à 0 par Domenia.Ad (AdAccountsAccessReader.cs:95) — l'arrêt des lectures parties avec l'ancien se fait par la fermeture de l'ancienne connexion et l'invalidation de l'époque (AdAccountsAccessReader.cs:94, AdDirectorySource.cs:122), donc la phrase « n lectures parties avec l'ancien mot de passe arrêtées » (AccountAccess.cs:557) ne peut jamais s'afficher ; (2) la branche « identité différente » (AccountAccess.cs:533-539) et la levée de pause au niveau Core ne sont couvertes par aucun test (aucun test n'appelle CorrectConnectionAsync, sauf le refus en simulation AccountsAccessTests.cs:196).",
+  "effort": "S",
+  "depend": [
+    "Domenia.Ad (preuve à usage unique, SwapConnectionPasswordAsync)",
+    "CPT-006 (carte du compte de connexion)",
+    "CPT-017 (coffre Windows : ressaisie conseillée après correction)"
+  ],
+  "risque": "reseau"
+}

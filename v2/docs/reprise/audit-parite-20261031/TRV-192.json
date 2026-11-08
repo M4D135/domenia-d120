@@ -1,0 +1,19 @@
+{
+  "id": "TRV-192",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Bridge/BridgeScheduling.cs:145-161 — clé d'identité surveillée côté moteur : époque de session, domaine, compte et méthode d'authentification, contrôleur, périmètre, génération du compte poste (MachineAccountService.Generation) et SélectionVersion d'AccountAccess (comptes temporaires inclus), le tout haché",
+    "repo/v2/src/Domenia.Bridge/BridgeAdmission.cs:177-178 — un changement retire les lectures en file : « Session, source ou identité modifiée : lecture retirée de la file avant envoi » (arrête la recherche)",
+    "repo/v2/src/Domenia.Bridge/BridgeAdmission.cs:231-238,254-256 — la publication compare le stamp et l'identité de cible capturés ; un vieux résultat ne publie pas dans le nouveau contexte (« résultat partagé refusé ») — garde-fou des anciens retours jamais re-peuplés",
+    "repo/v2/tests/Domenia.Tests/BridgeSharedReadTests.cs:95,121 — tests : aucun résultat de l'ancienne identité ni de l'ancienne session publié",
+    "repo/v2/tests/Domenia.Tests/BridgeSchedulingTests.cs:189,194,337 — tests : changement de contexte refusé à l'admission, après promotion et au dernier contrôle",
+    "repo/v2/tests/Domenia.Tests/CollectionReadRetryTests.cs:85-95 — test : compte changé pendant le délai → aucun nouvel envoi sous le nouveau compte",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:724-727 — résultat d'essai d'une session précédente ignoré (« La session a changé pendant l'essai : son résultat est ignoré »)",
+    "repo/v2/web/js/pages/rechercher.js:1137-1160 — côté UI, checkSession (RCH-136) : changement de session/domaine/compte → arrêt des vérifications (stopListCheck, stopRun), abandon des observations (historique, sélection, aperçu, lignes détruites), rien n'est relu sans geste",
+    "repo/v2/web/js/pages/rechercher/results.js:1030-1031 — marquage « à revérifier » existe, mais seulement pour les lignes absentes d'une revalidation"
+  ],
+  "manque": "La clé surveillée côté UI ne compare que rootDn et login (rechercher.js:1143) : le compte distant (Postes/Secrets) et les comptes temporaires ne déclenchent ni arrêt ni vidange côté page — leur génération n'est contrôlée qu'à l'admission du pont, silencieusement. Le marquage des lignes « Compte changé · à revérifier » n'existe nulle part (le texte est absent du dépôt) : les lignes sont détruites sans marque ; aucune structure d'identité de consultation dédiée (équivalents de Get-DomeniaLiveIdentityKey/Signal/Reset/Test-DomeniaLiveIdentity n'existent pas).",
+  "effort": "M",
+  "depend": ["TRV-193", "CPT-004"],
+  "risque": "lecture"
+}

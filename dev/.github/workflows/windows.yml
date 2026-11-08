@@ -1,0 +1,26 @@
+name: Domenia Windows validation
+on: [push, workflow_dispatch]
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cold runtime module imports and lifecycle
+        shell: powershell
+        run: |
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -STA -File .\wad\tests\Test-DomeniaModules.ps1 -ReportPath "$env:RUNNER_TEMP\domenia-modules.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $r = Get-Content -LiteralPath "$env:RUNNER_TEMP\domenia-modules.json" -Raw | ConvertFrom-Json
+          if (-not $r.Complete -or $r.Skipped -ne 0) { throw 'Module/WPF validation incomplete.' }
+      - name: Windows PowerShell 5.1 / isolated WPF
+        shell: powershell
+        run: |
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -STA -File .\wad\tests\Test-DomeniaCandidate.ps1 -Wpf -ReportPath "$env:RUNNER_TEMP\domenia.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: domenia-windows-results
+          path: |
+            ${{ runner.temp }}/domenia.json
+            ${{ runner.temp }}/domenia-modules.json

@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : santé du moteur, six catégories de Domenia 1 et réactivité de toute l’interface",
+  "description": "L’onglet Santé montre les six catégories de temps de réponse de Domenia 1 (dont le traitement des résultats dans l’interface), la courbe de réactivité avec son échelle et son seuil, et la collecte par classe de demande.",
+  "modes": ["simulation"],
+  "start": "operations?onglet=sante",
+  "steps": [
+    { "do": "wait", "ready": "operations" },
+    { "do": "expect", "contains": "Recherche locale", "within": ".op-cat-card" },
+    { "do": "expect", "contains": "Traitement des résultats dans l’interface", "within": ".op-cat-card", "title": "Catégorie de l’interface" },
+    { "do": "expect", "contains": "Collecte fictive sur les postes", "within": ".op-cat-card", "title": "La collecte n’est pas fondue avec l’annuaire" },
+    { "do": "expect", "contains": "Seuil de blocage", "within": ".op-pulse-card", "title": "Le seuil est nommé sur la courbe" },
+    { "do": "expect", "contains": "maintenant", "within": ".op-pulse-time", "title": "L’axe du temps est gradué" },
+    { "do": "expect", "contains": "Actions explicites", "within": ".op-save-card", "title": "Collecte par classe de demande" },
+    { "do": "wait", "ms": 3000, "title": "Quelques battements" },
+    { "do": "shot", "name": "sante", "selector": ".op-health" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "TRV-156",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Execution/WorkstationCapabilityMemory.cs:111-113 — TTL par nature : classe absente 7 jours, protocole CIM inaccessible 15 min, droit refusé 1 h ; ligne 6 — code fermé de la nature (Test-DomeniaWmiClassAbsentText repris par types, pas par texte : repo/v2/tests/Domenia.Tests/WorkstationCapabilityTests.cs:124 « aucune classification par texte »)",
+    "repo/v2/src/Domenia.Core/Execution/WorkstationCapabilityMemory.cs:141-148 — Success oublie le fait et le fait protocole aussitôt ; repo/v2/src/Domenia.Inventory/CimSession.Capabilities.cs:44-46 — toute lecture complète (Ok/Empty sans refus) appelle capabilities.Success",
+    "repo/v2/src/Domenia.Core/Execution/WorkstationCapabilityMemory.cs:102-104,151-160 — invalidation par build : un ClassAbsent dont le Build diffère est oublié, ObserveBuild purge les faits d'une classe quand le build change (build relu via Win32_OperatingSystem, CimSession.Capabilities.cs:48-52) ; repo/v2/tests/Domenia.Tests/WorkstationCapabilityTests.cs:90-91 — « nouveau build relu avant la classe », classe réellement re-interrogée",
+    "repo/v2/src/Domenia.Core/Execution/WorkstationCapabilityMemory.cs:76-77,103 — l'empreinte de compte (SHA-256 du compte + générations machine/annuaire) invalide un fait « refusé » enregistré sous un autre compte ; repo/v2/tests/Domenia.Tests/WorkstationCapabilityTests.cs:96-102 — « nouveau compte ignore le refus précédent », « nouvelle session repart sans mémoire » (lignes 44,107)",
+    "repo/v2/src/Domenia.Core/Execution/WorkstationCapabilityMemory.cs:39-47,74-75 — mémoire par session : effacée au nouvel epoch, figée par générations de comptes, un propriétaire tardif ne peut ni lire ni effacer (Current) ; repo/v2/tests/Domenia.Tests/WorkstationCapabilityTests.cs:105 — « propriétaire tardif sans effet »",
+    "repo/v2/src/Domenia.Inventory/CimSession.Capabilities.cs:17-34 — le fait mémorisé retire la lecture du plan : la lecture est renvoyée Skipped « Non relu : … Mémoire de cette session jusqu'au … ; un inventaire complet force la relecture » avant tout transport ; repo/v2/tests/Domenia.Tests/WorkstationCapabilityTests.cs:74-77 — « non relu annoncé », « aucun transport », « aucune requête comptée »",
+    "repo/v2/src/Domenia.Inventory/CimSession.Capabilities.cs:15,19 — ForceCapabilities ignore la mémoire (lecture forcée) ; repo/v2/src/Domenia.Inventory/WmiWorkstationReader.cs:269 — l'inventaire complet la force ; repo/v2/tests/Domenia.Tests/WorkstationCapabilityTests.cs:163-177 — « l'inventaire complet a réellement traversé le refus mémorisé », une lecture annulée ne fabrique pas une réussite",
+    "repo/v2/src/Domenia.Inventory/CimSession.Capabilities.cs:22-24,48-52 — les classes d'identité (Win32_ComputerSystem, Win32_OperatingSystem) sont relues même sous mémoire, pour prouver l'identité et voir un nouveau build ; repo/v2/src/Domenia.Core/Execution/WorkstationCapabilityMemory.cs:13,125-132 — mémoire bornée (2048, éviction du plus ancien) et balayage d'expiration ; tests WorkstationCapabilityTests.cs:20,32,51",
+    "repo/v2/tests/Domenia.Tests/WorkstationCapabilityTests.cs:151-159 — timeout, annulation et identité divergente ne mémorisent aucun fait (pas de faux négatifs)"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["TRV-158 (le cache négatif des échecs non CIM réutiliserait la même mécanique de faits horodatés)"],
+  "risque": "lecture"
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : sélecteur d’objet intégré, revérification DN et GUID",
+  "description": "Ouvre le sélecteur d’objet, ne lit rien avant Entrée, cherche « PC-PAR-0001 », choisit le poste trouvé : le nom distinctif et le GUID sont revérifiés avant que le choix soit rendu (TRV-243).",
+  "modes": ["simulation"],
+  "start": "shell?onglet=outils",
+  "steps": [
+    { "do": "click", "selector": "[data-tool=\"object\"]", "title": "Ouvrir le sélecteur d’objet" },
+    { "do": "wait", "selector": ".k-drw .sh-pick-object" },
+    { "do": "expect", "contains": "Rien n’est lu avant votre recherche", "within": ".sh-pick-object", "title": "Aucune lecture avant le geste" },
+    { "do": "type", "selector": ".sh-pick-object [data-obj-q]", "text": "PC-PAR-0001" },
+    { "do": "press", "key": "Enter", "title": "Chercher" },
+    { "do": "wait", "selector": ".sh-pick-object [data-obj-i]", "title": "Le poste est trouvé" },
+    { "do": "click", "selector": ".sh-pick-object [data-obj-i]", "nth": 0, "title": "Choisir le poste" },
+    { "do": "wait", "contains": "revérifié", "within": "[data-result=\"object\"]", "title": "Le choix revérifié est rendu" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

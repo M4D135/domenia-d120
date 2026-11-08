@@ -1,0 +1,55 @@
+{
+  "Suite": "HealthPolicies",
+  "Passed": true,
+  "Total": 9,
+  "Failed": 0,
+  "WpfExecuted": false,
+  "NetworkUsed": false,
+  "Checks": [
+    {
+      "Name": "Default and OU overrides inherit independently without copying unaffected fields",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Disabled rule inherits; an explicit descendant re-enable overrides only that rule",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Explicit removal of inherited custom rules survives JSON roundtrip",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Foreign domains, escaped separators, duplicate scopes and malformed values are rejected",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "A parent threshold change cannot make a descendant threshold pair invalid",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Preference authority is separated by domain and stores only the explicit OU override",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 76: the editor sees inherited origins, local exceptions and every exception scope",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 77: saving an OU from the editor keeps inheriting suspensions after the purge of ended ones",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Computer and fleet explanations identify formula and disabled effects",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

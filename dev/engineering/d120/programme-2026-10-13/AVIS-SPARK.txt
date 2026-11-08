@@ -1,0 +1,1756 @@
+
+
+Ici KBZA. Je réponds en avis de conseil, pas en audit code : je n’ai pas reçu les fichiers, je n’ai pas testé, je n’ai pas consulté le web. Les chiffres Mac du contexte sont indicatifs, pas des cibles Windows. Domenia-D120 doit être traité comme un outil professionnel local, pas comme une archive WAD historique, et je ne propose pas SQL Server/base distante comme solution immédiate.
+
+Objectif : fiabilité, exactitude, sécurité d’exploitation, confort d’usage pour 5000 postes minimum sur réseau entreprise parfois lent, sans scan domaine complet par défaut, sans télémétrie cloud, sans agent permanent, sans télémétrie, sans action AD non contrôlée.
+
+Légende :  
+- [Q] = qualification d’un chantier déjà existant ou déjà implémenté.  
+- [E] = extension d’un chantier existant.  
+- [N] = idée nouvelle, mais compatible avec l’architecture locale actuelle.
+
+---
+
+# 1) 15 priorités qui apporteraient le plus
+
+## 1. Réconciliation stricte dashboard / résultats / base locale [E]
+
+C’est la priorité numéro un.
+
+Le symptôme “plus de postes au dashboard qu’en résultats même OU” est un signal rouge. Il faut rendre impossible, par conception, qu’un widget affiche un nombre qui ne correspond pas à la liste ouverte.
+
+Actions concrètes :
+
+- Chaque widget doit être adossé à une “vue canonique” :
+  - périmètre OU,
+  - filtres,
+  - statut inclus/exclu,
+  - fraîcheur autorisée,
+  - epoch/génération,
+  - liste GUID exacte ou requête canonique déterministe.
+- Le clic sur un widget doit ouvrir la liste des GUID exacts, pas une nouvelle approximation.
+- Ajouter un panneau “Réconciliation” :
+  - nombre dashboard,
+  - nombre liste,
+  - nombre distinct GUID dans SQLite,
+  - nombre attendu par filtre AD,
+  - écart,
+  - motif possible : tombstone, disabled, OU moved, stale, partial, auth, timeout, cross-epoch.
+- Interdire visuellement toute comparaison entre epoch différentes.
+- Conserver les collectes anciennes, mais ne jamais les mélanger dans une vue active.
+
+Condition d’acceptation :
+
+- Sur une OU donnée, dashboard et liste doivent avoir le même nombre de GUID distincts.
+- Écart toléré : 0.
+- Si écart, le diagnostic doit afficher la cause ou “cause inconnue”, jamais un nombre silencieux.
+
+---
+
+## 2. Freshness / santé par champ et par source, pas par machine globale [E]
+
+Le vieillissement AD/ping/WMI mélangé est un problème de modèle, pas seulement d’UI.
+
+Actions concrètes :
+
+- Ne pas avoir un seul statut “machine saine”.
+- Avoir des statuts par famille :
+  - AD,
+  - Ping,
+  - WMI/CIM,
+  - Console,
+  - Inventaire,
+  - Probe,
+  - Admin action.
+- Puis descendre par champ :
+  - `ad.lastLogonTimestamp`,
+  - `ad.whenChanged`,
+  - `wmi.osVersion`,
+  - `wmi.biosVersion`,
+  - `ping.icmp`,
+  - `tcp.445`,
+  - `ldap.ping`,
+  - `console.session`,
+  - `software.registry`,
+  - `hardware.support`.
+- Pour chaque champ affiché :
+  - source,
+  - date de dernière réussite,
+  - date de dernière tentative,
+  - âge,
+  - erreur,
+  - fraîcheur,
+  - confiance.
+- “Inconnu” doit rester distinct de “sain”.
+- Un timeout n’est pas une preuve d’inaccessibilité.
+- Un champ absent peut être :
+  - non collecté,
+  - non supporté,
+  - interdit par droits,
+  - bloqué réseau,
+  - erreur WMI,
+  - erreur AD,
+  - objet tombstone,
+  - machine éteinte,
+  - inconnu.
+
+Condition d’acceptation :
+
+- 100 % des champs affichés doivent avoir provenance, âge et statut.
+- Aucun timeout ne doit être affiché comme “AD inaccessible” sans distinction.
+- “Inconnu” ne doit jamais être coloré comme “sain”.
+
+---
+
+## 3. Auth sérialisée, anti-verrouillage, aucun fallback automatique [Q]
+
+La protection auth partagée existe déjà dans le contexte. Il faut la qualifier sérieusement, pas la réinventer.
+
+Actions concrètes :
+
+- Une seule tentative d’authentification par compte/domaine à la fois.
+- File d’attente pour les demandes concurrentes.
+- Aucun fallback automatique après erreur auth.
+- Aucun contournement par compte alternatif automatique.
+- Pause de l’identité après erreur sensible.
+- Cooldown local.
+- UI explicite :
+  - “Authentification en cours”,
+  - “Identité en pause”,
+  - “Nouvelle tentative manuelle requise”.
+- Journal local :
+  - compte,
+  - domaine,
+  - usage,
+  - résultat,
+  - pas de mot de passe,
+  - pas de token,
+  - pas de secret.
+- Métriques :
+  - nombre de tentatives,
+  - erreurs auth,
+  - erreurs réseau,
+  - erreurs permission,
+  - erreurs timeout.
+
+Condition d’acceptation :
+
+- 10 déclenchements concurrents sur la même identité doivent produire une seule tentative auth.
+- Aucun fallback automatique.
+- Aucun mot de passe dans les logs.
+- En simulation, aucune boucle de retry susceptible de provoquer un verrouillage.
+
+---
+
+## 4. Favori OU : ouvrir le chemin, sélectionner l’OU, charger la liste [E]
+
+C’est un quick win important pour la perception de fiabilité.
+
+Actions concrètes :
+
+- Un favori OU doit stocker :
+  - domaine,
+  - chemin DN complet,
+  - GUID OU si disponible,
+  - filtre associé,
+  - vue associée.
+- Au clic :
+  - l’arbre OU se déplie jusqu’au chemin,
+  - l’OU est sélectionnée,
+  - le breadcrumb est à jour,
+  - la liste est chargée,
+  - le dashboard associé est rafraîchi si pertinent.
+- Si l’OU n’existe plus :
+  - afficher “favori invalide”,
+  - ne pas charger une liste silencieuse.
+
+Condition d’acceptation :
+
+- Clic favori :
+  - arbre ouvert,
+  - OU sélectionnée,
+  - breadcrumb cohérent,
+  - liste chargée.
+- Sur cache local, ouverture < 500 ms.
+- Sur liste locale 5000 objets, chargement < 2 s, à valider sur Windows.
+
+---
+
+## 5. UI réactive, menu allégé, suppression des callbacks bloquants [E]
+
+Les callbacks UI de 551 ms et le menu encombré créent une perte de confiance.
+
+Actions concrètes :
+
+- Profiler le thread UI.
+- Déplacer tout travail hors UI :
+  - requêtes,
+  - parsing,
+  - mapping,
+  - tri,
+  - regroupement,
+  - calcul de fraîcheur.
+- Utiliser :
+  - async/await,
+  - virtualisation des listes,
+  - pagination,
+  - batch d’UI updates,
+  - debounce,
+  - throttling,
+  - skeletons,
+  - états “chargement partiel”.
+- Éviter le sync-over-async.
+- Réorganiser le menu en univers métier :
+  - Parc,
+  - Recherche,
+  - Fiches,
+  - Actions,
+  - Atelier,
+  - Diagnostics,
+  - Admin,
+  - Aide.
+- Masquer les fonctions avancées derrière des modes.
+
+Condition d’acceptation :
+
+- P95 latence d’interaction < 150 ms.
+- P99 < 300 ms.
+- Aucun gel UI > 250 ms pendant une collecte en arrière-plan.
+- Sur 5000 lignes locales, scroll fluide, sans callback bloquant visible.
+
+---
+
+## 6. Atelier de requêtes : simplifier sans appauvrir [E]
+
+L’atelier existe déjà en 3 étapes avec modèles, champs, coûts, sources, dates. Il faut le rendre moins confus.
+
+Actions concrètes :
+
+- Garder 3 étapes claires :
+  1. Périmètre : OU, domaine, statut, fraîcheur.
+  2. Critères : champs typés, opérateurs, valeurs.
+  3. Aperçu : nombre estimé, colonnes, coût, source, date, export.
+- Ajouter des “missions” prêtes à l’emploi :
+  - postes sans WMI,
+  - postes sans patch récent,
+  - postes éteints suspects,
+  - OU à migrer,
+  - comptes inactifs,
+  - postes sans inventaire logiciel,
+  - postes avec erreur auth,
+  - postes avec timeout réseau.
+- Afficher clairement :
+  - source AD/WMI/Ping,
+  - coût estimé,
+  - fraîcheur,
+  - droits nécessaires,
+  - champs non supportés.
+- Interdire le SQL brut par défaut.
+- Proposer un mode avancé séparé, non par défaut.
+- Permettre de sauvegarder une recherche comme dashboard partagé localement.
+
+Condition d’acceptation :
+
+- Un utilisateur peut créer une requête utile en 3 étapes.
+- Il voit le nombre estimé avant exécution.
+- Il voit la source, le coût et la fraîcheur.
+- Aucune requête brute n’est nécessaire pour les cas courants.
+
+---
+
+## 7. Ordonnanceur de collecte par OU choisie, incrémental, groupé, backpressure [E]
+
+Le pipeline central existe. Il faut le qualifier et l’orienter “réseau lent”.
+
+Actions concrètes :
+
+- Par défaut :
+  - OU choisie,
+  - jamais scan domaine complet.
+- Regrouper par :
+  - classe AD,
+  - attributs AD,
+  - classe WMI,
+  - session CIM,
+  - sous-réseau pour ping,
+  - DC pour LDAP.
+- Ajouter une politique de fraîcheur :
+  - AD : 1 h,
+  - Ping : 5 min,
+  - WMI : 24 h,
+  - Inventaire logiciel : 7 j,
+  - Matériel : 30 j,
+  - Console : on demand ou court terme.
+- Collecter uniquement les champs périmés.
+- Utiliser des deltas si pertinent :
+  - `whenChanged`,
+  - `uSNChanged`,
+  - comparaison avec epoch précédente.
+- Circuit breaker par :
+  - DC,
+  - sous-réseau,
+  - compte,
+  - source.
+- Backpressure :
+  - file bornée,
+  - fusion des jobs obsolètes,
+  - priorité à la vue active,
+  - abandon des jobs anciens non pertinents.
+- Max :
+  - objets par job,
+  - durée par job,
+  - parallélisme,
+  - débit réseau.
+
+Condition d’acceptation :
+
+- Aucun scan domaine complet par défaut.
+- File bornée.
+- Pas de saturation UI.
+- Pas de retry storm.
+- Une collecte en arrière-plan ne doit pas empêcher la navigation.
+
+---
+
+## 8. Audit SQLite : schéma, migrations, backups, intégrité, contention [Q]
+
+Le schéma, migrations et backups existent, mais doivent être audités comme un produit.
+
+Actions concrètes :
+
+- Versionner le schéma.
+- Tester migration N-1 -> N.
+- Tester rollback.
+- Tester backup/restore.
+- Vérifier :
+  - `integrity_check`,
+  - `foreign_keys`,
+  - contraintes uniques,
+  - index,
+  - WAL,
+  - `busy_timeout`,
+  - `synchronous`,
+  - `page_size`,
+  - `cache_size`.
+- Éviter les locks UI pendant les écritures.
+- Séparer :
+  - écritures collecteur,
+  - lectures GUI,
+  - exports,
+  - maintenance.
+- Documenter la stratégie de purge.
+- Ne pas promettre d’historique infini.
+
+Condition d’acceptation :
+
+- Migration depuis la version précédente réussie.
+- Backup restaurable.
+- `integrity_check` OK.
+- Aucune perte de GUID/domaine lors de l’upgrade.
+- Aucune UI bloquée pendant une insertion batch.
+
+---
+
+## 9. Sondes AD/WMI sûres, support-aware, sans effets de bord [E]
+
+C’est critique pour un outil professionnel.
+
+Actions concrètes :
+
+- Ne jamais utiliser `Win32_Product` dans un inventaire de routine.
+- Pour le logiciel, préférer :
+  - clés de désinstallation registre,
+  - MSIX/Appx si pertinent,
+  - versions de fichiers,
+  - sources locales déjà présentes,
+  - inventaire existant si disponible, sans agent permanent.
+- Pour le matériel :
+  - classes WMI/CIM supportées,
+  - matrice de support par OS/fournisseur,
+  - “inconnu” si non supporté.
+- Pour les patches :
+  - prudence,
+  - source,
+  - âge,
+  - coût,
+  - erreurs.
+- Pour les sessions :
+  - on demand,
+  - pas en boucle permanente.
+- Pour les services :
+  - optionnel,
+  - coûteux,
+  - filtré.
+- Pour les disques/SMART :
+  - seulement si supporté,
+  - sinon inconnu.
+
+Condition d’acceptation :
+
+- 0 appel `Win32_Product` dans les collectes de routine.
+- Aucun effet de bord MSI connu.
+- Tout champ matériel non supporté est marqué “inconnu”, pas “absent” ni “sain”.
+
+---
+
+## 10. Présence multi-signal : ping bloqué != offline [E]
+
+Le ping seul est dangereux.
+
+Actions concrètes :
+
+- Signaux de présence :
+  - résolution DNS,
+  - ICMP,
+  - TCP 445,
+  - TCP 3389,
+  - TCP 135,
+  - TCP 5985/5986 si WinRM,
+  - LDAP ping,
+  - SMB,
+  - RDP,
+  - WMI/CIM,
+  - console,
+  - activité AD récente,
+  - `lastLogonTimestamp` approximation.
+- États :
+  - `online`,
+  - `reachable_partiel`,
+  - `offline_suspect`,
+  - `unknown`,
+  - `stale`,
+  - `auth_error`,
+  - `network_blocked`,
+  - `permission_error`.
+- Ne jamais conclure “offline” sur un simple timeout ICMP.
+- Afficher les signaux utilisés.
+
+Condition d’acceptation :
+
+- Un timeout ICMP seul ne doit jamais produire “offline”.
+- Un état “offline_suspect” doit reposer sur plusieurs signaux négatifs ou une règle explicite.
+- L’utilisateur voit pourquoi la machine est considérée comme éteinte ou injoignable.
+
+---
+
+## 11. Widgets avec listes GUID exactes et drill-down fiable [Q]
+
+Les listes exactes GUID pour widgets existent. Il faut les qualifier.
+
+Actions concrètes :
+
+- Chaque widget doit pouvoir ouvrir :
+  - la liste GUID,
+  - la requête canonique,
+  - l’epoch,
+  - la fraîcheur,
+  - les exclusions.
+- Le drill-down doit être identique à la vue liste.
+- Ajouter “comparer avec epoch précédente”.
+- Ajouter “ouvrir dans l’atelier”.
+- Ajouter “exporter la sélection”.
+
+Condition d’acceptation :
+
+- Clic widget = liste GUID exacte.
+- Même nombre que widget.
+- Même filtre.
+- Même epoch.
+- Même fraîcheur.
+
+---
+
+## 12. Actions admin : preview, impact, confirmation, audit, rollback partiel [E]
+
+Les actions admin doivent être sûres par défaut.
+
+Actions concrètes :
+
+- Toute action doit avoir :
+  - dry-run,
+  - impact preview,
+  - GUID concernés,
+  - OU concernée,
+  - compte utilisé,
+  - droits nécessaires,
+  - risque,
+  - résultat attendu.
+- Confirmation explicite pour les actions sensibles.
+- Audit local :
+  - qui,
+  - quand,
+  - quoi,
+  - sur quoi,
+  - résultat,
+  - erreur.
+- Prévoir une procédure de récupération quand c’est possible.
+- Ne jamais exécuter d’action destructive sur une sélection ambiguë.
+- Séparer :
+  - lecture,
+  - diagnostic,
+  - modification,
+  - réparation,
+  - suppression.
+
+Condition d’acceptation :
+
+- Aucune action destructive sans preview et confirmation.
+- Audit écrit avant/après.
+- Si l’action échoue, l’état affiché doit rester cohérent.
+
+---
+
+## 13. Performance 5000 postes sur Windows, pas sur Mac [Q]
+
+Les chiffres Mac sont intéressants mais non probants.
+
+Actions concrètes :
+
+- Établir un baseline Windows :
+  - physique,
+  - VM,
+  - réseau lent simulé,
+  - OU 5000 objets,
+  - AD/WMI/ping simulés ou lab.
+- Mesurer :
+  - ouverture dashboard,
+  - scroll,
+  - recherche,
+  - filtre,
+  - export,
+  - insertion batch,
+  - migration,
+  - backup,
+  - UI pendant collecte.
+- Optimiser localement :
+  - index,
+  - virtualisation,
+  - pagination,
+  - cache,
+  - requêtes canoniques,
+  - batchs,
+  - FTS si besoin.
+- Ne pas promettre de performance AD/WMI sans profilage.
+
+Condition d’acceptation :
+
+- Sur base locale 5000 objets :
+  - ouverture dashboard < 2 s,
+  - recherche < 500 ms,
+  - scroll fluide,
+  - export sans UI freeze.
+- Ces chiffres doivent être validés sur Windows, pas Mac.
+
+---
+
+## 14. Packaging produit, diagnostics, logs, qualité [E]
+
+Domenia-D120 doit être un produit installable, diagnostiquable, supportable.
+
+Actions concrètes :
+
+- Packs DEV/PROD séparés.
+- Version claire :
+  - app,
+  - schéma,
+  - catalogue,
+  - templates,
+  - modules.
+- Checksum.
+- Installer/uninstaller propre.
+- Upgrade sans perte.
+- Rollback possible.
+- Logs structurés :
+  - niveaux,
+  - rotation,
+  - redaction secrets,
+  - pas de mot de passe,
+  - pas de token,
+  - pas de données sensibles inutiles.
+- Bundle de diagnostic exportable :
+  - version,
+  - config,
+  - erreurs,
+  - état auth,
+  - état queue,
+  - état DC,
+  - état WMI,
+  - état SQLite,
+  - sans secrets.
+- Smoke tests locaux :
+  - base vide,
+  - 5000 objets,
+  - migration,
+  - backup,
+  - export,
+  - atelier,
+  - dashboard.
+
+Condition d’acceptation :
+
+- Installation, upgrade, uninstall reproductibles.
+- Diagnostic exportable sans secret.
+- Logs exploitables.
+- Version identifiable.
+
+---
+
+## 15. Documentation opérationnelle, runbooks, acceptance tests [E]
+
+Un outil fiable sans documentation devient fragile.
+
+Actions concrètes :
+
+- Runbooks :
+  - dashboard ≠ liste,
+  - timeout AD,
+  - WMI inaccessible,
+  - ping bloqué,
+  - auth en pause,
+  - favori invalide,
+  - atelier confus,
+  - migration échouée,
+  - backup corrompu.
+- FAQ.
+- Glossaire :
+  - sain,
+  - inconnu,
+  - stale,
+  - partial,
+  - offline_suspect,
+  - tombstone,
+  - disabled,
+  - lastLogon,
+  - lastLogonTimestamp.
+- Acceptance tests par priorité.
+- Documentation des limites :
+  - pas SQL Server,
+  - pas agent permanent,
+  - pas scan domaine complet,
+  - pas télémétrie cloud,
+  - pas promesse AD/WMI infinie.
+
+Condition d’acceptation :
+
+- Chaque incident utilisateur connu a un runbook.
+- Chaque priorité a un test d’acceptation.
+- Les limites sont affichées dans l’aide.
+
+---
+
+# 2) Idées réellement distinctes par catégories
+
+## A. Collecte / ordonnanceur
+
+1. [E] Scope OU obligatoire par défaut, avec avertissement si périmètre trop large.  
+2. [Q] Contexte job : epoch, path, generation, OU, account, source, priority.  
+3. [E] Collecte incrémentale par `whenChanged` ou `uSNChanged`, optionnelle et contrôlée.  
+4. [E] Regroupement des requêtes AD par classe et par jeu d’attributs.  
+5. [E] Regroupement WMI/CIM par classe et par session.  
+6. [E] Ping par sous-réseau avec rate limit, jitter, fenêtre temporelle.  
+7. [E] Politique de fraîcheur par champ, pas seulement par machine.  
+8. [E] Cache par source, compte, OU, requête, fraîcheur.  
+9. [E] Circuit breaker par DC, sous-réseau, compte, source.  
+10. [E] Concurrency adaptative selon latence, erreurs, saturation.  
+11. [Q] Backpressure : file bornée, fusion des jobs obsolètes, priorité UI.  
+12. [Q] Résultats partiels conservés, pas de pruning après timeout.  
+13. [E] Retry policy :
+    - pas de retry auth,
+    - retry limité sur réseau transitoire,
+    - backoff exponentiel,
+    - jitter.  
+14. [E] Quiet hours / maintenance windows.  
+15. [E] Max objects, max duration, max parallelism par job.  
+16. [E] File locale persistante pour collectes planifiées OU.  
+17. [E] Priorité à la vue active avant les dashboards d’arrière-plan.  
+18. [E] Console/session en on demand ou basse fréquence.  
+19. [E] PowerShell comme orchestrateur de batches, C# ciblé seulement après profilage.  
+20. [E] Dashboard de santé des sources :
+    - latence DC,
+    - erreurs WMI,
+    - erreurs ping,
+    - queue depth,
+    - auth state.  
+21. [E] Détection profil réseau :
+    - LAN,
+    - WAN,
+    - VPN,
+    - proxy,
+    - link lent.  
+22. [E] Sélection prudente de DC/site, sans promettre la perfection.  
+23. [E] Préférence read-only DC si pertinent.  
+24. [E] Regroupement par sous-réseau pour éviter de saturer un lien lent.  
+25. [Q] Upsert idempotent par GUID + domaine.  
+26. [E] Détection de doublons par GUID/domaine, pas par nom seul.  
+27. [E] Gestion des renames machine.  
+28. [E] Gestion des moves OU.  
+29. [E] Gestion des tombstones/deleted.  
+30. [E] Collecte du time skew / clock skew.
+
+---
+
+## B. Exactitude / base / historique
+
+1. [Q] SELECT canonique unique pour dashboard, liste, export.  
+2. [E] “Contrat de vue” : vue sauvegardée avec filtres, epoch, GUID snapshot, fraîcheur.  
+3. [E] Table de réconciliation par epoch.  
+4. [E] Provenance par champ :
+   - source,
+   - collected_at,
+   - attempt_at,
+   - error_code,
+   - source_version,
+   - account.  
+5. [E] Freshness par champ.  
+6. [Q] États distincts :
+   - sain,
+   - inconnu,
+   - stale,
+   - error,
+   - partial,
+   - disabled,
+   - deleted,
+   - unsupported.  
+7. [E] Normalisation des dates :
+   - stockage UTC,
+   - affichage local,
+   - timezone,
+   - clock skew,
+   - future dates suspectes.  
+8. [E] Règles de comptage explicites :
+   - distinct GUID+domaine,
+   - tombstones exclus,
+   - disabled inclus/exclus selon vue,
+   - partial compté ou non selon vue.  
+9. [E] Index :
+   - GUID,
+   - domaine,
+   - OU,
+   - classe,
+   - statut,
+   - last_seen,
+   - source,
+   - freshness.  
+10. [Q] Audit pragmas SQLite :
+    - WAL,
+    - busy_timeout,
+    - synchronous,
+    - page_size,
+    - cache_size.  
+11. [Q] Contraintes d’intégrité et clés étrangères.  
+12. [Q] Migrations versionnées, testées, rollback.  
+13. [Q] Backup/restore testés.  
+14. [E] Rétention et purge :
+    - tentatives,
+    - erreurs,
+    - snapshots,
+    - historiques de statut.  
+15. [E] Audit log local des actions et auth.  
+16. [E] Règles de data quality :
+    - GUID invalide,
+    - domaine manquant,
+    - date future,
+    - doublon GUID/domaine,
+    - OU incohérente.  
+17. [E] Export/import avec provenance et version.  
+18. [E] Reindex/compact planifié.  
+19. [E] Historique léger des transitions de statut, pas d’historique infini.  
+20. [E] Snapshot GUID pour stabiliser un dashboard pendant la navigation.  
+21. [E] Diff report :
+    - dashboard vs liste,
+    - liste vs SQLite,
+    - SQLite vs AD attendu,
+    - AD vs WMI/ping coverage.  
+22. [E] Fixtures locales 5000 objets pour tests.  
+23. [E] Documentation du schéma.  
+24. [E] Dictionnaire de données :
+    - champ,
+    - source,
+    - coût,
+    - fraîcheur,
+    - support.  
+25. [E] Privacy :
+    - minimisation,
+    - redaction,
+    - pas de secrets,
+    - pas de données inutiles.  
+26. [Q] Pas de promesse d’historique infini.
+
+---
+
+## C. Auth / opérations sûres
+
+1. [Q] Un seul contexte auth par compte/domaine.  
+2. [Q] Sérialisation de la première auth.  
+3. [Q] Aucun fallback automatique après erreur auth.  
+4. [Q] Pause d’identité après erreur sensible.  
+5. [E] Cooldown local et UI explicite.  
+6. [Q] Coffre Windows Credential Manager par utilisateur/PC, consentement explicite.  
+7. [Q] SecureString et buffers natifs nettoyés.  
+8. [Q] Boutons “Utiliser coffre” et “Oublier”.  
+9. [Q] Aucune auth automatique au lancement.  
+10. [Q] Comptes secondaires facultatifs avec username + usage dans SQLite.  
+11. [E] Preflight droits :
+    - LDAP read,
+    - WMI,
+    - firewall,
+    - WinRM/DCOM,
+    - admin action.  
+12. [E] Dry-run pour actions admin.  
+13. [E] Impact preview :
+    - GUID,
+    - OU,
+    - nombre,
+    - compte,
+    - risque.  
+14. [E] Confirmation explicite pour actions sensibles.  
+15. [E] Audit des actions admin.  
+16. [E] Rollback ou procédure de récupération quand possible.  
+17. [E] Aucune action destructive par défaut.  
+18. [E] UI affichant clairement identité/domaine courants.  
+19. [E] Diagnostic Kerberos/NTLM :
+    - time skew,
+    - SPN,
+    - delegation,
+    - erreurs réseau.  
+20. [E] Éviter le double-hop ; rester local.  
+21. [E] Séparer élévation locale admin et auth AD.  
+22. [Q] Aucun contournement par compte alternatif automatique.  
+23. [E] Redaction des secrets dans logs et diagnostics.  
+24. [Q] Tests de concurrence auth.  
+25. [E] Métriques auth :
+    - tentatives,
+    - erreurs,
+    - cooldowns,
+    - durées.
+
+---
+
+## D. GUI / atelier / recherche / dashboards
+
+1. [E] Favori OU ouvre le chemin, sélectionne l’OU, charge la liste.  
+2. [E] Breadcrumb de chemin OU.  
+3. [E] Vues sauvegardées avec GUID snapshot.  
+4. [E] Panneau de réconciliation dashboard/liste/base.  
+5. [E] Filtres chips :
+   - fraîcheur,
+   - source,
+   - statut,
+   - erreur,
+   - support.  
+6. [E] Grilles virtualisées.  
+7. [E] Pagination.  
+8. [E] Skeletons et états de chargement.  
+9. [E] Progression par source :
+   - AD,
+   - Ping,
+   - WMI,
+   - Console,
+   - Inventaire.  
+10. [E] Menu réorganisé par univers métier.  
+11. [Q] Atelier en 3 étapes.  
+12. [E] Missions prêtes à l’emploi.  
+13. [Q] Info coût/source/date dans l’atelier.  
+14. [E] Recherche -> dashboard partagé localement.  
+15. [E] Recherche typeahead, récentes, sauvegardées, avancées.  
+16. [E] Fiche machine avec onglets par source et fraîcheur.  
+17. [E] Fiche utilisateur avec machines liées, sessions, logon approx.  
+18. [E] Sémantique couleur :
+    - vert sain,
+    - jaune stale,
+    - rouge erreur,
+    - gris inconnu,
+    - orange partial.  
+19. [E] Tooltips avec source, âge, erreur.  
+20. [E] Raccourcis clavier.  
+21. [E] Accessibilité et DPI.  
+22. [E] Panneau diagnostics :
+    - queue,
+    - erreurs,
+    - DC latency,
+    - auth state,
+    - WMI state.  
+23. [E] Guided tour pour nouveaux utilisateurs.  
+24. [E] Aide contextuelle.  
+25. [E] Choix de colonnes et layouts sauvegardés.  
+26. [E] Export de vue avec provenance.  
+27. [E] Comparaison de deux epochs.  
+28. [Q] Drill-down widget vers GUID exacts.  
+29. [E] Bannière “données périmées”.  
+30. [E] Bannière “collecte partielle”.  
+31. [E] Modale détail erreur.  
+32. [E] Interdiction de travail lourd sur UI thread.
+
+---
+
+## E. Sonde AD / WMI / présence
+
+1. [E] Templates AD par classe et attributs.  
+2. [E] LDAP paging, GC, DC selection, timeout, error taxonomy.  
+3. [E] `lastLogonTimestamp` affiché comme approximation.  
+4. [E] `lastLogon` par DC, optionnel, avec avertissement de non-réplication.  
+5. [E] Gestion tombstones/deleted/moved OU.  
+6. [E] Détection SPN dupliqués, DNS stale, machine account disabled.  
+7. [E] Gestion sessions CIM/WMI :
+    - auth,
+    - firewall,
+    - WinRM/DCOM,
+    - timeout,
+    - retry prudent.  
+8. [E] Ne jamais appeler `Win32_Product` en routine.  
+9. [E] Inventaire logiciel via :
+    - registre uninstall,
+    - MSIX/Appx,
+    - versions fichiers,
+    - sources locales existantes.  
+10. [E] Matrice de support matériel par OS/fournisseur.  
+11. [E] Inventaire logiciel avec faux positifs signalés.  
+12. [E] Patch inventory prudent :
+    - source,
+    - âge,
+    - coût,
+    - erreurs.  
+13. [E] Disque/SMART seulement si supporté, sinon inconnu.  
+14. [E] Configuration réseau :
+    - adapters,
+    - IPs,
+    - DNS,
+    - DHCP,
+    - VLAN si supporté.  
+15. [E] Services optionnels, coûteux, filtrés.  
+16. [E] Sessions/console on demand.  
+17. [E] Présence multi-signal.  
+18. [E] Offline consensus, pas ping-only.  
+19. [E] Time skew detection.  
+20. [E] Matrice de support classes WMI.  
+21. [E] Catalogue de coût des sondes :
+    - cheap,
+    - medium,
+    - heavy.  
+22. [E] Rate limit par sous-réseau/DC/compte.  
+23. [E] Taxonomie erreurs :
+    - auth,
+    - network,
+    - timeout,
+    - permission,
+    - unsupported,
+    - partial,
+    - stale.  
+24. [E] Provenance des résultats de sonde.  
+25. [E] PowerShell pour orchestration, C# ciblé après profilage.  
+26. [E] Avertissement UI/docs sur `Win32_Product`.  
+27. [E] Matériel sans support : marquer inconnu, pas absent.  
+28. [E] Dates futures, clock skew, inconnus.  
+29. [E] Ne jamais collecter d’attributs sensibles inutiles.  
+30. [E] Préférence read-only, aucune écriture AD par défaut.
+
+---
+
+## F. Diffusion produit / qualité
+
+1. [Q] Packs DEV/PROD séparés.  
+2. [E] Version app/schéma/catalogue/templates/modules.  
+3. [E] Checksum des paquets.  
+4. [E] Installer/uninstaller propre.  
+5. [E] Upgrade sans perte.  
+6. [E] Rollback.  
+7. [E] Smoke tests locaux.  
+8. [Q] Baseline performance Windows.  
+9. [E] Logs structurés, redaction, rotation.  
+10. [E] Gestion crash locale.  
+11. [E] Bundle diagnostic exportable sans secrets.  
+12. [E] Release notes.  
+13. [E] Known issues.  
+14. [E] Documentation utilisateur.  
+15. [E] Runbooks.  
+16. [E] Training / guided tour.  
+17. [E] QA matrix :
+    - Windows versions,
+    - PS 5.1,
+    - .NET,
+    - OU sizes,
+    - slow links,
+    - auth modes.  
+18. [E] Acceptance test suite.  
+19. [E] Support bundle.  
+20. [Q] Tests migration.  
+21. [Q] Tests backup/restore.  
+22. [E] Security review.  
+23. [E] Privacy review.  
+24. [Q] Pas de SQL Server/base distante.  
+25. [Q] Pas de télémétrie cloud.  
+26. [Q] Pas d’agent permanent.  
+27. [E] Validation de config.  
+28. [E] Feature flags si utile.  
+29. [E] Changelog.  
+30. [E] Politique de support et de reproduction des incidents.
+
+---
+
+# 3) Angles morts, anti-idées, coûts
+
+## Angles morts à surveiller
+
+1. Sélection de DC et latence DC.  
+2. Réplication AD et `lastLogon` non répliqué.  
+3. `lastLogonTimestamp` approximatif.  
+4. Time skew / Kerberos.  
+5. SPN, delegation, constrained delegation.  
+6. Firewall, ports, WinRM vs DCOM.  
+7. Droits WMI/CIM.  
+8. ACLs AD.  
+9. OU moves, renames, tombstones.  
+10. Doublons de nom machine.  
+11. DNS stale.  
+12. IPv4/IPv6.  
+13. Proxy, NAT, VPN, WAN lent.  
+14. Antivirus, EDR, blocage ICMP/TCP.  
+15. UAC, élévation locale.  
+16. Effets de bord MSI avec `Win32_Product`.  
+17. Faux positifs inventaire logiciel.  
+18. Matériel sans support WMI.  
+19. Dates futures, clock skew, timezone.  
+20. SQLite locking, WAL, contention.  
+21. Migrations et backups non testés.  
+22. UI thread bloqué.  
+23. Virtualisation insuffisante des grilles.  
+24. Mémoire sur gros datasets.  
+25. Queue persistence et idempotence.  
+26. Epoch/path/generation mal propagés.  
+27. Backpressure mal appliquée.  
+28. Auth lockout par retry parallèle.  
+29. Cache de credentials partagé.  
+30. Comptes secondaires utilisés par erreur.  
+31. Audit insuffisant.  
+32. Privacy / données personnelles.  
+33. Promesses de performance non validées sur Windows.  
+34. Confusion entre “non collecté”, “inconnu”, “absent”, “bloqué”.  
+35. Dashboard affichant des GUID d’une epoch différente de la liste.
+
+---
+
+## Anti-idées à éviter
+
+1. SQL Server/base distante comme solution immédiate.  
+2. Scan domaine complet par défaut.  
+3. Agent permanent ajouté sans décision distincte.  
+4. Télémétrie cloud.  
+5. Réécriture globale en C# ou en assembleur.  
+6. Fallback auth automatique après erreur.  
+7. Auth parallèles non sérialisées.  
+8. Offline basé uniquement sur ping.  
+9. `Win32_Product` dans l’inventaire de routine.  
+10. Historique infini sans politique de rétention.  
+11. Pruning automatique après timeout.  
+12. Widgets illimités sans contrat de vue.  
+13. SQL brut par défaut dans l’atelier.  
+14. Actions admin automatiques sans preview.  
+15. Réécriture UI globale sans profilage.  
+16. Microservices ou web UI inutiles.  
+17. Service distant de collecte permanent.  
+18. Auto-update cloud sans besoin validé.  
+19. Service account permanent non nécessaire.  
+20. Collecter tous les champs WMI à chaque cycle.  
+21. Collecter tous les attributs AD.  
+22. Collecter des attributs sensibles.  
+23. Masquer les erreurs par des valeurs par défaut.  
+24. Confondre “inconnu” et “sain”.  
+25. Promettre des performances AD/WMI sans profilage.
+
+---
+
+## Coûts et risques principaux
+
+1. Coût de développement sur l’ordonnanceur et la fraîcheur.  
+2. Coût de qualification Windows.  
+3. Coût de tests sur 5000 objets.  
+4. Coût de migration SQLite.  
+5. Coût de sécurité auth.  
+6. Coût de support utilisateur.  
+7. Risque de verrouillage de comptes.  
+8. Risque de saturation réseau.  
+9. Risque de surcharge DC.  
+10. Risque de faux positifs inventaire.  
+11. Risque de faux négatifs présence.  
+12. Risque d’effets de bord MSI.  
+13. Risque de perte de confiance si dashboard ≠ liste.  
+14. Risque de confusion UI si trop de boutons.  
+15. Risque de lenteur si UI thread bloqué.  
+16. Risque de corruption si backups/migrations non testés.  
+17. Risque de fuite de secrets dans logs.  
+18. Risque de privacy si données personnelles inutiles.  
+19. Risque de dépendance à des classes WMI non supportées.  
+20. Risque de complexité atelier si trop d’options.
+
+---
+
+# 4) 5 idées originales concrètes
+
+## Idée 1 : “Contrat de vue” pour chaque dashboard et liste
+
+Le problème central est la divergence entre dashboard, liste et base.
+
+Concept :
+
+- Une vue n’est pas juste un filtre UI.
+- Une vue est un contrat :
+  - `viewId`,
+  - `name`,
+  - `domain`,
+  - `ouPath`,
+  - `ouGuid`,
+  - `filters`,
+  - `freshnessPolicy`,
+  - `epoch`,
+  - `canonicalSelect`,
+  - `guidSnapshot` optionnel,
+  - `createdBy`,
+  - `createdAt`,
+  - `lastRun`,
+  - `lastError`.
+
+Comportement :
+
+- Le widget affiche le nombre du contrat.
+- Le clic ouvre la liste GUID du contrat.
+- Le diagnostic compare :
+  - widget count,
+  - list count,
+  - SQLite distinct GUID count,
+  - AD expected count,
+  - WMI/ping coverage.
+- Si un écart existe, afficher :
+  - GUID manquants,
+  - GUID en trop,
+  - GUID tombstone,
+  - GUID disabled,
+  - GUID partial,
+  - GUID stale,
+  - GUID cross-epoch.
+
+Pourquoi c’est fort :
+
+- Cela transforme “plus de postes au dashboard qu’en résultats” en diagnostic actionnable.
+- Cela rend le dashboard professionnel et auditable.
+- Cela s’appuie sur l’existant : SELECT canonique, GUID, epoch, backpressure.
+
+Acceptation :
+
+- Écart dashboard/liste = 0 sur même contrat.
+- Si écart, liste des GUID en cause disponible.
+
+---
+
+## Idée 2 : “Consensus de présence multi-signal”
+
+Le ping seul est un piège.
+
+Concept :
+
+- Chaque machine a un état de présence calculé par consensus.
+- Signaux :
+  - DNS résolu,
+  - ICMP,
+  - TCP 445,
+  - TCP 3389,
+  - TCP 135,
+  - TCP 5985/5986,
+  - LDAP ping,
+  - SMB,
+  - RDP,
+  - WMI/CIM,
+  - console,
+  - activité AD récente,
+  - `lastLogonTimestamp` approximation.
+
+États :
+
+- `online`
+- `reachable_partiel`
+- `offline_suspect`
+- `unknown`
+- `stale`
+- `auth_error`
+- `network_blocked`
+- `permission_error`
+
+Règle :
+
+- Un timeout ICMP seul ne produit jamais `offline_suspect`.
+- `offline_suspect` nécessite plusieurs signaux négatifs ou une règle explicite.
+- L’UI affiche les signaux utilisés :
+  - “DNS OK, ICMP timeout, TCP 445 timeout, WMI auth error”.
+
+Pourquoi c’est fort :
+
+- Cela évite les faux éteints.
+- Cela rend le dashboard crédible.
+- Cela correspond à la réalité des réseaux entreprise.
+
+Acceptation :
+
+- Aucun offline basé uniquement sur ping.
+- Chaque état affiche ses signaux.
+
+---
+
+## Idée 3 : “Freshness ledger” par champ
+
+Le vieillissement AD/ping/WMI mélangé doit devenir visible et exploitable.
+
+Concept :
+
+- Table ou vue `field_state` :
+  - `guid`,
+  - `domain`,
+  - `field`,
+  - `source`,
+  - `collected_at`,
+  - `attempt_at`,
+  - `error_code`,
+  - `age_seconds`,
+  - `freshness`,
+  - `confidence`,
+  - `support_status`.
+
+Affichage :
+
+- Dans la fiche machine :
+  - chaque champ a une pastille :
+    - frais,
+    - périmé,
+    - erreur,
+    - inconnu,
+    - non supporté.
+- Dans le dashboard :
+  - compteurs par fraîcheur :
+    - “AD frais”,
+    - “WMI périmé”,
+    - “Ping bloqué”,
+    - “Inventaire inconnu”.
+
+Collecte :
+
+- Seuls les champs périmés sont collectés.
+- Les champs frais ne sont pas re-solicités.
+- Les erreurs ne déclenchent pas de retry infini.
+
+Pourquoi c’est fort :
+
+- Cela remplace un statut machine global trompeur.
+- Cela permet de dire exactement ce qui est fiable.
+- Cela réduit la charge réseau.
+
+Acceptation :
+
+- 100 % des champs affichés ont provenance, âge, statut.
+- Aucun champ “inconnu” n’est affiché comme sain.
+
+---
+
+## Idée 4 : “Atelier mission + coût”
+
+L’atelier existe mais peut rester confus.
+
+Concept :
+
+- L’atelier devient un assistant de mission.
+- Missions types :
+  - “Postes sans WMI”,
+  - “Postes sans patch récent”,
+  - “Postes éteints suspects”,
+  - “OU à migrer”,
+  - “Comptes inactifs”,
+  - “Postes sans inventaire logiciel”,
+  - “Postes avec erreur auth”,
+  - “Postes avec timeout réseau”.
+
+Chaque mission affiche :
+
+- source :
+  - AD,
+  - WMI,
+  - Ping,
+  - Console,
+  - SQLite local.
+- coût :
+  - cheap,
+  - medium,
+  - heavy.
+- fraîcheur :
+  - temps réel,
+  - 5 min,
+  - 1 h,
+  - 24 h.
+- droits nécessaires.
+- champs non supportés.
+- nombre estimé.
+- colonnes produites.
+
+Flux :
+
+1. Choisir mission.
+2. Choisir OU et filtres.
+3. Voir aperçu, coût, source, date.
+4. Exécuter ou sauvegarder comme dashboard.
+
+Pourquoi c’est fort :
+
+- Cela rend l’atelier utile sans le simplifier à outrance.
+- Cela guide l’utilisateur vers des requêtes fiables.
+- Cela évite les requêtes coûteuses par accident.
+
+Acceptation :
+
+- Mission créée en 3 étapes.
+- Aperçu avant exécution.
+- Coût/source/date visibles.
+- Pas de SQL brut requis.
+
+---
+
+## Idée 5 : “Diagnostic de réconciliation local”
+
+Un outil professionnel doit pouvoir expliquer ses écarts.
+
+Concept :
+
+- Bouton unique : “Diagnostic de cohérence”.
+- Il produit un rapport local :
+  - version app,
+  - version schéma,
+  - version catalogue,
+  - epoch active,
+  - OU analysée,
+  - nombre dashboard,
+  - nombre liste,
+  - nombre SQLite distinct GUID,
+  - nombre AD attendu,
+  - nombre WMI frais,
+  - nombre Ping frais,
+  - nombre tombstones,
+  - nombre disabled,
+  - nombre partial,
+  - nombre stale,
+  - erreurs auth,
+  - erreurs réseau,
+  - erreurs WMI,
+  - queue depth,
+  - DC latency,
+  - auth state,
+  - SQLite integrity_check.
+
+Sorties :
+
+- Vue UI synthétique.
+- Export JSON/CSV redacted.
+- Aucune donnée sensible.
+- Pas de mot de passe.
+- Pas de token.
+- Pas de données personnelles inutiles.
+
+Pourquoi c’est fort :
+
+- Cela transforme les incidents en diagnostics.
+- Cela aide le support.
+- Cela évite les discussions “le dashboard ment”.
+
+Acceptation :
+
+- Le diagnostic explique l’écart ou affiche “cause inconnue”.
+- Il ne contient aucun secret.
+- Il est exportable.
+
+---
+
+# 5) Conditions mesurables d’acceptation
+
+Ces conditions doivent être validées sur Windows, pas sur Mac.
+
+## Fiabilité des comptes
+
+1. Dashboard vs liste même OU :
+   - écart = 0.
+2. Dashboard vs SQLite distinct GUID :
+   - écart = 0.
+3. Widget drill-down :
+   - ouvre la liste GUID exacte.
+4. Comparaison epoch :
+   - aucune contamination entre epoch.
+5. Tombstones :
+   - exclus des vues actives par défaut.
+6. Disabled :
+   - comptage explicite selon vue.
+7. Partial :
+   - compté ou non selon vue, jamais implicite.
+
+---
+
+## Fraîcheur et santé
+
+8. Timeout AD :
+   - jamais affiché comme “AD inaccessible” sans distinction.
+9. Timeout WMI :
+   - affiché comme timeout WMI, pas machine offline.
+10. Timeout Ping :
+   - affiché comme timeout ICMP, pas offline.
+11. Chaque champ affiché :
+   - source,
+   - date réussite,
+   - date tentative,
+   - âge,
+   - erreur.
+12. “Inconnu” :
+   - distinct de “sain”.
+13. “Stale” :
+   - distinct de “erreur”.
+14. “Unsupported” :
+   - distinct de “absent”.
+
+---
+
+## Auth et sécurité
+
+15. 10 déclenchements concurrents sur même compte/domaine :
+   - 1 seule tentative auth.
+16. Erreur auth :
+   - aucun fallback automatique.
+17. Erreur auth :
+   - aucun contournement par compte alternatif automatique.
+18. Logs :
+   - aucun mot de passe.
+   - aucun token.
+   - aucun secret.
+19. Coffre Credential Manager :
+   - consentement explicite.
+   - case off par défaut.
+   - boutons “Utiliser coffre” et “Oublier”.
+20. Lancement :
+   - aucune auth automatique.
+
+---
+
+## UI et performance
+
+21. Latence d’interaction :
+   - P95 < 150 ms.
+   - P99 < 300 ms.
+22. Gel UI :
+   - aucun gel > 250 ms pendant collecte arrière-plan.
+23. Favori OU :
+   - ouvre chemin,
+   - sélectionne OU,
+   - charge liste.
+24. Favori OU sur cache local :
+   - < 500 ms.
+25. Base locale 5000 objets :
+   - ouverture dashboard < 2 s.
+   - recherche < 500 ms.
+   - scroll fluide.
+26. Atelier :
+   - création requête en 3 étapes.
+   - aperçu avant exécution.
+   - coût/source/date visibles.
+
+---
+
+## Collecte et réseau
+
+27. Par défaut :
+   - aucune collecte domaine complet.
+28. Par défaut :
+   - OU choisie.
+29. Queue :
+   - bornée.
+30. Backpressure :
+   - jobs obsolètes fusionnés ou abandonnés.
+31. Retry :
+   - pas de retry auth.
+   - retry réseau limité avec backoff.
+32. Circuit breaker :
+   - actif après erreurs répétées.
+33. Ping :
+   - offline jamais basé uniquement sur ICMP timeout.
+
+---
+
+## SQLite et données
+
+34. Migration N-1 -> N :
+   - réussie.
+35. Rollback :
+   - possible ou documenté.
+36. Backup :
+   - restaurable.
+37. `integrity_check` :
+   - OK.
+38. Contraintes :
+   - GUID/domaine uniques.
+39. Dates :
+   - UTC stockées.
+   - affichage local.
+   - future dates suspectes signalées.
+40. Rétention :
+   - purge appliquée.
+   - pas d’historique infini.
+
+---
+
+## Sondes AD/WMI
+
+41. `Win32_Product` :
+   - 0 appel dans les collectes de routine.
+42. Inventaire logiciel :
+   - source affichée.
+   - faux positifs possibles signalés.
+43. Matériel non supporté :
+   - marqué “inconnu” ou “unsupported”.
+44. `lastLogon` :
+   - affiché comme non répliqué si utilisé.
+45. `lastLogonTimestamp` :
+   - affiché comme approximation.
+46. Présence :
+   - multi-signal.
+   - état avec raisons.
+
+---
+
+## Actions admin
+
+47. Action sensible :
+   - dry-run obligatoire.
+48. Action sensible :
+   - impact preview obligatoire.
+49. Action sensible :
+   - confirmation explicite.
+50. Action sensible :
+   - audit local écrit.
+51. Échec d’action :
+   - état affiché cohérent.
+52. Action destructive :
+   - impossible sur sélection ambiguë.
+
+---
+
+## Produit et support
+
+53. Version :
+   - app, schéma, catalogue, templates visibles.
+54. Pack DEV/PROD :
+   - séparés.
+55. Checksum :
+   - disponible.
+56. Install/upgrade/uninstall :
+   - reproductibles.
+57. Logs :
+   - structurés, redacted, rotatifs.
+58. Diagnostic export :
+   - sans secrets.
+59. Runbooks :
+   - disponibles pour incidents connus.
+60. Limites :
+   - pas SQL Server, pas agent permanent, pas télémétrie cloud, pas scan domaine complet, affichées dans l’aide.
+
+---
+
+# Pièges techniques à intégrer explicitement dans le produit
+
+## 1. `Win32_Product` : danger d’effets de bord
+
+`Win32_Product` ne doit pas être utilisé comme source d’inventaire de routine.
+
+Pourquoi :
+
+- Son énumération peut déclencher des comportements MSI.
+- Elle peut être lente.
+- Elle peut provoquer des effets de bord sur des installations MSI.
+- Elle est mal adaptée à un inventaire massif sur 5000 postes.
+
+À faire :
+
+- Éviter `Win32_Product` dans les collectes automatiques.
+- Préférer :
+  - clés de désinstallation registre,
+  - MSIX/Appx si pertinent,
+  - versions de fichiers,
+  - sources locales déjà présentes,
+  - inventaire existant sans agent permanent.
+- Si un besoin MSI spécifique existe :
+  - le traiter séparément,
+  - avec avertissement,
+  - coût,
+  - scope,
+  - audit.
+
+---
+
+## 2. Ping bloqué != machine offline
+
+Un timeout ICMP ne prouve pas que la machine est éteinte.
+
+Pourquoi :
+
+- ICMP peut être bloqué par firewall.
+- EDR/antivirus peut bloquer.
+- VLAN peut filtrer.
+- WAN/VPN peut filtrer.
+- La machine peut être allumée mais injoignable par ping.
+
+À faire :
+
+- Utiliser plusieurs signaux :
+  - DNS,
+  - TCP 445,
+  - TCP 3389,
+  - TCP 135,
+  - TCP 5985/5986,
+  - LDAP ping,
+  - SMB,
+  - RDP,
+  - WMI/CIM,
+  - console,
+  - activité AD récente.
+- Afficher l’état :
+  - `reachable_partiel`,
+  - `network_blocked`,
+  - `offline_suspect`,
+  - `unknown`.
+
+---
+
+## 3. `lastLogon` non répliqué et `lastLogonTimestamp` approximatif
+
+Deux champs AD sont souvent mal compris.
+
+`lastLogon` :
+
+- Non répliqué.
+- Valeur par DC.
+- Un DC peut voir un logon que les autres ne voient pas.
+- À utiliser avec prudence.
+- Si affiché, dire que c’est une valeur DC locale.
+
+`lastLogonTimestamp` :
+
+- Répliqué.
+- Mais approximatif.
+- Pas un temps réel.
+- Granularité potentiellement de plusieurs jours selon configuration/implémentation.
+- À afficher comme approximation.
+
+À faire :
+
+- Ne jamais présenter `lastLogonTimestamp` comme “dernière connexion exacte”.
+- Afficher :
+  - “approximation”,
+  - “source AD”,
+  - “âge”,
+  - “peut être décalé”.
+- Si besoin de précision, prévoir une option explicite “lire `lastLogon` sur DC ciblé”, avec avertissement.
+
+---
+
+## 4. Matériel sans support : ne pas deviner
+
+Le matériel peut être :
+
+- non reconnu,
+- non supporté par WMI/CIM,
+- partiellement exposé,
+- virtuel,
+- custom,
+- exotique,
+- bloqué par droits,
+- bloqué par firewall.
+
+À faire :
+
+- Ne pas mettre “absent” si c’est “inconnu”.
+- Ne pas mettre “sain” si c’est “non supporté”.
+- Afficher :
+  - `unsupported`,
+  - `unknown`,
+  - `partial`,
+  - `permission_error`,
+  - `network_blocked`.
+- Maintenir une matrice de support par classe WMI/CIM et par OS/fournisseur.
+
+---
+
+## 5. Dates, inconnus, clock skew
+
+Les dates sont un terrain de faux diagnostics.
+
+Pièges :
+
+- Dates futures.
+- Clock skew.
+- UTC vs local.
+- Timezone.
+- Dernier succès ancien mais affiché comme récent.
+- Dernière tentative récente mais sans succès.
+- `lastLogonTimestamp` mal interprété.
+- Date AD vs date WMI vs date ping mélangées.
+
+À faire :
+
+- Stocker en UTC.
+- Afficher en local.
+- Séparer :
+  - `lastSuccess`,
+  - `lastAttempt`,
+  - `age`,
+  - `error`.
+- Signaler les dates futures suspectes.
+- Signaler le clock skew si détecté.
+- Ne jamais mélanger les horodatages de sources différentes sans provenance.
+
+---
+
+# Recommandation de séquence pragmatique
+
+Si David veut un chemin clair, voici l’ordre que je recommande.
+
+## Phase 1 — Stopper la perte de confiance
+
+1. Réconciliation dashboard/liste/base.
+2. Favori OU ouvre/sélectionne.
+3. UI responsiveness.
+4. Auth sérialisation/anti-lockout qualification.
+5. Timeout AD ≠ AD inaccessible.
+
+## Phase 2 — Rendre les données crédibles
+
+6. Freshness par champ/source.
+7. Présence multi-signal.
+8. Widgets GUID exacts.
+9. Atelier mission + coût.
+10. Diagnostic de réconciliation local.
+
+## Phase 3 — Fiabiliser la collecte réseau lent
+
+11. Ordonnanceur par OU choisie.
+12. Regroupement classe/session.
+13. Circuit breaker.
+14. Backpressure.
+15. Fraîcheur par champ pour éviter re-collecte inutile.
+
+## Phase 4 — Durcir le produit
+
+16. Audit SQLite/migrations/backups.
+17. Packaging DEV/PROD.
+18. Logs redacted.
+19. Diagnostics exportables.
+20. Runbooks et acceptance tests.
+
+---
+
+# Avis final
+
+Domenia a déjà une base sérieuse : pipeline central, SQLite locale, GUID + domaine, epoch/path/generation, backpressure, auth protégée, atelier 3 étapes, dashboards, sondes. Le vrai saut professionnel n’est pas d’ajouter une base distante, un agent, du cloud ou une réécriture. Le saut est de rendre le système auto-explicable.
+
+La règle centrale devrait être :
+
+> Toute donnée affichée doit avoir une source, une fraîcheur, un état, une erreur possible, et doit pouvoir être réconciliée avec la liste exacte.
+
+Si Domenia arrive à garantir cela, il devient un outil professionnel fiable. S’il ne le garantit pas, chaque incident “dashboard ≠ résultats”, “timeout = inaccessible”, “ping = offline”, “auth parallèle = verrouillage” continuera d’user la confiance.

@@ -1,0 +1,141 @@
+﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="DomeniaCallSheetView" Background="{DynamicResource BgCard}" Foreground="{DynamicResource TextColor}">
+  <!-- R40 (fiche dʼappel): loaded by Domenia-CallSheet.UI.ps1 at the first opening of the tab TabUserCallSheet. Help texts
+       come from Domenia-UX.help.json (no ToolTip here); spacing and sizes are the named resources of the window. -->
+  <UserControl.Resources>
+    <Style x:Key="CallSheetWrap" TargetType="TextBlock">
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalAlignment" Value="Top"/>
+    </Style>
+    <Style x:Key="CallSheetCaption" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="{DynamicResource SpaceStack}"/>
+    </Style>
+    <Style x:Key="CallSheetSection" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeSection}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Margin" Value="{DynamicResource SpaceRow}"/>
+    </Style>
+    <Style x:Key="CallSheetGrid" TargetType="DataGrid">
+      <Setter Property="AutoGenerateColumns" Value="False"/><Setter Property="IsReadOnly" Value="True"/>
+      <Setter Property="CanUserAddRows" Value="False"/><Setter Property="CanUserDeleteRows" Value="False"/>
+      <Setter Property="SelectionMode" Value="Single"/><Setter Property="SelectionUnit" Value="FullRow"/>
+      <Setter Property="HeadersVisibility" Value="Column"/><Setter Property="GridLinesVisibility" Value="Horizontal"/>
+      <Setter Property="Background" Value="{DynamicResource DataGridBg}"/><Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
+      <Setter Property="RowBackground" Value="{DynamicResource DataGridBg}"/><Setter Property="AlternatingRowBackground" Value="{DynamicResource DataGridAlt}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
+      <Setter Property="MinRowHeight" Value="28"/><Setter Property="MaxHeight" Value="360"/>
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="Margin" Value="{DynamicResource SpaceStack}"/>
+    </Style>
+    <Style x:Key="CallSheetActions" TargetType="WrapPanel">
+      <Setter Property="Margin" Value="{DynamicResource SpaceStack}"/>
+    </Style>
+  </UserControl.Resources>
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="{DynamicResource PadCard}">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock x:Name="LblCallSheetSubject" Text="Fiche dʼappel" FontSize="{DynamicResource FontSizePageTitle}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="Compte de la fiche dʼappel"/>
+          <TextBlock x:Name="LblCallSheetOrigin" Text="Ouvrez la fiche dʼun utilisateur." Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="Origine de la fiche" AutomationProperties.LiveSetting="Polite"/>
+        </StackPanel>
+        <WrapPanel Grid.Column="1" VerticalAlignment="Top">
+          <Button x:Name="BtnCallSheetRefresh" Content="Recalculer" Style="{DynamicResource SecondaryButton}" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Recalculer la fiche dʼappel"/>
+          <Button x:Name="BtnCallSheetCopy" Content="Copier pour le ticket" Style="{DynamicResource RunButton}" AutomationProperties.Name="Copier la fiche dʼappel pour le ticket"/>
+        </WrapPanel>
+      </Grid>
+      <Border Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="8" Padding="{DynamicResource PadCompact}">
+        <TextBlock x:Name="LblCallSheetAttention" Text="Aucun point dʼattention calculé." Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap" FontWeight="SemiBold" AutomationProperties.Name="Points dʼattention" AutomationProperties.LiveSetting="Polite"/>
+      </Border>
+      <TextBlock Text="Lecture seule : rien nʼest lu sur le réseau sans un clic sur un des boutons de lecture. Chaque valeur dit sa source et sa date ; une valeur inconnue reste inconnue." Style="{StaticResource CallSheetCaption}"/>
+
+      <TextBlock Text="Compte et restrictions" Style="{StaticResource CallSheetSection}"/>
+      <DataGrid x:Name="DgCallSheetAccount" Style="{StaticResource CallSheetGrid}" AutomationProperties.Name="État du compte et restrictions dʼouverture de session">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Rubrique" Binding="{Binding Section}" Width="100"/>
+          <DataGridTextColumn Header="Fait" Binding="{Binding Label}" Width="190" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="Valeur" Binding="{Binding Value}" Width="3*" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="État" Binding="{Binding StateLabel}" Width="110"/>
+          <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="2*" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="Relevé le" Binding="{Binding DateText}" Width="120"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <TextBlock x:Name="TxtCallSheetFactDetail" Text="Sélectionnez une ligne pour lire ce quʼelle prouve et ce quʼelle ne prouve pas." Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="Détail du fait sélectionné" AutomationProperties.LiveSetting="Polite"/>
+      <WrapPanel Style="{StaticResource CallSheetActions}">
+        <Button x:Name="BtnCallSheetLockouts" Content="Lire les verrouillages (4740)" Style="{DynamicResource SecondaryButton}" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Lire les verrouillages du compte"/>
+        <Button x:Name="BtnCallSheetPolicy" Content="Lire la stratégie de mot de passe" Style="{DynamicResource SecondaryButton}" AutomationProperties.Name="Lire la stratégie de mot de passe du compte"/>
+      </WrapPanel>
+      <TextBlock x:Name="TxtCallSheetAccountReads" Text="" Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="Résultat des lectures du compte" AutomationProperties.LiveSetting="Polite"/>
+
+      <TextBlock Text="Postes habituels et sessions" Style="{StaticResource CallSheetSection}"/>
+      <TextBlock x:Name="LblCallSheetComputers" Text="Aucun poste associé lu." Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="Postes associés au compte" AutomationProperties.LiveSetting="Polite"/>
+      <DataGrid x:Name="DgCallSheetComputers" Style="{StaticResource CallSheetGrid}" AutomationProperties.Name="Postes associés, présence et sessions">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Poste" Binding="{Binding Computer}" Width="130"/>
+          <DataGridTextColumn Header="Qualification" Binding="{Binding Qualification}" Width="140" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="Associé le" Binding="{Binding AssociatedText}" Width="100"/>
+          <DataGridTextColumn Header="Présence" Binding="{Binding PresenceValue}" Width="140" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="État" Binding="{Binding PresenceStateLabel}" Width="100"/>
+          <DataGridTextColumn Header="Relevée le" Binding="{Binding PresenceDate}" Width="115"/>
+          <DataGridTextColumn Header="Console" Binding="{Binding ConsoleValue}" Width="2*" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="Sessions du compte" Binding="{Binding SessionValue}" Width="3*" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="Lues le" Binding="{Binding SessionDate}" Width="115"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <WrapPanel Style="{StaticResource CallSheetActions}">
+        <Button x:Name="BtnCallSheetPresence" Content="Vérifier la présence" Style="{DynamicResource SecondaryButton}" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Vérifier la présence du poste choisi"/>
+        <Button x:Name="BtnCallSheetSessions" Content="Lire les sessions" Style="{DynamicResource SecondaryButton}" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Lire les sessions du poste choisi"/>
+        <Button x:Name="BtnCallSheetOpenComputer" Content="Ouvrir le poste" Style="{DynamicResource SecondaryButton}" AutomationProperties.Name="Ouvrir la fiche du poste choisi"/>
+      </WrapPanel>
+
+      <TextBlock Text="Groupes" Style="{StaticResource CallSheetSection}"/>
+      <TextBlock x:Name="LblCallSheetGroups" Text="Groupes non calculés." Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="Résumé des groupes" AutomationProperties.LiveSetting="Polite"/>
+      <DataGrid x:Name="DgCallSheetGroups" Style="{StaticResource CallSheetGrid}" AutomationProperties.Name="Groupes directs du compte">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Groupe" Binding="{Binding Name}" Width="3*" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="Nature" Binding="{Binding Nature}" Width="110"/>
+          <DataGridTextColumn Header="Changement" Binding="{Binding Change}" Width="2*" ElementStyle="{StaticResource CallSheetWrap}"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <WrapPanel Style="{StaticResource CallSheetActions}">
+        <Button x:Name="BtnCallSheetGroupsView" Content="Voir les appartenances" Style="{DynamicResource SecondaryButton}" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Voir les appartenances du compte"/>
+        <Button x:Name="BtnCallSheetCompareRights" Content="Comparer les droits avec…" Style="{DynamicResource SecondaryButton}" Visibility="Collapsed" AutomationProperties.Name="Comparer les droits avec un autre compte"/>
+      </WrapPanel>
+
+      <TextBlock Text="Opérations Domenia sur ce compte" Style="{StaticResource CallSheetSection}"/>
+      <TextBlock x:Name="LblCallSheetReceipts" Text="Reçus non lus." Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="Résumé des opérations Domenia" AutomationProperties.LiveSetting="Polite"/>
+      <DataGrid x:Name="DgCallSheetReceipts" Style="{StaticResource CallSheetGrid}" AutomationProperties.Name="Dernières opérations Domenia sur ce compte">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="130"/>
+          <DataGridTextColumn Header="Opération" Binding="{Binding Operation}" Width="2*" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="État" Binding="{Binding Stage}" Width="2*" ElementStyle="{StaticResource CallSheetWrap}"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <WrapPanel Style="{StaticResource CallSheetActions}">
+        <Button x:Name="BtnCallSheetReceipts" Content="Relire les reçus" Style="{DynamicResource SecondaryButton}" AutomationProperties.Name="Relire les reçus locaux"/>
+      </WrapPanel>
+
+      <TextBlock Text="Poste lent : tri rapide" Style="{StaticResource CallSheetSection}"/>
+      <TextBlock x:Name="LblCallSheetTriageTarget" Text="Aucun poste associé : tri non disponible." Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="Poste du tri rapide" AutomationProperties.LiveSetting="Polite"/>
+      <WrapPanel Style="{StaticResource CallSheetActions}">
+        <Button x:Name="BtnCallSheetTriage" Content="Trier la lenteur du poste" Style="{DynamicResource RunButton}" AutomationProperties.Name="Lancer le tri rapide du poste lent"/>
+      </WrapPanel>
+      <DataGrid x:Name="DgCallSheetTriage" Style="{StaticResource CallSheetGrid}" AutomationProperties.Name="Tri rapide du poste lent">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Mesure" Binding="{Binding Label}" Width="170"/>
+          <DataGridTextColumn Header="Valeur" Binding="{Binding Value}" Width="3*" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="État" Binding="{Binding StateLabel}" Width="110"/>
+          <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="2*" ElementStyle="{StaticResource CallSheetWrap}"/>
+          <DataGridTextColumn Header="Relevé le" Binding="{Binding DateText}" Width="120"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <TextBlock x:Name="LblCallSheetTriage" Text="" Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="État du tri rapide" AutomationProperties.LiveSetting="Polite"/>
+
+      <TextBlock Text="Texte pour le ticket" Style="{StaticResource CallSheetSection}"/>
+      <TextBlock x:Name="LblCallSheetTicket" Text="Texte brut, sans secret, construit depuis le modèle." Style="{StaticResource CallSheetCaption}" AutomationProperties.Name="Modèle du texte pour le ticket"/>
+      <TextBox x:Name="TxtCallSheetTicket" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="140" MaxHeight="320" VerticalScrollBarVisibility="Auto" Background="{DynamicResource BgReadonly}" AutomationProperties.Name="Aperçu du texte pour le ticket"/>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

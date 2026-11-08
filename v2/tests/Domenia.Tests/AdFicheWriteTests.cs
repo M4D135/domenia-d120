@@ -1,0 +1,667 @@
+using System.Security.Principal;
+using System.Text.Json;
+using Domenia.Ad;
+using Domenia.Core;
+using Domenia.Core.Poste;
+using Domenia.Core.Queries.Ldap;
+
+namespace Domenia.Tests;
+
+internal static partial class AdFicheWriteTests
+{
+    private const string Dn = "CN=Compte," + Fixtures.People;
+    private const string Manager = "CN=Responsable," + Fixtures.People;
+    private const string Login = "TEST\\operateur";
+
+    [Test]
+    public static async Task Fiche_profile_account_state_options_and_password_expiry_write_only_the_planned_attributes()
+    {
+        foreach (var kind in new[] { ObjectWrites.UpdateKind, ObjectWrites.EnabledKind, ObjectWrites.OptionsKind, ObjectWrites.ExpirePasswordKind })
+        {
+            using var ldap = new Connection(); using var source = Source(ldap);
+            using var writers = WriteExecutors.Discover(source, [typeof(AdDirectorySource).Assembly]);
+            var executor = writers.ForKind(kind)!;
+            var draft = kind switch
+            {
+                ObjectWrites.UpdateKind => await ((IObjectUpdateExecutor)executor).PlanAsync(Dn, new Dictionary<string, string?> { ["description"] = "Nouvelle", ["mail"] = "compte@test.local" }, CancellationToken.None),
+                ObjectWrites.EnabledKind => await ((IAccountEnabledExecutor)executor).PlanAsync(Dn, false, CancellationToken.None),
+                ObjectWrites.OptionsKind => await ((IAccountOptionsExecutor)executor).PlanAsync(Dn, new Dictionary<string, bool> { [FicheSheets.OptionFlags.First().Id] = true }, FicheSecurityPolicy.Default, CancellationToken.None),
+                _ => await ((IPasswordExpireExecutor)executor).PlanAsync(Dn, CancellationToken.None),
+            };
+            var plan = Seal(draft);
+            Check.True(draft.Origin!.Matches(await source.GetSessionAsync(CancellationToken.None)), "lecture liée à sa session");
+            Check.True((await executor.CheckAsync(plan, CancellationToken.None)).Current, "état frais inchangé");
+            Check.Equal(0, ldap.Writes, "plan et préconditions en lecture seule");
+            Check.Equal(WriteResult.Applied, (await executor.ExecuteAsync(plan, CancellationToken.None)).Result, "envoi accepté");
+            Check.Equal(1, ldap.Writes, "une seule requête");
+            Check.True(ldap.Changes.All(c => plan.Changes.Any(p => p.Attribute == c.Attribute)), "seuls les champs confirmés");
+            Check.Equal(VerificationState.Verified, (await executor.VerifyAsync(plan, CancellationToken.None)).State, "valeurs relues conformes");
+            Check.Equal(WriteResult.NoChange, (await executor.ExecuteAsync(plan, CancellationToken.None)).Result, "seconde demande constatée déjà faite");
+            Check.Equal(1, ldap.Writes, "aucun renvoi inutile");
+        }
+    }
+
+    [Test]
+    public static async Task Manager_references_are_canonical_sealed_and_never_follow_a_recreated_homonym()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var executor = new AdObjectUpdateExecutor(source);
+        var plan = Seal(await executor.PlanAsync(Dn, new Dictionary<string, string?> { ["manager"] = Manager.ToLowerInvariant() }, CancellationToken.None));
+        Check.Equal(Manager, plan.Changes[0].AfterValue, "DN canonique relu");
+        Check.Equal(ldap.Id(Manager).ToString("D"), plan.Changes[0].ReferenceGuid, "GUID du responsable scellé");
+        var json = JsonSerializer.Serialize(plan);
+        var reread = JsonSerializer.Deserialize<WritePlan>(json)!;
+        Check.True(WritePlans.IsIntact(reread), "identité conservée dans le reçu");
+        Check.False(WritePlans.IsIntact(plan with { Changes = [plan.Changes[0] with { ReferenceGuid = Guid.NewGuid().ToString("D") }] }), "GUID couvert par l’empreinte");
+        ldap.Objects[Manager]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await executor.CheckAsync(plan, CancellationToken.None)).Current, "responsable recréé");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => executor.ExecuteAsync(plan, CancellationToken.None), "aucun homonyme substitué");
+        Check.Equal(0, ldap.Writes, "aucune écriture");
+    }
+
+    [Test]
+    public static async Task A_manager_is_written_by_its_GUID_and_confirmed_as_the_canonical_DN()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var executor = new AdObjectUpdateExecutor(source);
+        var plan = Seal(await executor.PlanAsync(Dn, new Dictionary<string, string?> { ["manager"] = Manager }, CancellationToken.None));
+        await executor.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal("<GUID=" + ldap.Id(Manager).ToString("D") + ">", (string)ldap.Changes.Single().Values.Single(), "identité du gestionnaire dans Modify");
+        Check.Equal(VerificationState.Verified, (await executor.VerifyAsync(plan, CancellationToken.None)).State, "DN LDAP relu");
+    }
+
+    [Test]
+    public static async Task New_protection_multi_values_or_a_replaced_target_refuse_profile_changes()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var executor = new AdObjectUpdateExecutor(source);
+        var plan = Seal(await executor.PlanAsync(Dn, new Dictionary<string, string?> { ["description"] = "Nouvelle" }, CancellationToken.None));
+        ldap.Objects[Dn]["adminCount"] = ["1"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => executor.ExecuteAsync(plan, CancellationToken.None), "confirmation renforcée devenue nécessaire");
+        ldap.Objects[Dn].Remove("adminCount");
+        ldap.Objects[Dn]["description"] = ["Ancienne", "Autre"];
+        Check.False((await executor.CheckAsync(plan, CancellationToken.None)).Current, "plusieurs valeurs non écrasées");
+        ldap.Objects[Dn]["description"] = ["Ancienne"];
+        ldap.Objects[Dn]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await executor.CheckAsync(plan, CancellationToken.None)).Current, "ancien GUID disparu");
+        Check.Equal(0, ldap.Writes, "rien envoyé");
+    }
+
+    [Test]
+    public static async Task A_fiche_cannot_disable_the_operator_or_a_domain_controller_or_edit_managed_accounts()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap, Dn);
+        var state = new AdAccountEnabledExecutor(source);
+        await Check.ThrowsAsync<DomeniaOperationException>(() => state.PlanAsync(Dn, false, CancellationToken.None), "soi-même");
+        ldap.Objects[Manager]["objectClass"] = ["top", "computer"]; ldap.Objects[Manager]["userAccountControl"] = ["8192"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => state.PlanAsync(Manager, false, CancellationToken.None), "contrôleur du domaine");
+        ldap.Objects[Manager]["objectClass"] = ["top", "user", "msDS-GroupManagedServiceAccount"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => new AdObjectUpdateExecutor(source).PlanAsync(Manager, new Dictionary<string, string?> { ["description"] = "Test" }, CancellationToken.None), "service géré");
+        Check.Equal(0, ldap.Writes, "aucune modification");
+    }
+
+    [Test]
+    public static async Task Raw_binary_changes_preserve_octets_and_are_verified_after_a_single_modify()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["customBinary"] = [new byte[] { 0, 255, 128 }];
+        ldap.Schema["customBinary"] = Schema("customBinary", "2.5.5.10", 4);
+        var policy = FicheSecurityPolicy.Default with { AllowRawAttributeWrite = true };
+        var writer = new AdRawAttributeExecutor(source, _ => Task.FromResult(policy));
+        var plan = Seal(await writer.PlanAsync(Dn, "customBinary", "fefe00", policy, CancellationToken.None));
+        Check.Equal("00FF80", plan.Changes[0].BeforeValue, "octets précédents exacts");
+        Check.Equal("FEFE00", plan.Changes[0].AfterValue, "hexadécimal canonique confirmé");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "politique non déposée");
+        writer.Remember(plan.Id, plan.ExpiresAt, policy);
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(1, ldap.Writes, "une requête");
+        Check.True(((byte[])ldap.Changes[0].Values[0]).SequenceEqual(new byte[] { 0, 255, 128 }), "suppression compare les vrais octets");
+        Check.True(((byte[])ldap.Changes[1].Values[0]).SequenceEqual(new byte[] { 254, 254, 0 }), "nouvelle valeur binaire, aucun texte UTF-8");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "octets relus");
+    }
+
+    [Test]
+    public static async Task Raw_write_rechecks_native_policy_schema_and_reference_identity()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Schema["manager"] = Schema("manager", "2.5.5.1", 127);
+        var policy = FicheSecurityPolicy.Default with { AllowRawAttributeWrite = true };
+        var native = policy;
+        var writer = new AdRawAttributeExecutor(source, _ => Task.FromResult(native));
+        var plan = Seal(await writer.PlanAsync(Dn, "manager", Manager.ToLowerInvariant(), policy, CancellationToken.None));
+        Check.Equal(ldap.Id(Manager).ToString("D"), plan.Changes[0].ReferenceGuid, "référence scellée même dans l’éditeur brut");
+        writer.Remember(plan.Id, plan.ExpiresAt, policy);
+        native = FicheSecurityPolicy.Default;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "politique native refermée");
+        native = policy;
+        ldap.Schema["manager"] = Schema("manager", "2.5.5.1", 127, new() { ["systemOnly"] = ["TRUE"] });
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "attribut devenu système");
+        ldap.Schema["manager"] = Schema("manager", "2.5.5.1", 127);
+        ldap.Objects[Manager]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "responsable remplacé");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
+    [Test]
+    public static async Task Raw_native_default_never_trusts_a_page_policy_that_opens_writes()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var writer = new AdRawAttributeExecutor(source);
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, "description", "Autre", FicheSecurityPolicy.Simulation, CancellationToken.None), "configuration hôte requise");
+        Check.Equal(0, ldap.Writes, "aucune mutation");
+    }
+
+    [Test]
+    public static void Raw_schema_refuses_composite_system_backlink_or_malformed_values()
+    {
+        var binary = AdRawAttributeSchema.From(Schema("customBinary", "2.5.5.10", 4, new() { ["rangeUpper"] = ["2"] }));
+        Check.Equal("00FF", binary.Normalize("00ff"), "normalisation hexadécimale");
+        foreach (var value in new[] { "XYZ", "0", "001122" }) { Check.Throws<DomeniaOperationException>(() => binary.Encode(value), "hexadécimal invalide ou trop long"); }
+        foreach (var extra in new Dictionary<string, IReadOnlyList<object>>[]
+        {
+            new() { ["systemOnly"] = ["TRUE"] }, new() { ["isDefunct"] = ["TRUE"] }, new() { ["systemFlags"] = ["4"] }, new() { ["linkID"] = ["3"] },
+            new() { ["systemFlags"] = ["illisible"] }, new() { ["rangeUpper"] = ["-1"] },
+        }) { Check.Throws<DomeniaOperationException>(() => AdRawAttributeSchema.From(Schema("custom", "2.5.5.12", 64, extra)), "schéma non modifiable"); }
+        Check.Throws<DomeniaOperationException>(() => AdRawAttributeSchema.From(Schema("descriptor", "2.5.5.15", 66)), "descripteur partiel interdit au brut");
+        Check.Throws<DomeniaOperationException>(() => AdRawAttributeSchema.From(Schema("custom", "2.5.5.12", 4)), "couple syntaxe OM incohérent");
+        var number = AdRawAttributeSchema.From(Schema("customNumber", "2.5.5.9", 2));
+        Check.Equal("12", number.Normalize("+0012"), "entier canonique");
+        Check.Throws<DomeniaOperationException>(() => number.Normalize("2147483648"), "débordement refusé");
+    }
+
+    [Test]
+    public static async Task One_member_beyond_the_initial_range_is_removed_without_replacing_other_members()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Manager]["objectClass"] = ["top", "group"];
+        ldap.Objects[Manager]["groupType"] = ["-2147483646"];
+        var members = Enumerable.Range(0, 3000).Select(n => (object)("CN=Membre-" + n + "," + Fixtures.People)).ToList();
+        members[2000] = Dn; ldap.Objects[Manager]["member"] = members.ToArray();
+        var writer = new AdGroupMemberExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Manager, Dn, false, CancellationToken.None));
+        Check.True(plan.Confirmation.TypedNameRequired, "retrait confirmé par nom");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(1, ldap.Changes.Count, "une valeur retirée, aucune réécriture de liste");
+        Check.Equal("<GUID=" + ldap.Id(Dn).ToString("D") + ">", (string)ldap.Changes[0].Values[0], "identité du membre dans Modify");
+        Check.Equal(2999, ldap.Objects[Manager]["member"].Count, "tous les autres membres conservés");
+        Check.True(ldap.Objects[Manager]["member"].SequenceEqual(members.Where(m => !Equals(m, Dn))), "liste restante exacte");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "absence de cette appartenance confirmée");
+        Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "pas de second retrait");
+    }
+
+    [Test]
+    public static async Task Group_add_never_follows_a_recreated_member_or_a_newly_protected_group()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Manager]["objectClass"] = ["top", "group"]; ldap.Objects[Manager]["groupType"] = ["-2147483646"];
+        var writer = new AdGroupMemberExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Manager, Dn, true, CancellationToken.None));
+        var guid = ldap.Objects[Dn]["objectGUID"];
+        ldap.Objects[Dn]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "ancien membre remplacé");
+        ldap.Objects[Dn]["objectGUID"] = guid; ldap.Objects[Manager]["adminCount"] = ["1"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "groupe protégé depuis le plan");
+        Check.Equal(0, ldap.Writes, "aucune écriture");
+        ldap.Objects[Manager].Remove("adminCount");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "appartenance ajoutée relue");
+    }
+
+    [Test]
+    public static async Task Move_keeps_the_exact_escaped_RDN_and_targets_both_GUIDs()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        const string destination = "OU=Destination," + Fixtures.Root;
+        const string unusual = "CN=Compte\\, spécial," + Fixtures.People;
+        ldap.Objects[unusual] = ldap.Objects[Dn]; ldap.Objects.Remove(Dn);
+        ldap.Objects[destination] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(destination).ToByteArray()], ["name"] = ["Destination"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        var id = ldap.Id(unusual); var writer = new AdObjectMoveExecutor(source);
+        var plan = Seal(await writer.PlanAsync(unusual, destination, id, CancellationToken.None));
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal("<GUID=" + id.ToString("D") + ">", ldap.RenamedTarget, "source par GUID");
+        Check.Equal("<GUID=" + ldap.Id(destination).ToString("D") + ">", ldap.RenamedParent, "destination par GUID");
+        Check.Equal("CN=Compte\\, spécial", ldap.RenamedRdn, "nom inchangé et virgule échappée");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "nom, GUID et emplacement relus");
+        Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "aucun déplacement répété");
+        Check.Equal(1, ldap.Writes, "une seule requête");
+    }
+
+    [Test]
+    public static async Task Move_refuses_recreated_destination_name_collision_and_changed_name()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        const string destination = "OU=Destination," + Fixtures.Root;
+        ldap.Objects[destination] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(destination).ToByteArray()], ["name"] = ["Destination"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        var writer = new AdObjectMoveExecutor(source);
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, destination, Guid.NewGuid(), CancellationToken.None), "identité du sélecteur périmée");
+        var plan = Seal(await writer.PlanAsync(Dn, destination, null, CancellationToken.None));
+        var destinationId = ldap.Objects[destination]["objectGUID"];
+        ldap.Objects[destination]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "destination recréée");
+        ldap.Objects[destination]["objectGUID"] = destinationId;
+        var collision = "CN=Compte," + destination;
+        ldap.Objects[collision] = new(ldap.Objects[Dn], StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Guid.NewGuid().ToByteArray()] };
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "collision apparue après plan");
+        ldap.Objects.Remove(collision);
+        ldap.Objects["CN=Renommé," + destination] = ldap.Objects[Dn]; ldap.Objects.Remove(Dn);
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "même destination, mais nom différent");
+        Check.Equal(VerificationState.Mismatch, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "la seule OU ne prouve pas le déplacement confirmé");
+        Check.Equal(0, ldap.Writes, "rien envoyé");
+    }
+
+    [Test]
+    public static async Task Ou_creation_is_one_add_with_an_escaped_name_and_never_a_parent_update()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Fixtures.Root] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(Fixtures.Root).ToByteArray()], ["name"] = ["test"], ["objectClass"] = ["top", "domainDNS"], ["uSNChanged"] = ["1"], ["isCriticalSystemObject"] = ["TRUE"] };
+        var writer = new AdOuCreateExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Fixtures.Root, "Équipe, Paris", CancellationToken.None));
+        Check.Equal(Fixtures.IdOf(Fixtures.Root).ToString("D"), plan.Target.ObjectGuid, "identité du parent confirmée");
+        Check.True((await writer.CheckAsync(plan, CancellationToken.None)).Current, "nom encore libre");
+        var outcome = await writer.ExecuteAsync(plan, CancellationToken.None);
+        var child = DistinguishedName.Child("OU", "Équipe, Paris", Fixtures.Root);
+        Check.Equal(child, ldap.AddedDn, "nom échappé");
+        Check.True(ldap.AddedAttributes!.Keys.Order().SequenceEqual(new[] { "objectClass", "ou" }.Order()), "seule la nouvelle OU est envoyée");
+        Check.Equal(1, ldap.Writes, "une requête Add");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyOutcomeAsync(plan, outcome.Result, CancellationToken.None)).State, "acceptation et emplacement relus");
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "nom désormais pris, aucune seconde création");
+        Check.Equal("TRUE", (string)ldap.Objects[Fixtures.Root]["isCriticalSystemObject"][0], "parent intact");
+    }
+
+    [Test]
+    public static async Task An_unknown_ou_add_response_is_never_proved_by_a_same_name_object()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Fixtures.People] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(Fixtures.People).ToByteArray()], ["name"] = ["People"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        var writer = new AdOuCreateExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Fixtures.People, "Nouvelle", CancellationToken.None));
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Unknown, (await writer.VerifyOutcomeAsync(plan, WriteResult.Unknown, CancellationToken.None)).State, "présence ne prouve pas origine de création");
+        Check.Equal(VerificationState.Unknown, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "relecture sans reçu d’acceptation conservatrice");
+        Check.Equal(VerificationState.Mismatch, (await writer.VerifyOutcomeAsync(plan, WriteResult.NotApplied, CancellationToken.None)).State, "refus n’est pas un succès");
+        ldap.Objects[Fixtures.People]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.Equal(VerificationState.Mismatch, (await writer.VerifyOutcomeAsync(plan, WriteResult.Applied, CancellationToken.None)).State, "parent remplacé");
+    }
+
+    [Test]
+    public static async Task Ou_creation_refuses_invalid_names_and_parent_replacement_before_add()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Fixtures.People] = new(StringComparer.OrdinalIgnoreCase)
+        { ["objectGUID"] = [Fixtures.IdOf(Fixtures.People).ToByteArray()], ["name"] = ["People"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        var writer = new AdOuCreateExecutor(source);
+        foreach (var name in new[] { " ", "#Interdit", new string('a', 65), "inter\nrompu" })
+        { await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Fixtures.People, name, CancellationToken.None), "nom non admis"); }
+        var plan = Seal(await writer.PlanAsync(Fixtures.People, "Nouvelle", CancellationToken.None));
+        ldap.Objects[Fixtures.People]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "ancien parent absent");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "pas de création sous un homonyme");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
+    [Test]
+    public static async Task Delete_targets_the_confirmed_GUID_and_leaves_a_recreated_homonym_alone()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var writer = new AdObjectDeleteExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Dn, FicheSecurityPolicy.Default, CancellationToken.None));
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal("<GUID=" + plan.Target.ObjectGuid + ">", ldap.DeletedTarget, "suppression par identité");
+        ldap.Objects[Dn] = new(ldap.Objects[Manager], StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Guid.NewGuid().ToByteArray()] };
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "ancien GUID absent");
+        Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "aucune seconde suppression");
+        Check.True(ldap.Objects.ContainsKey(Dn), "homonyme recréé intact");
+        Check.Equal(1, ldap.Writes, "une requête seulement");
+    }
+
+    [Test]
+    public static async Task Delete_refuses_children_that_appear_after_the_plan_and_a_new_native_OU_restriction()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        var native = FicheSecurityPolicy.Default with { AllowContainerDelete = true };
+        var writer = new AdObjectDeleteExecutor(source, _ => Task.FromResult(native));
+        var plan = Seal(await writer.PlanAsync(Dn, native, CancellationToken.None));
+        var child = "CN=Enfant," + Dn;
+        ldap.Objects[child] = new(ldap.Objects[Manager], StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Guid.NewGuid().ToByteArray()] };
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "nouvel enfant avant envoi");
+        ldap.Objects.Remove(child);
+        ldap.Objects[Manager]["objectClass"] = ["top", "organizationalUnit"];
+        var ouPlan = Seal(await writer.PlanAsync(Manager, native, CancellationToken.None));
+        native = FicheSecurityPolicy.Default;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(ouPlan, CancellationToken.None), "suppression d’OU refermée par la politique native");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
+    [Test]
+    public static async Task Delete_refuses_the_operator_and_privileged_objects_before_preparing_a_plan()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap, Dn);
+        var writer = new AdObjectDeleteExecutor(source);
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, FicheSecurityPolicy.Default, CancellationToken.None), "compte opérateur");
+        ldap.Objects[Manager]["adminCount"] = ["1"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Manager, FicheSecurityPolicy.Default, CancellationToken.None), "compte à privilèges");
+        ldap.Objects[Manager].Remove("adminCount"); ldap.Objects[Manager]["isCriticalSystemObject"] = ["TRUE"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Manager, FicheSecurityPolicy.Default, CancellationToken.None), "objet système");
+        Check.Equal(0, ldap.Writes, "aucune mutation");
+    }
+
+    [Test]
+    public static async Task Poste_profile_preserves_omitted_fields_clears_explicit_fields_and_binds_the_manager_GUID()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Dn]["location"] = ["Ancien bureau"];
+        using var writers = WriteExecutors.Discover(source, [typeof(AdDirectorySource).Assembly]);
+        var writer = writers.Require<IPosteProfileExecutor>();
+        var plan = Seal(await writer.PlanAsync(Dn, null, "", Manager.ToLowerInvariant(), CancellationToken.None));
+        Check.False(plan.Changes.Any(c => c.Attribute == "description"), "champ omis conservé");
+        Check.Equal(ldap.Id(Manager).ToString("D"), plan.Changes.Single(c => c.Attribute == "managedBy").ReferenceGuid, "gestionnaire scellé");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "postcondition réelle");
+        var local = source.CurrentDirectory!.Computers.Single();
+        Check.Equal("Ancienne", local.Description, "description intacte"); Check.Null(local.Location, "champ explicitement vidé");
+        Check.Equal(Manager, local.ManagedByDn, "projection locale actualisée");
+    }
+
+    [Test]
+    public static async Task Poste_state_uses_the_account_name_for_confirmation_even_when_the_CN_differs()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"];
+        ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"]; ldap.Objects[Dn]["adminCount"] = ["1"];
+        var writer = new AdPosteAccountStateExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Dn, false, CancellationToken.None));
+        Check.Equal("PC-ORIG", plan.Confirmation.TypedName, "nom de compte sans dollar, pas le CN");
+        Check.True((await writer.CheckAsync(plan, CancellationToken.None)).Current, "confirmation de Poste admise");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal("4098", (string)ldap.Objects[Dn]["userAccountControl"][0], "seul le bit de désactivation");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "état relu");
+    }
+
+    [Test]
+    public static async Task Poste_state_and_profile_refuse_concurrent_flags_and_recreated_references()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        var state = new AdPosteAccountStateExecutor(source);
+        var plan = Seal(await state.PlanAsync(Dn, false, CancellationToken.None));
+        ldap.Objects[Dn]["userAccountControl"] = ["69632"];
+        Check.False((await state.CheckAsync(plan, CancellationToken.None)).Current, "option concurrente non écrasée");
+        var profile = new AdPosteProfileExecutor(source);
+        var profilePlan = Seal(await profile.PlanAsync(Dn, "Description", null, Manager, CancellationToken.None));
+        ldap.Objects[Manager]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await profile.CheckAsync(profilePlan, CancellationToken.None)).Current, "gestionnaire recréé");
+        ldap.Objects[Dn]["userAccountControl"] = ["8192"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => state.PlanAsync(Dn, false, CancellationToken.None), "contrôleur du domaine");
+        Check.Equal(0, ldap.Writes, "aucune mutation");
+    }
+
+    [Test]
+    public static async Task Poste_rename_and_move_use_GUIDs_and_preserve_account_and_DNS_names()
+    {
+        foreach (var move in new[] { false, true })
+        {
+            using var ldap = new Connection(); using var source = Source(ldap);
+            ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+            ldap.Objects[Dn]["dNSHostName"] = ["pc-orig.test.local"];
+            const string destination = "OU=Destination," + Fixtures.Root;
+            foreach (var parent in new[] { Fixtures.People, destination })
+            { ldap.Objects[parent] = new(StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Fixtures.IdOf(parent).ToByteArray()], ["name"] = [DistinguishedName.Parse(parent)[0].Value], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] }; }
+            using var writers = WriteExecutors.Discover(source, [typeof(AdDirectorySource).Assembly]);
+            IWriteExecutor writer = move ? writers.Require<IPosteMoveExecutor>() : writers.Require<IPosteRenameExecutor>();
+            var draft = move ? await ((IPosteMoveExecutor)writer).PlanAsync(Dn, destination, CancellationToken.None)
+                : await ((IPosteRenameExecutor)writer).PlanAsync(Dn, "pc-nouveau", CancellationToken.None);
+            var plan = Seal(draft);
+            await writer.ExecuteAsync(plan, CancellationToken.None);
+            Check.Equal("<GUID=" + Fixtures.IdOf(move ? destination : Fixtures.People).ToString("D") + ">", ldap.RenamedParent, "parent par GUID");
+            Check.Equal(move ? "CN=Compte" : "CN=PC-NOUVEAU", ldap.RenamedRdn, "seul le changement confirmé de RDN");
+            Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "nom et emplacement relus");
+            var computer = source.CurrentDirectory!.Computers.Single();
+            Check.Equal("PC-ORIG$", computer.SamAccountName, "compte inchangé"); Check.Equal("pc-orig.test.local", computer.DnsHostName, "DNS inchangé");
+            Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "aucun second ModifyDN");
+            Check.Equal(1, ldap.Writes, "une seule mutation");
+        }
+    }
+
+    [Test]
+    public static async Task Poste_rename_warns_about_other_names_and_refuses_a_replaced_parent_or_any_collision()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Fixtures.People] = new(StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Fixtures.IdOf(Fixtures.People).ToByteArray()], ["name"] = ["People"], ["objectClass"] = ["top", "organizationalUnit"], ["uSNChanged"] = ["1"] };
+        ldap.Objects[Manager]["objectClass"] = ["top", "computer"]; ldap.Objects[Manager]["userAccountControl"] = ["4096"]; ldap.Objects[Manager]["sAMAccountName"] = ["PC-NOUVEAU$"];
+        var writer = new AdPosteRenameExecutor(source);
+        var draft = await writer.PlanAsync(Dn, "pc-nouveau", CancellationToken.None);
+        Check.True(draft.Risks.Any(r => r.Text.Contains("autre compte ordinateur", StringComparison.Ordinal)), "homonyme du nom de compte signalé");
+        var plan = Seal(draft);
+        var parentId = ldap.Objects[Fixtures.People]["objectGUID"];
+        ldap.Objects[Fixtures.People]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "parent recréé");
+        ldap.Objects[Fixtures.People]["objectGUID"] = parentId;
+        var collision = "CN=PC-NOUVEAU," + Fixtures.People;
+        ldap.Objects[collision] = new(ldap.Objects[Manager], StringComparer.OrdinalIgnoreCase) { ["objectGUID"] = [Guid.NewGuid().ToByteArray()], ["objectClass"] = ["top", "contact"] };
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "collision même avec un autre type d’objet");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
+    [Test]
+    public static async Task Poste_readback_does_not_publish_partial_memberships_as_a_complete_typed_object()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Dn]["memberOf"] = Enumerable.Range(0, 2000).Select(n => (object)("CN=Groupe-" + n + "," + Fixtures.Root)).ToArray();
+        var writer = new AdPosteProfileExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Dn, "Nouvelle", null, null, CancellationToken.None));
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        var verified = await writer.VerifyAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, verified.State, "description relue conforme");
+        Check.True(verified.Detail.Contains("partiellement", StringComparison.Ordinal), "limite explicitée");
+        Check.Equal(0, source.CurrentDirectory?.Computers.Length ?? 0, "aucune fausse liste complète publiée");
+    }
+
+    [Test]
+    public static async Task Poste_group_changes_one_GUID_member_beyond_the_initial_range_and_is_idempotent()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Manager]["objectClass"] = ["top", "group"]; ldap.Objects[Manager]["groupType"] = ["-2147483646"];
+        var members = Enumerable.Range(0, 3000).Select(n => (object)("CN=Membre-" + n + "," + Fixtures.People)).ToList();
+        members[2000] = Dn; ldap.Objects[Manager]["member"] = members.ToArray();
+        // memberOf deliberately has no selected group: the direct membership query must decide.
+        using var writers = WriteExecutors.Discover(source, [typeof(AdDirectorySource).Assembly]);
+        var writer = writers.Require<IPosteGroupExecutor>();
+        var plan = Seal(await writer.PlanAsync(Dn, Manager, false, CancellationToken.None));
+        Check.Equal(ldap.Id(Manager).ToString("D"), plan.Changes[0].ReferenceGuid, "groupe scellé");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(1, ldap.Changes.Count, "une seule valeur modifiée");
+        Check.Equal("<GUID=" + ldap.Id(Dn).ToString("D") + ">", (string)ldap.Changes[0].Values.Single(), "poste identifié par GUID");
+        Check.True(ldap.Objects[Manager]["member"].SequenceEqual(members.Where(m => !Equals(m, Dn))), "les 2 999 autres membres conservés");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "absence exacte relue");
+        Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "aucun second retrait");
+        var add = Seal(await writer.PlanAsync(Dn, Manager, true, CancellationToken.None));
+        await writer.ExecuteAsync(add, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(add, CancellationToken.None)).State, "ajout relu");
+        Check.Equal(2, ldap.Writes, "exactement un retrait et un ajout");
+    }
+
+    [Test]
+    public static async Task Poste_group_rechecks_group_identity_protection_and_computer_identity()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Manager]["objectClass"] = ["top", "group"]; ldap.Objects[Manager]["groupType"] = ["-2147483646"];
+        var writer = new AdPosteGroupExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Dn, Manager, true, CancellationToken.None));
+        var groupId = ldap.Objects[Manager]["objectGUID"];
+        ldap.Objects[Manager]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "groupe homonyme recréé");
+        ldap.Objects[Manager]["objectGUID"] = groupId; ldap.Objects[Manager]["adminCount"] = ["1"];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "protection nouvelle exige un nouveau plan");
+        var protectedPlan = Seal(await writer.PlanAsync(Dn, Manager, true, CancellationToken.None));
+        Check.True(protectedPlan.Confirmation.TypedNameRequired, "confirmation du groupe protégé");
+        Check.Equal("PC-ORIG", protectedPlan.Confirmation.TypedName, "confirmation du compte ordinateur et non du CN");
+        var computerId = ldap.Objects[Dn]["objectGUID"];
+        ldap.Objects[Dn]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(protectedPlan, CancellationToken.None)).Current, "poste homonyme recréé");
+        ldap.Objects[Dn]["objectGUID"] = computerId;
+        ldap.Objects[Manager]["isCriticalSystemObject"] = ["TRUE"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(protectedPlan, CancellationToken.None), "groupe système protégé");
+        Check.Equal(0, ldap.Writes, "aucun envoi sur un plan périmé");
+        ldap.Objects[Manager].Remove("isCriticalSystemObject");
+        await writer.ExecuteAsync(protectedPlan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(protectedPlan, CancellationToken.None)).State, "appartenance autorisée explicitement confirmée");
+    }
+
+    private static AdEntry Schema(string name, string syntax, int om, Dictionary<string, IReadOnlyList<object>>? extras = null)
+    {
+        var fields = extras ?? new(StringComparer.OrdinalIgnoreCase);
+        fields["lDAPDisplayName"] = [name]; fields["attributeSyntax"] = [syntax]; fields["oMSyntax"] = [om.ToString(System.Globalization.CultureInfo.InvariantCulture)];
+        return new("CN=" + name + ",CN=Schema,CN=Configuration," + Fixtures.Root, fields);
+    }
+
+    private static WritePlan Seal(WritePlanDraft draft) => WritePlans.Seal(draft, WritePlans.NewId(), Login, AppMode.Directory, Fixtures.Now, TimeZoneInfo.Utc);
+    private static AdDirectorySource Source(Connection ldap, string? operatorDn = null)
+    {
+        var source = new AdDirectorySource("test.local", () => Login, TestClock.Fixed(), connection: new AdBoundaryTests.RecordingAdConnection());
+        source.AdoptConnection(ldap, Fixtures.Domain, new(new(Login, "Opérateur", null, operatorDn ?? "CN=Operateur," + Fixtures.People), Fixtures.Domain.DomainSid + "-1100",
+            new(RightsLevel.Unknown, "Inconnus", true, "Non mesurés")), source.Epoch, false);
+        return source;
+    }
+
+    private sealed class Connection : IAdConnection
+    {
+        internal Dictionary<string, Dictionary<string, IReadOnlyList<object>>> Objects { get; } = new(StringComparer.OrdinalIgnoreCase);
+        internal string? DeletedTarget { get; private set; }
+        internal string? AddedDn { get; private set; }
+        internal IReadOnlyDictionary<string, IReadOnlyList<object>>? AddedAttributes { get; private set; }
+        internal string? RenamedTarget { get; private set; }
+        internal string? RenamedParent { get; private set; }
+        internal string? RenamedRdn { get; private set; }
+        internal int Writes { get; private set; }
+        internal IReadOnlyList<AdModification> Changes { get; private set; } = [];
+        internal Dictionary<string, AdEntry> Schema { get; } = new(StringComparer.OrdinalIgnoreCase);
+        internal int? AbsenceSchemaFlags { get; set; } = 0;
+        internal long AbsenceSchemaVersion { get; set; } = 1;
+        internal Action<int>? OnAbsenceSchemaRead { get; set; }
+        private int absenceSchemaReads;
+        public string Server => "DC1.test.local";
+        internal Guid Id(string dn) => new((byte[])Objects[dn]["objectGUID"][0]);
+        internal Connection()
+        {
+            foreach (var dn in new[] { Dn, Manager })
+            {
+                var sid = new SecurityIdentifier(Fixtures.Domain.DomainSid + "-1001"); var bytes = new byte[sid.BinaryLength]; sid.GetBinaryForm(bytes, 0);
+                Objects[dn] = new(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["objectGUID"] = [Fixtures.IdOf(dn).ToByteArray()], ["objectSid"] = [bytes], ["objectClass"] = ["top", "user"], ["name"] = [FicheValues.DisplayName(dn)],
+                    ["sAMAccountName"] = ["compte"], ["uSNChanged"] = ["1"], ["userAccountControl"] = ["512"],
+                    ["pwdLastSet"] = [AccountWrites.Raw(AdValues.ToFileTime(Fixtures.Now.AddDays(-1)))], ["description"] = ["Ancienne"],
+                    ["nTSecurityDescriptor"] = [AdWriteFixtureProof.Descriptor()],
+                };
+            }
+        }
+        public Task<AdRootDse> RootDseAsync(CancellationToken cancellationToken) => Task.FromResult(new AdRootDse(Fixtures.Root, "CN=Configuration," + Fixtures.Root, "CN=Schema,CN=Configuration," + Fixtures.Root, Fixtures.Root, Server, null, 7, [], Fixtures.Now));
+        public Task<AdEntry?> ReadAsync(string distinguishedName, IReadOnlyList<string> attributes, CancellationToken cancellationToken) => throw new InvalidOperationException();
+        public Task<IReadOnlyList<AdEntry>> SearchAsync(AdSearchRequest request, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (request.Scope == AdSearchScope.Subtree && request.BaseDn == AdWriteFixtureProof.SchemaDn && request.Attributes.SequenceEqual(new[] { "lDAPDisplayName", "searchFlags", "objectGUID", "uSNChanged" }))
+            {
+                OnAbsenceSchemaRead?.Invoke(++absenceSchemaReads);
+                return Task.FromResult(AdWriteFixtureProof.Schema(request, AbsenceSchemaFlags, AbsenceSchemaVersion));
+            }
+            if (request.Scope == AdSearchScope.OneLevel && request.BaseDn.StartsWith("CN=Schema,", StringComparison.OrdinalIgnoreCase))
+            { return Task.FromResult<IReadOnlyList<AdEntry>>([.. Schema.Where(p => request.Filter.Contains("(lDAPDisplayName=" + p.Key + ")", StringComparison.OrdinalIgnoreCase)).Select(p => p.Value)]); }
+            var selected = Objects.Where(p => request.Scope == AdSearchScope.Base ? FicheValues.SameDn(p.Key, request.BaseDn) : request.Scope == AdSearchScope.OneLevel ? FicheValues.SameDn(DistinguishedName.Parent(p.Key), request.BaseDn) : request.Filter == AdObjectAccess.GuidFilter(Id(p.Key)));
+            if (request.Filter.StartsWith("(&(objectClass=computer)(|", StringComparison.Ordinal))
+            {
+                var names = LdapFilterText.Parse(request.Filter).Children.Single(c => c.Kind == LdapFilterKind.Or).Children;
+                selected = Objects.Where(p => p.Value["objectClass"].Contains("computer") && names.Any(n => p.Value.TryGetValue(n.Attribute!, out var values)
+                    && values.OfType<string>().Any(v => v.Equals(n.Text, StringComparison.OrdinalIgnoreCase))));
+            }
+            if (request.Filter.Contains("(member=", StringComparison.Ordinal))
+            {
+                var filter = LdapFilterText.Parse(request.Filter);
+                var member = filter.Children.Single(c => c.Attribute == "member").Text;
+                selected = selected.Where(p => request.Filter.Contains(AdObjectAccess.GuidFilter(Id(p.Key)), StringComparison.Ordinal)
+                    && p.Value.TryGetValue("member", out var values) && values.OfType<string>().Any(v => FicheValues.SameDn(v, member)));
+            }
+            return Task.FromResult<IReadOnlyList<AdEntry>>([.. selected.Select(p =>
+            {
+                var values = new Dictionary<string, IReadOnlyList<object>>(p.Value, StringComparer.OrdinalIgnoreCase)
+                { ["allowedAttributes"] = p.Value.Keys.Concat(FicheSheets.EditableAttributes(FicheKind.User).Keys)
+                    .Concat(FicheSheets.EditableAttributes(FicheKind.Computer).Keys).Concat(["member", "mail", "manager", "managedBy"])
+                    .Distinct(StringComparer.OrdinalIgnoreCase).Select(a => (object)a).ToArray() };
+                foreach (var ranged in new[] { "member", "memberOf" })
+                {
+                    if (request.Attributes.Contains(ranged + ";range=0-1499") && values.TryGetValue(ranged, out var members) && members.Count > 1500)
+                    { values.Remove(ranged); values[ranged + ";range=0-1499"] = members.Take(1500).ToArray(); }
+                }
+                return new AdEntry(p.Key, values);
+            })]);
+        }
+        public Task ModifyAsync(string distinguishedName, IReadOnlyList<AdModification> modifications, CancellationToken cancellationToken)
+        {
+            Writes++; Changes = modifications;
+            var target = Objects.Single(p => distinguishedName == "<GUID=" + Id(p.Key).ToString("D") + ">");
+            var next = new Dictionary<string, IReadOnlyList<object>>(target.Value, StringComparer.OrdinalIgnoreCase);
+            foreach (var change in modifications)
+            {
+                if (change.Attribute == "member")
+                {
+                    var member = Objects.Keys.Single(dn => Equals(change.Values.Single(), "<GUID=" + Id(dn).ToString("D") + ">"));
+                    var oldMembers = next.TryGetValue("member", out var existing) ? existing : [];
+                    var present = oldMembers.OfType<string>().Any(v => FicheValues.SameDn(v, member));
+                    if (present == (change.Kind == AdModificationKind.Add)) { throw new DomeniaOperationException(AdErrors.Constraint, "Appartenance concurrente"); }
+                    next["member"] = change.Kind == AdModificationKind.Add ? [.. oldMembers, member] : [.. oldMembers.Where(v => !FicheValues.SameDn((string)v, member))];
+                    continue;
+                }
+                if (change.Kind == AdModificationKind.Delete)
+                {
+                    if (!next.TryGetValue(change.Attribute, out var old) || !old.Zip(change.Values).All(p => p.First is byte[] a && p.Second is byte[] b ? a.SequenceEqual(b) : Equals(p.First, p.Second)) || old.Count != change.Values.Count) { throw new DomeniaOperationException(AdErrors.Constraint, "Valeur concurrente"); }
+                    next.Remove(change.Attribute);
+                }
+                else
+                {
+                    if (change.Kind == AdModificationKind.Add && next.ContainsKey(change.Attribute)) { throw new DomeniaOperationException(AdErrors.Exists, "Valeur déjà présente"); }
+                    next[change.Attribute] = change.Values.Select(v => v is string text && text.StartsWith("<GUID=", StringComparison.Ordinal)
+                        ? (object)Objects.Keys.Single(dn => text == "<GUID=" + Id(dn).ToString("D") + ">") : v).ToArray();
+                }
+            }
+            Objects[target.Key] = next;
+            return Task.CompletedTask;
+        }
+        public Task RenameAsync(string distinguishedName, string newParentDn, string newRdn, CancellationToken cancellationToken)
+        {
+            RenamedTarget = distinguishedName; RenamedParent = newParentDn; RenamedRdn = newRdn;
+            var target = Objects.Keys.Single(dn => distinguishedName == "<GUID=" + Id(dn).ToString("D") + ">");
+            var parent = Objects.Keys.Single(dn => newParentDn == "<GUID=" + Id(dn).ToString("D") + ">");
+            var moved = newRdn + "," + parent;
+            if (Objects.ContainsKey(moved)) { throw new DomeniaOperationException(AdErrors.Exists, "Collision"); }
+            Objects[moved] = Objects[target]; Objects.Remove(target);
+            Objects[moved]["name"] = [DistinguishedName.Parse(moved)[0].Value]; Objects[moved]["cn"] = [DistinguishedName.Parse(moved)[0].Value]; Writes++;
+            return Task.CompletedTask;
+        }
+        public Task AddAsync(string distinguishedName, IReadOnlyDictionary<string, IReadOnlyList<object>> attributes, CancellationToken cancellationToken)
+        {
+            if (Objects.ContainsKey(distinguishedName)) { throw new DomeniaOperationException(AdErrors.Exists, "Existe déjà"); }
+            if (!Objects.ContainsKey(DistinguishedName.Parent(distinguishedName)!)) { throw new DomeniaOperationException(AdErrors.NoSuchObject, "Parent absent"); }
+            AddedDn = distinguishedName; AddedAttributes = attributes;
+            Objects[distinguishedName] = new(attributes, StringComparer.OrdinalIgnoreCase)
+            { ["objectGUID"] = [Guid.NewGuid().ToByteArray()], ["name"] = [DistinguishedName.Parse(distinguishedName)[0].Value], ["uSNChanged"] = ["1"] };
+            Writes++;
+            return Task.CompletedTask;
+        }
+        public Task DeleteAsync(string distinguishedName, CancellationToken cancellationToken)
+        {
+            var target = Objects.Keys.Single(dn => distinguishedName == "<GUID=" + Id(dn).ToString("D") + ">");
+            if (Objects.Keys.Any(dn => FicheValues.SameDn(DistinguishedName.Parent(dn), target))) { throw new DomeniaOperationException(AdErrors.Constraint, "Objet non vide"); }
+            DeletedTarget = distinguishedName; Objects.Remove(target); Writes++; return Task.CompletedTask;
+        }
+        public void Dispose() { }
+    }
+}

@@ -1,0 +1,101 @@
+{
+  "prod": {
+    "Archive": "Domenia_1.0_RC1.17.1_PROD.zip",
+    "Bytes": 2048573,
+    "Sha256": "E5866BED490F81ABFF83A1A3B4022D67148E37F4B395083E87C6019BB07E7DAA",
+    "Files": 91,
+    "ZipIntegrity": true,
+    "ManifestValid": true,
+    "ReleaseGuard": "PASS",
+    "WindowsQualification": "NOT_EVALUATED"
+  },
+  "dev": {
+    "Archive": "Domenia_1.0_RC1.17.1_DEV.zip",
+    "Bytes": 4261196,
+    "Sha256": "4773C36E0DBDFE31F2A0DDFEAA50845B21704102E81378305C9A52CDF644F3CB",
+    "Files": 377,
+    "ZipIntegrity": true,
+    "ManifestValid": true,
+    "ReleaseGuard": "PASS",
+    "WindowsQualification": "NOT_EVALUATED"
+  },
+  "IdenticalRuntimeFiles": 91,
+  "Publishable": false,
+  "Build": "2026.10.12-DOMENIA-1.0-RC1.17.1-D120",
+  "Environment": {
+    "Commit": "fc4b9560e5cee10dd3e1f3613dc8fedadccbee56",
+    "Dirty": true,
+    "ContractSHA256": "72D82FFAA70A3CBB76C7EB7CB47D5B6E8CBC3332327D1FF82939AAD9C7D4641B",
+    "Python": "3.14.7",
+    "PythonImplementation": "CPython",
+    "Zlib": "1.2.12",
+    "Platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+    "Tools": [
+      {
+        "Name": "python",
+        "Version": "3.14.7"
+      },
+      {
+        "Name": "zlib",
+        "Version": "1.2.12"
+      },
+      {
+        "Name": "build_packages.py",
+        "Version": "C8546739053AC11BC10B77E74F951395C26C4266CF75FA4A361546854859884D"
+      }
+    ],
+    "Note": "Reconstruction identique attendue a environnement (Python, zlib) et commit egaux ; sinon qualifier puis garder le fichier exact."
+  },
+  "Components": [
+    {
+      "Path": "Domenia.exe",
+      "Sha256": "3535A6CBCEEA3BAA0066D9024EA316A8DFA2992A463F8EB17CC8BAA40B6BE7AC",
+      "FileVersion": "1.0.0.1",
+      "DeclaredSha256": "3535A6CBCEEA3BAA0066D9024EA316A8DFA2992A463F8EB17CC8BAA40B6BE7AC",
+      "Name": "Lanceur natif Domenia",
+      "Bound": true
+    },
+    {
+      "Path": "wad/ActiveDirectoryPowerShellResources.dll",
+      "Sha256": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
+      "FileVersion": "10.0.19041.1",
+      "DeclaredSha256": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
+      "Name": "Ressources PowerShell Active Directory",
+      "Bound": true
+    },
+    {
+      "Path": "wad/Microsoft.ActiveDirectory.Management.dll",
+      "Sha256": "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
+      "FileVersion": "10.0.19041.1",
+      "DeclaredSha256": "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
+      "Name": "Microsoft Active Directory Management",
+      "Bound": true
+    },
+    {
+      "Path": "wad/PsExec.exe",
+      "Sha256": "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
+      "FileVersion": "2.43.0.0",
+      "DeclaredSha256": "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
+      "Name": "Sysinternals PsExec",
+      "Bound": true
+    },
+    {
+      "Path": "wad/modules/Domenia.Native.dll",
+      "Sha256": "AA610389684A1415E0CEFEF0FC33FE0CE961B57B921C1A6319CAE06F2ECA1AAD",
+      "FileVersion": "",
+      "DeclaredSha256": "AA610389684A1415E0CEFEF0FC33FE0CE961B57B921C1A6319CAE06F2ECA1AAD",
+      "Name": "Lecteur et agrégateur natifs Domenia",
+      "Bound": true
+    },
+    {
+      "Path": "wad/modules/M4D.Admin.Common.Query.dll",
+      "Sha256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "FileVersion": "",
+      "DeclaredSha256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Name": "Moteur de requêtes commun",
+      "Bound": true
+    }
+  ],
+  "SignedStage": "",
+  "PublicationRule": "Publiable uniquement avec un rapport Windows PowerShell 5.1 lie au SHA-256 des deux ZIP (release_guard.py --require-windows)."
+}

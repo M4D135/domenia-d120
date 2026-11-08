@@ -1,0 +1,53 @@
+{
+    "Recipe":  {
+                   "Format":  "Domenia.Query/1",
+                   "Id":  "d398c1385ae34ed7876e22e026061999",
+                   "Name":  "Disques libres sous 20 %",
+                   "Junction":  "All",
+                   "Clauses":  [
+                                   {
+                                       "Field":  "diskFreePercent",
+                                       "Operator":  "Less",
+                                       "Value":  20
+                                   }
+                               ],
+                   "GroupBy":  "",
+                   "Refinements":  [
+
+                                   ],
+                   "ProbeSelection":  null,
+                   "ObjectIds":  null
+               },
+    "Matched":  5,
+    "Unknown":  62,
+    "Sample":  {
+                   "presenceBucket":  "En ligne",
+                   "name":  "PC-RH-011",
+                   "dn":  "CN=PC-RH-011,OU=RH,OU=Postes,OU=Lyon,DC=example,DC=local",
+                   "active":  true,
+                   "osLabel":  "Windows 11 Entreprise",
+                   "win10":  false,
+                   "osFamily":  "Postes de travail",
+                   "release":  "Windows 11 24H2 Entreprise",
+                   "lifeStatus":  "Ok",
+                   "os":  "Windows 11 Entreprise",
+                   "version":  "10.0 (26100)",
+                   "laps":  "O",
+                   "logonBucket":  0,
+                   "createdRecent":  false,
+                   "passwordOld":  false,
+                   "site":  "RH",
+                   "logonDays":  1,
+                   "checkedDays":  0,
+                   "presence":  "En ligne",
+                   "user":  "EXAMPLE\\user1",
+                   "inventoryDays":  0,
+                   "model":  "OptiPlex 7010",
+                   "observedRelease":  "Windows 11 24H2",
+                   "ramGB":  16,
+                   "diskFreePercent":  37.815126050420169,
+                   "uptimeDays":  2.0000877394699073
+               },
+    "WithDisk":  164,
+    "Status":  "5 correspondants · 62 inconnus · 159 non correspondants / 226 postes filtrés, 226 recensés dans le périmètre. Page 1. Les données expirées ou non lues restent inconnues."
+}

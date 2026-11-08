@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "windowsExecuted": false,
+  "checks": [
+    {
+      "name": "syntax",
+      "command": "python3 dev/tools/validate_powershell_static.py",
+      "exitCode": 0,
+      "output": "PASS: 180 PowerShell files; lexical state, delimiters, typographic executable quotes and boolean-command hazards checked.\nPASS: Dispatcher timers only from New-DomeniaTimer (FI-05); no Get-Command in timer ticks or heartbeat handlers (PF-10).\nNOTE: native Windows PowerShell parser was not executed on this host.\n"
+    },
+    {
+      "name": "function-names",
+      "command": "python3 dev/tools/audit_function_names.py",
+      "exitCode": 0,
+      "output": "Noms de fonctions : PASS (63 modules, 2076 fonctions, 0 probleme(s))\n"
+    },
+    {
+      "name": "wording",
+      "command": "python3 dev/tools/audit_wording.py",
+      "exitCode": 0,
+      "output": "{\n  \"Status\": \"PASS\",\n  \"Total\": 442,\n  \"Reference\": 458,\n  \"Fixed\": 16,\n  \"New\": []\n}\n"
+    },
+    {
+      "name": "worker-contracts",
+      "command": "python3 dev/tools/update_worker_contracts.py",
+      "exitCode": 0,
+      "output": "{\n  \"ReviewedChangesRequired\": [],\n  \"Applied\": false,\n  \"Count\": 71\n}\n"
+    },
+    {
+      "name": "release",
+      "command": "python3 dev/tools/release_contract.py --check",
+      "exitCode": 0,
+      "output": "{\n  \"Build\": \"2026.10.13-DOMENIA-1.0-RC1.17.6-D120\",\n  \"Status\": \"PASS\",\n  \"Problems\": [],\n  \"Warnings\": []\n}\n"
+    },
+    {
+      "name": "preload",
+      "command": "python3 dev/tools/audit_preload.py --rebaseline (review decision recorded in preload-baseline.json)",
+      "exitCode": 0,
+      "output": "{\n  \"Previous\": \"RC1.17.5-ad-timeout\",\n  \"Source\": \"RC1.17.6 search progress source review\",\n  \"Decision\": \"Reviewed GlobalSearch raw LDAP progress, pages and inactivity/hard budgets; Complete-UiTasks delegates read deadline only, default config and version stamps updated. Engine module tracker snapshot race fixed and tested. Worker registry pins updated. Existing write and authentication branches and binary payloads unchanged.\",\n  \"ChangedCoreFunctions\": [\n    \"Assert-DomeniaWorkerRegistry\",\n    \"Complete-UiTasks\",\n    \"Get-DomeniaWorkerOperationHashes\",\n    \"Get-MainXaml\",\n    \"Invoke-GlobalSearch\",\n    \"New-DefaultConfig\"\n  ],\n  \"AddedCoreFunctions\": [],\n  \"RemovedCoreFunctions\": [],\n  \"ChangedPayloads\": [\n    \"wad/modules/Domenia-Live.UI.ps1\"\n  ]\n}\n{\n  \"Build\": \"2026.10.13-DOMENIA-1.0-RC1.17.6-D120\",\n  \"SourceBase\": \"RC1.17.6 search progress source review\",\n  \"Passed\": 175,\n  \"Failed\": 0,\n  \"CoreFunctions\": 688,\n  \"ChangedCoreFunctions\": [],\n  \"UnchangedCoreFunctions\": 688,\n  \"ModuleFiles\": 61,\n  \"ModuleExports\": 1321,\n  \"WindowsPowerShellExecuted\": false,\n  \"WpfExecuted\": false,\n  \"LiveADExecuted\": false,\n  \"Kind\": \"Source/XML and archive-level contract verification only\"\n}\n"
+    }
+  ]
+}

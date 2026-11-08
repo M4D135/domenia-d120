@@ -1,0 +1,26 @@
+{
+  "id": "TRV-239",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Bridge/BridgeArguments.cs:89-105 — RequireDistinguishedName : toute cible venant de la page (dn, target, group, member, parent) est bornée à 2048 caractères (ligne 86) et republiée par DistinguishedName.Parse, sinon arguments.invalid — le texte de la page n'est jamais renvoyé tel quel",
+    "src/Domenia.Core/Directory/DistinguishedName.cs:49-121 — Parse applique RFC 4514 (échappements, octets \\\\hh, type d'attribut limité aux lettres/chiffres/-/.), FormatException sur DN mal formé, RDN multi-valué refusé (ligne 110)",
+    "src/Domenia.Core/Directory/DistinguishedName.cs:150-176 — IsWithin compare le suffixe RDN par RDN, type et valeur, sans casse : c'est la comparaison « nom par nom » du domaine ; AreEqual (ligne 179) fait de même",
+    "src/Domenia.Ad/AdFicheObjects.cs:153-157 — ValidateDn : « Nom distinctif invalide : aucune lecture lancée. » ; AdFicheObjects.cs:160-164 — EnsureDomain : un DN hors de la racine du domaine connecté lève ScopeOutsideDomain avant toute lecture, appelé sur chaque chemin de lecture d'objet (lignes 16,20 et 43,47)",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:574-583 — IsInDomain : AreEqual(root) ou IsWithin(root, subtree), et false sur FormatException (fail closed)",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:543-545 — destination de déplacement : OU ou conteneur du domaine connecté exigé, « CN=Configuration » et « DnsZones » refusés, message « Destination invalide : une OU ou un conteneur du domaine connecté est attendu. Aucune écriture préparée. »",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:601-603 — membre d'un groupe : « Le membre doit appartenir au domaine connecté : aucune écriture préparée. »",
+    "src/Domenia.Ad/Writes/AdFicheStructureExecutors.cs:13-17 — la cible tapée est relue dans l'annuaire (ReadAsync) avant le plan, son GUID est relevé et porté dans le plan ; AdFicheStructureExecutors.cs:20-32 — avant envoi, la destination est relue et un objet homonyme bloque (« aucun déplacement envoyé »)",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:164-169 — Target() nomme la cible par displayName (utilisateur, contact) ou name, avec le type lisible ; ObjectWrites.cs:568-570 — le texte du plan dit « … sera déplacé vers » + FicheValues.ReadablePath(destination.Dn), le DN brut ne restant que dans AfterValue (détail technique)",
+    "src/Domenia.Core/Screens/Fiche/FicheEntry.cs:185-205 — ReadablePath rend le chemin lisible (domaine puis noms des RDN non DC) au lieu du DN brut",
+    "tests/Domenia.Tests/PlatformTests.cs:269-270 — fiche.membership.plan et fiche.move.plan sont de classe LocalRead : préparer un plan n'envoie rien ; src/Domenia.Bridge/Operations/FicheOperations.cs:737-748,757-763 — le plan est construit par l'exécuteur, aucune écriture à cette étape (« rien n'est écrit »)"
+  ],
+  "manque": "1) La garde des partitions n'existe que pour la destination du déplacement : src/Domenia.Core/Writes/Objects/ObjectWrites.cs:543-544 est le seul endroit du dépôt qui refuse « CN=Configuration » et « DnsZones » (aucune autre occurrence dans src/Domenia.Core/Writes, src/Domenia.Ad/Writes ni src/Domenia.Core/Screens/Fiche). Un DN tapé comme groupe ou comme membre (ObjectWrites.Member, lignes 585-605, ne vérifie que le type groupe, la protection et le domaine) ou comme parent de création d'OU (ObjectWrites.CreateOu, lignes 689-696, ne vérifie que le type OU/conteneur et « CN=Builtin ») passe EnsureDomain et IsInDomain, car DC=DomainDnsZones,DC=example,DC=local est bien sous la racine du domaine : aucune des trois partitions n'y est refusée. 2) Il n'y a plus d'entrée « DN saisi à la main » : les pages prennent toujours le DN d'un sélecteur (web/js/pages/fiche.js:503 target.dn, 519 group.dn, 527 member.dn) et docs/FEATURES.md:10339 assume ce remplacement (« Sélecteur d'objet avec recherche plutôt que saisie de DN ») ; aucune règle unique équivalente à Test-DomeniaWriteTargetDn (forme + domaine + partitions + nom lisible réunis) n'existe, les contrôles étant répartis entre BridgeArguments, AdFicheObjects et ObjectWrites selon le type d'écriture. 3) Aucun test de ces refus : aucune occurrence de « DnsZones » dans tests/, et aucun test de cible hors domaine ou en partition Configuration sur un plan d'écriture — les seuls tests de fiche.move.plan portent sur le GUID et le nom (tests/Domenia.Tests/FicheTests.cs:534,594,595,606) et fiche.membership.plan sur le chemin favorable (FicheTests.cs:331,338).",
+  "effort": "M",
+  "depend": [
+    "TRV-238 (objets protégés et DN illisible, même chemin d'écriture de la fiche)",
+    "TRV-242/TRV-243 (sélecteurs d'objet et d'OU qui fournissent aujourd'hui les DN, docs/FEATURES.md:10339)",
+    "sujet « Déplacement d'objet » (ObjectWrites.Move, src/Domenia.Core/Writes/Objects/ObjectWrites.cs:531-572)",
+    "sujet « Sélecteur d'OU arborescent partagé » (fiche.destinations, src/Domenia.Bridge/Operations/FicheOperations.cs:746-752)"
+  ],
+  "risque": "ecriture-AD"
+}

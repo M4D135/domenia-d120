@@ -1,0 +1,525 @@
+{
+  "Lot": "cache",
+  "Points": [
+    "D023",
+    "D024",
+    "D025",
+    "D026",
+    "D027",
+    "D028",
+    "D113",
+    "D115",
+    "D030",
+    "D118",
+    "D029"
+  ],
+  "Modules": [
+    {
+      "File": "Domenia-Migration.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaMigrationWorkerCode"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaMigrationWorkerCode"
+      ]
+    },
+    {
+      "File": "Domenia-Migration.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Release.Model.ps1",
+        "Domenia-Relations.Model.ps1",
+        "Domenia-Storage.UI.ps1",
+        "Domenia-Inline.UI.ps1",
+        "Domenia-Migration.Worker.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "ConvertTo-DomeniaLegacyNumber",
+        "ConvertTo-DomeniaLegacyDate",
+        "Read-DomeniaLegacySource",
+        "Get-DomeniaLegacySnapshot",
+        "New-DomeniaLegacyImportPlan",
+        "Invoke-DomeniaLegacyImport",
+        "Show-DomeniaLegacyImportPlan",
+        "Request-DomeniaLegacyImport",
+        "Start-DomeniaLegacyImportWork",
+        "Complete-DomeniaLegacyImportWork",
+        "Fail-DomeniaLegacyImportWork"
+      ],
+      "NewFunctions": [
+        "ConvertTo-DomeniaLegacyNumber",
+        "ConvertTo-DomeniaLegacyDate",
+        "Read-DomeniaLegacySource",
+        "Get-DomeniaLegacySnapshot",
+        "New-DomeniaLegacyImportPlan",
+        "Invoke-DomeniaLegacyImport",
+        "Show-DomeniaLegacyImportPlan",
+        "Request-DomeniaLegacyImport",
+        "Start-DomeniaLegacyImportWork",
+        "Complete-DomeniaLegacyImportWork",
+        "Fail-DomeniaLegacyImportWork"
+      ]
+    },
+    {
+      "File": "Domenia-Storage.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Cache.Model.ps1",
+        "Domenia-Common.Model.ps1",
+        "Domenia-Release.Model.ps1",
+        "Domenia-Storage.Worker.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [
+        "Request-DomeniaLinkPersistence",
+        "Get-DomeniaPersistenceState",
+        "Get-DomeniaUserLocalRoot",
+        "Invoke-DomeniaPreferenceMigration",
+        "Format-DomeniaStorageUsage",
+        "Start-DomeniaStorageUsage",
+        "Complete-DomeniaStorageUsage",
+        "Fail-DomeniaStorageUsage",
+        "Get-DomeniaStoragePurgeChoice",
+        "Reset-DomeniaStoragePurgePreview",
+        "Assert-DomeniaStoragePurgeReady",
+        "Format-DomeniaStoragePurge",
+        "Start-DomeniaStoragePurge",
+        "Request-DomeniaStoragePurge",
+        "Complete-DomeniaStoragePurge",
+        "Fail-DomeniaStoragePurge"
+      ],
+      "NewFunctions": [
+        "Request-DomeniaLinkPersistence",
+        "Get-DomeniaPersistenceState",
+        "Get-DomeniaUserLocalRoot",
+        "Invoke-DomeniaPreferenceMigration",
+        "Format-DomeniaStorageUsage",
+        "Start-DomeniaStorageUsage",
+        "Complete-DomeniaStorageUsage",
+        "Fail-DomeniaStorageUsage",
+        "Get-DomeniaStoragePurgeChoice",
+        "Reset-DomeniaStoragePurgePreview",
+        "Assert-DomeniaStoragePurgeReady",
+        "Format-DomeniaStoragePurge",
+        "Start-DomeniaStoragePurge",
+        "Request-DomeniaStoragePurge",
+        "Complete-DomeniaStoragePurge",
+        "Fail-DomeniaStoragePurge"
+      ]
+    },
+    {
+      "File": "Domenia-Selection.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Cache.Model.ps1",
+        "Domenia-Shell.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [
+        "Get-DomeniaSelectionCachePolicy"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaSelectionCachePolicy"
+      ]
+    },
+    {
+      "File": "Domenia-Live.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Search.Model.ps1",
+        "Domenia-Live.Model.ps1",
+        "Domenia-Cache.Model.ps1",
+        "Domenia-Storage.UI.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    },
+    {
+      "File": "Domenia-Reconcile.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Cache.Model.ps1",
+        "Domenia-Common.Model.ps1",
+        "Domenia-Live.UI.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    },
+    {
+      "File": "Domenia-Guard.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Storage.UI.ps1",
+        "Domenia-Migration.UI.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    },
+    {
+      "File": "Domenia-Cache.Model.ps1",
+      "ExistingEntry": true,
+      "Functions": [
+        "Get-DomeniaObservationTimes",
+        "Copy-DomeniaObservationTimes",
+        "Resolve-DomeniaDirectoryReachability",
+        "Get-DomeniaPurgeTargets",
+        "Test-DomeniaProtectedAssociationSource"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaObservationTimes",
+        "Copy-DomeniaObservationTimes",
+        "Resolve-DomeniaDirectoryReachability",
+        "Get-DomeniaPurgeTargets",
+        "Test-DomeniaProtectedAssociationSource"
+      ],
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1"
+      ],
+      "DotSource": true
+    },
+    {
+      "File": "Domenia-Engine.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Guard.Model.ps1",
+        "Domenia-Demo.Model.ps1",
+        "Domenia-Demo.Worker.ps1",
+        "Domenia-Engine.Worker.ps1",
+        "Domenia-Isolation.Worker.ps1",
+        "Domenia-Access.Model.ps1",
+        "Domenia-Cache.Model.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "Initialize-DomeniaEngineState",
+        "Test-DomeniaSchedulerEnabled",
+        "Get-DomeniaEngineLimits",
+        "Get-DomeniaEngineLoad",
+        "Get-DomeniaUiTaskAdmission",
+        "Get-DomeniaNextTaskSequence",
+        "Get-DomeniaContextCredentialIdentity",
+        "Invoke-DomeniaUiTaskDispatch",
+        "Get-DomeniaDispatchIsolation",
+        "New-DomeniaIsolatedReadPayload",
+        "Register-DomeniaJobResources",
+        "Sync-DomeniaJobResources",
+        "Register-DomeniaOwnedTimer",
+        "Register-DomeniaWorkerPool",
+        "Add-DomeniaTaskSubscriber",
+        "Invoke-DomeniaTaskSubscribers",
+        "Remove-DomeniaQueuedTask",
+        "Invoke-DomeniaQueuedTaskPromotion",
+        "Register-DomeniaTaskOutcome",
+        "Add-DomeniaTaskRuntimeMetric",
+        "Test-DomeniaIdlePolicyEnabled",
+        "Test-DomeniaBackgroundWorkAllowed",
+        "Update-DomeniaIdlePolicy",
+        "Initialize-DomeniaIdlePolicy",
+        "Request-DomeniaIndexSearch",
+        "Get-DomeniaLocalDatabasePathForRead",
+        "Start-DomeniaIndexSearch",
+        "Complete-DomeniaIndexSearchUi",
+        "Fail-DomeniaIndexSearchUi",
+        "Request-DomeniaParkStateReload",
+        "Add-DomeniaParkDeferredResult",
+        "Invoke-DomeniaParkDeferredResults",
+        "Complete-DomeniaParkStateReloadUi",
+        "Fail-DomeniaParkStateReloadUi",
+        "Get-DomeniaParkStatusTextSafe",
+        "Start-DomeniaParkSharedSync",
+        "Complete-DomeniaParkSharedSyncUi",
+        "Fail-DomeniaParkSharedSyncUi"
+      ],
+      "ExistingEntry": true
+    },
+    {
+      "File": "Domenia-Release.Model.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [
+        "Get-DomeniaStorageLayout",
+        "Get-DomeniaPreferenceMigrationPlan"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaPreferenceMigrationPlan"
+      ]
+    },
+    {
+      "File": "Domenia-Storage.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [
+        "Get-DomeniaStorageUsageWorkerCode",
+        "Get-DomeniaStoragePurgeWorkerCode"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaStorageUsageWorkerCode",
+        "Get-DomeniaStoragePurgeWorkerCode"
+      ]
+    },
+    {
+      "File": "Domenia-Park.Model.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Cache.Model.ps1"
+      ],
+      "DotSource": true
+    },
+    {
+      "File": "Domenia-Park.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Park.Model.ps1",
+        "Domenia-Relations.UI.ps1",
+        "Domenia-Storage.UI.ps1",
+        "Domenia-Inline.UI.ps1",
+        "Domenia-Engine.Worker.ps1"
+      ],
+      "DotSource": true
+    }
+  ],
+  "ModifiedModulesWithoutNewFunctions": [
+    "Domenia-Storage.UI.ps1 (Initialize-DomeniaPersistence : etat LinkRequestTimer/LinkPersistenceMore ; Queue-DomeniaLinkChanges : -Quiet et -MaxItems)",
+    "Domenia-Live.UI.ps1 (Merge-DomeniaLiveLinkMemory : garde le return RelationsSymmetry et appelle Request-DomeniaLinkPersistence avant return et en fin)",
+    "Domenia-Live.Model.ps1 (Get-DomeniaLiveCacheCode : suppression du second ecrivain user_machine_links)",
+    "Domenia-Selection.UI.ps1 (Get-DomeniaObjectCacheKey : delegation a Get-DomeniaCacheKey cache-v3)",
+    "Domenia-Continuity.UI.ps1 (Invoke-DomeniaObjectChanges : invalidation par GUID puis repli DN)",
+    "wad/Domenia-Modules.ps1 (declaration de Request-DomeniaLinkPersistence)",
+    "tools/audit_preload.py (Get-DomeniaCacheKey exige dans Selection.UI ; hachage du lecteur verifie dans la regle cache-v3)",
+    "Domenia-Core.ps1 (Get-VisitCacheValue et Set-VisitCacheValue : une cle vide n est ni lue ni ecrite)",
+    "Domenia-Core.ps1 (Initialize-DomeniaDatabase : schema decide par Test-DomeniaSchemaCompatibility ; Backup-DomeniaDatabase -Migration hors rotation)",
+    "Domenia-Live.Model.ps1 (Get-DomeniaLiveCacheCode : garde de version 11/1 avant lecture ou ecriture)",
+    "Domenia-Cache.Model.ps1 (Get-DomeniaPersistenceLabel : -Unavailable en premier, -Conflicts apres Suspended ; les quatre sorties historiques et les appels positionnels inchanges ; le libelle de conflit nomme le geste qui recharge reellement les associations, Comptes > Changer de compte ou redemarrage ; D028 etape F)",
+    "Domenia-Storage.UI.ps1 (Initialize-DomeniaPersistence : InFlight et Conflicts ; Start/Complete/Fail-DomeniaStorageWork : lot en cours compte jusqu au rappel, cle en conflit gardee ; Queue-DomeniaLinkChanges -Quiet : cles en conflit non renvoyees ; Reset-DomeniaLinkBaseline : fin de l etat de conflit ; D028 etape F)",
+    "Domenia-Live.UI.ps1 (Invoke-DomeniaLiveTick : $save=(Get-DomeniaPersistenceState).Label ; SaveInFlight dans l etat, Reset-DomeniaLiveIdentity, Start-DomeniaLiveBackgroundWork, Complete/Fail-DomeniaLiveCache ; D028 etape F)",
+    "Domenia-Guard.UI.ps1 (Initialize-DomeniaGuard : LblGuardMetrics porte 'Enregistrement local : '+(Get-DomeniaPersistenceState).Label au lieu de 'Cache en attente' ; D028 etape F)",
+    "wad/maintenance/Preview-DomeniaProgress.ps1 (apercu -Progressive : charge Domenia-Cache.Model.ps1 et Domenia-Storage.UI.ps1 avant Domenia-Live.UI.ps1, dont la ligne d etat lit Get-DomeniaPersistenceState ; D028 etape F)",
+    "Domenia-Storage.Worker.ps1 (D113 G1 : import LegacyImport transactionnel ; D029 : historique protege)",
+    "Domenia-Storage.UI.ps1 (D113 G1 : item import isole, LinkBusy pendant attente/execution, sans rejeu automatique, fusion et baseline apres resultat confirme)",
+    "Domenia-Release.Model.ps1 (G2 : quatre tables vides, marqueur idempotent, associations absentes seulement)",
+    "Domenia-Core.ps1 (G2/G3 : maintenance sans ecriture en simulation, bouton et apercu dans Fiabilite)",
+    "Domenia-Live.UI.ps1 (I1/I2 : conserve Times, presence datee par le worker, console renouvelee uniquement par une lecture, details recalcules au rendu)",
+    "Domenia-Live.Model.ps1 (I1 : aucune date de presence inventee quand le resultat ne contient pas de date valide)",
+    "Domenia-Core.ps1 (I1 : suppression de PresenceCacheSeconds inutilise)",
+    "Engine.UI Register-DomeniaTaskOutcome : etat Directory par session meme sans ordonnanceur, erreurs tracees, mise a jour UI sans worker.",
+    "Core et Access.UI : politique historique appliquee aux controles et gardes de modification, libelles hors ligne ou relecture.",
+    "Domenia-Release.Model.ps1 (K1/D118 : six zones sous Cache, copie unique des preferences sans ecrasement ni changement de mode)",
+    "Domenia-Engine.Model.ps1 (L1/D029 : StorageUsage et StoragePurge sans compte annuaire)",
+    "Domenia-Access.UI.ps1 (L2 : aucune reconnexion AD pour une operation sans compte)",
+    "Domenia-Demo.UI.ps1 (L2 : bouton Mesurer indisponible en demonstration)",
+    "Domenia-Reconcile.UI.ps1 (L3 : suspendre la reconciliation pendant la purge)",
+    "Domenia-Live.UI.ps1 (L3 : suspendre les producteurs pendant la purge)"
+  ],
+  "TypeFiles": [],
+  "Operations": [
+    {
+      "Operation": "LegacyMigration",
+      "File": "wad/modules/Domenia-Migration.Worker.ps1",
+      "Function": "Get-DomeniaMigrationWorkerCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": false,
+      "Class": "Explicit"
+    },
+    {
+      "Operation": "StorageUsage",
+      "File": "wad/modules/Domenia-Storage.Worker.ps1",
+      "Function": "Get-DomeniaStorageUsageWorkerCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": false,
+      "Class": "Explicit"
+    },
+    {
+      "Operation": "StoragePurge",
+      "File": "wad/modules/Domenia-Storage.Worker.ps1",
+      "Function": "Get-DomeniaStoragePurgeWorkerCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": false,
+      "Class": "Explicit"
+    }
+  ],
+  "OperationsModified": [
+    {
+      "Operation": "LiveCache",
+      "File": "wad/modules/Domenia-Live.Model.ps1",
+      "Function": "Get-DomeniaLiveCacheCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": true,
+      "Class": "Background",
+      "Change": "Suppression de l ecriture directe user_machine_links ; les observations restent ecrites dans adcc_live_observations. ; garde de version de schema (11/1) avant toute lecture ou ecriture (D115)."
+    },
+    {
+      "Operation": "LocalStore",
+      "File": "wad/modules/Domenia-Storage.Worker.ps1",
+      "Function": "Get-DomeniaStorageWorkerCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": true,
+      "Class": "Background",
+      "Change": "D113 G1 : LegacyImport isole, garde des quatre tables vides, insertions atomiques, marqueur idempotent et liens absents seulement. D029 : historique manuel et Import CSV exclu de la retention automatique."
+    }
+  ],
+  "OperationsNote": "LiveCache et LocalStore sont des operations epinglees modifiees dans ce lot. Etape G1 : seul LocalStore change ; corps relu avant mise a jour des empreintes et du registre. G2/G3 : nouvelle operation LegacyMigration pour la simulation et la sauvegarde hors du thread WPF, aucune ecriture dans la base active.",
+  "SelfTestRequiredFunctions": [
+    "Request-DomeniaLinkPersistence",
+    "Queue-DomeniaLinkChanges",
+    "Merge-DomeniaLiveLinkMemory",
+    "Get-DomeniaObjectCacheKey",
+    "Get-DomeniaCacheKey",
+    "Invoke-DomeniaObjectChanges",
+    "Get-DomeniaPersistenceState",
+    "Get-DomeniaPersistenceLabel",
+    "ConvertTo-DomeniaLegacyNumber",
+    "ConvertTo-DomeniaLegacyDate",
+    "Read-DomeniaLegacySource",
+    "Get-DomeniaLegacySnapshot",
+    "New-DomeniaLegacyImportPlan",
+    "Invoke-DomeniaLegacyImport",
+    "Request-DomeniaLegacyImport",
+    "Show-DomeniaLegacyImportPlan",
+    "Start-DomeniaLegacyImportWork",
+    "Complete-DomeniaLegacyImportWork",
+    "Fail-DomeniaLegacyImportWork",
+    "Get-DomeniaMigrationWorkerCode"
+  ],
+  "SelfTestChecks": [
+    "Test-DomeniaWiringCache.ps1 : LiveCache ne contient plus INSERT OR REPLACE INTO user_machine_links",
+    "Test-DomeniaWiringCache.ps1 : Merge-DomeniaLiveLinkMemory appelle Request-DomeniaLinkPersistence dans les deux branches et garde le return RelationsSymmetry",
+    "Test-DomeniaWiringCache.ps1 : N observations produisent une seule mise en file apres l echeance",
+    "Test-DomeniaWiringCache.ps1 : LinkBusy rearment le minuteur sans statut",
+    "Test-DomeniaWiringCache.ps1 : 70 ecarts sont mis en file par lots de 64 puis 6",
+    "Test-DomeniaWiringCache.ps1 : parcours explicite sans parametre refuse toujours plus de 64 ecarts",
+    "Test-DomeniaWiringCache.ps1 : invalidation GUID puis repli DN",
+    "Test-DomeniaWiringCache.ps1 : audit_preload exige Get-DomeniaCacheKey au lieu de object-v2",
+    "Test-DomeniaWiringCache.ps1 : Request-DomeniaLinkPersistence est declaree dans le chargeur",
+    "Test-DomeniaWiringCache.ps1 : une cle vide ne lit ni n ecrit le cache de visite ; sans domaine, pas de cle",
+    "Test-DomeniaWiringCache.ps1 : base plus recente refusee intacte sans sauvegarde ni restauration",
+    "Test-DomeniaWiringCache.ps1 : base ADCC sauvegardee hors rotation puis migree, sauvegarde de migration jamais elaguee",
+    "Test-DomeniaWiringCache.ps1 : LiveCache n ecrit pas dans une base plus recente",
+    "Test-DomeniaWiringMoteur.ps1 : D028 : deux mises a jour independantes ne s ecrasent pas",
+    "Test-DomeniaWiringMoteur.ps1 : D028 : un verrou SQLite ne bloque pas WPF",
+    "Test-DomeniaWiringMoteur.ps1 : D028 : consoles simultanees : verification et ecriture dans une seule transaction",
+    "Test-DomeniaWiringCache.ps1 : D028 : Fiabilite affiche le libelle de la regle",
+    "Test-DomeniaWiringCache.ps1 : D028 : un lot en cours d ecriture reste En memoire jusqu au rappel",
+    "Test-DomeniaWiringCache.ps1 : D028 : Live et Fiabilite affichent le meme etat",
+    "Test-DomeniaWiringCache.ps1 : D028 : conflit visible jusqu au rechargement",
+    "Test-DomeniaWiringCache.ps1 : D028 : le geste nomme par le libelle de conflit recharge les associations",
+    "Test-DomeniaWiringCache.ps1 : D028 : anciens libelles retires de Fiabilite et de la ligne Live",
+    "Test-DomeniaWiringCache.ps1 : D028 : le chargeur declare l etat d enregistrement et ses dependances",
+    "Test-DomeniaWiringRecherche.ps1 : D028 LblLiveState porte le libelle de la regle",
+    "rules/Cache.Tests.ps1 : D028 Libelle d enregistrement : indisponible > suspendu > conflits > echecs > attente > enregistre",
+    "Test-DomeniaWiringCache.ps1 : D113 G1 SQLite reel, rollback, quatre tables vides, idempotence octets, conflits, domaine, plafond, plus de 64 liens, file isolee et erreur sans rejeu",
+    "Test-DomeniaWiringCache.ps1 : D029 historique protege hors plafond 20000 ; les lignes protegees precedent les lignes elaguables",
+    "Test-DomeniaWiringCache.ps1 : G2/G3 sources reelles, simulation sans ecriture, empreinte de confirmation, import et idempotence de bout en bout",
+    "D023 : vrai XAML virtualise 100/500/2000 lignes, controle negatif sans borne et recyclage au defilement ; plafond 500 et vingt caches de requete.",
+    "D024 : dates conservees apres JSON, ping distinct de la console, echecs sans rajeunissement et fraicheur recalculee dans les details.",
+    "D030 : panne Directory, retour reseau sans relecture, cache recent, droits et boutons hors ligne, reessai explicite et contexte de session."
+  ],
+  "HelpEntries": [
+    {
+      "Name": "BtnGuardLegacyImport",
+      "Title": "Reprendre les anciennes données",
+      "Text": "Simule la reprise dans Domenia. Les quatre tables de cache doivent être vides. Les associations existantes sont conservées ; celles importées sont protégées. Une sauvegarde précède la reprise confirmée. Aucun import au démarrage.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnStorageUsage",
+      "Title": "Mesurer le stockage local",
+      "Text": "Compte les lignes et mesure la base active en lecture seule. Les tailles indisponibles restent inconnues. Aucune suppression, aucun contact avec les postes ou l’annuaire.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnStoragePurgePreview",
+      "Title": "Simuler la purge",
+      "Text": "Compte les lignes choisies dans la base locale. Aucune suppression ; attend la fin des opérations en cours.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnStoragePurge",
+      "Title": "Purger les données locales",
+      "Text": "Demande confirmation après simulation. Associations, historique protégé, secrets, configuration, journaux et reçus sont conservés. Aucun rejeu automatique.",
+      "Kind": "Button"
+    }
+  ],
+  "Features": [],
+  "AsyncConfigKeys": [],
+  "StartRequired": [
+    "wad/modules/Domenia-Migration.UI.ps1"
+  ],
+  "DevOnlyFiles": [
+    "wad/tests/Test-DomeniaWiringCache.ps1",
+    "wad/tests/Test-DomeniaWiringMoteur.ps1",
+    "wad/tests/Test-DomeniaWiringRecherche.ps1"
+  ],
+  "StaticTools": [
+    "tools/audit_preload.py",
+    "tools/update_migration_worker.py"
+  ],
+  "CrossLaneRequests": [
+    {
+      "To": "integrateur",
+      "Request": "preload-baseline.json : re-epinglage motive requis pour les fichiers modifies et pour le changement de litteral dans tools/audit_preload.py. Conserver le controle SHA256 dans Selection.UI ; remplacer object-v2| par Get-DomeniaCacheKey."
+    },
+    {
+      "To": "worker",
+      "Request": "Re-epingler LiveCache via tools/update_worker_contracts.py --apply apres relecture ; verifier Get-DomeniaWorkerOperationHashes, operation-contracts.json et $nonDirectoryOperations."
+    },
+    {
+      "To": "integrateur",
+      "Request": "Etape F (D028) : python tools/integrate_lots.py --apply cache (Storage.UI : Requires Cache.Model, fonction Get-DomeniaPersistenceState ; Live.UI : Requires Storage.UI ; Guard.UI : Phase Modules, Requires Storage.UI ; Invoke-DomeniaSelfTest : Get-DomeniaPersistenceState et Get-DomeniaPersistenceLabel), puis python tools/audit_preload.py --rebaseline --decision motivee (charge epinglee Domenia-Live.UI.ps1 et Invoke-DomeniaSelfTest modifies), puis build_packages. Verifie a sec (apply_modules en memoire) : seules les entrees Storage.UI, Live.UI et Guard.UI du chargeur changent ; Selection.UI garde Requires Shell.Model. ATTENTION : integrer le lot cache seul. Ne pas integrer lot-recherche apres cache (ni tous les lots ensemble) tant que lot-recherche.json n est pas mis a jour : ses entrees Live.UI (sans Cache.Model ni Storage.UI) et Selection.UI (sans Cache.Model ni Shell.Model) retireraient ces dependances du chargeur."
+    },
+    {
+      "To": "worker",
+      "Request": "Etape F (D028) : aucun corps worker modifie. Verifier sans --apply (python tools/update_worker_contracts.py) que LocalStore et LiveCache restent identiques."
+    }
+  ],
+  "Notes": "G1-G3 : reprise explicite des anciennes donnees dans Domenia par simulation, confirmation dans la page et LocalStore atomique. Liens importes sous Import CSV avec origine dans Details. Aucun appel Spark ; decision de David le 2026-10-04. D029 : purge selective L1-L3 encore a raccorder."
+}

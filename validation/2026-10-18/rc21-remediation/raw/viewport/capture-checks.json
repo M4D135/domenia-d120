@@ -1,0 +1,79 @@
+{
+    "Fixture":  "example.local, 226 comptes postes fictifs (223 actifs, 3 désactivés)",
+    "Session":  1,
+    "Rendering":  "Real WPF layout, off-screen RenderTargetBitmap",
+    "Checks":  [
+                   {
+                       "Name":  "Recalcul : les dates AD, ping et WMI restent inchangées ; seule la date de vue avance",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Fraîcheur : AD récente, ping récent et inventaire WMI plus ancien sont distincts sur 223 postes actifs",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil : les trois horloges sont présentées par le formateur réel",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil : les widgets du parc sont réellement dessinés depuis les données fictives",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetIndexScope entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetRefreshPostes entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetRefreshBoth entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetRefreshStop entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetDashboardRefresh entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil : actions disponibles pour lʼOU choisie, arrêt inactif au repos",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Sélecteur OU : trois résultats fictifs et choix disponible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Sélecteur OU : capture réelle et fermeture sans modification du périmètre",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Opérateur initial renseigné",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Atelier ouvert dans Outils",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Tous les postes recensés : 226, actifs et désactivés",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Première page : 200 lignes et page suivante active",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Atelier : au moins 6 lignes entièrement visibles à 1920×1080",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Atelier : au moins 2 lignes entièrement visibles à 1280×720",
+                       "Passed":  true
+                   }
+               ]
+}

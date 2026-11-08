@@ -1,0 +1,135 @@
+
+Name                                                                                                          Status
+----                                                                                                          ------
+Bureau 1920x1080 100 % clair : champs essentiels visibles et atteignables                                     Passed
+Bureau 1920x1080 100 % clair : commandes de donnees OU distinctes des filtres de resultats                    Passed
+Bureau 1920x1080 100 % clair : une portee OU et un statut longs preservent arbre et commandes                 Passed
+Bureau 1920x1080 100 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons   Passed
+Bureau 1920x1080 100 % sombre : champs essentiels visibles et atteignables                                    Passed
+Bureau 1920x1080 100 % sombre : commandes de donnees OU distinctes des filtres de resultats                   Passed
+Bureau 1920x1080 100 % sombre : une portee OU et un statut longs preservent arbre et commandes                Passed
+Bureau 1920x1080 100 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons  Passed
+Ecran 1920x1080 125 % clair : champs essentiels visibles et atteignables                                      Failed
+Ecran 1920x1080 125 % clair : commandes de donnees OU distinctes des filtres de resultats                     Passed
+Ecran 1920x1080 125 % clair : une portee OU et un statut longs preservent arbre et commandes                  Passed
+Ecran 1920x1080 125 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons    Passed
+Ecran 1920x1080 125 % sombre : champs essentiels visibles et atteignables                                     Failed
+Ecran 1920x1080 125 % sombre : commandes de donnees OU distinctes des filtres de resultats                    Passed
+Ecran 1920x1080 125 % sombre : une portee OU et un statut longs preservent arbre et commandes                 Passed
+Ecran 1920x1080 125 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons   Passed
+Ecran 1920x1080 150 % clair : champs essentiels visibles et atteignables                                      Failed
+Ecran 1920x1080 150 % clair : commandes de donnees OU distinctes des filtres de resultats                     Passed
+Ecran 1920x1080 150 % clair : une portee OU et un statut longs preservent arbre et commandes                  Passed
+Ecran 1920x1080 150 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons    Passed
+Ecran 1920x1080 150 % sombre : champs essentiels visibles et atteignables                                     Failed
+Ecran 1920x1080 150 % sombre : commandes de donnees OU distinctes des filtres de resultats                    Passed
+Ecran 1920x1080 150 % sombre : une portee OU et un statut longs preservent arbre et commandes                 Passed
+Ecran 1920x1080 150 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons   Passed
+Ecran 1920x1080 175 % clair : champs essentiels visibles et atteignables                                      Failed
+Ecran 1920x1080 175 % clair : commandes de donnees OU distinctes des filtres de resultats                     Passed
+Ecran 1920x1080 175 % clair : une portee OU et un statut longs preservent arbre et commandes                  Passed
+Ecran 1920x1080 175 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons    Failed
+Ecran 1920x1080 175 % sombre : champs essentiels visibles et atteignables                                     Failed
+Ecran 1920x1080 175 % sombre : commandes de donnees OU distinctes des filtres de resultats                    Passed
+Ecran 1920x1080 175 % sombre : une portee OU et un statut longs preservent arbre et commandes                 Passed
+Ecran 1920x1080 175 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons   Failed
+Ecran 2560x1440 200 % clair : champs essentiels visibles et atteignables                                      Failed
+Ecran 2560x1440 200 % clair : commandes de donnees OU distinctes des filtres de resultats                     Passed
+Ecran 2560x1440 200 % clair : une portee OU et un statut longs preservent arbre et commandes                  Passed
+Ecran 2560x1440 200 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons    Passed
+Ecran 2560x1440 200 % sombre : champs essentiels visibles et atteignables                                     Failed
+Ecran 2560x1440 200 % sombre : commandes de donnees OU distinctes des filtres de resultats                    Passed
+Ecran 2560x1440 200 % sombre : une portee OU et un statut longs preservent arbre et commandes                 Passed
+Ecran 2560x1440 200 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons   Passed
+Ecran 1920x1080 200 % clair : champs essentiels visibles et atteignables                                      Failed
+Ecran 1920x1080 200 % clair : commandes de donnees OU distinctes des filtres de resultats                     Passed
+Ecran 1920x1080 200 % clair : une portee OU et un statut longs preservent arbre et commandes                  Passed
+Ecran 1920x1080 200 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons    Failed
+Ecran 1920x1080 200 % sombre : champs essentiels visibles et atteignables                                     Failed
+Ecran 1920x1080 200 % sombre : commandes de donnees OU distinctes des filtres de resultats                    Passed
+Ecran 1920x1080 200 % sombre : une portee OU et un statut longs preservent arbre et commandes                 Passed
+Ecran 1920x1080 200 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons   Failed
+Portable 1366x768 100 % clair : champs essentiels visibles et atteignables                                    Passed
+Portable 1366x768 100 % clair : commandes de donnees OU distinctes des filtres de resultats                   Passed
+Portable 1366x768 100 % clair : une portee OU et un statut longs preservent arbre et commandes                Passed
+Portable 1366x768 100 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons  Passed
+Portable 1366x768 100 % sombre : champs essentiels visibles et atteignables                                   Passed
+Portable 1366x768 100 % sombre : commandes de donnees OU distinctes des filtres de resultats                  Passed
+Portable 1366x768 100 % sombre : une portee OU et un statut longs preservent arbre et commandes               Passed
+Portable 1366x768 100 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons Passed
+Portable 1366x768 125 % clair : champs essentiels visibles et atteignables                                    Failed
+Portable 1366x768 125 % clair : commandes de donnees OU distinctes des filtres de resultats                   Passed
+Portable 1366x768 125 % clair : une portee OU et un statut longs preservent arbre et commandes                Passed
+Portable 1366x768 125 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons  Failed
+Portable 1366x768 125 % sombre : champs essentiels visibles et atteignables                                   Failed
+Portable 1366x768 125 % sombre : commandes de donnees OU distinctes des filtres de resultats                  Passed
+Portable 1366x768 125 % sombre : une portee OU et un statut longs preservent arbre et commandes               Passed
+Portable 1366x768 125 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons Failed
+Session RDP 1024x768 clair : champs essentiels visibles et atteignables                                       Passed
+Session RDP 1024x768 clair : commandes de donnees OU distinctes des filtres de resultats                      Passed
+Session RDP 1024x768 clair : une portee OU et un statut longs preservent arbre et commandes                   Passed
+Session RDP 1024x768 clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons     Passed
+Session RDP 1024x768 sombre : champs essentiels visibles et atteignables                                      Passed
+Session RDP 1024x768 sombre : commandes de donnees OU distinctes des filtres de resultats                     Passed
+Session RDP 1024x768 sombre : une portee OU et un statut longs preservent arbre et commandes                  Passed
+Session RDP 1024x768 sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons    Passed
+Light : redimensionnement vertical compact reversible, resultats et arbre utilisables                         Failed
+Dark : redimensionnement vertical compact reversible, resultats et arbre utilisables                          Failed
+Light : stockage local deploye accessible par defilement a 960x516                                            Passed
+Dark : stockage local deploye accessible par defilement a 960x516                                             Passed
+Light : detection des resultats accessible a 960x516                                                          Failed
+Dark : detection des resultats accessible a 960x516                                                           Failed
+DS-06 : une seule carte avant la liste, chemin et nombre en tete, menu ® ? ¯                                  Passed
+
+
+
+
+Configuration                                  WorkArea  Window   ClientWidth ClientHeight ChromeWidth ChromeHeight Res
+                                                                                                                    ult
+                                                                                                                    Gri
+                                                                                                                    dHe
+                                                                                                                    igh
+                                                                                                                      t
+-------------                                  --------  ------   ----------- ------------ ----------- ------------ ---
+Bureau 1920x1080 100 % clair                   1920x1032 1730x967        1904          993          16           39  71
+Bureau 1920x1080 100 % clair textes OU longs                             1904          993
+Bureau 1920x1080 100 % sombre                  1920x1032 1730x967        1904          993          16           39  71
+Bureau 1920x1080 100 % sombre textes OU longs                            1904          993
+Ecran 1920x1080 125 % clair                    1536x825  1536x825        1520          786          16           39   0
+Ecran 1920x1080 125 % clair textes OU longs                              1520          786
+Ecran 1920x1080 125 % sombre                   1536x825  1536x825        1520          786          16           39   0
+Ecran 1920x1080 125 % sombre textes OU longs                             1520          786
+Ecran 1920x1080 150 % clair                    1280x688  1280x688        1264          649          16           39   0
+Ecran 1920x1080 150 % clair textes OU longs                              1264          649
+Ecran 1920x1080 150 % sombre                   1280x688  1280x688        1264          649          16           39   0
+Ecran 1920x1080 150 % sombre textes OU longs                             1264          649
+Ecran 1920x1080 175 % clair                    1097x589  1097x589        1081          550          16           39 206
+Ecran 1920x1080 175 % clair textes OU longs                              1081          550
+Ecran 1920x1080 175 % sombre                   1097x589  1097x589        1081          550          16           39 206
+Ecran 1920x1080 175 % sombre textes OU longs                             1081          550
+Ecran 2560x1440 200 % clair                    1280x696  1280x696        1264          657          16           39   0
+Ecran 2560x1440 200 % clair textes OU longs                              1264          657
+Ecran 2560x1440 200 % sombre                   1280x696  1280x696        1264          657          16           39   0
+Ecran 2560x1440 200 % sombre textes OU longs                             1264          657
+Ecran 1920x1080 200 % clair                    960x516   960x516          944          477          16           39 141
+Ecran 1920x1080 200 % clair textes OU longs                               944          477
+Ecran 1920x1080 200 % sombre                   960x516   960x516          944          477          16           39 141
+Ecran 1920x1080 200 % sombre textes OU longs                              944          477
+Portable 1366x768 100 % clair                  1366x720  1366x720        1350          681          16           39  15
+Portable 1366x768 100 % clair textes OU longs                            1350          681
+Portable 1366x768 100 % sombre                 1366x720  1366x720        1350          681          16           39  15
+Portable 1366x768 100 % sombre textes OU longs                           1350          681
+Portable 1366x768 125 % clair                  1092x576  1092x576        1076          537          16           39 193
+Portable 1366x768 125 % clair textes OU longs                            1076          537
+Portable 1366x768 125 % sombre                 1092x576  1092x576        1076          537          16           39 193
+Portable 1366x768 125 % sombre textes OU longs                           1076          537
+Session RDP 1024x768 clair                     1024x720  1024x720        1008          681          16           39  93
+Session RDP 1024x768 clair textes OU longs                               1008          681
+Session RDP 1024x768 sombre                    1024x720  1024x720        1008          681          16           39  93
+Session RDP 1024x768 sombre textes OU longs                              1008          681
+Light redimensionnement 516                                               944          477
+Dark redimensionnement 516                                                944          477
+
+
+
+Rapport : C:\DomeniaLab\d120-rc11720-qualification\out\targeted\Geometry.json

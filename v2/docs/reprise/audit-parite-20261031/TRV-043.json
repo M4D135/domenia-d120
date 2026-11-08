@@ -1,0 +1,22 @@
+{
+  "id": "TRV-043",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/StartupWindow.cs:37-59 — fenêtre d’amorçage réelle, créée par CreateWindowExW sur le fil STA « Domenia démarrage natif » avec son propre fil de messages (GetMessageW/DispatchMessageW, ligne 60-63) ; docs/STARTUP-DIAGNOSTICS.md:19 en trace la décision (« fondée uniquement sur les contrôles Windows (user32/gdi32), avant le hachage du paquet »)",
+    "repo/v2/src/Domenia.App/StartupWindow.cs:48-49 — CreateWindowExW(dwExStyle = 0, style = 0x00C80000) : aucun WS_EX_TOPMOST, aucun SetForegroundWindow dans le fichier (rg « topmost|SetForegroundWindow|BringToFront » sur src/Domenia.App ne remonte StartupWindow.cs) — le garde-fou « jamais Topmost » est respecté par construction",
+    "repo/v2/src/Domenia.App/StartupWindow.cs:51-53,89-91 — un STATIC « phase » (équivalent TxtStartupDetail) et un bouton « Annuler le démarrage » (équivalent BtnStartupCancel) ; Paint ajoute « Temps écoulé : n s. L’opération est toujours active ; aucune durée restante n’est estimée. » au-delà de 30 s",
+    "repo/v2/src/Domenia.App/Program.cs:51-56 et 125-131 — la fenêtre n’est créée que pour un lancement interactif (les modes CLI, capture, E2E, --check-only, --selftest, dossier en sont exclus) et son annulation est un CancellationToken vérifié à chaque charnière du démarrage, tracé « Démarrage annulé après la fin du travail en cours ; aucune connexion automatique. »",
+    "repo/v2/src/Domenia.App/StartupWindow.cs:56 — SetTimer(250 ms) de repeinture, et Program.cs:166-167 — Phase(« Intégrité : n fichiers vérifiés sur m. Lecture complète des empreintes SHA256… ») : les étapes de démarrage sont bien affichées pendant le hachage",
+    "repo/v2/src/Domenia.App/MainForm.cs:26,69,106 et 168,235,240,258 — second moniteur, dans la fenêtre : bandeau startupStatus (« Création de la surface d’affichage… », « Préparation des écrans et de l’état local… », « Chargement de l’interface locale… », « Choisissez votre connexion dans la fenêtre native… »), masqué quand la page déclare sa disponibilité (StartupTrace.InterfaceBecameReady → HideStartupStatus)",
+    "repo/v2/src/Domenia.App/MainForm.cs:118-125 — RevealInitialInterface ne réclame l’activation qu’une seule fois (garde booléenne waitingForInitialInterface, un seul Activate() dans tout le fichier), mais sans aucune journalisation de cette demande",
+    "repo/v2/src/Domenia.App/Program.cs:342-346 — startup?.Hide() est déclenché sur form.Shown : la fenêtre d’amorçage disparaît dès que la fenêtre hôte est montrée, avant le premier rendu de la page"
+  ],
+  "manque": "Sur la lettre de l’énoncé : 1) aucun réglage — rg « ShowMonitor|KeepMonitor|WarnStage » ne retourne que docs/FEATURES.md:7436 et docs/features.json:15394 : ni Startup.ShowMonitor (impossible de retirer le moniteur), ni KeepMonitorUntilReady (Program.cs:342-346 masque au Shown de la fenêtre, non à la disponibilité réelle de la page ; le bandeau MainForm.cs:106 assure ce rôle par un autre mécanisme, non documenté comme équivalent), ni WarnStageSeconds 8 (le seuil est figé à 30 s, StartupWindow.cs:91) ; 2) pas d’équivalent à BtnStartupLog : le moniteur n’offre que « Annuler » (StartupWindow.cs:52), l’opérateur ne peut pas relire le journal pendant l’amorçage ; 3) Set-DomeniaWindowActivationPolicy sans équivalent : le respect d’un Alt-Tab volontaire repose sur l’absence d’activation forcée (heureuse) mais aucune demande d’activation n’est journalisée, donc « une seule demande d’activation journalisée » n’est ni vérifié ni vérifiable ; 4) aucun test ne couvre StartupWindow ni StartupTrace (rg « StartupWindow|StartupTrace|startupStatus » dans tests/ : aucun résultat — seul StartupMeasurements est testé, StartupPreflightTests.cs:56-67).",
+  "effort": "S",
+  "depend": [
+    "TRV-044 (KeepMonitorUntilReady ne se règle qu’au vrai jalon de disponibilité de la page, session.interfaceReady)",
+    "TRV-039 (jalons de la même horloge monotone, journal technique publié seulement après validation du paquet)",
+    "docs/LOGIN-NATIF.md et repo/v2/src/Domenia.App/Composition.InitialLogin.cs — le choix natif de connexion s’intercale dans le moniteur (MainForm.cs:258) : à prendre en compte dans tout réglage d’étapes"
+  ],
+  "risque": "lecture"
+}

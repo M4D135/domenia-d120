@@ -1,0 +1,14 @@
+{
+  "id": "ACC-007",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:195 — probeIds figé au clic depuis les widgets actifs (non en pause) du tableau Parc ; conservé dans le plan (saved?.Probes, reprise ligne 386)",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:198 — PrepareQueryRefreshAsync ajoute les révisions figées des requêtes enregistrées au plan",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.Queries.cs:53 — requête absente ou bibliothèque indisponible = refus explicite refresh.queryMissing (jamais d'omission silencieuse)",
+    "tests/Domenia.Tests/AccueilTests.cs:489 — test : requête absente → refus explicite refresh.queryMissing"
+  ],
+  "manque": "Les sondes des widgets actifs du tableau Poste et de leurs requêtes enregistrées ne sont pas intégrées au plan figé de l'actualisation de l'OU : probeIds ne provient que de LayoutItems() du tableau du parc (AccueilRefresh.cs:186-195) ; aucun usage de PosteBoardLayouts/PosteLayoutOperations dans AccueilRefresh.",
+  "effort": "M",
+  "depend": ["PST (disposition du tableau Poste)"],
+  "risque": "reseau"
+}

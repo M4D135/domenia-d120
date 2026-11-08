@@ -1,0 +1,69 @@
+{
+  "Schema": "DomeniaKnownIssues/1",
+  "ReviewedOn": "2026-10-18",
+  "Issues": [
+    {
+      "Id": "KI-001",
+      "Title": "Redistribution non établie de PsExec, des bibliothèques Active Directory et de M4D.Admin.Common",
+      "Severity": "Bloquant",
+      "Status": "Ouvert",
+      "Impact": "Le paquet ne peut pas être publié tant que les droits de redistribution de ces composants ne sont pas établis.",
+      "Workaround": "Faire valider la diffusion par le service juridique ou appliquer lʼalternative indiquée pour chaque composant.",
+      "Source": "tools/licence-inventory.json"
+    },
+    {
+      "Id": "KI-002",
+      "Title": "Captures historiques à renouveler sur le pack courant",
+      "Severity": "Majeur",
+      "Status": "Résolu",
+      "Impact": "RC1.17.20 : 38 PNG natifs renouvelés et liés au manifeste runtime vérifié ; 29 figures par guide. DOCX/PDF régénérés et leurs 34/83 pages inspectées. La géométrie générale reste ouverte dans KI-007.",
+      "Workaround": "Utiliser les guides du dépôt DOC et leur preuve documentaire. Les ZIP RC1.17.20 déjà testés restent inchangés.",
+      "Source": "validation/2026-10-18/rc20-qualification-docs/README.md"
+    },
+    {
+      "Id": "KI-003",
+      "Title": "Bibliothèques natives recompilées sans fabrication déterministe",
+      "Severity": "Majeur",
+      "Status": "Résolu",
+      "Impact": "DLL reconstruites avec Roslyn 4.8.0 et références net472 sous PowerShell 5.1. Deux compilations identiques, 1568 assertions Native et 93 assertions Query réussies. Empreintes de livraison mises à jour.",
+      "Workaround": "Aucun ; voir validation/2026-10-16/rc13-corrections/deterministic.json.",
+      "Source": "tools/release-contract.json"
+    },
+    {
+      "Id": "KI-004",
+      "Title": "Bascule de base : courte lecture SQLite sur le fil dʼinterface",
+      "Severity": "Mineur",
+      "Status": "Résolu",
+      "Impact": "La cible est relue par le worker de maintenance avant la bascule : domaine, empreinte, révision et absence de redirection sont contrôlés. Le fil UI applique ensuite le contexte confirmé, sans lecture SQLite. 27 assertions ciblées réussies sous Windows PowerShell 5.1.",
+      "Workaround": "Aucun ; voir validation/2026-10-16/rc13-corrections/Storage-switch.json.",
+      "Source": "dev/wad/modules/Domenia-StorageContext.UI.ps1"
+    },
+    {
+      "Id": "KI-005",
+      "Title": "Suppression des données du profil à la désinstallation non exécutée par les suites",
+      "Severity": "Mineur",
+      "Status": "Résolu",
+      "Impact": "RC1.17.20 : installation, contrôle de démarrage, désinstallation avec conservation, réinstallation puis suppression explicite des données du profil exécutés dans un vrai compte Windows standard jetable. Douze contrôles réussis ; fichier extérieur conservé ; compte et profil supprimés après récupération du rapport.",
+      "Workaround": "Aucun pour le parcours standard jetable ; la suite Installer complète et ses reprises sont documentées dans validation/2026-10-18/rc21-remediation.",
+      "Source": "validation/2026-10-18/rc20-qualification-docs/raw/disposable-profile/Result.json"
+    },
+    {
+      "Id": "KI-006",
+      "Title": "Validation interproduits et intégration amont à confirmer",
+      "Severity": "Mineur",
+      "Status": "Ouvert",
+      "Impact": "Le moteur de requêtes local est utilisable dans Domenia, mais sa promotion amont et les besoins Pesto/FilPro ne sont pas validés par leurs mainteneurs.",
+      "Workaround": "Faire valider les contrats et la version commune ; conserver la dérivation explicitement identifiée.",
+      "Source": "engineering/d120/contrats/BRIQUES-COMMUNES.md"
+    },
+    {
+      "Id": "KI-007",
+      "Title": "Règles, géométrie et installation : reprise ciblée RC1.17.21",
+      "Severity": "Majeur",
+      "Status": "Résolu",
+      "Impact": "RC1.17.21 : échecs KI-007 corrigés. Règles : 1 073/1 075 puis 149 cas ciblés réussis, aucun échec restant ; géométrie 79/79 ; capture 1280×720 : trois lignes entières, 18/18 contrôles ; installation complète RC20 24/26 puis quatre cas RC21 réussis couvrant les deux diagnostics fautifs. Démarrage CheckOnly et 172 fichiers applicatifs contrôlés. Qualification générale distincte ; décisions 134/146 et certificat 141 inchangés.",
+      "Workaround": "Aucun pour ces échecs. Les qualifications élargies restent hors de ce périmètre.",
+      "Source": "validation/2026-10-18/rc21-remediation/README.md"
+    }
+  ]
+}

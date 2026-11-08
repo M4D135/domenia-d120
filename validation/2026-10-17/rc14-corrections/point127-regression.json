@@ -1,0 +1,18 @@
+{
+  "Suite": "LiveTransport",
+  "Platform": "Unix 6.17.0.1026",
+  "PowerShell": "7.4.6",
+  "Cases": [
+    {
+      "Name": "RC14 Point 10 : transport affiche seulement quand une lecture a reellement retourne",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "Total": 1,
+  "Passed": 1,
+  "Failed": 0,
+  "Assertions": 20,
+  "NoNetwork": true,
+  "Scope": "Real Live module functions extracted by AST over in-memory packets; worker code checked as text; no CIM, network or SQLite."
+}

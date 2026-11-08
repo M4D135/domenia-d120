@@ -1,0 +1,18 @@
+{
+  "id": "TRV-037",
+  "verdict": "a-faire",
+  "preuves": [
+    "repo/v2/src/Domenia.Store/Preferences/LegacyBoardLayoutFile.cs:44-47 — les lecteurs Domenia 2 consultent les emplacements candidats en lecture seule (Path.Combine(data, \"Preferences\", \"Domenia.settings.json\") puis Path.Combine(data, \"Domenia.settings.json\") puis appFolder, puis ADCC.settings.json) : rien ne copie le fichier DataRoot vers DataRoot\\Preferences",
+    "repo/v2/src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:71-72,120 — même liste de candidats en lecture pour le lecteur du mode annuaire ; aucune écriture",
+    "repo/v2/src/Domenia.App/AppPaths.cs:48-49 — les préférences propres de Domenia 2 sont preferences.json dans %LOCALAPPDATA%\\Domenia (UserData, lignes 65-70), pas le fichier de Domenia 1 ; aucun dossier « Preferences » n'est créé par l'application",
+    "repo/v2/src/Domenia.Store/Preferences/FilePreferenceStore.cs:297 — le seul File.Copy du projet Store copie un document de préférences illisible « à côté » (mise au rebut), sans rapport avec l'énoncé",
+    "repo/v2/src/Domenia.App/Program.cs:54-56 — la validation du paquet (CheckPackage/PackageIntegrity.Open) conditionne bien tout démarrage, mais aucune étape de migration des préférences ne suit : entre CheckPackage et Composition (ligne 332), il n'y a que le diagnostic local et le journal"
+  ],
+  "manque": "La migration elle-même n'existe nulle part : aucun code ne copie Domenia.settings.json de DataRoot vers DataRoot\\Preferences, donc aucun des éléments vérifiables de l'énoncé n'est implémenté. 1) Aucune copie unique (« une seule fois ») : aucune occurrence d'un essai de copie du fichier dans repo/v2/src ; les lecteurs se contentent de la liste de candidats (LegacyBoardLayoutFile.cs:44-47), ce qui est un dessin différent (repli à la lecture, pas déplacement). 2) Aucune vérification octet par octet d'une copie (la seule copie relue du dépôt est celle des composants du paquet, repo/v2/src/Domenia.App/PackageLifecycle.Files.cs:162-172, hors sujet). 3) Le garde-fou de stockage valide n'existe pas sous la forme annoncée : aucune occurrence de DOMENIA_STORE_LAYOUT dans repo/v2 ; le mode de stockage est lu dans LocalStore.Mode de Domenia.config.json avec refus des modes inconnus (LegacyBoardLayoutFile.cs:19-34) — proche mais distinct de l'énoncé. 4) Rien ne refuse des dossiers redirigés pour cette opération, et le diagnostic du parseur est en partie visible (les avertissements « Document D1 incompatible conservé : <chemin> » sortent du bloc, LegacyBoardLayoutFile.cs:63-67). 5) Aucun test de copie : LegacyBoardMigrationTests.cs:119-144 vérifie la priorité de lecture des emplacements, jamais une migration.",
+  "effort": "S",
+  "depend": [
+    "sujet « Lecture du fichier Domenia.settings.json de Domenia 1 par le lecteur du mode annuaire » (note FEATURES.md:878, CompatibleDirectoryCache.cs:71-72,120) : la copie n'a de sens que pour les lecteurs qui dépendent de l'emplacement",
+    "TRV-040 (la racine d'installation et le dossier de données d'où DataRoot est déduit, repo/v2/src/Domenia.App/AppPaths.cs)"
+  ],
+  "risque": "ecriture-locale"
+}

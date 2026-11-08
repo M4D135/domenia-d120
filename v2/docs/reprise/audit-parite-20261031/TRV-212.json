@@ -1,0 +1,17 @@
+{
+  "id": "TRV-212",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:38-59 — CheckAsync et ExecuteAsync relisent la cible sur le DC avant tout envoi (EnsureController + ReadTargetAsync + CheckCurrentAsync) ; exécution : si check.Current faux → write.stale, rien n'est envoyé",
+    "repo/v2/src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:108-119 — ReadTargetAsync : recherche par filtre GUID, rangée unique exigée, objectGUID comparé, fiche relue sur le DN trouvé ; :121-137 — compte opérateur différent, valeur multi-valuée apparue ou objet référencé changé → Stale",
+    "repo/v2/src/Domenia.Core/Writes/Objects/ObjectWrites.cs:804-821 — Check : objet disparu → Stale « rien n'a été envoyé », GUID relu différent du plan → Stale avec relecture demandée ; objet système (sid -502, isCriticalSystemObject) refusé pour activer/imposer mot de passe",
+    "repo/v2/src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:160-171 — Protect : objectSid -502 ou isCriticalSystemObject=TRUE → FicheErrors.Protected ; comptes de service gérés refusés ; adminCount=1 exige la confirmation par saisie du nom, sinon Stale « confirmation à préparer de nouveau »",
+    "repo/v2/src/Domenia.Ad/Writes/AdAccountWriteExecutors.cs:104-116 — les écritures compte relisent à l'exact DN du plan et comparent objectGUID (:39,:50 ReadAtDnAsync) ; isCriticalSystemObject=TRUE refusé pour réinitialisation/activation/désactivation ; repo/v2/src/Domenia.Ad/Writes/AdObjectDeleteExecutor.cs:66-74 — suppression protégée : adminCount=1, conteneurs, contrôleurs, groupe privilégié",
+    "repo/v2/src/Domenia.Ad/Writes/AdFicheStructureExecutors.cs:24-25 — déplacement : DN relu comparé au DN du plan et à la destination attendue ; repo/v2/src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:181-185 — contrôleur différent du plan → Stale, rien envoyé",
+    "repo/v2/tests/Domenia.Tests/AdFicheWriteTests.cs:79-81 — objet rendu adminCount=1 puis retiré : comportement protégé testé ; repo/v2/tests/Domenia.Tests/WriteCircuitTests.cs:448-452 — précondition changée → write.stale, aucun envoi"
+  ],
+  "manque": "Le contrôle de fraîcheur ne compare ni uSNChanged ni whenChanged : aucun code du circuit ou des exécuteurs ne confronte ces deux attributs entre la lecture du plan et l'envoi (grep « uSNChanged|whenChanged » dans repo/v2/src/Domenia.Core/Writes et repo/v2/src/Domenia.Ad/Writes : aucun résultat ; les attributs ne sont lus que pour l'affichage fiche, repo/v2/src/Domenia.Ad/AdDirectoryMapper.cs:27,41). La détection de concurrence repose sur les valeurs avant des changements, le GUID, le contrôleur et l'origine de session : une modification concurrente hors des attributs du plan n'est pas détectée. Sur les écritures de fiche (update), l'objet est reperché par GUID et relu sur son DN courant sans comparaison avec plan.Target.Dn (AdFicheWriteExecutors.cs:108-118) : un déplacement entre le plan et l'envoi passe inaperçu pour une modification d'attributs (les comptes et les écritures structurelles comparent bien le DN). Le volet « sauf autorisation configurée » n'existe pas : isCriticalSystemObject est refusé sans aucun réglage d'autorisation possible (plus strict que D1, mais sans l'autorisation configurée prévue par la description), et adminCount=1 n'est jamais « autorisé par configuration », seulement soumis à saisie du nom.",
+  "effort": "M",
+  "depend": [],
+  "risque": "ecriture-AD"
+}

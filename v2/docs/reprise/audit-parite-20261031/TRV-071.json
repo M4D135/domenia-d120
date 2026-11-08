@@ -1,0 +1,18 @@
+{
+  "id": "TRV-071",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/web/js/shell/notify.js:161 — le bouton « Ouvrir le journal » des bannières existe : buttons.push({ id: 'journal', label: 'Ouvrir le journal', … }) et il ouvre bien le journal (notify.js:24, repo/v2/web/js/shell/panels.js:20,26 setJournalOpener)",
+    "repo/v2/web/js/shell/panels.js:42-57,126-137 — le centre de notifications s'ouvre sous la cloche avec un onglet « Journal des opérations » rendu par paintJournal (lignes datées, ton coloré) et un bouton « Journal » (ligne 309) ; l'accès clavier existe : Ctrl+L (repo/v2/web/js/shell/shortcuts.js:14) et la palette (repo/v2/web/js/shell/commands.js:23)",
+    "repo/v2/web/js/pages/parametres/journaux.js:137-139 — une pastille d'erreurs existe, mais sur l'onglet de navigation « Journaux » : sctx.badge('journaux', errors || '', errors ? 'alert' : 'off') avec le compte des erreurs de la session ; le décompte coloré « N erreurs dans cette session » est aussi dans la méta de la page (ligne 68)",
+    "repo/v2/src/Domenia.App/TechnicalLog.cs:10-14,32-37 — replier ne coupe pas l'enregistrement : le fileur en file d'attente s'exécute indépendamment de toute vue (vidange 500 ms, aux événements de sortie) ; aucune vue n'est jamais nécessaire à l'écriture",
+    "repo/v2/web/js/shell/help-catalog.js:427 — la fiche d'aide LogGridSplitter (« Hauteur du journal ») et les lignes 331-410 (UxSplitter…) référencent des contrôles introuvables dans le code : rg « splitter » hors help-catalog.js ne renvoie aucune implémentation — preuve que la barre de journal redimensionnable n'existe pas en v2"
+  ],
+  "manque": "La barre de journal repliée elle-même n'existe nulle part : pas de panneau de journal amarré à la fenêtre (le journal technique vit dans Paramètres › Journaux, les opérations dans le centre de notifications et l'onglet Opérations › Journal), donc aucun des éléments de la fiche : dernière ligne colorée visible quand c'est replié (aucune équivalence — le bandeau bas d'app.js:190 n'affiche que la tâche en cours, pas le journal), pastille rouge « N erreurs » sur la barre (la pastille existe sur l'onglet de navigation Journaux, ailleurs), clic sur la barre pour déplier, hauteur dépliée mémorisée entre 100 et 600 (aucune mémoire de hauteur de journal ; seule la préférence navCollapsed du menu rail est mémorisée, app.js:610-617), et repli temporaire dû à un écran court (environment.js ne replie que le menu de navigation sous 1 280 px, jamais un journal). À arbitrer : soit rétablir une barre de journal amarrée, soit acter la relocalisation v2 (cloche + onglet Journaux) au catalogue et réécrire la fiche.",
+  "effort": "L",
+  "depend": [
+    "TRV-070 (même journal : la vue lisible que la barre repliée devrait résumer), TRV-072/073 (rechercher et copier vivent dans la page dépliée)",
+    "Sujet « préférences mémorisées » (readingPrefs de repo/v2/web/js/pages/parametres/interface.js) : la hauteur et l'état replié devraient y être ajoutés si la barre est rétablie"
+  ],
+  "risque": "lecture"
+}

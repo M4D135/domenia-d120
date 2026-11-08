@@ -1,0 +1,6 @@
+The property 'IsExpanded' cannot be found on this object. Verify that the property exists and can be set.
+At C:\DomeniaLab\d120-rc11720-qualification\capture-guides.ps1:590 char:1
++ $collect.IsExpanded=$true; Save-GuideWindow 'atelier-collecte' 1240;  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : PropertyAssignmentException

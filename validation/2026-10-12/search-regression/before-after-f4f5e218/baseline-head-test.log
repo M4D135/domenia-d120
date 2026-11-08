@@ -1,0 +1,4 @@
+PASS Real loader keeps application functions private to the script
+FAIL Progressive arrivals without query survive three timer ticks
+FAIL Delayed Fleet WPF click invokes the real script-local query callback
+LiveSearchView: 4 cases / 6 assertions / 3 failed

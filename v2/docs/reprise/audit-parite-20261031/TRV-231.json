@@ -1,0 +1,26 @@
+{
+  "id": "TRV-231",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Writes/WriteCircuit.cs:20 — « Nothing is ever retried or replayed: not by the circuit, not at startup, not from a receipt. »",
+    "src/Domenia.Core/Writes/WriteModels.cs:167-171 — version 1 écrite AVANT le départ de la requête ; « A receipt is never replayed: nothing found in it is ever sent again. »",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:296-307 — le reçu durable est écrit juste avant l'envoi et rien n'est envoyé sans lui : un plan seulement préparé ne laisse aucun reçu, donc est « non envoyé » par construction",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:197-220 — write.receipts.verify relit la cible et ajoute une version ; n'appelle jamais ExecuteAsync : une reprise ne renvoie rien",
+    "src/Domenia.Core/Writes/WriteReceipts.cs:95-99 et src/Domenia.Core/Writes/WriteCircuit.cs:382-396 — un reçu laissé Sent ou Unknown avec Verification Unknown bloque les nouvelles écritures après tout redémarrage, jusqu'à relecture ou revue explicite",
+    "src/Domenia.Store/Receipts/FileReceiptStore.cs:243 — Normalize rejette un enregistrement dont Result ou Verification n'est pas une valeur définie (!Enum.IsDefined) ; src/Domenia.Store/Receipts/FileReceiptStore.Read.cs:69 — la ligne est comptée illisible ; src/Domenia.Store/Receipts/FileReceiptStore.cs:173-177 — un append de version 1 est refusé tant qu'il y a du non lisible",
+    "src/Domenia.Core/Writes/WriteCircuit.Closing.cs:10-33 — PrepareCloseAsync compte les reçus pending et unreadable, exige un choix explicite et dit « vérifiez leurs reçus dans Opérations au prochain démarrage » ; :43 — write.closing cloisonne tout nouvel envoi",
+    "src/Domenia.Core/Screens/Shell/ShellActivity.cs:50 — le service d'activité du shell relit les reçus : le compte « à vérifier » est visible dès le démarrage, sans rien renvoyer",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.cs:1050-1057 — l'auto-contrôle affiche l'état des reçus et, s'ils sont illisibles, « aucune écriture ne sera préparée tant qu'ils ne sont pas relus »",
+    "tests/Domenia.Tests/WriteClosingTests.cs:49-61 — reçu incertain : fermeture soumise à choix explicite, « aucune réexécution », « aucune relecture réseau implicite à la fermeture » ; :65-71 — reçus illisibles : confirmation exigée et envois cloisonnés",
+    "tests/Domenia.Tests/ReceiptStoreTests.cs:81 — « une ligne coupée peut contenir un envoi : état incertain dès cette lecture » ; :134 — « témoin durable de disparition après redémarrage »"
+  ],
+  "manque": "1) Il n'y a aucune interprétation au démarrage : rien ne lit les reçus à l'ouverture de l'application. Les reçus ne sont lus qu'à la demande (src/Domenia.Core/Writes/WriteCircuit.cs:418-439, appelé par PlanAsync, ExecuteAsync, ListAsync, GetAsync, VerifyAsync, ReviewAsync) ; aucune fonction ne traduit un reçu trouvé en « préparé = non envoyé / envoyé ou inconnu = incertain et bloquant / livré = terminé sans preuve d'effet » — aucun équivalent de Get-DomeniaReceiptResumeState, aucune occurrence d'un état de reprise dans src/Domenia.Core/Writes. 2) Deux des trois états n'ont pas d'équivalent dans le modèle : pas de résultat « Préparé / Réservé » (un plan préparé n'est jamais durable, src/Domenia.Core/Writes/WriteCircuit.cs:39-40) et pas de « Livré » (une écriture terminée sans preuve d'effet ne peut être consignée : src/Domenia.Core/Writes/WriteModels.cs:21-28 n'offre que Sent, Applied, NoChange, NotApplied, Unknown). 3) « Étape illisible = incertaine » n'est appliqué qu'à moitié : un enregistrement non lisible fait monter le compteur unreadable (src/Domenia.Store/Receipts/FileReceiptStore.Read.cs:69) et bloque l'append durable (src/Domenia.Store/Receipts/FileReceiptStore.cs:176), mais EnsureWritesFreeAsync (src/Domenia.Core/Writes/WriteCircuit.cs:384-389) ignore ce compteur — les plans continuent d'être préparés et seul l'envoi est refusé. 4) Aucun test ne redémarre : aucun test ne crée un second circuit sur un magasin déjà peuplé après un arrêt brutal pour vérifier le blocage (les seuls tests à froid, tests/Domenia.Tests/ReceiptStoreTests.cs:133-134, restent au niveau du magasin).",
+  "effort": "M",
+  "depend": [
+    "TRV-233 (sans états « Réservée » et « Livrée », la reprise ne peut pas être qualifiée)",
+    "TRV-230 (le blocage par cible d'un reçu d'une exécution précédente est ce que la reprise doit retrouver)",
+    "TRV-232 (amorcer le registre au démarrage à partir des reçus)",
+    "sujet « Reçus et revues » (IsPending, src/Domenia.Core/Writes/WriteReceipts.cs:95-99)"
+  ],
+  "risque": "ecriture-locale"
+}

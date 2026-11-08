@@ -1,0 +1,30 @@
+{
+    "Passed":  1,
+    "Failed":  0,
+    "Host":  "5.1.26100.6584",
+    "ArchiveSha256":  "39AE44650715EF9A3CDFBD7EEEE50EECB51E78E5AB457AE1595B1EEB15524E9F",
+    "Sources":  [
+                    {
+                        "Source":  "Annuaire AD",
+                        "OldestUtc":  "\/Date(1791886339379)\/",
+                        "NewestUtc":  "\/Date(1791886339379)\/",
+                        "Informations":  "Système déclaré dans AD",
+                        "Dated":  2,
+                        "Missing":  0,
+                        "Oldest":  "13/10/2026 12:12",
+                        "Newest":  "13/10/2026 12:12",
+                        "Volatile":  false
+                    },
+                    {
+                        "Source":  "Inventaire du poste",
+                        "OldestUtc":  "\/Date(1791972739379)\/",
+                        "NewestUtc":  "\/Date(1791972739379)\/",
+                        "Informations":  "Mémoire relevée en Go",
+                        "Dated":  2,
+                        "Missing":  0,
+                        "Oldest":  "14/10/2026 12:12",
+                        "Newest":  "14/10/2026 12:12",
+                        "Volatile":  false
+                    }
+                ]
+}

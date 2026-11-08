@@ -1,0 +1,36 @@
+{
+    "Name":  "Test-DomeniaFreshness",
+    "Edition":  "dev",
+    "RelativeScript":  "wad\\tests\\Test-DomeniaFreshness.ps1",
+    "ScriptSha256":  "01362a1f9471fb50a59641c9c25c7b0c2036751d08eaebc252ba1bb301610ae5",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaFreshness.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaFreshness.json"
+                  ],
+    "StartedUTC":  "2026-10-13T16:00:06.3257820Z",
+    "EndedUTC":  "2026-10-13T16:00:18.9263258Z",
+    "Milliseconds":  12248,
+    "TimeoutSeconds":  240,
+    "RunnerPID":  1092,
+    "ChildPID":  3104,
+    "ExitCode":  1,
+    "TimedOut":  false,
+    "KillAttempted":  false,
+    "ChildTerminated":  true,
+    "Error":  "",
+    "Stdout":  "Test-DomeniaFreshness.stdout.txt",
+    "Stderr":  "Test-DomeniaFreshness.stderr.txt",
+    "JsonReport":  "Test-DomeniaFreshness.json",
+    "ReportVerdict":  {
+                          "Valid":  false,
+                          "Reason":  "Passed is false",
+                          "Cases":  0
+                      },
+    "Passed":  false
+}

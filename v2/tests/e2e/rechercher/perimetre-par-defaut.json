@@ -1,0 +1,46 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : l’OU de travail est le périmètre par défaut",
+  "description": "Sans choix dans l’arbre, la barre cherche dans l’OU de travail (« Postes ») avec un message unique ; « Afficher le contenu » liste l’OU de travail ; « Partout » reste un choix explicite (RCH-005).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "rechercher",
+  "steps": [
+    {
+      "do": "wait",
+      "contains": "Périmètre par défaut",
+      "within": ".rch-notices",
+      "title": "Un seul message annonce le périmètre par défaut"
+    },
+    {
+      "do": "expect",
+      "selector": ".rch-scope [data-scope=\"ou\"]",
+      "attribute": "aria-pressed",
+      "equals": "true",
+      "title": "La puce « Dans « Postes » » est choisie"
+    },
+    {
+      "do": "expect",
+      "contains": "OU de travail",
+      "within": ".rch-side .rch-browse",
+      "title": "« Afficher le contenu » propose l’OU de travail"
+    },
+    {
+      "do": "click",
+      "selector": ".rch-side .rch-browse",
+      "title": "Lister l’OU de travail"
+    },
+    {
+      "do": "wait",
+      "contains": "PC-",
+      "within": ".rch-results .k-gbody",
+      "title": "Les postes de l’OU de travail sont listés"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

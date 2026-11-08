@@ -1,0 +1,21 @@
+{
+  "id": "TRV-042",
+  "verdict": "a-faire",
+  "preuves": [
+    "repo/v2/src/Domenia.Bridge/OperationModules.cs:70,86 — au démarrage, CreateRegistry lève InvalidOperationException si un module déclare un nom d’écran invalide ou une opération hors de son écran : il existe bien un mécanisme d’échec de démarrage, mais il porte sur des déclarations mal formées, jamais sur un contrôle ou une fonction « critique manquante »",
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:31-49 — CheckModules résout types et signatures des assemblages de la liste de dépendances puis exige OperationModules non vide et écrans valides (« Modules absents ou contrat d’écran invalide. ») : le seul contrôle de type « fonctions critiques » exécuté par le produit, en mode --check-only/--selftest (Program.cs:57-68), pas au lancement ordinaire",
+    "repo/v2/tests/Domenia.Tests/PlatformTests.cs:574-596 — une liste fermée d’opérations attendues est comparée au registre (Check.True(expectedNames.SequenceEqual(...), « opérations déclarées ; manquantes : … ») et chaque classe vérifiée : la liste des fonctions critiques existe, mais comme assertion de test, pas comme garde-fou d’exécution",
+    "repo/v2/web/js/bridge.js:27 — une opération absente du registre est refusée à l’appel (bridgeError('operation.unknown', 'Opération inconnue : rien n’a été envoyé.')) : une fonction manquante devient une erreur d’appel différée, pas un échec de démarrage",
+    "repo/v2/web/js/app.js:1231-1240 — checkScreenOpened détecte 700 ms après l’ouverture qu’une page a peint une carte d’erreur et marque l’entrée de navigation « Écran indisponible pour le moment » : constat a posteriori, aucune collecte préalable des contrôles",
+    "repo/v2/web/js/shell/gui-policy.js:30-36 — guiElementNames est la liste close des noms de contrôles (noms D1 : BtnCancelTask, LstUiProfile, TxtGlobalSearch…) et guiPolicyProblems signale une règle qui ne correspond à aucun nom connu ; repo/v2/web/js/app.js:571-572 ne fait que console.warn de ces noms non appliqués : la liste existe, sans effet bloquant",
+    "repo/v2/web/js/boot.js:21-37 — garde de démarrage de l’interface : erreur de chargement d’un fichier ou absence de réponse pendant 20 s remplace l’écran de chargement par un message d’échec ; c’est le seul échec explicite côté page, indépendant de toute liste de contrôles"
+  ],
+  "manque": "Les deux moitiés de la fonction sont absentes. 1) Aucune collecte automatique des contrôles de la fenêtre principale : le XAML n’existe plus (interface HTML/WebView2 + WinForms écrit en code), et aucun équivalent ne dresse l’inventaire des éléments requis d’un écran au démarrage — l’inventaire existant (gui-policy.js:30-36) est une liste blanche de noms pour la politique d’affichage, et le catalogue d’aide n’est pas comparé au DOM. 2) Aucune liste de « contrôles critiques » ni de « fonctions critiques » n’est vérifiée à l’exécution : rg sur « critical|critique » dans src/ et tests/ ne remonte qu’un faux positif (SimulationProfile.cs:107, WmiWorkstationReader.Events.cs:56). Si Accueil, l’arbre de Rechercher, le panneau d’écritures ou une opération vitale manquait, le démarrage aboutirait quand même et l’opérateur ne le verrait qu’au clic (bridge.js:27, app.js:1231-1240). Le garde-fou « régression silencieuse transformée en échec de démarrage » n’est donc pas couvert. À trancher comme pour TRV-041 : soit clore la fiche comme sans objet (le support XAML a disparu), soit la reformuler en déclarations explicites (énoncé « inventaire des éléments requis de chaque écran + opérations vitales, vérifié avant l’affichage, avec diagnostic écrit ») ; en l’état, rien n’est implémenté.",
+  "effort": "M",
+  "depend": [
+    "TRV-041 (même arbitrage : préflight d’interface WebView2 sans objet ou reformulé)",
+    "TRV-044 (le jalon de disponibilité de l’interface, session.interfaceReady, serait le point d’ancrage d’un contrôle préalable)",
+    "repo/v2/web/js/shell/a11y.js:51-80 — auditAccessibility, seul contrôle structurel de la page déjà écrit : point de départ naturel d’un contrôle bloquant"
+  ],
+  "risque": "lecture"
+}

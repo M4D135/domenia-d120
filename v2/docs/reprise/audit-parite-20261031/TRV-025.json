@@ -1,0 +1,21 @@
+{
+  "id": "TRV-025",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:11-14 — package-manifest.json, plafond manifeste 2 MiB (MaximumManifest = 2 * 1024 * 1024)",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:121-122 — refus si format != 1",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:211-224 — ValidRelativePath : chemins relatifs seulement, refuse « .. », « : », « \\\\ », contrôles, reserved names",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:134 — doublons refusés (names.Add + « chemin de composant invalide ou répété »)",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:101-102 — message exact « Composant modifié ou versions mélangées : {path}. Taille attendue…, lue… ; SHA-256 attendu…, lu… »",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:87-88 — un seul IncrementalHash SHA-256 avec tampon partagé de 1 MiB ; lectures séquentielles (FileOptions.SequentialScan, ligne 182)",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:179-185 — Hold vérifie CheckPath avant puis après l'ouverture : chaque fichier contrôlé contre la redirection",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:173-175 — tout fichier hors manifeste est refusé (« Composant hors manifeste »), ce qui couvre wad/data",
+    "repo/v2/tests/Domenia.Tests/PackageIntegrityTests.cs:46 — fichier falsifié et module hors manifeste bloquent l'ouverture, message avec SHA-256",
+    "repo/v2/tests/Domenia.Tests/PackageIntegrityTests.cs:74 — doublons et chemins Windows dangereux rejetés",
+    "repo/v2/tests/Domenia.Tests/PackageIntegrityTests.cs:111 — hachage streaming de tous les octets, fichiers vérifiés comptés"
+  ],
+  "manque": "Deux écarts au cahier D1 : (1) la tolérance CRLF/LF n'existe nulle part — la comparaison d'empreinte est stricte (PackageIntegrity.cs:101), aucune normalisation ni comptage des fins de ligne différentes ; (2) le nombre de fichiers est borné 10..4096 en dur (PackageIntegrity.cs:13,124) au lieu de 10..1000 avec plafond RuntimeFileLimit lu dans wad/Domenia.release.json (250 par défaut) — aucun code ne lit RuntimeFileLimit. Le rejet explicite du préfixe « wad/data » dans le manifeste n'existe pas non plus (seul le hors-manifeste est bloqué).",
+  "effort": "S",
+  "depend": ["publication : Domenia.release.json / RuntimeFileLimit (sujet signature voir TRV-025 FEATURES:10101)"],
+  "risque": "lecture"
+}

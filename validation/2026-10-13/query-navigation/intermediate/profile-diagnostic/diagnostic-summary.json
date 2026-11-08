@@ -1,0 +1,531 @@
+{
+  "Status": "INCONCLUSIVE",
+  "ErrorReproduced": false,
+  "Runs": [
+    {
+      "File": "control.json",
+      "PassedLoad": true,
+      "LoadedBefore": 0,
+      "DLL_SHA256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Stages": [
+        {
+          "Stage": "BeforeWait",
+          "UTC": "2026-10-13T01:07:34.4504947Z",
+          "PID": 4072,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterWaitBeforeLoad",
+          "UTC": "2026-10-13T01:08:04.1869473Z",
+          "PID": 4072,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterLoad",
+          "UTC": "2026-10-13T01:08:04.3535446Z",
+          "PID": 4072,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        }
+      ]
+    },
+    {
+      "File": "exposed.json",
+      "PassedLoad": true,
+      "LoadedBefore": 0,
+      "DLL_SHA256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Stages": [
+        {
+          "Stage": "BeforeWait",
+          "UTC": "2026-10-13T01:08:36.6912633Z",
+          "PID": 4720,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterWaitBeforeLoad",
+          "UTC": "2026-10-13T01:08:53.5689784Z",
+          "PID": 4720,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterLoad",
+          "UTC": "2026-10-13T01:08:53.6821951Z",
+          "PID": 4720,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        }
+      ]
+    },
+    {
+      "File": "spawned-during-copy.json",
+      "PassedLoad": true,
+      "LoadedBefore": 0,
+      "DLL_SHA256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Stages": [
+        {
+          "Stage": "BeforeWait",
+          "UTC": "2026-10-13T01:11:16.8129885Z",
+          "PID": 3828,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterWaitBeforeLoad",
+          "UTC": "2026-10-13T01:11:20.8773318Z",
+          "PID": 3828,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterLoad",
+          "UTC": "2026-10-13T01:11:20.9808393Z",
+          "PID": 3828,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        }
+      ]
+    },
+    {
+      "File": "spawned-held-session.json",
+      "PassedLoad": true,
+      "LoadedBefore": 0,
+      "DLL_SHA256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Stages": [
+        {
+          "Stage": "BeforeWait",
+          "UTC": "2026-10-13T01:12:27.2705650Z",
+          "PID": 4348,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterWaitBeforeLoad",
+          "UTC": "2026-10-13T01:12:42.2896553Z",
+          "PID": 4348,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterLoad",
+          "UTC": "2026-10-13T01:12:42.4414022Z",
+          "PID": 4348,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        }
+      ]
+    },
+    {
+      "File": "spawned-held-session2.json",
+      "PassedLoad": true,
+      "LoadedBefore": 0,
+      "DLL_SHA256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Stages": [
+        {
+          "Stage": "BeforeWait",
+          "UTC": "2026-10-13T01:13:33.8135634Z",
+          "PID": 3548,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterWaitBeforeLoad",
+          "UTC": "2026-10-13T01:13:44.3001529Z",
+          "PID": 3548,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterLoad",
+          "UTC": "2026-10-13T01:13:44.3718741Z",
+          "PID": 3548,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        }
+      ]
+    },
+    {
+      "File": "spawned-profile-process.json",
+      "PassedLoad": true,
+      "LoadedBefore": 0,
+      "DLL_SHA256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Stages": [
+        {
+          "Stage": "BeforeWait",
+          "UTC": "2026-10-13T01:15:07.4169034Z",
+          "PID": 2800,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterWaitBeforeLoad",
+          "UTC": "2026-10-13T01:15:23.3812130Z",
+          "PID": 2800,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterLoad",
+          "UTC": "2026-10-13T01:15:23.5707093Z",
+          "PID": 2800,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        }
+      ]
+    },
+    {
+      "File": "transition.json",
+      "PassedLoad": true,
+      "LoadedBefore": 0,
+      "DLL_SHA256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Stages": [
+        {
+          "Stage": "BeforeWait",
+          "UTC": "2026-10-13T01:09:58.4617763Z",
+          "PID": 3168,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": true,
+            "SubKeyCount": 11
+          }
+        },
+        {
+          "Stage": "AfterWaitBeforeLoad",
+          "UTC": "2026-10-13T01:10:02.7427625Z",
+          "PID": 3168,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        },
+        {
+          "Stage": "AfterLoad",
+          "UTC": "2026-10-13T01:10:02.9383579Z",
+          "PID": 3168,
+          "SessionId": 0,
+          "HKCU_Cached": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKCU_Fresh": {
+            "SoftwareExists": true,
+            "Name": "HKEY_CURRENT_USER",
+            "SubKeyCount": 8,
+            "Readable": true
+          },
+          "HKU_SID": {
+            "Exists": false,
+            "SubKeyCount": 0
+          }
+        }
+      ]
+    }
+  ],
+  "Observed": "GuestControl authentication can briefly load the user SID hive (11 subkeys), while the running PowerShell processes observed HKCU with 8 subkeys throughout. HKU SID subsequently becomes absent.",
+  "CausalConclusion": "No process with invalidated HKCU was observed. No E_UNEXPECTED was reproduced. This does not establish the cause of R4/R5 assembly-load failures.",
+  "ProfileOption": "VBoxManage start --profile accepted by installed CLI, but the diagnostic did not demonstrate a retained user profile. Oracle documentation calls the option not yet implemented; no profile guarantee is claimed.",
+  "R6Protocol": "Same immutable R5 archives; full 63 steps in one GuestControl launch; no concurrent authenticated guestcontrol operations or copyfrom. Host COM process status reads only until termination. No runtime changes, no security/registry policy changes, no automatic retries.",
+  "HostGuestClock": "Original host and guest timestamps retained independently; cross-clock durations are not asserted.",
+  "OriginalToExportManifest": "proof-export-manifest.json",
+  "RawEvidence": "/tmp/profile-diagnostic/profile-diagnostic"
+}

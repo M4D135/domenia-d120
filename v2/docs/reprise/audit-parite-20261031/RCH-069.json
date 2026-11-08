@@ -1,0 +1,19 @@
+{
+  "id": "RCH-069",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/pages/rechercher.js:724 — bouton « Exporter » dans la barre de commandes de la liste (à côté des résultats) ; lignes 692-693 : les deux portées proposées, « Liste affichée (N)… » et « Lignes sélectionnées (N)… »",
+    "web/js/pages/rechercher.js:667 — confirmation avant export avec les faits Portée (lignes retenues), Exclu (lignes masquées par les filtres, colonnes masquées, objets non reçus ou au-delà de la limite), Complétude (liste complète, interrompue ou bornée à la limite) et Format ; ligne 676 : la note d'absence du résultat est rappelée ; ligne 680 : sans « Copier le CSV », rien n'est exporté",
+    "web/js/pages/rechercher/results.js:277 — onExport du kit branché sur exportList(scope) de la page ; web/js/kit/grid.js:1038 — toCsv respecte la portée (sélection ou lignes visibles après filtres) et n'écrit que les colonnes visibles",
+    "web/js/kit/grid.js:1009 — copyColumns = colonnes visibles sans colonnes secret : aucun secret exporté (le kit filtre aussi secret pour le filtre rapide, grid.js:433) ; grid.js:1031 — csvCell neutralise les cellules d'apparence formule ('= + - @ tab CR préfixés d'une apostrophe)",
+    "web/js/pages/rechercher/text.js:400 — expandAssociationColumns : la colonne fusionnée « Association mémorisée » est ré-exportée en trois colonnes (Source lien, Qualification ajoutées) avec re-échappement et neutralisation des formules (ligne 418)",
+    "web/js/pages/rechercher.js:681 — le CSV (BOM UTF-8, séparateur point-virgule) part dans le presse-papiers (writeClipboard, ligne 682) ; la confirmation l'annonce (ligne 677)",
+    "tests/web/rechercher.test.mjs:33 — « Export: the association goes back to three columns, formulas stay neutralised » : en-têtes éclatés, association éclatée, '=cmd|calc / +evil / -x neutralisés, association absente, csvCell",
+    "tests/e2e/rechercher/exporter.json:29 — scénario « exporter la liste avec sa confirmation » : la confirmation dit la complétude (ligne 31) et la limite de 100 lignes (ligne 36), l'annulation ne copie rien",
+    "src/Domenia.Core/Platform/IDocumentStore.cs:50 — la capacité hôte d'enregistrer un fichier existe (SaveFileAsync, implémentée src/Domenia.Store/Documents/FileDocumentStore.cs:55) et sert déjà d'autres écrans (poste.export.save, operations.export.save, relations.export.save, requetes.export.save) : aucune opération search.export.save n'existe (aucune occurrence de « search.export » dans src, web ni tests)"
+  ],
+  "manque": "L'enregistrement en fichier n'existe pas pour la liste de Rechercher : le CSV va seulement au presse-papiers (web/js/pages/rechercher.js:681-683) et la confirmation le dit elle-même (ligne 677, « l'enregistrement direct en fichier viendra avec l'opération de sauvegarde de l'hôte »). Aucune opération search.export.save / search.export.content n'est déclarée (src/Domenia.Bridge/Operations/SearchOperations.cs, aucune occurrence de « search.export »), alors que la plateforme fournit IDocumentStore.SaveFileAsync (src/Domenia.Core/Platform/IDocumentStore.cs:50) déjà utilisée par quatre autres écrans. Le format XLSX n'est pris en charge nulle part (aucune occurrence de « xlsx » dans src ni web).",
+  "effort": "S",
+  "depend": ["plateforme : opération hôte de sauvegarde de document (IDocumentStore.SaveFileAsync)", "RCH-066 (liste de résultats et ses colonnes)"],
+  "risque": "ecriture-locale"
+}

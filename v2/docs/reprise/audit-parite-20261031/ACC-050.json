@@ -1,0 +1,20 @@
+{
+  "id": "ACC-050",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:88 — le widget affiche la révision qu'il évalue : « Révision N · empreinte … · N/M couverts », et ajoute « révision M à confirmer » quand le lien est en retard",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:87 — lien en retard détecté par révision liée différente de la révision courante de la requête",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:90 — action « Confirmer la nouvelle révision » (relit la bibliothèque et lie, sans collecte), câblée dans web/js/pages/accueil.js:1170 vers accueil.query.bind",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:26 — bibliothèque non lue : « Bibliothèque non lue ; le widget reste conservé. », jamais un résultat inventé",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:33 — requête absente de la bibliothèque : « Requête absente » ; ligne 35 : requête archivée ; ligne 38 : révision liée non conservée",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:713 — sans instantané de bibliothèque, l'entrée porte déjà « Requête absente » avec le motif et le sous-titre « Bibliothèque non lue » (ligne 715)",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:96 — une définition refusée est rattrapée par widget : ses ensembles périmés sont retirés (ligne 97) et l'entrée passe en état d'avertissement, le tableau n'échoue pas",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:25 — refresh.queryMissing : relevé WMI refusé tant qu'un widget de requête actif est absent (message ligne 26)",
+    "tests/Domenia.Tests/AccueilTests.cs:489 — test : requête absente, refus explicite du plan d'actualisation",
+    "tests/Domenia.Tests/FleetQueryWidgetTests.cs:38 — « Révision 1 » visible sur le widget ; ligne 42 : une modification de bibliothèque n'avance pas le lien silencieusement ; ligne 43 : la confirmation est proposée ; ligne 46 : la révision ne change qu'après le geste explicite"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["ACC-049"],
+  "risque": "lecture"
+}

@@ -1,0 +1,13 @@
+{
+    "Build":  "RC1.17.17",
+    "Passed":  false,
+    "SessionId":  1,
+    "WindowsLoginInvoked":  true,
+    "Steps":  [
+                  "Home"
+              ],
+    "AppId":  5976,
+    "ContinuationOf":  "InteractiveUI.json",
+    "DateUtc":  "2026-10-18T08:33:24.2750540Z",
+    "Error":  "Control unavailable BtnUxNavSearch"
+}

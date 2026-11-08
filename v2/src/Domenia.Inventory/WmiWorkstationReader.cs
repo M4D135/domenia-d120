@@ -1,0 +1,1047 @@
+using System.Collections.Immutable;
+using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
+using Domenia.Core;
+using Domenia.Core.Poste;
+
+namespace Domenia.Inventory;
+
+/// <summary>
+/// What one read of a workstation covers. Each scope has the budget the operator is told before it starts
+/// (docs/ops/poste.md § 8.3) and reads only the sources of that scope; the others stay « non lus », never empty.
+/// </summary>
+public enum WorkstationReading
+{
+    /// <summary>Live state (10 s): uptime, console account, sessions.</summary>
+    Live,
+
+    /// <summary>Fiche triage: system, processor, volumes and a measured process sample, in 10 seconds.</summary>
+    Triage,
+
+    /// <summary>Search survey: system, volumes and addresses in 15 seconds.</summary>
+    Survey,
+
+    /// <summary>Search survey plus BIOS, TPM, hotfixes and automatic stopped services, in 30 seconds.</summary>
+    SurveyComplete,
+
+    /// <summary>Quick inventory (55 s): system, hardware, disks, BitLocker, TPM, network, protection, updates, services.</summary>
+    Quick,
+
+    /// <summary>Full inventory (150 s): the quick one plus processes and system events.</summary>
+    Full,
+
+    /// <summary>Services alone (90 s, 500 instances at most).</summary>
+    Services,
+
+    /// <summary>Processes alone (two reads of Win32_Process spaced by 1 s, 20 s).</summary>
+    Processes,
+
+    /// <summary>System events alone (30 s).</summary>
+    Events,
+
+    /// <summary>Windows Update alone (correctifs and the state of the update source).</summary>
+    Updates,
+
+    /// <summary>Five-check quick diagnosis, twenty seconds including the identity read.</summary>
+    QuickDiagnostic,
+
+    /// <summary>Full diagnosis: identity, OS and declared system volume, reboot indicators; 45 s global ceiling.</summary>
+    Diagnostic,
+}
+
+/// <summary>
+/// Real workstation readings of the directory mode (docs/ops/poste.md § 8.2): the CIM classes of the workstation read by
+/// projections only, turned into the one typed model of the console, <see cref="InventorySnapshot"/>. The workstation
+/// console and the relations screen both use it: the console for its inventories, services, processes, sessions and events,
+/// the relations screen for the account at the console of a workstation.
+/// <para>
+/// Read only by construction. No mutating method of any CIM class is invoked — not <c>StartService</c>, not <c>ChangeStartMode</c>,
+/// not <c>Reboot</c>: a service is read, never started, and the remote actions of the console belong to the write circuit
+/// (docs/WRITES.md). Every source is bounded by its own delay inside the budget of the reading, answers with a
+/// <see cref="SourceStatus"/>, and is emptied when it did not answer, so nothing unread is ever displayed.
+/// </para>
+/// <para>
+/// The registry sources of § 8.2 (Secure Boot, WSUS, keys of reboot pending) go through <c>StdRegProv</c>, which is a method
+/// call: they use the closed internal read-only contract of the CIM session; no write method is admitted.
+/// </para>
+/// </summary>
+public sealed partial class WmiWorkstationReader
+{
+    private const string Cimv2 = @"root\cimv2";
+    private const string StorageNamespace = @"root\Microsoft\Windows\Storage";
+    private const string BitLockerNamespace = @"root\cimv2\Security\MicrosoftVolumeEncryption";
+    private const string TpmNamespace = @"root\cimv2\Security\MicrosoftTpm";
+    private const string SecurityCenter = @"root\SecurityCenter2";
+
+    private const string OperatingSystemQuery =
+        "SELECT Caption, Version, BuildNumber, OSLanguage, OSArchitecture, InstallDate, LastBootUpTime, LocalDateTime, TotalVisibleMemorySize, FreePhysicalMemory, SystemDrive FROM Win32_OperatingSystem";
+
+    private const string ComputerSystemQuery =
+        "SELECT Name, Domain, Manufacturer, Model, TotalPhysicalMemory, NumberOfLogicalProcessors, UserName, DomainRole, SystemType, PCSystemType, DNSHostName FROM Win32_ComputerSystem";
+
+    private const string EnclosureQuery = "SELECT SerialNumber, ChassisTypes FROM Win32_SystemEnclosure";
+
+    /// <summary>The exact core projections sent by Survey; shared only inside an explicitly admitted collection.</summary>
+    public static IReadOnlyList<CimProjection> SurveyProjections { get; } = Array.AsReadOnly(new[]
+    {
+        new CimProjection(Cimv2, OperatingSystemQuery, 2), new CimProjection(Cimv2, ComputerSystemQuery, 2),
+        new CimProjection(Cimv2, EnclosureQuery, 4),
+    });
+
+    private const string ProcessQuery =
+        "SELECT ProcessId, Name, CreationDate, KernelModeTime, UserModeTime, WorkingSetSize FROM Win32_Process WHERE ProcessId <> 0";
+
+    private readonly TimeProvider clock;
+    public Action? ProjectionReused { get; init; }
+    private readonly InventoryTransport transport;
+    private readonly bool readsEnabled;
+    private readonly bool registryEnabled;
+    private readonly ITechnicalJournal? journal;
+    internal Func<string, TimeSpan, CancellationToken, CimSession>? SessionFactory { get; init; }
+    private CimSession Session(string host, TimeSpan budget, CancellationToken token, RemoteProbeCredential? credential, InventoryTransport? requiredTransport = null) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token, credential, requiredTransport ?? transport)
+        { ReadsEnabled = readsEnabled, RegistryEnabled = registryEnabled };
+
+    /// <summary>Contacts nothing: a workstation is only reached by an explicit read.</summary>
+    public WmiWorkstationReader(TimeProvider clock, ITechnicalJournal? journal = null, bool useWinRm = false, PosteConfiguration? configuration = null)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        this.clock = clock;
+        transport = configuration?.SelectedCimTransport ?? (useWinRm ? InventoryTransport.WinRm : InventoryTransport.Dcom);
+        readsEnabled = configuration?.UseCim ?? true;
+        registryEnabled = configuration?.UseRemoteRegistry ?? true;
+        this.journal = journal;
+    }
+
+    /// <summary>
+    /// One bounded reading of one workstation, off the UI thread. A stop or the budget gives a partial result (the sources
+    /// not reached are « Interrompu »), never a loss; a workstation that refuses answers « Refusé », which is not an error.
+    /// </summary>
+    public async Task<InventorySnapshot> ReadAsync(string host, WorkstationReading reading, IProgress<PosteProgress>? progress, CancellationToken cancellationToken, RemoteProbeCredential? credential = null)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        if (!CimQuery.IsHostName(host))
+        {
+            journal?.Warning("Lecture du poste non faite : nom de poste invalide.");
+            return Unread(host, reading, "nom de poste invalide");
+        }
+
+        using var phase = OperationPhases.Measure(OperationPhase.Collection);
+        var budget = Budget(reading);
+        var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var workToken = stop.Token;
+        var latest = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, transport);
+        NativeReadProgress? progressState = null;
+        Task<InventorySnapshot> work;
+        try { work = await WmiReadWorkers.StartAsync(host, credential, owned => Read(host, reading, progress, workToken, value => Volatile.Write(ref latest, value), owned, value => Volatile.Write(ref progressState, value)), workToken).ConfigureAwait(false); }
+        catch { stop.Dispose(); throw; }
+        try
+        {
+            return (await work.WaitAsync(budget + CimBudgets.GiveUpMargin, clock, cancellationToken).ConfigureAwait(false)) with { ReadPhysicallyCompleted = true };
+        }
+        catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)
+        {
+            stop.Cancel();
+            // The WMI calls end by their own delays; the outcome of the abandoned read is observed here, never left unseen.
+            _ = work.ContinueWith(
+                static completed => _ = completed.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            journal?.Info("Lecture de " + host + " abandonnée : budget dépassé (" + reading + ").");
+            return Interrupted(Volatile.Read(ref latest), reading, NativeReadProgress.Stopped(Volatile.Read(ref progressState), "Lecture arrêtée ou budget atteint."));
+        }
+        finally { DisposeAfter(work, stop); }
+    }
+
+    /// <summary>
+    /// A shared caller owns its waiting and cancellation. This task ends only when the native worker really ends,
+    /// so a cancelled group cannot admit a replacement while a native call still holds its credential.
+    /// </summary>
+    public async Task<InventorySnapshot> ReadSharedAsync(string host, WorkstationReading reading, IProgress<PosteProgress>? progress,
+        CancellationToken cancellationToken, RemoteProbeCredential? credential = null)
+    {
+        if (!CimQuery.IsHostName(host)) { throw new ArgumentException("Invalid workstation host.", nameof(host)); }
+        using var phase = OperationPhases.Measure(OperationPhase.Collection);
+        var worker = await WmiReadWorkers.StartAsync(host, credential,
+            owned => Read(host, reading, progress, cancellationToken, _ => { }, owned), cancellationToken).ConfigureAwait(false);
+        return (await worker.ConfigureAwait(false)) with { ReadPhysicallyCompleted = true };
+    }
+
+    /// <summary>
+    /// The account at the console of one workstation (REL-021, « Lire la session de ce poste »): one instance of
+    /// <c>Win32_ComputerSystem</c>, read once, in 4 s, with no fallback and no scheduled task. Null when the name cannot
+    /// even be used; otherwise the status says whether the workstation answered, refused or stayed silent. The name the
+    /// workstation calls itself is returned with the account: the caller refuses the reading when it differs from the
+    /// name of the directory.
+    /// </summary>
+    public async Task<ConsoleAccountReading?> ReadConsoleAccountAsync(string host, CancellationToken cancellationToken, RemoteProbeCredential? credential = null, bool dcomOnly = false)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        if (!CimQuery.IsHostName(host))
+        {
+            return null;
+        }
+
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var workToken = stop.Token;
+        var work = await WmiReadWorkers.StartAsync(host, credential, owned =>
+        {
+            using var session = Session(host, CimBudgets.ConsoleSession, workToken, owned, dcomOnly ? InventoryTransport.Dcom : null);
+            var reading = session.Read(InventoryCategories.System, Cimv2, "SELECT Name, UserName, DNSHostName, Domain FROM Win32_ComputerSystem", 2, CimBudgets.ConsoleSession);
+            var instance = reading.Items == 1 ? reading.Instances[0] : null;
+            var complete = reading.Status == SourceStatus.Ok && instance is not null
+                && HasConsoleValue(instance) && !string.IsNullOrWhiteSpace(instance.Text("Name"));
+            var status = complete ? instance!.Text("UserName") is null ? SourceStatus.Empty : SourceStatus.Ok
+                : reading.Answered ? SourceStatus.Partial : reading.Status;
+            return new ConsoleAccountReading(host, status, complete ? instance!.Text("UserName") : null, instance?.Text("Name"))
+            {
+                HostIdentity = reading.HostIdentity, AuthenticationRejected = reading.AuthenticationRejected, ObservedAt = clock.GetUtcNow(), RetryFailure = reading.RetryFailure,
+                Detail = complete ? "Console lue ; SID du jeton et sessions RDP non recensés." : "Console non déterminée : " + reading.Detail,
+            };
+        }, workToken).ConfigureAwait(false);
+        var completed = await NativeReadCompletion.AwaitAsync(work, stop, CimBudgets.ConsoleSession, clock, cancellationToken,
+            () => new ConsoleAccountReading(host, SourceStatus.Interrupted, null, null)).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (completed.Stop != NativeReadStop.None)
+        {
+            journal?.Info("Session console non lue : délai dépassé ; travail natif terminé.");
+            return completed.Value with
+            {
+                Status = SourceStatus.Interrupted, ConsoleUser = null, ObservedAt = null, ReadPhysicallyCompleted = true,
+                RetryFailure = CollectionReadFailure.Unknown, Detail = "Délai de console dépassé ; aucun compte qualifié.",
+            };
+        }
+        return completed.Value with { ReadPhysicallyCompleted = true };
+    }
+
+    private static void DisposeAfter(Task work, CancellationTokenSource stop)
+    {
+        if (work.IsCompleted) { stop.Dispose(); }
+        else { _ = work.ContinueWith(t => { _ = t.Exception; stop.Dispose(); }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default); }
+    }
+
+    /// <summary>Budget announced to the operator for one scope (docs/ops/poste.md § 8.3).</summary>
+    public static TimeSpan Budget(WorkstationReading reading) => reading switch
+    {
+        WorkstationReading.Survey => TimeSpan.FromSeconds(15),
+        WorkstationReading.SurveyComplete => TimeSpan.FromSeconds(30),
+        WorkstationReading.Live => CimBudgets.Live,
+        WorkstationReading.Triage => TimeSpan.FromSeconds(10),
+        WorkstationReading.Quick => CimBudgets.QuickInventory,
+        WorkstationReading.Full => CimBudgets.FullInventory,
+        WorkstationReading.Services => CimBudgets.Services,
+        WorkstationReading.Processes => CimBudgets.Processes,
+        WorkstationReading.Events => CimBudgets.Events,
+        WorkstationReading.QuickDiagnostic => CimBudgets.QuickDiagnostic,
+        WorkstationReading.Diagnostic => TimeSpan.FromSeconds(PosteDiagnostics.BudgetSeconds),
+        _ => CimBudgets.QuickInventory,
+    };
+
+    /// <summary>Sources this scope reads, in reading order; the others are said « non lues », never left blank.</summary>
+    public static IReadOnlyList<string> Categories(WorkstationReading reading)
+    {
+        var categories = new List<string>();
+        foreach (var step in Steps(reading))
+        {
+            if (!categories.Contains(step.Category, StringComparer.Ordinal))
+            {
+                categories.Add(step.Category);
+            }
+        }
+
+        return categories;
+    }
+
+    /// <summary>Everything not read by this scope, said as such (the workstation was never reached).</summary>
+    private InventorySnapshot Unread(string host, WorkstationReading reading, string detail)
+    {
+        var access = Categories(reading)
+            .Select(category => new SourceAccess(category, SourceStatus.Error, detail, 0, 0, transport))
+            .ToImmutableArray();
+        return Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, transport) with { Access = access };
+    }
+
+    private static InventorySnapshot Interrupted(InventorySnapshot snapshot, WorkstationReading reading, string detail) => snapshot with
+    {
+        Access = [.. snapshot.Access, .. Categories(reading).Except(snapshot.Access.Select(a => a.Category), StringComparer.Ordinal)
+            .Select(category => new SourceAccess(category, SourceStatus.Interrupted, detail, 0, 0, snapshot.Transport))],
+    };
+
+    private InventorySnapshot Read(string host, WorkstationReading reading, IProgress<PosteProgress>? progress, CancellationToken cancellationToken, Action<InventorySnapshot> publish, RemoteProbeCredential? credential, Action<NativeReadProgress?>? observeProgress = null)
+    {
+        var started = clock.GetTimestamp();
+        // The group/native worker owns the clock, not one of its subscribers. Its total stays 15/30/55/150 s;
+        // standalone services/events/diagnostics keep their separately declared operation budgets.
+        using var advancing = reading is WorkstationReading.Survey or WorkstationReading.SurveyComplete or WorkstationReading.Quick or WorkstationReading.Full
+            ? new NativeReadProgress(clock, Budget(reading), inventory: true, cancellationToken) : null;
+        observeProgress?.Invoke(advancing);
+        var token = advancing?.Token ?? cancellationToken;
+        using var session = Session(host, Budget(reading), token, credential);
+        session.ForceCapabilities = reading == WorkstationReading.Full;
+        if (advancing is not null) { session.QueryCompleted = advancing.Completed; }
+        var access = new List<SourceAccess>();
+        var snapshot = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, session.Transport);
+        var plan = Steps(reading);
+        for (var index = 0; index < plan.Count; index++)
+        {
+            if (reading == WorkstationReading.Diagnostic && index > 0 && snapshot.HostIdentity?.State != NativeIdentityState.Confirmed)
+            { return snapshot.WithStatus(Categories(reading).Skip(1), SourceStatus.Unavailable, "Identité Windows non confirmée ; sources restantes non contactées."); }
+            if (token.IsCancellationRequested || session.OutOfBudget) { return Interrupted(snapshot, reading, NativeReadProgress.Stopped(advancing, "Lecture arrêtée ou budget atteint.")); }
+            progress?.Report(new PosteProgress(index, plan.Count, plan[index].Label));
+            try { snapshot = plan[index].Run(session, snapshot, access, token); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { return Interrupted(snapshot with { CimQueriesIssued = session.QueriesIssued }, reading, NativeReadProgress.Stopped(advancing, "Lecture arrêtée.")); }
+            snapshot = snapshot with { DurationMs = (int)clock.GetElapsedTime(started).TotalMilliseconds, Access = [.. access], CimQueriesIssued = session.QueriesIssued };
+            publish(snapshot);
+        }
+        if (token.IsCancellationRequested || session.OutOfBudget) { return Interrupted(snapshot, reading, NativeReadProgress.Stopped(advancing, "Lecture arrêtée ou budget atteint.")); }
+        progress?.Report(new PosteProgress(plan.Count, plan.Count, "Lecture terminée"));
+        return snapshot;
+    }
+
+    /// <summary>The sources of one scope, in reading order (Domenia 1 worker order, quick first and deep last).</summary>
+    private static List<Step> Steps(WorkstationReading reading) => reading switch
+    {
+        WorkstationReading.Diagnostic =>
+        [
+            new(InventoryCategories.System, "Système", static (session, current, access, _) => ReadDiagnosticSystem(session, current, access, true)),
+            new(InventoryCategories.Volumes, "Volume système", static (session, current, access, _) => ReadDiagnosticDisk(session, current, access, current.Os?.SystemDrive)),
+            new(InventoryCategories.Reboot, "Redémarrage en attente", static (session, current, access, token) => ReadReboot(session, current, access, token)),
+        ],
+        WorkstationReading.QuickDiagnostic =>
+        [
+            new(InventoryCategories.System, "Système et dernier démarrage", static (session, current, access, _) => ReadDiagnosticSystem(session, current, access)),
+            new(InventoryCategories.Volumes, "Volume C:", static (session, current, access, _) => ReadDiagnosticDisk(session, current, access)),
+            new(InventoryCategories.Services, "Services de gestion", static (session, current, access, _) => ReadDiagnosticServices(session, current, access)),
+        ],
+        WorkstationReading.Survey or WorkstationReading.SurveyComplete =>
+        [
+            new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
+            new(InventoryCategories.Volumes, "Disques logiques", static (session, current, access, token) => ReadVolumes(session, current, access, token)),
+            new(InventoryCategories.Network, "Cartes réseau", static (session, current, access, token) => ReadNetwork(session, current, access, token)),
+            .. reading == WorkstationReading.SurveyComplete ? new[]
+            {
+                new Step(InventoryCategories.Bios, "BIOS", static (session, current, access, token) => ReadBios(session, current, access, token)),
+                new Step(InventoryCategories.Tpm, "TPM", static (session, current, access, token) => ReadTpm(session, current, access, token)),
+                new Step(InventoryCategories.Hotfixes, "Correctifs", static (session, current, access, token) => ReadHotfixes(session, current, access, token)),
+                new Step(InventoryCategories.Services, "Services automatiques arrêtés", static (session, current, access, token) => ReadServices(session, current, access, token, automaticStopped: true)),
+            } : [],
+        ],
+        WorkstationReading.Triage =>
+        [
+            new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
+            new(InventoryCategories.Processor, "Processeur", static (session, current, access, token) => ReadProcessors(session, current, access, token)),
+            new(InventoryCategories.Volumes, "Disques logiques", static (session, current, access, token) => ReadVolumes(session, current, access, token)),
+            new(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token)),
+        ],
+        WorkstationReading.Live =>
+        [
+            new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
+            new(InventoryCategories.Sessions, "Sessions", static (session, current, access, token) => ReadSessions(session, current, access, token)),
+        ],
+        WorkstationReading.Services => [new(InventoryCategories.System, "Identité du poste", static (session, current, access, token) => ReadIdentity(session, current, access)), new(InventoryCategories.Services, "Services", static (session, current, access, token) => ReadServices(session, current, access, token, dependencies: true))],
+        WorkstationReading.Processes => [new(InventoryCategories.System, "Identité du poste", static (session, current, access, token) => ReadIdentity(session, current, access)), new(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token))],
+        WorkstationReading.Events => [new(InventoryCategories.System, "Identité du poste", static (session, current, access, token) => ReadIdentity(session, current, access)), new(InventoryCategories.Events, "Événements système", static (session, current, access, token) => ReadEvents(session, current, access, token))],
+        WorkstationReading.Updates =>
+        [
+            new(InventoryCategories.Hotfixes, "Correctifs", static (session, current, access, token) => ReadHotfixes(session, current, access, token)),
+            new(InventoryCategories.Updates, "Mises à jour", static (session, current, access, token) => ReadUpdateSource(session, current, access, token)),
+        ],
+        _ =>
+        [
+            new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token, detailed: true)),
+            new(InventoryCategories.Bios, "BIOS et démarrage", static (session, current, access, token) => ReadBios(session, current, access, token)),
+            new(InventoryCategories.Processor, "Processeur", static (session, current, access, token) => ReadProcessors(session, current, access, token)),
+            new(InventoryCategories.Memory, "Mémoire", static (session, current, access, token) => ReadMemory(session, current, access, token)),
+            new(InventoryCategories.Volumes, "Disques logiques", static (session, current, access, token) => ReadVolumes(session, current, access, token)),
+            new(InventoryCategories.PhysicalDisks, "Disques physiques", static (session, current, access, token) => ReadPhysicalDisks(session, current, access, token)),
+            new(InventoryCategories.BitLocker, "BitLocker", static (session, current, access, token) => ReadBitLocker(session, current, access, token)),
+            new(InventoryCategories.Tpm, "TPM", static (session, current, access, token) => ReadTpm(session, current, access, token)),
+            new(InventoryCategories.Network, "Cartes réseau", static (session, current, access, token) => ReadNetwork(session, current, access, token)),
+            new(InventoryCategories.Firewall, "Pare-feu", static (session, current, access, token) => ReadFirewall(session, current, access, token)),
+            new(InventoryCategories.Antivirus, "Antivirus", static (session, current, access, token) => ReadAntivirus(session, current, access, token)),
+            new(InventoryCategories.Hotfixes, "Correctifs", static (session, current, access, token) => ReadHotfixes(session, current, access, token)),
+            new(InventoryCategories.Updates, "Mises à jour", static (session, current, access, token) => ReadUpdateSource(session, current, access, token)),
+            new(InventoryCategories.Startup, "Démarrage automatique", static (session, current, access, token) => ReadStartup(session, current, access, token)),
+            new(InventoryCategories.Services, "Services", static (session, current, access, token) => ReadServices(session, current, access, token)),
+            new(InventoryCategories.Devices, "Périphériques en erreur", static (session, current, access, token) => ReadDevices(session, current, access, token)),
+            new(InventoryCategories.Displays, "Écrans", static (session, current, access, token) => ReadDisplays(session, current, access, token)),
+            new(InventoryCategories.Batteries, "Batteries", static (session, current, access, token) => ReadBatteries(session, current, access, token)),
+            new(InventoryCategories.Drivers, "Pilotes non signés", static (session, current, access, token) => ReadDrivers(session, current, access, token)),
+            new(InventoryCategories.Shares, "Partages", static (session, current, access, token) => ReadShares(session, current, access, token)),
+            new(InventoryCategories.Printers, "Imprimantes", static (session, current, access, token) => ReadPrinters(session, current, access, token)),
+            new(InventoryCategories.Sessions, "Sessions", static (session, current, access, token) => ReadSessions(session, current, access, token)),
+            new(InventoryCategories.Reboot, "Redémarrage en attente", static (session, current, access, token) => ReadReboot(session, current, access, token)),
+            new(InventoryCategories.Admins, "Administrateurs locaux", static (session, current, access, token) => ReadLocalAdmins(session, current, access, token)),
+            new(InventoryCategories.Site, "Site AD", static (session, current, access, token) => ReadSite(session, current, access, token)),
+            new(InventoryCategories.Software, "Logiciels installés", static (session, current, access, token) => ReadSoftwareInventory(session, current, access, token)),
+            .. reading == WorkstationReading.Full
+                ? new[]
+                {
+                    new Step(InventoryCategories.Processes, "Processus", static (session, current, access, token) => ReadProcesses(session, current, access, token)),
+                    new Step(InventoryCategories.Events, "Événements système", static (session, current, access, token) => ReadEvents(session, current, access, token)),
+                    new Step(InventoryCategories.Tasks, "Tâches planifiées", static (session, current, access, token) => ReadTasks(session, current, access, token)),
+                    new Step(InventoryCategories.Certificates, "Certificats machine", static (session, current, access, token) => ReadCertificates(session, current, access, token)),
+                    new Step(InventoryCategories.Connections, "Connexions réseau", static (session, current, access, token) => ReadConnections(session, current, access, token)),
+                }
+                : [],
+        ],
+    };
+
+    /// <summary>
+    /// One line of the access report for one category, whatever the number of queries it took: the category answered when
+    /// at least one of its queries answered, and the worst outcome of its queries is the one the operator is told.
+    /// </summary>
+    private static void AddAccess(List<SourceAccess> access, CimSession session, string category, params CimReading[] readings)
+    {
+        ArgumentNullException.ThrowIfNull(readings);
+        if (readings.Length == 0)
+        {
+            access.Add(new SourceAccess(category, SourceStatus.Skipped, "source non demandée", 0, 0, session.Transport));
+            return;
+        }
+
+        var duration = readings.Sum(r => r.DurationMs);
+        var items = readings.Sum(r => r.Items);
+        var answered = readings.Count(r => r.Answered);
+        var status = answered switch
+        {
+            0 => Worst(readings),
+            var count when count < readings.Length => SourceStatus.Partial,
+            var count when count == readings.Length && readings.Any(r => r.Status == SourceStatus.Partial) => SourceStatus.Partial,
+            _ => items == 0 ? SourceStatus.Empty : SourceStatus.Ok,
+        };
+        var detail = answered == 0
+            ? readings[0].Detail
+            : answered + " requête(s) sur " + readings.Length + ", " + FrenchText.Integer(items) + " instance(s)";
+        access.Add(new SourceAccess(category, status, detail, duration, items, session.Transport)
+        {
+            AuthenticationRejected = readings.Any(r => r.AuthenticationRejected),
+            RetryFailure = CollectionReadRetry.Combine(readings.Select(r => r.AuthenticationRejected ? CollectionReadFailure.CredentialRejected
+                : r.Status == SourceStatus.Refused ? CollectionReadFailure.AccessDenied : r.RetryFailure)),
+        });
+    }
+
+    private static SourceStatus Worst(CimReading[] readings)
+    {
+        foreach (var status in new[] { SourceStatus.Refused, SourceStatus.Unreachable, SourceStatus.Interrupted, SourceStatus.Error })
+        {
+            if (readings.Any(r => r.Status == status))
+            {
+                return status;
+            }
+        }
+
+        return readings[0].Status;
+    }
+
+    // ------------------------------------------------------------------ collectors
+
+    private static InventorySnapshot ReadIdentity(CimSession session, InventorySnapshot current, List<SourceAccess> access)
+    {
+        var read = session.Read(InventoryCategories.System, Cimv2, "SELECT Name, NumberOfLogicalProcessors, DNSHostName, Domain FROM Win32_ComputerSystem", 1, TimeSpan.FromSeconds(3), allowProjectionReuse: false);
+        AddAccess(access, session, InventoryCategories.System, read);
+        var item = read.Instances.FirstOrDefault();
+        return current with { ReportedName = item?.Text("Name"), HostIdentity = read.HostIdentity, System = item is null ? null : new("", "", null, [], null, null, item.Int("NumberOfLogicalProcessors"), null, null) };
+    }
+
+    private static InventorySnapshot ReadSystem(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool detailed = false)
+    {
+        var operating = session.Read(InventoryCategories.System, Cimv2, OperatingSystemQuery, 2, CimBudgets.Query);
+        var computer = session.Read(InventoryCategories.System, Cimv2, ComputerSystemQuery, 2, CimBudgets.Query);
+        var consoleAt = session.Clock.GetUtcNow();
+        var enclosure = session.Read(InventoryCategories.System, Cimv2, EnclosureQuery, 4, CimBudgets.Query);
+        var revision = detailed ? Registry(session, InventoryRegistry.WindowsVersion, "UBR", RegistryMethod.Dword) : null;
+        var release = detailed ? Registry(session, InventoryRegistry.WindowsVersion, "DisplayVersion", RegistryMethod.String) : null;
+        AddAccess(access, session, InventoryCategories.System, [operating, computer, .. detailed ? new[] { RegistryAccess(InventoryCategories.System, revision!), RegistryAccess(InventoryCategories.System, release!) } : []]);
+        if (revision?.Number is > int.MaxValue || release is { Found: true } && (release.Text is null || release.Text.Length > 64 || release.Text.Any(char.IsControl)))
+        { Incomplete(access, InventoryCategories.System, "Version déclarée ou révision Windows illisible."); }
+        AddAccess(access, session, InventoryCategories.Board, computer, enclosure);
+        if (!operating.Answered && !computer.Answered)
+        {
+            return current with { Os = null, System = null, Console = null, Memory = null };
+        }
+
+        var os = operating.Status == SourceStatus.Ok && operating.Items == 1 ? operating.Instances[0] : null;
+        var cs = computer.Status == SourceStatus.Ok && computer.Items == 1 ? computer.Instances[0] : null;
+        if (operating.Answered && os is null || computer.Answered && cs is null)
+        { Incomplete(access, InventoryCategories.System, "Instance système absente, multiple ou partielle ; aucune instance choisie arbitrairement."); }
+        var console = cs is not null && HasConsoleValue(cs) ? new InventoryConsole(cs.Text("UserName"), consoleAt) : null;
+        var chassis = enclosure.Answered ? enclosure.Instances.SelectMany(i => i.Ints("ChassisTypes")).ToArray() : [];
+        var serial = enclosure.Instances.FirstOrDefault()?.Text("SerialNumber");
+        token.ThrowIfCancellationRequested();
+        return current with
+        {
+            ReportedName = cs?.Text("Name"), HostIdentity = computer.HostIdentity,
+            Console = console,
+            Os = os is null && cs is null
+                ? null
+                : new OsInfo(
+                    os?.Text("Caption") ?? "",
+                    os?.Text("Version") ?? "",
+                    os?.Text("BuildNumber") ?? "",
+                    revision?.Number is long rev and <= int.MaxValue ? (int)rev : null,
+                    os?.Text("OSArchitecture") ?? cs?.Text("SystemType") ?? "",
+                    os?.Int("OSLanguage"),
+                    os?.Dmtf("InstallDate"),
+                    os?.Dmtf("LastBootUpTime"),
+                    cs?.Int("DomainRole"),
+                    cs?.Text("Domain"),
+                    os?.Dmtf("LocalDateTime")) { SystemDrive = os?.Text("SystemDrive"), DisplayVersion = release?.Text is { Length: <= 64 } declared && !declared.Any(char.IsControl) ? declared : null },
+            System = cs is null && chassis.Length == 0
+                ? null
+                : new SystemInfo(
+                    cs?.Text("Manufacturer") ?? "",
+                    cs?.Text("Model") ?? "",
+                    serial,
+                    [.. chassis],
+                    cs?.Int("PCSystemType"),
+                    cs?.Number("TotalPhysicalMemory"),
+                    cs?.Int("NumberOfLogicalProcessors"),
+                    null,
+                    console?.Account),
+            Memory = os is null ? null : new MemoryUsage(os.Number("TotalVisibleMemorySize"), os.Number("FreePhysicalMemory")),
+        };
+    }
+
+    private static InventorySnapshot ReadBios(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var reading = session.Read(InventoryCategories.Bios, Cimv2, "SELECT Manufacturer, BIOSVersion, SMBIOSBIOSVersion, ReleaseDate FROM Win32_BIOS", 1, CimBudgets.Query);
+        var secureBoot = Registry(session, InventoryRegistry.SecureBoot, "UEFISecureBootEnabled", RegistryMethod.Dword);
+        AddAccess(access, session, InventoryCategories.Bios, reading, RegistryAccess(InventoryCategories.Bios, secureBoot));
+        if (secureBoot.Found && secureBoot.Flag is null) { Incomplete(access, InventoryCategories.Bios, "Drapeau Secure Boot illisible."); }
+
+        var bios = reading.Instances.FirstOrDefault();
+        token.ThrowIfCancellationRequested();
+        return current with
+        {
+            Bios = bios is null ? null : new BiosInfo(
+                bios is null ? "" : string.Join(" / ", bios.Strings("BIOSVersion")),
+                bios?.Dmtf("ReleaseDate"),
+                bios?.Text("SMBIOSBIOSVersion"),
+                null,
+                bios?.Text("Manufacturer")),
+            // The registry value does not establish the firmware type when Secure Boot is off.
+            SecureBoot = new(secureBoot.Flag, secureBoot.Flag == true ? "UEFI" : null, null, null),
+        };
+    }
+
+    private static InventorySnapshot ReadProcessors(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var reading = session.Read(InventoryCategories.Processor, Cimv2, "SELECT Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed, LoadPercentage, Architecture, VirtualizationFirmwareEnabled FROM Win32_Processor", 16, CimBudgets.Query);
+        AddAccess(access, session, InventoryCategories.Processor, reading);
+        if (!reading.Answered)
+        {
+            return current with { Processors = [] };
+        }
+
+        token.ThrowIfCancellationRequested();
+        return current with
+        {
+            Processors = [.. reading.Instances.Select(i => new CpuInfo(
+                i.Text("Name") ?? "",
+                i.Int("NumberOfCores"),
+                i.Int("NumberOfLogicalProcessors"),
+                i.Int("MaxClockSpeed"),
+                i.Int("LoadPercentage"),
+                i.Int("Architecture")?.ToString(CultureInfo.InvariantCulture),
+                i.Bool("VirtualizationFirmwareEnabled"),
+                null))],
+        };
+    }
+
+    private static InventorySnapshot ReadMemory(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var modules = session.Read(InventoryCategories.Memory, Cimv2, "SELECT DeviceLocator, Capacity, Speed, Manufacturer, PartNumber FROM Win32_PhysicalMemory", 64, CimBudgets.Query);
+        var arrays = session.Read(InventoryCategories.Memory, Cimv2, "SELECT Use, MemoryDevices, MaxCapacityEx FROM Win32_PhysicalMemoryArray", 8, CimBudgets.Query);
+        AddAccess(access, session, InventoryCategories.Memory, modules, arrays);
+        if (!modules.Answered && !arrays.Answered)
+        {
+            return current with { MemoryModules = [], MemoryArray = null };
+        }
+
+        // Only system memory arrays count (Use 3): a video, flash or NVRAM array declares no RAM slot (Domenia 1 point 81).
+        var system = arrays.Answered ? arrays.Instances.Where(a => a.Int("Use") == 3).ToList() : [];
+        var slots = system.Count > 0 && system.All(a => a.Int("MemoryDevices") > 0) ? system.Sum(a => a.Int("MemoryDevices") ?? 0) : (int?)null;
+        var maximum = system.Count > 0 && system.All(a => a.Number("MaxCapacityEx") > 0) ? system.Sum(a => a.Number("MaxCapacityEx") ?? 0) * 1024L : (long?)null;
+        token.ThrowIfCancellationRequested();
+        return current with
+        {
+            MemoryModules = [.. modules.Answered
+                ? modules.Instances.Select(m => new MemoryModule(m.Text("DeviceLocator") ?? "", m.Number("Capacity"), m.Int("Speed"), m.Text("Manufacturer"), m.Text("PartNumber")))
+                : []],
+            MemoryArray = system.Count == 0 ? null : new MemoryArrayInfo(slots, maximum),
+        };
+    }
+
+    private static InventorySnapshot ReadVolumes(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var reading = session.Read(InventoryCategories.Volumes, Cimv2, "SELECT DeviceID, VolumeName, FileSystem, Size, FreeSpace FROM Win32_LogicalDisk WHERE DriveType=3", 32, CimBudgets.Query);
+        AddAccess(access, session, InventoryCategories.Volumes, reading);
+        if (!reading.Answered)
+        {
+            return current with { Volumes = [] };
+        }
+
+        token.ThrowIfCancellationRequested();
+        // A size of 0 or unreadable is « no reading », never a full disk.
+        return current with
+        {
+            Volumes = [.. reading.Instances
+                .Where(d => d.Number("Size") > 0)
+                .Select(d => new LogicalDisk(d.Text("DeviceID") ?? "", d.Text("VolumeName"), d.Text("FileSystem"), d.Number("Size"), d.Number("FreeSpace")))],
+        };
+    }
+
+    private static InventorySnapshot ReadPhysicalDisks(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var physical = session.Read(InventoryCategories.PhysicalDisks, StorageNamespace, "SELECT DeviceId, FriendlyName, MediaType, HealthStatus, Size FROM MSFT_PhysicalDisk", 32, CimBudgets.Query);
+        var counters = session.Read(InventoryCategories.PhysicalDisks, StorageNamespace, "SELECT DeviceId, Temperature, PowerOnHours, Wear, ReadErrorsUncorrected, WriteErrorsUncorrected FROM MSFT_StorageReliabilityCounter", 32, CimBudgets.Query);
+        var smart = session.Read(InventoryCategories.PhysicalDisks, Cimv2, "SELECT DeviceID, Model, Size, InterfaceType, Status FROM Win32_DiskDrive", 32, CimBudgets.Query);
+        AddAccess(access, session, InventoryCategories.PhysicalDisks, physical, counters, smart);
+        if (!physical.Answered && !smart.Answered)
+        {
+            return current with { PhysicalDisks = [] };
+        }
+
+        token.ThrowIfCancellationRequested();
+        if (physical.Answered)
+        {
+            var byId = counters.Answered
+                ? counters.Instances.GroupBy(c => c.Text("DeviceId") ?? "").ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, WmiInstance>(StringComparer.OrdinalIgnoreCase);
+            return current with
+            {
+                PhysicalDisks = [.. physical.Instances.Select(d =>
+                {
+                    var id = d.Text("DeviceId") ?? "";
+                    byId.TryGetValue(id, out var counter);
+                    return new PhysicalDisk(
+                        id,
+                        d.Text("FriendlyName") ?? "",
+                        d.Int("MediaType"),
+                        null,
+                        d.Number("Size"),
+                        d.Int("HealthStatus"),
+                        counter?.Number("Wear") is long wear ? wear : null,
+                        counter?.Number("Temperature") is long temperature ? temperature : null,
+                        counter?.Number("PowerOnHours"),
+                        counter?.Number("ReadErrorsUncorrected") is long readErrors && counter?.Number("WriteErrorsUncorrected") is long writeErrors && readErrors <= long.MaxValue - writeErrors ? readErrors + writeErrors : null,
+                        null);
+                })],
+            };
+        }
+
+        // Without the Storage provider, the SMART status of Win32_DiskDrive is all the workstation gives.
+        return current with
+        {
+            PhysicalDisks = [.. smart.Instances.Select(d => new PhysicalDisk(
+                d.Text("DeviceID") ?? "",
+                d.Text("Model") ?? "",
+                null,
+                null,
+                d.Number("Size"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                d.Text("Status")))],
+        };
+    }
+
+    private static InventorySnapshot ReadBitLocker(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        // Properties only: the encrypted percentage and the protector count would need a method call, which this reader never makes.
+        var reading = session.Read(InventoryCategories.BitLocker, BitLockerNamespace, "SELECT DriveLetter, ProtectionStatus, ConversionStatus, EncryptionMethod FROM Win32_EncryptableVolume", 32, CimBudgets.Query);
+        AddAccess(access, session, InventoryCategories.BitLocker, reading);
+        if (!reading.Answered)
+        {
+            return current with { BitLocker = [] };
+        }
+
+        token.ThrowIfCancellationRequested();
+        return current with
+        {
+            BitLocker = [.. reading.Instances.Select(v => new BitLockerVolume(
+                v.Text("DriveLetter") ?? "",
+                v.Int("ProtectionStatus"),
+                v.Int("ConversionStatus"),
+                v.Int("EncryptionMethod"),
+                null,
+                null))],
+        };
+    }
+
+    private static InventorySnapshot ReadTpm(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var reading = session.Read(InventoryCategories.Tpm, TpmNamespace, "SELECT IsEnabled_InitialValue, IsActivated_InitialValue, IsOwned_InitialValue, SpecVersion FROM Win32_Tpm", 1, CimBudgets.Query);
+        AddAccess(access, session, InventoryCategories.Tpm, reading);
+        if (!reading.Answered)
+        {
+            return current with { Tpm = null };
+        }
+
+        token.ThrowIfCancellationRequested();
+        var tpm = reading.Instances.FirstOrDefault();
+        return current with
+        {
+            Tpm = tpm is null ? null : new TpmInfo(tpm.Text("SpecVersion"), tpm.Bool("IsEnabled_InitialValue"), tpm.Bool("IsActivated_InitialValue"), tpm.Bool("IsOwned_InitialValue")),
+        };
+    }
+
+    private static InventorySnapshot ReadNetwork(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var adapters = session.Read(InventoryCategories.Network, Cimv2, "SELECT Name, NetConnectionStatus, Speed, MACAddress FROM Win32_NetworkAdapter WHERE PhysicalAdapter=True", 32, CimBudgets.Query);
+        var configurations = session.Read(InventoryCategories.Network, Cimv2, "SELECT Description, MACAddress, IPAddress, IPSubnet, DefaultIPGateway, DNSServerSearchOrder, DHCPEnabled FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled=True", 32, CimBudgets.Query);
+        AddAccess(access, session, InventoryCategories.Network, adapters, configurations);
+        if (!adapters.Answered && !configurations.Answered)
+        {
+            return current with { Network = [] };
+        }
+
+        var byMac = new Dictionary<string, WmiInstance>(StringComparer.OrdinalIgnoreCase);
+        if (configurations.Answered)
+        {
+            foreach (var configuration in configurations.Instances)
+            {
+                if (configuration.Text("MACAddress") is { Length: > 0 } mac)
+                {
+                    byMac[mac] = configuration;
+                }
+            }
+        }
+
+        var rows = new List<NetworkAdapter>();
+        if (adapters.Answered)
+        {
+            foreach (var adapter in adapters.Instances)
+            {
+                var mac = adapter.Text("MACAddress");
+                var configuration = mac is null ? null : byMac.GetValueOrDefault(mac);
+                var addresses = configuration?.Strings("IPAddress") ?? [];
+                var masks = configuration?.Strings("IPSubnet") ?? [];
+                var first = Array.FindIndex(addresses, a => IPAddress.TryParse(a, out var parsed) && parsed.AddressFamily == AddressFamily.InterNetwork);
+                var prefix = first >= 0 && first < masks.Length ? Ipv4Prefix(masks[first]) : null;
+
+                rows.Add(new NetworkAdapter(
+                    adapter.Text("Name") ?? "",
+                    adapter.Int("NetConnectionStatus"),
+                    adapter.Number("Speed"),
+                    mac,
+                    true,
+                    false,
+                    [.. addresses.Where(a => IPAddress.TryParse(a, out var parsed) && parsed.AddressFamily == AddressFamily.InterNetwork)],
+                    prefix,
+                    configuration?.Strings("DefaultIPGateway").FirstOrDefault(),
+                    [.. configuration?.Strings("DNSServerSearchOrder") ?? Array.Empty<string>()],
+                    configuration?.Bool("DHCPEnabled"),
+                    null));
+            }
+        }
+
+        token.ThrowIfCancellationRequested();
+        return current with { Network = [.. rows] };
+    }
+
+    internal static int? Ipv4Prefix(string mask)
+    {
+        if (int.TryParse(mask, NumberStyles.None, CultureInfo.InvariantCulture, out var prefix)) { return prefix is >= 0 and <= 32 ? prefix : null; }
+        if (!IPAddress.TryParse(mask, out var address) || address.AddressFamily != AddressFamily.InterNetwork) { return null; }
+        var zeros = false;
+        var ones = 0;
+        foreach (var octet in address.GetAddressBytes())
+        {
+            for (var bit = 7; bit >= 0; bit--)
+            {
+                if ((octet & (1 << bit)) == 0) { zeros = true; }
+                else if (zeros) { return null; }
+                else { ones++; }
+            }
+        }
+        return ones;
+    }
+
+    private static InventorySnapshot ReadAntivirus(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var products = session.Read(InventoryCategories.Antivirus, SecurityCenter, "SELECT displayName, productState FROM AntiVirusProduct", 8, CimBudgets.Query);
+        const string defenderNs = @"root\Microsoft\Windows\Defender";
+        var status = session.Read(InventoryCategories.Antivirus, defenderNs,
+            "SELECT AntivirusEnabled, RealTimeProtectionEnabled, BehaviorMonitorEnabled, AntivirusSignatureAge, QuickScanAge, FullScanAge, AMProductVersion FROM MSFT_MpComputerStatus", 1, CimBudgets.Query);
+        var mode = status.Instances.Count > 0 ? session.Read(InventoryCategories.Antivirus, defenderNs, "SELECT AMRunningMode FROM MSFT_MpComputerStatus", 1, TimeSpan.FromSeconds(3)) : null;
+        AddAccess(access, session, InventoryCategories.Antivirus, [products, status, .. mode is null ? Array.Empty<CimReading>() : [mode]]);
+        token.ThrowIfCancellationRequested();
+        var instance = status.Instances.FirstOrDefault();
+        int? Age(string field) => instance?.Number(field) is long days and >= 0 and <= 65535 ? (int)days : null;
+        var runningMode = mode?.Instances.FirstOrDefault()?.Text("AMRunningMode");
+        var defender = instance is null ? null : new DefenderStatus(instance.Bool("AntivirusEnabled"), instance.Bool("RealTimeProtectionEnabled"), instance.Bool("BehaviorMonitorEnabled"),
+            Age("AntivirusSignatureAge"), Age("QuickScanAge"), Age("FullScanAge"), instance.Text("AMProductVersion"),
+            runningMode?.ToUpperInvariant() switch { "NORMAL" => false, "PASSIVE MODE" or "SXS PASSIVE MODE" => true, _ => null }, null) { RunningMode = runningMode };
+        if (defender is not null && (defender.AntivirusEnabled is null || defender.RealTime is null || defender.SignatureAgeDays is null))
+        { Incomplete(access, InventoryCategories.Antivirus, "État de protection ou âge des signatures non établi."); }
+        return current with { Antivirus = [.. products.Instances.Where(a => a.Text("displayName") is not null).Select(a => new AntivirusProduct(a.Text("displayName")!, a.Int("productState"), null))], Defender = defender };
+    }
+
+    private static InventorySnapshot ReadHotfixes(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var reading = session.Read(InventoryCategories.Hotfixes, Cimv2, "SELECT HotFixID, Description, InstalledOn FROM Win32_QuickFixEngineering", 500, CimBudgets.Query);
+        AddAccess(access, session, InventoryCategories.Hotfixes, reading);
+        if (!reading.Answered)
+        {
+            return current with { Hotfixes = [] };
+        }
+
+        token.ThrowIfCancellationRequested();
+        return current with
+        {
+            Hotfixes = [.. reading.Instances
+                .Where(h => h.Text("HotFixID") is not null)
+                .Select(h => new Hotfix(h.Text("HotFixID")!, h.Text("Description"), ParseInstalledOn(h.Text("InstalledOn"))))
+                .OrderByDescending(h => h.InstalledOn ?? DateTimeOffset.MinValue)
+                .ThenBy(h => h.Id, StringComparer.Ordinal)],
+        };
+    }
+
+    private static InventorySnapshot ReadUpdateSource(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token) =>
+        ReadUpdateRegistry(session, current, access, token);
+
+    private static InventorySnapshot ReadServices(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool automaticStopped = false, bool dependencies = false)
+    {
+        var begin = session.Clock.GetTimestamp();
+        var reading = session.Read(InventoryCategories.Services, Cimv2, "SELECT Name, DisplayName, State, StartMode, DelayedAutoStart, ProcessId, StartName, ExitCode, Description FROM Win32_Service" + (automaticStopped ? " WHERE StartMode='Auto' AND State<>'Running'" : ""), CimBudgets.ServicesCap, CimBudgets.Services);
+        AddAccess(access, session, InventoryCategories.Services, reading);
+        if (!reading.Answered) { return current with { Services = [] }; }
+        var incomplete = reading.Status == SourceStatus.Partial;
+        var rows = session.RegistryBatch(() =>
+        {
+            var rows = ImmutableArray.CreateBuilder<ServiceEntry>();
+            foreach (var service in reading.Instances)
+            {
+                if (service.Text("Name") is not { Length: > 0 } name) { incomplete = true; continue; }
+                RegistryReading? direct = null, groups = null;
+                if (dependencies && PosteServices.IsValidName(name))
+                {
+                    var key = @"SYSTEM\CurrentControlSet\Services\" + name;
+                    direct = Registry(session, key, "DependOnService", RegistryMethod.Strings);
+                    groups = Registry(session, key, "DependOnGroup", RegistryMethod.Strings);
+                }
+                var known = direct?.Status is SourceStatus.Ok or SourceStatus.Empty && groups?.Status is SourceStatus.Ok or SourceStatus.Empty;
+                var items = (direct?.Strings ?? []).Concat((groups?.Strings ?? []).Select(g => "+" + g)).ToArray();
+                var clean = items.Where(d => d.Length is > 0 and <= 256 && !d.Any(char.IsControl)).Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray();
+                known &= items.Length == clean.Length;
+                if (dependencies && !known) { incomplete = true; }
+                rows.Add(new(name, service.Text("DisplayName") ?? name, service.Text("State") ?? "", service.Text("StartMode") ?? "",
+                    service.Bool("DelayedAutoStart"), service.Int("ProcessId"), service.Text("StartName"), service.Int("ExitCode"), clean, service.Text("Description"))
+                    { DependenciesRead = known && reading.Status != SourceStatus.Partial });
+            }
+            return rows.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToImmutableArray();
+        });
+        if (incomplete) { Incomplete(access, InventoryCategories.Services, "Services ou dépendances partiellement lus ; aucun lien manquant n’est déclaré absent."); }
+        var index = access.FindLastIndex(a => a.Category == InventoryCategories.Services);
+        if (index >= 0) { access[index] = access[index] with { DurationMs = (int)session.Clock.GetElapsedTime(begin).TotalMilliseconds, AuthenticationRejected = session.AuthenticationRejected }; }
+        return current with { Services = rows };
+    }
+
+    private static InventorySnapshot ReadProcesses(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        var first = session.Read(InventoryCategories.Processes, Cimv2, ProcessQuery, CimBudgets.ProcessesCap, CimBudgets.Processes);
+        if (!first.Answered)
+        {
+            AddAccess(access, session, InventoryCategories.Processes, first);
+            return current with { Processes = [] };
+        }
+
+        var sampleStarted = session.Clock.GetTimestamp();
+
+        try
+        {
+            // Two reads of the same class over a bounded interval give the processor time used meanwhile.
+            Task.Delay(CimBudgets.ProcessInterval, token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            access.Add(new(InventoryCategories.Processes, SourceStatus.Interrupted, "Lecture arrêtée entre les deux échantillons ; aucune charge calculée.", 0, 0, session.Transport));
+            return current with { Processes = [], ProcessSample = null };
+        }
+
+        var second = session.Read(InventoryCategories.Processes, Cimv2, ProcessQuery, CimBudgets.ProcessesCap, CimBudgets.Processes);
+        AddAccess(access, session, InventoryCategories.Processes, first, second);
+        if (!second.Answered)
+        {
+            return current with { Processes = [] };
+        }
+
+        var before = first.Instances.GroupBy(p => p.Int("ProcessId") ?? -1).Where(g => g.Count() == 1).ToDictionary(g => g.Key, g => g.Single());
+        var rows = new List<ProcessEntry>();
+        foreach (var process in second.Instances)
+        {
+            var id = process.Int("ProcessId") ?? 0;
+            if (id == 0)
+            {
+                // The idle pseudo-process holds the unused processor time: it is never sampled as a consumer.
+                continue;
+            }
+
+            // A process started, ended, or whose identifier was reused between the two reads gets no processor share.
+            var share = before.TryGetValue(id, out var old)
+                && string.Equals(old.Text("Name"), process.Text("Name"), StringComparison.OrdinalIgnoreCase)
+                && old.Text("CreationDate") == process.Text("CreationDate")
+                ? TotalSeconds(process)
+                : null;
+            rows.Add(new ProcessEntry(id, process.Text("Name") ?? "", process.Number("WorkingSetSize"), share, null, process.Dmtf("CreationDate")));
+        }
+
+        var elapsedMs = (int)Math.Clamp(session.Clock.GetElapsedTime(sampleStarted).TotalMilliseconds, 0, int.MaxValue);
+        var prior = first.Instances.Select(p => new ProcessEntry(p.Int("ProcessId") ?? 0, p.Text("Name") ?? "", p.Number("WorkingSetSize"), TotalSeconds(p), null, p.Dmtf("CreationDate"))).ToArray();
+        var sample = PosteProcesses.Measure(current.Computer, prior, rows, elapsedMs, current.System?.LogicalProcessors ?? 0, session.Clock.GetUtcNow(), session.Clock.LocalTimeZone);
+        return current with { Processes = [.. rows.OrderByDescending(r => r.CpuSeconds ?? -1).ThenBy(r => r.Name, StringComparer.Ordinal)], ProcessSample = sample };
+    }
+
+    private static InventorySnapshot ReadEvents(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        // Same window as Domenia 1: three days of the System log, errors only, bounded count.
+        var stamp = session.Clock.GetUtcNow().UtcDateTime.AddDays(-3).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) + ".000000+000";
+        var reading = session.Read(
+            InventoryCategories.Events,
+            Cimv2,
+            "SELECT Logfile, SourceName, EventCode, EventType, TimeGenerated, Message FROM Win32_NTLogEvent WHERE Logfile='System' AND EventType=1 AND TimeGenerated>='" + stamp + "'",
+            CimBudgets.EventsCap,
+            CimBudgets.Events);
+        AddAccess(access, session, InventoryCategories.Events, reading);
+        if (!reading.Answered)
+        {
+            return current with { SystemEvents = [] };
+        }
+
+        token.ThrowIfCancellationRequested();
+        return current with
+        {
+            SystemEvents = [.. reading.Instances
+                .Where(e => e.Dmtf("TimeGenerated") is not null && e.Int("EventCode") is not null)
+                .Select(e => new EventEntry(
+                    e.Int("EventCode") ?? 0,
+                    e.Text("SourceName") ?? "",
+                    e.Text("Logfile") ?? "System",
+                    "Erreur",
+                    e.Dmtf("TimeGenerated")!.Value,
+                    null,
+                    null,
+                    Trim(e.Text("Message")) ?? ""))
+                .OrderByDescending(e => e.At)],
+        };
+    }
+
+    private static InventorySnapshot ReadSessions(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var started = session.Clock.GetTimestamp();
+        var reading = WmiLogonSessionsReader.Read(session);
+        access.Add(new(InventoryCategories.Sessions, reading.Status, reading.Detail ?? "Sessions CIM", (int)session.Clock.GetElapsedTime(started).TotalMilliseconds,
+            reading.Sessions.Length, session.Transport) { AuthenticationRejected = reading.AuthenticationRejected });
+        return current with { Sessions = reading.Sessions };
+    }
+
+    private static double? TotalSeconds(WmiInstance process)
+    {
+        var kernel = process.Number("KernelModeTime");
+        var user = process.Number("UserModeTime");
+        return kernel is long k && k >= 0 && user is long u && u >= 0 ? (k / 10_000_000d) + (u / 10_000_000d) : null;
+    }
+
+    /// <summary>InstalledOn of Win32_QuickFixEngineering: a plain date in practice, a DMTF date on some builds.</summary>
+    internal static DateTimeOffset? ParseInstalledOn(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        if (CimQuery.ParseDmtf(text) is DateTimeOffset dmtf)
+        {
+            return dmtf;
+        }
+
+        return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal | DateTimeStyles.AdjustToUniversal, out var parsed)
+            ? new DateTimeOffset(parsed, TimeSpan.Zero)
+            : null;
+    }
+
+    private static string? Trim(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        var text = message.Trim();
+        return text.Length <= 220 ? text : text[..220] + "…";
+    }
+
+    private static InventorySnapshot Empty(string host, DateTimeOffset now, bool deep, InventoryTransport transport) => new(
+        Computer: host,
+        CollectedAt: now,
+        Deep: deep,
+        DurationMs: 0,
+        Transport: transport,
+        Access: [],
+        Os: null,
+        System: null,
+        Bios: null,
+        Processors: [],
+        MemoryModules: [],
+        MemoryArray: null,
+        Memory: null,
+        Volumes: [],
+        PhysicalDisks: [],
+        BitLocker: [],
+        Tpm: null,
+        SecureBoot: null,
+        Network: [],
+        Firewall: [],
+        Antivirus: [],
+        Defender: null,
+        Hotfixes: [],
+        Updates: null,
+        Software: [],
+        Startup: [],
+        Services: [],
+        Devices: [],
+        Displays: [],
+        Batteries: [],
+        UnsignedDrivers: [],
+        Sessions: [],
+        LocalAdmins: [],
+        Shares: [],
+        Printers: [],
+        PendingReboot: null,
+        ClockSkewSeconds: null,
+        ClockAgainstController: false,
+        Site: null,
+        Proxy: null,
+        Processes: [],
+        SystemEvents: [],
+        Tasks: [],
+        Certificates: [],
+        Connections: []);
+
+    /// <summary>One source of a reading: its label for the progress bar and its collector.</summary>
+    private sealed record Step(string Category, string Label, Collect Run);
+
+    private delegate InventorySnapshot Collect(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token);
+}
+
+/// <summary>
+/// Account read at the console of one workstation (REL-021). The name the workstation calls itself comes back with it: the
+/// caller must check it against the name of the directory and refuse the reading when they differ.
+/// </summary>
+public sealed record ConsoleAccountReading(string Host, SourceStatus Status, string? ConsoleUser, string? ReportedName)
+{
+    public NativeWorkstationIdentity? HostIdentity { get; init; }
+    public bool AuthenticationRejected { get; init; }
+    public CollectionReadFailure RetryFailure { get; init; }
+    public bool ReadPhysicallyCompleted { get; init; }
+    public DateTimeOffset? ObservedAt { get; init; }
+    public string Detail { get; init; } = "Lecture de console interrompue ou indisponible.";
+    /// <summary>True when the workstation answered with a console account.</summary>
+    public bool Answered => (Status is SourceStatus.Ok or SourceStatus.Partial) && !string.IsNullOrWhiteSpace(ConsoleUser);
+}

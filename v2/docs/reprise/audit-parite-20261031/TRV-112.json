@@ -1,0 +1,23 @@
+{
+  "id": "TRV-112",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Poste/PosteModels.cs:5-14 — enum PresenceState { Online, Offline, Pending, Error, Unknown, Remembered } commenté « Presence as the page shows it (Domenia 1 Get-DomeniaComputerPresenceBadge) » : la clé est un membre d'enum indépendant du libellé",
+    "src/Domenia.Core/Screens/Poste/PosteModels.cs:49 + src/Domenia.Core/Screens/Poste/PosteHeaderRules.cs:15-52 — PresenceBadge(State, Tone, Label, Help, …) construit par Badge() : la pastille porte à la fois la clé (State), la couleur (Tone) et un libellé calculé séparément (libellé ≠ clé, conforme au garde-fou « un libellé peut changer sans changer le sens »)",
+    "src/Domenia.Core/Screens/Poste/PosteHeaderRules.cs:47,39-41 — sens préservé : « Aucune réponse ICMP … Ce n'est pas une preuve qu'il est éteint » (NoReply jamais lu comme éteint) ; un état « (mémoire) » (Remembered) ne reçoit jamais d'heure",
+    "src/Domenia.Core/Screens/Search/SearchModels.cs:71-78 — SearchPresenceState { Online, NoReply, Error, Unknown } (clés de liste) ; src/Domenia.Core/Screens/Search/SearchRows.cs:142-156 — chaque clé liée à une Tone (couleur) et PresenceLabel(state) rend le libellé séparément",
+    "src/Domenia.Core/Fleet/FleetModels.cs:66-111 — PresenceOutcomes : clés stables des réponses définitives (DefinitiveKeys dnsAbsent/dnsNoAddress/invalidName), Label(clé,n) singulier/pluriel et DefinitiveText « 1 nom absent du DNS · … » (compteurs par clé)",
+    "src/Domenia.Core/Screens/Search/SearchService.cs:894 et src/Domenia.Core/Screens/Accueil/AccueilService.Operations.cs — compteurs qui lisent les clés (Online, HasReading, Definitive, Error) ; src/Domenia.Core/Screens/Accueil/CollectionClocks.cs:408 — StatesText ordonne par les clés de PresenceOutcomes.DefinitiveKeys",
+    "web/js/pages/poste.js:233 — PRESENCE_ICON indexé par les clés online/offline/pending/error/unknown/remembered (icônes/pastilles côté console) ; web/js/shell/help-catalog.js:506 — filtre « Afficher les postes sans réponse » (BtnParkOutcomeNoReply) agissant par clé",
+    "src/Domenia.Bridge/Operations/Requetes/RequetesViews.cs:114-120 — conversion libellé stocké → clé pour l'aperçu requêtes : presenceBucket « En ligne »→« online », « Sans réponse »→« offline », défaut « unchecked » ; src/Domenia.Core/Screens/Requetes/QueryCatalog.cs:277,308 — codes de présence « En ligne »/« Sans réponse »/« Non vérifié »",
+    "tests/Domenia.Tests/WorkstationPresenceTests.cs — Badge().State asserted (Unknown pour tentative DNS échouée, Remembered « la mémoire n'invente pas de verdict »), PresenceOutcomes.IsDefinitive/IsTransient/Settled, DefinitiveText pluriel « 2 noms absents du DNS », « erreur distincte de sans réponse », « aucun faux silence ICMP »"
+  ],
+  "manque": "Deux écarts précis vérifiés : (1) la « conversion des anciens libellés stockés » n'est que partielle — seule RequetesViews.cs:114-120 convertit des libellés français en clés, et uniquement trois valeurs (« En ligne »/« Sans réponse »/défaut → online/offline/« unchecked ») ; aucun ConvertTo-DomeniaPresenceStateKey général ne couvre pending/error/none/remembered. Ailleurs la présence est stockée de façon structurée (PresenceMeasure{MeasureState,Answered,Diagnostic}, PresenceReading{Answered,…}), donc pas de libellé à reconvertir — à confirmer si un import D1/base autonome dépose des libellés exigeant une normalisation complète. (2) Le jeu littéral de six clés {Online, NoReply, Error, Pending, Unknown, None} n'existe dans aucun modèle unique : le badge Live emploie {Online, Offline, Pending, Error, Unknown, Remembered} (no-reply nommé « Offline », « non testé » fondu dans Unknown, « Remembered » ajouté), SearchPresenceState n'a que {Online, NoReply, Error, Unknown} (ni Pending ni None). Les sens restent couverts (garde-fou satisfait), mais la nomenclature des clés diverge du jeu décrit et « None » n'est pas une clé distincte.",
+  "effort": "M",
+  "depend": [
+    "TRV-110 (MeasureState partagé par PresenceMeasure)",
+    "lecture ping (PresenceOutcomes / WorkstationPresenceReader)",
+    "filtres + compteurs Accueil/Rechercher/Requêtes qui consomment les clés"
+  ],
+  "risque": "lecture"
+}

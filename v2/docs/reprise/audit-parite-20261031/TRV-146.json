@@ -1,0 +1,20 @@
+{
+  "id": "TRV-146",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Ad/Ldap/AdConnection.cs:85-97 — ForRead/ForServer : connexion indépendante « retaining this session's exact identity », credential sélectionné réutilisé (pas d'identité du bureau)",
+    "repo/v2/src/Domenia.Ad/AdSessionIdentity.cs:13-14 — « A successful bind authenticates; this exact lookup identifies its domain object, never the desktop user » : l'identité de session est résolue par le bind réel",
+    "repo/v2/src/Domenia.Ad/Ldap/AdConnection.cs:195-231 — chercheur paginé : pageSize effectif, timeout par requête, arrêt sur SizeLimit, materialisation par page",
+    "repo/v2/src/Domenia.Ad/Ldap/AdConnection.cs:273 — EffectivePageSize : défaut 500, plafond 1000 (et non MaxPageSize 300 de Domenia 1)",
+    "repo/v2/src/Domenia.Ad/AdDirectoryReader.cs:17-25 — PageSize = 1000 et PageTimeout = 60 s pour la photo d'annuaire (Domenia 1 : 300, 20 s serveur, 25 s client)",
+    "repo/v2/src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:138 — SearchTimeoutSeconds configurable (défaut 120, plage 10..900) : les délais ne sont pas la paire fixe 20 s/25 s",
+    "repo/v2/src/Domenia.Core/Screens/Search/SearchText.cs:49-51 — LdapLiteral : échappement RFC 4515 unique pour les recherches de l'interface, réutilisé par tous les lecteurs (AdSearchReader.cs:3, AdSessionIdentity.cs:53, AdAuditReader.Overview.cs, etc.)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/Ldap/LdapFilter.cs:119-135 — échappement des valeurs d'assertion (« * ( ) \\ » et NUL en \\xx)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryLdap.cs:32-42 — règles de filtre générées depuis le modèle de recherche (Equal/Contains/StartsWith → filtres LDAP)",
+    "repo/v2/src/Domenia.Core/Directory/DistinguishedName.cs:13-46 — construction des DN avec échappement RFC 4514 (Rdn/Child) ; le « / » n'y est pas spécial car aucun chemin ADSI « LDAP://… » n'est construit depuis le code de lecture"
+  ],
+  "manque": "Les constantes du chercheur de Domenia 1 ne sont pas reproduites : pas de MaxPageSize 300 (défaut 500, plafond 1000, AdConnection.cs:273 et AdDirectoryReader.cs:17), pas de paire 20 s serveur / 25 s client (défaut 30 s par requête ligne 195, 60 s par page AdDirectoryReader.cs:25, 120 s configurable ConfigurationReport.cs:138). L'échappement « / » dans un RDN (Get-LdapPath) n'existe nulle part : V2 n'utilise pas DirectoryEntry/ADsPath (aucun appel trouvé), mais aucune règle ni test ne verrouille l'absence de chemins « LDAP:// » construits avec des valeurs utilisateur (les seules chaînes LDAP:// vues sont la lecture de gPLink et le simulateur, SimulatedFicheWorld.cs:530).",
+  "effort": "M",
+  "depend": ["connexion/login (identité liée)", "recherche (modèle Recherche)"],
+  "risque": "reseau"
+}

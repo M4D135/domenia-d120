@@ -1,0 +1,29 @@
+{
+  "id": "TRV-232",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Writes/ConfirmationTokens.cs:80-92 — Consume(planId) ne renvoie true qu'au premier appelant ; le jeton est marqué Used sous un verrou",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:156-160 — second clic d'un double clic ou seconde page : « The second click of a double click, or a second page: the plan already left » → write.tokenUsed",
+    "src/Domenia.Core/Writes/ConfirmationTokens.cs:111 — le jeton est lié à SHA-256(token | empreinte du plan) ; src/Domenia.Core/Writes/WriteCircuit.cs:134-148 — l'empreinte est recalculée depuis le plan tel qu'il est : un plan modifié après scellement ne correspond plus (write.tokenInvalid / write.planChanged)",
+    "src/Domenia.Core/Writes/ConfirmationTokens.cs:100-104 — un jeton consommé reste conservé bien après son expiration pour qu'une seconde tentative soit dite « déjà utilisée » et non « inconnue »",
+    "src/Domenia.Store/Receipts/FileReceiptStore.cs:171-178 — la première version du reçu et la dernière admission partagent la même section critique machine : tout reçu pending, tout enregistrement illisible ou tout identifiant déjà utilisé refuse l'envoi (« aucun nouvel envoi autorisé »)",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:162,168-172 — writeGate (sémaphore 1) : les écritures partent une par une, InFlight publié puis effacé en finally",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:97 et :279 — EnsureWritesFreeAsync à la préparation du plan puis juste avant l'envoi : rien ne part pendant qu'un reçu est incertain",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:296-307 — le reçu durable est écrit avant le départ ; s'il ne peut pas être écrit (IOException, UnauthorizedAccessException) rien n'est envoyé (receipt.unavailable)",
+    "web/js/write-flow.js:297-305 — la page verrouille le panneau avant l'appel : this.locked = true, classe wf-locked, setBusy(true), pied de page vidé",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:197-220 — write.receipts.verify ne fait que lire (ReadBackAsync) et n'appelle jamais EnsureWritesFreeAsync ni ExecuteAsync : les lectures de vérification restent possibles",
+    "src/Domenia.App/ReceiptStorePolicy.cs:17-19 — sans dossier de données, UnavailableReceipts : « écritures réelles refusées, aucun repli en mémoire »",
+    "tests/Domenia.Tests/WriteCircuitTests.cs:300-311 — « A plan runs only once and is never replayed » : second appel → write.tokenUsed, une seule écriture dans l'overlay, trois appendus seulement",
+    "tests/Domenia.Tests/WriteCircuitTests.cs:528-543 — refus et double clic ne s'exécutent jamais deux fois ; :667-668 — usage unique du jeton (« premier usage » puis « usage unique »)"
+  ],
+  "manque": "1) L'empreinte du plan n'est pas la clé d'idempotence : src/Domenia.Core/Writes/WritePlans.cs:78 fait entrer plan.Id dans le JSON canonique, donc deux préparations identiques du même changement ont des empreintes différentes ; aucune comparaison d'empreinte n'existe pour refuser une seconde demande identique (la déduplication ne porte que sur l'identifiant de plan, src/Domenia.Core/Writes/ConfirmationTokens.cs:80-92, et sur l'identifiant de reçu, src/Domenia.Store/Receipts/FileReceiptStore.cs:176). 2) Aucun registre : aucune structure « réservée / envoyée / incertaine » amorcée au démarrage et tenant compte des jobs actifs ; l'ensemble des reçus incertains est recalculé à chaque appel (src/Domenia.Core/Writes/WriteCircuit.cs:418-439) et un plan préparé mais jamais exécuté y est invisible (les plans ne vivent que dans le dictionnaire mémoire src/Domenia.Core/Writes/WriteCircuit.cs:39-40) — « aucune demande identique ne part tant qu'une autre est réservée » n'est donc pas couvert. 3) Aucune notion d'origine de la demande : WritePlanOrigin (src/Domenia.Core/Writes/IDirectoryWriteLeaseSource.cs:10-13) ne porte que (Epoch, SessionKey) ; rien n'enregistre ni ne refuse Démarrage, Reprise, Nouvel essai, Minuterie ou Reconnexion. Ce garde-fou n'est satisfait que indirectement, faute de toute automatisation (aucun timer d'envoi dans src/Domenia.Core/Writes — la seule ITimer, src/Domenia.Core/Writes/Accounts/AccountPasswordReset.cs:323, expire les secrets du mot de passe). 4) Pas de -CheckOnly côté écriture : le seul -CheckOnly du dépôt est la bascule de vérification du paquet (src/Domenia.App/Program.cs:152) ; aucune opération ne permet de griser un bouton sans réserver. 5) « registre absent = refus » n'est pas formulé : src/Domenia.App/ReceiptStorePolicy.cs:17-19 refuse quand le dossier local manque, mais rien ne refuse une écriture en l'absence de registre (il n'y en a pas). 6) « lectures toujours relançables » n'est ni énoncé ni testé comme règle de cette fonction : aucun test n'affirme qu'une lecture peut être relancée pendant qu'un reçu est incertain.",
+  "effort": "L",
+  "depend": [
+    "TRV-230 (verrous par cible : c'est lui qui doit porter l'état réservé/incertain par cible)",
+    "TRV-231 (amorçage du registre au démarrage à partir des reçus)",
+    "TRV-233 (l'état « Réservée » manque au modèle pour qu'un registre ait un point de départ)",
+    "TRV-236 (verrous par cible et classe d'action : même point de décision)",
+    "sujet « Jobs et tâches » (tenir compte des jobs actifs, src/Domenia.Bridge/OperationTracking.cs)"
+  ],
+  "risque": "ecriture-AD"
+}

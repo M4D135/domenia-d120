@@ -1,0 +1,6 @@
+﻿{
+    "Step":  "Captures",
+    "Succeeded":  false,
+    "Error":  "New-DomeniaBoardData : The term \u0027ConvertTo-DomeniaHealthPolicy\u0027 is not recognized as the name of a cmdlet, function, \r\nscript file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is \r\ncorrect and try again.\r\nAt C:\\DomeniaLab\\d120-rc1178-fix10\\dev\\wad\\modules\\Domenia-BoardFleet.Model.ps1:90 char:13\r\n+     $data = New-DomeniaBoardData -Board Fleet\r\n+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : ObjectNotFound: (ConvertTo-DomeniaHealthPolicy:String) [New-DomeniaBoardData], CommandNo \r\n   tFoundException\r\n    + FullyQualifiedErrorId : CommandNotFoundException,New-DomeniaBoardData\r\n \r\n",
+    "Stack":  "at New-DomeniaBoardData, C:\\DomeniaLab\\d120-rc1178-fix10\\dev\\wad\\modules\\Domenia-Boards.Model.ps1: line 512\r\nat Get-DomeniaFleetBoardData, C:\\DomeniaLab\\d120-rc1178-fix10\\dev\\wad\\modules\\Domenia-BoardFleet.Model.ps1: line 90\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc1178-fix10\\guides\\captures\\capture-guides.ps1: line 478\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc1178-fix10\\_finish-native-batch-d120-rc1178-fix10-33567-21482.ps1: line 9\r\nat \u003cScriptBlock\u003e, \u003cNo file\u003e: line 1"
+}

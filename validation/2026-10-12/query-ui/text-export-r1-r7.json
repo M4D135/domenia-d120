@@ -1,0 +1,213 @@
+{
+  "UTC": "2026-10-12T22:29:40.204537+00:00",
+  "operation": "Versioned text copies normalized to LF and no trailing spaces; UTF-8 without BOM for Unicode reports. One legacy console output retains its original character encoding, noted per file. Original reports preserved locally; JSON values and PNG files unchanged.",
+  "originals_local": "/var/folders/xc/v6v5dly119l9sy64nyj2460m0000gn/T/domenia-original-proof-text-7gk1muyo",
+  "files": [
+    {
+      "path": "validation/2026-10-12/query-ui/r1/NativeParser.json",
+      "original_sha256": "8f1c8339dc3b63d02641ef2f3e6c938f9dc67a9443480a0c3d0081c32d3140c8",
+      "versioned_sha256": "dcba3b3f9bbcc47396970d368da0ea23c7b141ffd561a69a5402a5600d678ce4",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/NativeParser.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "versioned_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/NativeParser.stdout.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "versioned_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaBoards.json",
+      "original_sha256": "6c882bf9991e93b18d19bb61fb3edd3b96494f208c8a54680bc1875ca50ad151",
+      "versioned_sha256": "3af8f5a3fc422932e4186eb9d71103a10b53bdd8baf31d84e41df428e7f6d12d",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaBoards.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "versioned_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaLiveSearchView.json",
+      "original_sha256": "ab57a094b29b27932beb53e0659f87158bf9042b9a07cffdafa5cb1ad2bf29cd",
+      "versioned_sha256": "8b95145b382e783726be5fe6bc28f4d298f1059ca5cdfee735d25aaf0e147e6c",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaLiveSearchView.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "versioned_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaLiveSearchView.stdout.txt",
+      "original_sha256": "4fa34c8809b9db13d0a9eec6c4602fb4575ddf1c334a6fafeba1a8a96bf22766",
+      "versioned_sha256": "4fa34c8809b9db13d0a9eec6c4602fb4575ddf1c334a6fafeba1a8a96bf22766",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaUxRefinements.json",
+      "original_sha256": "c5d1c679dfbab371f719aa961164590aae13105969b8f68e6eafd2a31f0acf3c",
+      "versioned_sha256": "11b33dac113e284ea0a5e600debb3eb3223a5ada32876a61f3113d7accc8d33f",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaUxRefinements.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "versioned_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaUxRefinements.stdout.txt",
+      "original_sha256": "83ba573048df98d3457e5546fd56aa697f2e24d2a5a2fc0d829b08e7f5a78de2",
+      "versioned_sha256": "11b33dac113e284ea0a5e600debb3eb3223a5ada32876a61f3113d7accc8d33f",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/_quick-ui.json",
+      "original_sha256": "977b18f740e6edce436ba89d2a0f9a14e1cae797238cc9ee3d64c864aacad776",
+      "versioned_sha256": "345f5e4df732c8f5dd791037b090eb67c7e49d1d81e332e455fed028ef042c01",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/exit.txt",
+      "original_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "versioned_sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/runtime-source.json",
+      "original_sha256": "a49f04d56caa600067049b1f53ff98277f920bc54780042ce456744673163bf4",
+      "versioned_sha256": "ed21d4edf24ff0858b6b19d14c84f012e976702e342af5ad644afaf9bfd49a17",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/Test-DomeniaWiringRecherche.exit.txt",
+      "original_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "versioned_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/Test-DomeniaWiringRecherche.json",
+      "original_sha256": "2fdb1d69dd1176d69acb728accf82a4da5602a8cf7599b56a8dfc2fd11e9c570",
+      "versioned_sha256": "65242cc9774685052ea83fa055dc9b8dc4ffca871d6227a513403fb0b2467657",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/Test-DomeniaWiringRecherche.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "versioned_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/Test-DomeniaWiringRecherche.stdout.txt",
+      "original_sha256": "0adc12be054fa9f10d8eea072889064d1f04076549d222797d885dd5a7cb810b",
+      "versioned_sha256": "0adc12be054fa9f10d8eea072889064d1f04076549d222797d885dd5a7cb810b",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/atelier-viewport-1280x720.json",
+      "original_sha256": "275fe44c41edb02e59b552663bc3d639b59abec44d69189ee4e62c20b866dc76",
+      "versioned_sha256": "8bbe55d7aeb4943ef8f303d53176e74f7c8fef36e893f3cdd2104780ebba210f",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/atelier-viewport-1920x1080.json",
+      "original_sha256": "46e5848edf71a485bb6107706f338c536c74199408dd4f51d1065d59280e3d89",
+      "versioned_sha256": "b49c19e546f95ae63cdb578d7916b838c3f366256422b6517df6fdd65a163386",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/base-grid-diagnostic.json",
+      "original_sha256": "c823048d9ced14b77b347a476007d586e080d7c1137f3ac458e5ce875cb7c518",
+      "versioned_sha256": "7848a215f61573ed2fc485bcacf7adf829e06d74b961d1f7fdd55221c104d44f",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/capture-checks.json",
+      "original_sha256": "2dffbd19edf738b0d8978ec8ba99f0b2f8a5d4c349560c1d47c4aa297b631cdf",
+      "versioned_sha256": "c08078028075d008dd6b879efb6218857ab04c303c0a942a7964893bb5231aba",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/capture-layouts.json",
+      "original_sha256": "d63fc59be880bb69e331eac12848a8da7f1795fb8a2c46b6642be3a377caa58c",
+      "versioned_sha256": "e8a1d94cc792f8a011313be15111c74d43d55bf96ac29076704955f2c6e308c8",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/capture-package.json",
+      "original_sha256": "6fb8a762105a74762947535c20e2ec26b85da5058e4715efece0dc66a1586dff",
+      "versioned_sha256": "6fb8a762105a74762947535c20e2ec26b85da5058e4715efece0dc66a1586dff",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/capture-provenance.json",
+      "original_sha256": "236b55bbc15a9f6812ae79f86dd8ebb4ba597f3b4e9ff61143fa6b00e634f970",
+      "versioned_sha256": "0c96f511a03be687d6178425f55cf67291960c78c95d2facbbcf218b00718ced",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/capture2-exit.txt",
+      "original_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "versioned_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/capture2.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "versioned_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed": false
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/capture2.stdout.txt",
+      "original_sha256": "b73dde4c8317e8c46fe7ab1da30a20f07b542ad7517ff61b8cebc5562fc5fb8a",
+      "versioned_sha256": "2676268a657ba5579d62897fb20db61ee97f838a9656160f5c68077113934d70",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/condition-diagnostic.json",
+      "original_sha256": "5229231c0e45172b5dacd61ee384fdbc2e9962ba402dac3060c9cb8aa3e75ea0",
+      "versioned_sha256": "f7db5afa04c7ad1f0fb2542f4a5a7248f38c052993b63a367088572a576cc712",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/viewport-1280x720.json",
+      "original_sha256": "2d65398c3617e1eb0c8739c3e7167ae7ba3a86c762525c2db971caeae440a1bf",
+      "versioned_sha256": "43f70526acab04282c747be5838fdffa22b927a61eb669180c4d80b9b1e68a0d",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/viewport-1920x1080.json",
+      "original_sha256": "7766f66faa59d4fb17c1163f7e81b3c3795d9b526eb50f0d2f0f8ac023845d9f",
+      "versioned_sha256": "54b6e6c2b6613154d249f03b244305164bf438f61cc50ebeb8ce229caaceb88a",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r7/viewport-checks.json",
+      "original_sha256": "2c0a8ec1c916131c9bfb1c9bcac0411b64922aae74713b2fd54c15ca5ad12fee",
+      "versioned_sha256": "3a071a978f53182303ebd217c925394782b2f4801b7d61442c92ed8e987a2a1a",
+      "changed": true
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/Test-DomeniaBoards.stdout.txt",
+      "original_sha256": "4ec802be1a8b83f8109d0d2693224c65e593952d368705079f89a5cd7aea8d2e",
+      "versioned_sha256": "9fdbd634e54f5178da571dd3798f864aa87d02e1e3aedac28f6d1ce9e8750df5",
+      "changed": true,
+      "encoding": "Legacy console encoding retained byte-for-byte except newlines/trailing spaces"
+    },
+    {
+      "path": "validation/2026-10-12/query-ui/r1/runner.log",
+      "original_sha256": "893727217541e5f190378bda59538a32d34f2bec34a55d44a333d0e83bf6826e",
+      "versioned_sha256": "1ce34bc0d381447bbad55110fcdb9116321a5e55102a512f90ee120915e8e77e",
+      "changed": true,
+      "encoding": "UTF-16 with BOM decoded to UTF-8"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "RCH-048",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Search/SearchService.cs:299 — ReconcileAsync relit la liste avec son propre filtre, périmètre, type et taille (ligne 308 take = max(Loaded, Limit) borné à MaxLimit ; lignes 310-332 selon le genre de liste ; lignes 330-331 query avec Reconcile = true et Checkpoint = state.ReadCheckpoint)",
+    "src/Domenia.Core/Screens/Search/SearchService.cs:338 — nouvelles lignes (absentes de Known) ; ligne 339 absentes du retour ; ligne 345 les sorties de périmètre sont relues par GUID (RereadAsync, 500 au plus) et gardent leur ligne ; ligne 349 les introuvables deviennent « à revérifier », jamais retirés (commentaire lignes 295-298)",
+    "src/Domenia.Core/Screens/Search/SearchService.cs:353 — résultat écarté si le contexte a changé pendant la lecture ; src/Domenia.Core/Screens/Search/SearchService.cs:404 — ReconcileOwnerAsync (record ReconcileOwner ligne 401) : epoch, login, domaine, contrôleur, méthode d'authentification, version de sélection de compte (mutation) et périmètre de travail",
+    "src/Domenia.Core/Screens/Search/SearchService.cs:370 — le point de reprise est tenu (conservé si KeepPrevious, sinon remplacé) ; ligne 376 : « Repère de liste : <contrôleur>, instance <invocationId>, USN observé … » ; ligne 392 : message récapitulatif ; ligne 395 : journal",
+    "src/Domenia.Ad/Screens/AdSearchReader.Checkpoint.cs:12 — le repère est réel en mode annuaire : rootDSE (dnsHostName, isSynchronized, highestCommittedUSN) puis invocationID de l'objet nTDSDSA ; ligne 55 : instance changée → aucun repère avancé ni absence déduite ; ligne 58 : continuité exige epoch, lecteur, requête, contrôleur, instance et USN cohérents",
+    "src/Domenia.Ad/Screens/AdSearchReader.cs:123 — après la lecture, seconde empreinte du contrôleur et contrôle d'identité (« Identité modifiée pendant la revérification ; résultat écarté », ligne 130)",
+    "web/js/pages/rechercher.js:467 — seules les lignes dont nom, login, UPN, état, OS, dernière connexion, description, modification ou DN ont changé (ou déplacées) sont repeintes ; ligne 472 updateRows, ligne 473 inject des nouvelles, lignes 474-475 marquage « hors du périmètre relu » et « à revérifier », ligne 479 message d'état récapitulatif avec le repère",
+    "web/js/pages/rechercher/results.js:1002 — inject : ajout en fin avec _new ; results.js:80 badge « nouveau » avec éclat (classe k-flash posée par web/js/kit/grid.js:1713) ; results.js:1014 updateRows remplace les cellules en place ; results.js:1031 markMissing ne supprime jamais la ligne",
+    "web/js/pages/rechercher.js:460 — le tic périodique s'efface devant un geste (actions.busy()) : une relecture demandée n'est pas annulée par la revérification en arrière-plan ; src/Domenia.Core/Screens/Search/SearchService.cs:977 — une seconde lecture de la même liste est refusée, jamais mise en file",
+    "tests/Domenia.Tests/AdSearchCheckpointTests.cs:14 — le repère qualifie l'instance réelle (invocationID physiquement relu, USN du rootDSE sans invention) ; ligne 33 : « liste complète, aucun filtre delta qui masquerait les sorties » ; ligne 39 : liste plafonnée ou interrompue n'avance pas le repère ; ligne 59 : changement d'instance pendant la lecture écarte le repère ; ligne 128 : absence marquée seulement après continuité certifiée, ligne conservée",
+    "tests/Domenia.Tests/SearchOperationsTests.cs:323 — Reconcile_adds_new_objects_and_never_removes_rows : contrat des propriétés, aucun repère AD inventé en simulation"
+  ],
+  "manque": "Le budget « au plus 8 événements par tic et 5 ms » n'existe nulle part : inject/updateRows/markMissing (web/js/pages/rechercher/results.js:1002, 1014, 1031) appellent grid.updateRow pour chaque ligne sans plafond par tic ni budget de temps (web/js/kit/grid.js:1699), et le battement partagé (web/js/shell/pulse.js) ne borne pas le nombre d'événements. Le point de reprise « ne relire que les changements » n'est pas réalisé et est écarté par conception : src/Domenia.Ad/Screens/AdSearchReader.cs:158 refuse tout curseur en revérification et tests/Domenia.Tests/AdSearchCheckpointTests.cs:33 interdit un filtre uSNChanged>= — la revérification relit donc la liste complète dans sa limite. Enfin, l'application elle-même n'est testée que sur le cas sans changement (tests/Domenia.Tests/SearchOperationsTests.cs:332 : added = 0, missing = 0) ; aucun test (C# ni tests/web) ne vérifie l'injection d'une ligne « nouveau », le repeindre d'une ligne changée, le suivi par GUID d'un objet sorti ou le marquage « à revérifier ».",
+  "effort": "M",
+  "depend": [
+    "RCH-047 (revérification de la liste)",
+    "Domenia.Ad (repère incrémental contrôleur/invocationId/USN)",
+    "kit grid (web/js/kit/grid.js : budget de mise à jour de lignes)"
+  ],
+  "risque": "reseau"
+}

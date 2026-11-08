@@ -1,0 +1,25 @@
+{
+  "id": "TRV-278",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:191-195 — ReadAsync rend les recettes (archives incluses, champ Archived), les liens de widgets et les consommateurs, plus le nombre d'enregistrements illisibles",
+    "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:210-238 — LoadAsync : le document est lu sur le support, empreinte SHA-256 calculée, et le résultat n'est réutilisé que si l'empreinte est identique (cache en mémoire par clé de domaine) ; un support qui refuse la lecture lève « Bibliothèque locale non enregistrée » (constante StoreFailedPrefix, ligne 121)",
+    "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:372-394 — à chaque relecture, toute définition est recompilée par QueryEngine.Compile et son empreinte comparée ; ce qui ne passe pas n'est jamais utilisé et reste conservé (ReadArray :364-368, comptage :340-343)",
+    "src/Domenia.Bridge/Operations/Requetes/QueryLibraryFiles.cs:57-74 — le support par mode : la base SQLite du domaine en mode annuaire (IQueryLocalSource.QueryLibraryStore, src/Domenia.Ad/Screens/AdQuerySource.cs:7), sinon un fichier par domaine, sinon mémoire (capture, E2E, sans dossier de données)",
+    "src/Domenia.Store/Sqlite/SqliteDirectoryCache.Queries.cs:19-24 — lecture et écriture de la bibliothèque passent par DomeniaDatabase (ReadQueryLibraryAsync / UpdateQueryLibraryAsync)",
+    "src/Domenia.Bridge/Operations/Requetes/QueryLibraryFiles.cs:105-159 — sous verrou machine « Global\\Domenia.Requetes.<empreinte> » (:175-179), relecture du document qui sert de base, écriture d'un fichier temporaire vidé sur disque puis File.Move, relecture octet à octet : le reçu ne dit « relue » que si le support a rendu le document (:147-153)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:60-68 — en mode annuaire, le document est relu dans la transaction puis après commit, la révision du stockage est revérifiée, et le reçu porte Source, StoreId, StoreRevision, DomainKey, DocumentSha256",
+    "publication du cache : src/Domenia.Bridge/Operations/Requetes/QueryLibraryFiles.cs:16-21 — une seule instance QueryLibrary par contexte moteur (context.Shared), lue par l'atelier (src/Domenia.Bridge/Operations/RequetesOperations.cs:39), l'Accueil et ses widgets (src/Domenia.Bridge/Operations/AccueilOperations.cs:37, AttachQueryLibrary), les tableaux de bord (src/Domenia.Bridge/Operations/BoardLayoutOperations.cs:21, PosteLayoutOperations.cs:27) et Recherche (src/Domenia.Bridge/Operations/SearchRecipeOperations.cs:14,44)",
+    "src/Domenia.Bridge/Operations/RequetesOperations.cs:601-603,631 — la liste est paginée côté opération : offset 0..1 000 000, limit 1..5 000 (défaut 100), Skip/Take sur la liste matérialisée, avec le nombre total, le nombre filtré, les catégories, le compteur d'illisibles et le drapeau Persistent",
+    "tests/Domenia.Tests/RequetesRound2Tests.cs:73 — The_receipt_says_read_back_only_when_the_medium_gave_the_document_back ; :82 — A_revision_written_by_another_instance_is_never_overwritten ; :97-112 — budget 16 Mio refusé, entrées illisibles conservées ; tests/Domenia.Tests/QueryLegacyStoreTests.cs:60-63 — après réouverture d'une nouvelle instance, reçus, historique et liens sont relus"
+  ],
+  "manque": "La lecture confirmée et la publication du cache sont faites, mais pas selon le protocole de la fiche : pas de lecture par pages de 250 sur une révision cohérente de la base (le document entier est lu puis paginé en mémoire, RequetesOperations.cs:601-603,631, page par défaut 100 et plafond 5 000) ; pas de reprise bornée à 3 redémarrages quand la base change entre deux pages, et pas de refus d'« identité répétée » ni de « pagination sans progrès » (aucune de ces trois règles dans src/Domenia.Core/Screens/Requetes/QueryLibrary.cs ni src/Domenia.Bridge/Operations/RequetesOperations.cs) ; pas de plafond de 20 000 définitions à la lecture (MaxRecipes = 5 000 à l'écriture, QueryLibrary.cs:116 ; MaxHistory = 20 000 ne porte que sur l'historique de révisions, :111) ; « source SQLite exigée » non contrôlée à la lecture : le magasin mémoire est accepté et Persistent=false est simplement renvoyé à la page (RequetesOperations.cs:631, QueryLibraryFiles.cs:60-72) ; aucune de ces absences n'est signalée à l'opérateur. Aucun test ne lit la bibliothèque en mode SQLite avec une base modifiée en cours de lecture.",
+  "effort": "M",
+  "depend": [
+    "TRV-277 (bibliothèque SQLite par domaine)",
+    "TRV-280 (validation des définitions côté écrivain)",
+    "atelier de requêtes (page requetes)",
+    "widgets de requête de l'Accueil"
+  ],
+  "risque": "lecture"
+}

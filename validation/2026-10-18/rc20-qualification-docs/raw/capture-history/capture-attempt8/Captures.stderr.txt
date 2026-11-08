@@ -1,0 +1,6 @@
+Capture fixture: Les r‚glages de collecte appartiennent … un extenseur
+At C:\DomeniaLab\d120-rc11720-qualification\capture-guides.ps1:13 char:157
++ ... Condition}); if(-not $Condition){throw ('Capture fixture: '+$Name)} }
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Capture fixture... … un extenseur:String) [], RuntimeException
+    + FullyQualifiedErrorId : Capture fixture: Les r‚glages de collecte appartiennent … un extenseur

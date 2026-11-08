@@ -1,0 +1,114 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Compte poste natif : secret isolé, masquage, annulation et effacement",
+  "description": "SE-16 : vérifie la fenêtre native réelle du seul processus piloté, jamais un mot de passe dans le DOM. Secret synthétique fixe, aucun essai réseau. Réouverture vide après annulation, chargement en mémoire puis oubli.",
+  "modes": [
+    "annuaire"
+  ],
+  "start": "machine?poste=PC-PAR-0001&essai=1",
+  "steps": [
+    {
+      "do": "expect",
+      "selector": ".mac-trial-result .mac-trial",
+      "absent": true,
+      "title": "essai=1 ignoré : aucun essai sans clic"
+    },
+    {
+      "do": "click",
+      "selector": "[data-machine-pill]",
+      "title": "Ouvrir le panneau"
+    },
+    {
+      "do": "expect",
+      "selector": ".mac-password",
+      "absent": true,
+      "title": "Aucune saisie de secret dans la page"
+    },
+    {
+      "do": "expect",
+      "contains": "fenêtre native",
+      "within": ".mac-fields"
+    },
+    {
+      "do": "type",
+      "selector": ".mac-account",
+      "text": "CNAMTS\\adm-essai",
+      "title": "Compte synthétique, sans authentification"
+    },
+    {
+      "do": "click",
+      "text": "Utiliser ce compte",
+      "within": ".k-drw"
+    },
+    {
+      "do": "credential",
+      "name": "cancel",
+      "timeoutMs": 15000,
+      "title": "Saisie native vide, masquage, révélation, validation bloquée, remasquage puis annulation"
+    },
+    {
+      "do": "wait",
+      "contains": "Saisie annulée",
+      "within": ".mac-msg"
+    },
+    {
+      "do": "expect",
+      "contains": "CNAMTS\\adm-essai",
+      "within": ".mac-now",
+      "absent": true,
+      "title": "Annulation : compte précédent conservé"
+    },
+    {
+      "do": "click",
+      "text": "Utiliser ce compte",
+      "within": ".k-drw"
+    },
+    {
+      "do": "credential",
+      "name": "use",
+      "timeoutMs": 15000,
+      "title": "Nouvelle saisie vide, mêmes gardes, puis chargement du secret synthétique en mémoire"
+    },
+    {
+      "do": "wait",
+      "contains": "CNAMTS\\adm-essai",
+      "within": ".mac-now",
+      "title": "Compte ponctuel chargé, sans essai réseau"
+    },
+    {
+      "do": "expect",
+      "selector": ".mac-password",
+      "absent": true
+    },
+    {
+      "do": "journal",
+      "contains": "Domenia-E2E-synthetique!",
+      "absent": true
+    },
+    {
+      "do": "journal",
+      "contains": "Essai d’accès",
+      "absent": true
+    },
+    {
+      "do": "click",
+      "selector": "[data-mac=\"forget\"]",
+      "title": "Revenir au compte de connexion"
+    },
+    {
+      "do": "wait",
+      "contains": "CNAMTS\\adm-essai",
+      "within": ".mac-now",
+      "absent": true
+    },
+    {
+      "do": "press",
+      "key": "Escape"
+    },
+    {
+      "do": "expect",
+      "selector": ".k-drw",
+      "absent": true
+    }
+  ]
+}

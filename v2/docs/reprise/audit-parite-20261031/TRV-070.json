@@ -1,0 +1,20 @@
+{
+  "id": "TRV-070",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/web/js/pages/parametres/journaux.js:50-60 — vue lisible : chaque entrée tient sur une ligne <li> avec heure (timeFmt HH:mm:ss, ligne 20), icône et libellé de niveau (LEVELS, ligne 19), texte sur une ligne et détails techniques repliés sous <details> ; la vue brute n'existe qu'en Expert (ligne 104 : segmenté Lisible/Brut réservé à toolbar(expert) ; lignes 118-119 et 253-256 : state.raw remis à false hors Expert)",
+    "repo/v2/web/js/pages/parametres/journaux.js:101-118 — les options D1 sont en place : Suivre, Erreurs seulement, Retour à la ligne, Taille 10-18 px (wrap et taille mémorisés via saveReadingPrefs, lignes 210-213)",
+    "repo/v2/src/Domenia.Core/Screens/Settings/TechnicalLogTail.cs:19,69-70 — nombre de lignes plafonné : MaxRecords = 5 000 depuis la fin du fichier (et 2 Mio, affiché « Fin du fichier seulement » journaux.js:70) ; suite de pile bornée à 40 lignes (MaxContinuation, ligne 22)",
+    "repo/v2/src/Domenia.App/TechnicalLog.cs:9-10,30-33 — enregistrement identique dans les deux profils : le fileur TechniqueLog → RotatingTechnicalJournal écrit domenia.log (dossier de secours explicité) sans jamais dépendre du profil ; la page Journaux est déclarée « Lecture seule : les filtres n'enlèvent rien de ce qui est enregistré » (journaux.js:21) ; avertissements et erreurs de la source (Warning/Error, TechnicalLog.cs:30-31) sont donc gardés",
+    "repo/v2/src/Domenia.Core/Platform/TechnicalJournalRecord.cs:12,18,21 — l'équivalent de Protect-DomeniaLogText est appliqué à l'écriture : SupportSecretMask.Protect (repo/v2/src/Domenia.Core/Screens/Assistance/SupportSnapshot.cs:173-180 : affectations password/secret/token, Bearer, clés de récupération BitLocker) avant échappement ; entrée trop grande remplacée sans fragment (« Message hors limites »)",
+    "repo/v2/tests/Domenia.Tests/TechnicalJournalTests.cs:10-23 — le texte non fiable ne peut ni forger une entrée ni révéler un secret reconnu ; lignes 27-60 — rotation, acquittement disque, secours annoncé",
+    "repo/v2/web/js/pages/operations/health.js:131 et repo/v2/web/js/pages/operations/common.js:13 — le bouton « État du moteur » du profil Expert survit sous l'onglet « Santé du moteur » d'Opérations (relocalisation actée par repo/v2/web/js/shell/help-catalog.js:600 pour LstUiLogReadable)"
+  ],
+  "manque": "Trois exigences précises de la fiche sont absentes : 1) la phrase bornée à 280 caractères : aucune limite de 280 nulle part (rg « 280 » ne trouve que des largeurs de colonnes et 1 280 px) — le fileur accepte jusqu'à 65 536 caractères (TechnicalJournalRecord.cs:12) et la vue lisible affiche le texte tel quel, qui peut donc déborder sur plusieurs lignes ; 2) le garde-fou « les doublons techniques (zone Technique) n'apparaissent pas dans la vue lisible » : aucun dédoublonnage dans journaux.js (seules les bannières notify dédoublonnent par clé, repo/v2/web/js/shell/notify.js:81-84, sans lien avec le journal) ; 3) les annonces au lecteur d'écran « réservées aux avertissements et erreurs » : la zone du journal est aria-live=\"off\" (journaux.js:123 — rien n'est annoncé, même les erreurs) tandis que notify annonce tous les tons y compris info (notify.js:88,103) — le garde-fou n'est respecté dans aucun des deux sens. Enfin, la vue lisible elle-même n'a aucun test automatisé (seuls le fileur et les fonctions pures maskNames/markOf/linesAfter sont testés).",
+  "effort": "M",
+  "depend": [
+    "TRV-071, TRV-072, TRV-073 (même page journaux.js — à traiter en un lot)",
+    "TRV-144 ou sujet « profils Essentiel/Expert » : le basculement de profil pilote déjà la vue Brut (journaux.js:251-261)"
+  ],
+  "risque": "lecture"
+}

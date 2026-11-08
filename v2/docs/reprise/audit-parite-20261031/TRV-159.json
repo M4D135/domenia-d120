@@ -1,0 +1,17 @@
+{
+  "id": "TRV-159",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accueil/PersonalProbeCatalog.cs:10,37-39 — « A personal key includes the canonical declaration hash » : clé « custom. » + SHA-256 de la déclaration canonique (WriteDefinition) ; la définition est donc identifiée par son empreinte",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryPersonalProbes.cs:17-20 — refus « La déclaration de sonde diffère de son empreinte immuable » si la déclaration ne correspond pas au hash de sa clé ; ligne 81-82 — la collecte exige chaque définition personnelle exacte, sans déclaration supplémentaire ; ligne 100 — « Projection différente de la sonde personnelle figée ; aucun contact. »",
+    "repo/v2/tests/Domenia.Tests/PersonalProbeTests.cs:148-149,212 — tests : valeurs conservées sous la clé réellement exécutée ; « aucune mesure ancienne attribuée à la nouvelle définition » ; « aucun index par alias mutable » — exactement « une mesure n'est réutilisée que si la définition est la même »",
+    "repo/v2/src/Domenia.Core/Screens/Poste/PostePersonalProbes.cs:127-138 — à la confirmation, définition/cartes/compte/session/réglages revérifiés sinon « poste.probeChanged : aucune nouvelle collecte » ; repo/v2/tests/Domenia.Tests/PostePersonalProbeTests.cs:47 — plan consommé une seule fois",
+    "repo/v2/src/Domenia.Store/Sqlite/DomeniaDatabase.AutomationData.cs:140-141 — à l'export, « Empreinte de définition locale différente ; aucune requête exportée » (definition_sha256 comparé au hash du definition_json) ; repo/v2/src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:1436 — réutilisation d'une alerte figée refusée si QueryEngine.Compile(recipe).Fingerprint != DefinitionSha256",
+    "repo/v2/src/Domenia.Inventory/WmiWorkstationReader.Probes.cs:39-64 — sondes du catalogue exécutées par définition (classe, propriétés, filtre) et valeurs conservées par definition.Id, sans empreinte de définition attachée à la mesure",
+    "repo/v2/src/Domenia.Core/Screens/Poste/PosteProbeCache.cs:60-68 — fusion des mesures de sondes au plus récent par At : aucune comparaison de définition à la réutilisation ; repo/v2/src/Domenia.Core/Screens/Sync/SyncPark.cs:127,146 — fusion du parc par date seule (« la plus récente gagne »)"
+  ],
+  "manque": "Le hachage de définition n'existe que pour les sondes personnelles et les requêtes (clés custom.<sha256>, definition_sha256). Pour les sondes du catalogue envoyées sur un poste (scope LiveConsole de la fiche) : la mesure est conservée puis fusionnée par identifiant et date seulement (PosteProbeCache.cs:60-68), sans empreinte de définition — deux définitions successives du même id (catalogue modifié) ou deux consoles aux catalogues divergents peuvent fusionner leurs mesures (SyncPark.cs:127,146) ; aucune des deux voies n'attache l'empreinte à la mesure envoyée. La colonne domenia_observations.definition_hash (repo/v2/src/Domenia.Store/Sqlite/schema-11.sql:55) n'est remplie par aucun INSERT de repo/v2/src (table lue seulement, venue de l'import D1).",
+  "effort": "S",
+  "depend": ["TRV-156 (mémoire des capacités : mêmes plans de sondes par poste)", "architecture V2 : clés immuables custom.<sha256> déjà en place (PersonalProbeCatalog)"],
+  "risque": "reseau"
+}

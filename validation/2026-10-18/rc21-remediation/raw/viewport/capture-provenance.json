@@ -1,0 +1,50 @@
+{
+    "UTC":  "2026-10-18T11:01:12.5783166Z",
+    "PowerShell":  "5.1.26100.6584",
+    "Session":  1,
+    "SourceManifestSHA256":  "AC6CE42638AE9628292631DC4AAF08A2C6F4AE777608C87FEB490D495D1E520E",
+    "SourceRuntimeManifestSHA256":  "DD2A545A938F9D664D758082F9AEF200EC21ECDF0CC91051322CDC4AA1A52EB0",
+    "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.21-D120",
+    "Rendering":  "Native WPF RenderTargetBitmap; off-screen host, no image upscaling",
+    "Fixture":  "example.local, synthetic directory and observations, no AD access",
+    "FreshnessFixture":  "AD 35 minutes old; ping 10 to 20 minutes old; WMI inventory 2 to 3 days old; local recalculation preserves measurement dates",
+    "ToolTipsEnabled":  false,
+    "Images":  [
+                   {
+                       "File":  "accueil.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "F909043CECA973B92810BC4D7291A43F3D40C265DDDA2EDBC421BD7A53B86B85"
+                   },
+                   {
+                       "File":  "actualisation-ou.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "4107E76E78DC341E5F8ABA709E7536118582888CD4424DD18D0627F88E7FD84D"
+                   },
+                   {
+                       "File":  "selecteur-ou.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "22FC65094EC5BF6041E52CCD7B8B4DF89F9B337553837C578889E88EE9AF93F1"
+                   },
+                   {
+                       "File":  "atelier-requetes.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "D359F9B080B46E265FCB16545F0C6276318CB79ED0AF15EF02625531B2187E5A"
+                   },
+                   {
+                       "File":  "atelier-viewport-1920x1080.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "8D2945D0C626B5981A672C9A74090616807791429DC6C66403F8B2A7C02BBE46"
+                   },
+                   {
+                       "File":  "atelier-viewport-1280x720.png",
+                       "Width":  1280,
+                       "Height":  720,
+                       "SHA256":  "C74F14B1ACF1869FCCBC981652F9314A8E10249E1DDA2DB6E20A9D45B5BB7823"
+                   }
+               ]
+}

@@ -1,0 +1,534 @@
+{
+  "Build": "2026.09.30-R1.10-COMPACT",
+  "Environment": "Linux / Python (no native PowerShell, WPF or domain test)",
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false,
+  "ChangedCoreFunctions": [
+    "Get-AdccDefaultSettings",
+    "Get-MainXaml",
+    "Update-AdccSearchScopeUi",
+    "Get-AdccStandardLoginXaml",
+    "Show-LoginWindow"
+  ],
+  "PreservedCoreFunctions": 568,
+  "NativeNewTestsProvided": {
+    "PureRules": 22,
+    "AdditionalMainWpf": 9,
+    "LoginWpf": 18
+  },
+  "Passed": 102,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "All core functions retained, no new duplicates",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Only five presentation/settings core functions changed",
+      "Passed": true,
+      "Detail": "['Get-AdccDefaultSettings', 'Get-MainXaml', 'Update-AdccSearchScopeUi', 'Get-AdccStandardLoginXaml', 'Show-LoginWindow']"
+    },
+    {
+      "Name": "Preserved engine Get-AdccWorkerOperationHashes",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Start-AdccFastLoginAttempt",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Update-AdccFastLoginAttempt",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Complete-AdccFastLoginSuccess",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine New-AdccFastLoginSession",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Start-AdccLoginAuthRunspace",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Get-AdccSearchScope",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Invoke-GlobalSearch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Invalidate-AdccSearchResults",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Test-AdccSearchStateCurrent",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Set-SelectedBranch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Reset-AdccSearchScope",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved engine Wire-Events",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "All 45 pinned worker bodies unchanged and resolvable",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged ADCC.exe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged ADCC.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged wad/PsExec.exe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged wad/modules/ADCC-Support.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged wad/modules/ADCC-Support.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged wad/modules/ADCC-Support.xaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged wad/ADCC.config.json",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parse) wad/ADCC-Core.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows Unicode BOM wad/ADCC-Core.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parse) wad/modules/ADCC-UX.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows Unicode BOM wad/modules/ADCC-UX.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parse) wad/maintenance/Preview-AdccUi.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows Unicode BOM wad/maintenance/Preview-AdccUi.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parse) wad/maintenance/Preview-AdccLogin.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows Unicode BOM wad/maintenance/Preview-AdccLogin.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parse) wad/tests/Test-ADCCCompactUi.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows Unicode BOM wad/tests/Test-ADCCCompactUi.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters (not native parse) INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows Unicode BOM INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No accidental control character APERCU-CONNEXION.cmd",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No accidental control character TESTER-ERGONOMIE.cmd",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Main XML with unique namescopes",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "All original main controls remain",
+      "Passed": true,
+      "Detail": "406"
+    },
+    {
+      "Name": "Unique static help names",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "New control is catalogued and accessible BtnUxSidebarToggle",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "New control is catalogued and accessible BtnUxHelpClose",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "New control is catalogued and accessible BtnUxCopyOuPath",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "New control is catalogued and accessible UxOuPathDetails",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Collapsible sidebar uses named column",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Navigation route and icon retained Home",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Navigation route and icon retained Search",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Navigation route and icon retained Object",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Navigation route and icon retained Relations",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Navigation route and icon retained Computer",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Navigation route and icon retained Support",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Navigation route and icon retained Accounts",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Navigation route and icon retained Tools",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Full DN no longer in a fixed-height field",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "DN under collapsed details expander",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Readable short OU label and ancestry",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Scope summary can trim without hiding full DN",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "OU column still resizable",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "OU and results remain in the same search page",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Main static resource names resolve",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No duplicate UX function",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preference survives loader allowlist UxNavCollapsed",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preference survives loader allowlist UxHelpVisible",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preference survives loader allowlist UxHelpCompactOpen",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Hidden help releases gutter",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Toggle applies to both compact and expanded modes",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Collapse is not a permission change",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Only display helper changes scope text",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login XML unique namescopes",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login simple and no maximize",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "All old login controls remain",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Diagnostics present but collapsed",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Error and progress not allocated when empty",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login actions laid out like reference",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Input named parts retained",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Boot-theme transform remains",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login static resource names resolve",
+      "Passed": true,
+      "Detail": "set()"
+    },
+    {
+      "Name": "Login help TxtLogin",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login help PwdLogin",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login help BtnLogin",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login help BtnWindowsLogin",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login help ChkRemember",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login help UxLoginDiagnostics",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login help BtnLoginLog",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Login help BtnCopyLoginDiag",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "New tests before code replacement",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Native test errors stop install",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "22 pure PowerShell display tests provided",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Offline presentation-only preview Preview-AdccUi.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Offline presentation-only preview Preview-AdccLogin.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Calculated login contrast Dark Text/Input",
+      "Passed": true,
+      "Detail": "13.98"
+    },
+    {
+      "Name": "Calculated login contrast Dark Muted/Surface",
+      "Passed": true,
+      "Detail": "11.95"
+    },
+    {
+      "Name": "Calculated login contrast Dark ButtonText/Button",
+      "Passed": true,
+      "Detail": "13.98"
+    },
+    {
+      "Name": "Calculated login contrast Dark OnAccent/Accent",
+      "Passed": true,
+      "Detail": "6.7"
+    },
+    {
+      "Name": "Calculated login contrast Dark AccentText/Surface",
+      "Passed": true,
+      "Detail": "9.84"
+    },
+    {
+      "Name": "Calculated login contrast Light Text/Input",
+      "Passed": true,
+      "Detail": "16.96"
+    },
+    {
+      "Name": "Calculated login contrast Light Muted/Surface",
+      "Passed": true,
+      "Detail": "7.58"
+    },
+    {
+      "Name": "Calculated login contrast Light ButtonText/Button",
+      "Passed": true,
+      "Detail": "13.37"
+    },
+    {
+      "Name": "Calculated login contrast Light OnAccent/Accent",
+      "Passed": true,
+      "Detail": "6.7"
+    },
+    {
+      "Name": "Calculated login contrast Light AccentText/Surface",
+      "Passed": true,
+      "Detail": "6.7"
+    }
+  ]
+}

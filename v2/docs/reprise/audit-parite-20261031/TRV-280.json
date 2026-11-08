@@ -1,0 +1,24 @@
+{
+  "id": "TRV-280",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:41 — dans UpdateQueryLibraryCoreAsync (le chemin d'écriture, sous le verrou writer et la transaction), le document remis est passé à CheckQueryDocument avant toute écriture ; :76-81 — format domenia.queryLibrary, version, domainKey égal à la clé du domaine, 16 Mio et 5 000 recettes au plus",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:83-92 — chaque définition est relue par le code de confiance (QueryRecipeJson.Read), compilée (QueryEngine.Compile), son empreinte comparée à celle enregistrée, son identifiant vérifié (aucun identifiant réservé de modèle, unicité, révision strictement positive), définition de 1 Mio au plus (ligne 86) ; écart = « Recette incohérente ou dupliquée ; bibliothèque non écrite. »",
+    "src/Domenia.Core/Screens/Requetes/QueryEngine.cs:548 — liste blanche : « information inconnue » pour tout champ absent du catalogue ; :371 — une définition au-delà de QueryLimits.MaxDefinitionBytes est refusée (src/Domenia.Core/Screens/Requetes/QueryModels.cs:376 : 64 Kio)",
+    "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:372-394 — à la relecture du document, chaque recette est recompilée et son empreinte comparée ; une entrée qui ne passe pas n'est pas utilisée et reste conservée telle quelle dans unreadable (:364-368, comptée en :340-343)",
+    "src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:612-632 — à l'enregistrement, compilation de confiance avant mutation, révision attendue contrôlée contre le document relu sous le verrou (QueryLibraryStore.cs:38-43), plafond de 5 000 recettes",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:60-66 — le document écrit est relu dans la même transaction puis après commit, la révision du stockage doit valoir exactement l'ancienne plus un, sinon transaction annulée ; :67-68 — le reçu porte Source=SQLite, StoreId, StoreRevision, DomainKey, DocumentSha256",
+    "src/Domenia.Core/Screens/Requetes/QueryScript.cs:10-13 — aucune recette concaténée dans du code exécutable : le script PowerShell livré embarque la recette comme littéral de données JSON ASCII et n'est jamais exécuté par l'export ; :26-40 — AsciiJson escape tout caractère non ASCII (une apostrophe typographique ne peut pas fermer le littéral)",
+    "src/Domenia.Core/Screens/Requetes/QueryLibraryStore.cs:4-8 — QueryStoreUpdate porte le garde de contexte revérifié par le magasin juste avant le commit (utilisé en :64 de DomeniaDatabase.QueryLibrary.cs)",
+    "tests/Domenia.Tests/RequetesRound2Tests.cs:97-112 — The_document_budget_refuses_a_write_that_would_exceed_16_MiB_and_keeps_unreadable_entries : refus, rien d'écrit, entrées illisibles conservées ; :73 — le reçu ne dit « relue » que si le support a rendu le document ; :82 — une révision écrite par une autre instance n'est jamais écrasée",
+    "tests/Domenia.Tests/QueryReferencePatchTests.cs:43 — le codec refuse champs inconnus, doublons et hors-limites ; :110 — un ajout concurrent même sans rapport fait tout refuser sans écriture partielle ; :127,147 — annulation au commit et après commit traitées sans perte de preuve",
+    "tests/Domenia.Tests/QueryLegacyStoreTests.cs:82-90 — une dépendance héritée sans révision disponible fait refuser la reprise sans aucune écriture partielle (base comparée avant/après)"
+  ],
+  "manque": "Rien de bloquant sur le chemin réel (mode annuaire = SQLite). Trois résidus vérifiables : (1) la revalidation « côté écrivain » n'existe que dans le magasin SQLite ; le magasin de fichiers (src/Domenia.Bridge/Operations/Requetes/QueryLibraryFiles.cs:105-159) écrit les octets qu'on lui remet sans les revalider — seul QueryLibrary appelle UpdateAsync (src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:492 et QueryLibrary.ReferencePatch.cs:96), donc pas d'exposition actuelle, mais le fichier de simulation n'a pas la même garde ; (2) aucune branche de refus de CheckQueryDocument n'est exercée par un test (rg dans tests/ sur « Recette incohérente », « Définition de recette supérieure », « Format ou domaine de bibliothèque invalide » : aucun résultat) ; (3) le plafond réellement opposé à une définition est 64 Kio (QueryEngine.cs:371), plus strict que le 1 Mio de la fiche, et le 1 Mio de la ligne 86 n'est donc jamais atteint.",
+  "effort": "S",
+  "depend": [
+    "TRV-277 (bibliothèque SQLite par domaine)",
+    "TRV-278 (lecture confirmée et paginée)"
+  ],
+  "risque": "ecriture-locale"
+}

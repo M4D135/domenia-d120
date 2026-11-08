@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : le panneau d’une tâche terminée ne se redessine jamais",
+  "description": "Ouvre les étapes d’une tâche terminée puis attend plusieurs lectures de l’activité (toutes les 2 s) : le panneau garde son contenu, sans repeindre ni rejouer ses animations ; le total et le volume sont donnés à part des étapes.",
+  "modes": ["simulation"],
+  "start": "operations?onglet=diagnostic",
+  "steps": [
+    { "do": "wait", "ready": "operations" },
+    { "do": "click", "text": "Vérification rapide", "title": "Une tâche à suivre" },
+    { "do": "expect", "contains": "Aucune écriture effectuée", "within": ".op-check-status", "timeoutMs": 15000 },
+    { "do": "click", "selector": "[role=\"tab\"][data-tab=\"taches\"]", "title": "Onglet Tâches" },
+    { "do": "click", "text": "Vérification de l’application", "within": ".op-tk-grid", "clickCount": 2, "timeoutMs": 6000, "title": "Ouvrir ses étapes" },
+    { "do": "expect", "contains": "Total", "within": ".op-trace-totals", "title": "Total à part" },
+    { "do": "wait", "ms": 4500, "title": "Deux lectures de l’activité" },
+    { "do": "expect", "selector": ".k-drw .op-trace[data-settled=\"true\"]", "absent": true, "title": "Le panneau n’a pas été redessiné" },
+    { "do": "expect", "contains": "Étapes de l’opération", "within": ".k-drw" },
+    { "do": "press", "key": "Escape" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

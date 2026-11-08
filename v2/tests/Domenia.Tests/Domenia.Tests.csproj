@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Domenia.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Domenia.Core/Domenia.Core.csproj" />
+    <ProjectReference Include="../../src/Domenia.Ad/Domenia.Ad.csproj" />
+    <ProjectReference Include="../../src/Domenia.Inventory/Domenia.Inventory.csproj" />
+    <ProjectReference Include="../../src/Domenia.Bridge/Domenia.Bridge.csproj" />
+    <ProjectReference Include="../../src/Domenia.Store/Domenia.Store.csproj" />
+    <ProjectReference Include="../../src/Domenia.Engine/Domenia.Engine.csproj" />
+    <ProjectReference Include="../../src/Domenia.Simulation/Domenia.Simulation.csproj" />
+  </ItemGroup>
+  <!-- Domenia.App is a self-contained WinForms executable the tests cannot reference: its pure capture types and the host files
+       of the home page (no WinForms, no WebView2, no journal) are compiled here from the very same source files, so the code
+       tested is the code shipped. -->
+  <ItemGroup>
+    <Compile Include="../../src/Domenia.App/Capture/CaptureArguments.cs" Link="Linked/CaptureArguments.cs" />
+    <Compile Include="../../src/Domenia.App/Capture/CaptureSequence.cs" Link="Linked/CaptureSequence.cs" />
+    <Compile Include="../../src/Domenia.App/AccueilHostFiles.cs" Link="Linked/AccueilHostFiles.cs" />
+    <Compile Include="../../src/Domenia.App/PackageIntegrity*.cs" Link="Linked/%(Filename)%(Extension)" />
+    <Compile Include="../../src/Domenia.App/SocleWebView.cs" Link="Linked/SocleWebView.cs" />
+    <!-- The same pinned Socle index as Domenia.App, under the same name, so SocleWebView.Pinned is tested on the shipped bytes. -->
+    <EmbeddedResource Include="../../src/Domenia.App/Socle/webview2-156.0.4314.42.files.json" LogicalName="Domenia.Socle.WebView2" />
+    <Compile Include="../../src/Domenia.App/PackagePublisher*.cs" Link="Linked/%(Filename)%(Extension)" />
+    <Compile Include="../../src/Domenia.App/PackageUpdateChannel.cs" Link="Linked/PackageUpdateChannel.cs" />
+    <Compile Include="../../src/Domenia.App/PackageLifecycle*.cs" Link="Linked/%(Filename)%(Extension)" />
+    <Compile Include="../../src/Domenia.App/PackageUpdateSources.cs" Link="Linked/PackageUpdateSources.cs" />
+    <Compile Include="../../src/Domenia.App/PackageUpdateArchive.cs" Link="Linked/PackageUpdateArchive.cs" />
+    <Compile Include="../../src/Domenia.App/PackageUpdateCatalog.cs" Link="Linked/PackageUpdateCatalog.cs" />
+    <Compile Include="../../src/Domenia.App/StartupPreflight.cs" Link="Linked/StartupPreflight.cs" />
+    <Compile Include="../../src/Domenia.App/StartupMonitor.cs" Link="Linked/StartupMonitor.cs" />
+    <Compile Include="../../src/Domenia.App/HostShutdown.cs" Link="Linked/HostShutdown.cs" />
+    <Compile Include="../../src/Domenia.App/HostIncidentReport.cs" Link="Linked/HostIncidentReport.cs" />
+    <Compile Include="../../src/Domenia.App/StartupDisplayOptions.cs" Link="Linked/StartupDisplayOptions.cs" />
+    <Compile Include="../../src/Domenia.App/Secrets/LoginLayout.cs" Link="Linked/LoginLayout.cs" />
+    <Compile Include="../../src/Domenia.App/StartupBootstrap.cs" Link="Linked/StartupBootstrap.cs" />
+    <Compile Include="../../src/Domenia.App/StartupHostCheck.cs" Link="Linked/StartupHostCheck.cs" />
+    <Compile Include="../../src/Domenia.App/StartupActivation.cs" Link="Linked/StartupActivation.cs" />
+    <Compile Include="../../src/Domenia.App/StartupCheckCommand.cs" Link="Linked/StartupCheckCommand.cs" />
+    <Compile Include="../../src/Domenia.App/PendingRecoveryHint.cs" Link="Linked/PendingRecoveryHint.cs" />
+    <Compile Include="../../src/Domenia.App/PackageDefaults.cs" Link="Linked/PackageDefaults.cs" />
+    <Compile Include="../../src/Domenia.App/OfflineDossierContext.cs" Link="Linked/OfflineDossierContext.cs" />
+    <Compile Include="../../src/Domenia.App/AutomationHostCommand.cs" Link="Linked/AutomationHostCommand.cs" />
+    <Compile Include="../../src/Domenia.App/ReceiptStorePolicy.cs" Link="Linked/ReceiptStorePolicy.cs" />
+    <Using Include="System.Drawing" />
+  </ItemGroup>
+</Project>

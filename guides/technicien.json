@@ -1,0 +1,280 @@
+{
+  "source": "technicien.md",
+  "output": "Domenia-1.0-Guide-technicien",
+  "product": "Domenia 1.0",
+  "title": "Guide technicien",
+  "subtitle": "Trouver les postes et suivre le parc au quotidien",
+  "edition": "Domenia 1.0",
+  "author": "Domenia",
+  "cover": "tableau-poste",
+  "coverCaption": "Exemple de tableau de bord d’un poste avec des données fictives",
+  "info": [
+    [
+      "Pour qui",
+      "Techniciens de proximité et du support des postes Windows."
+    ],
+    [
+      "Ce que couvre ce guide",
+      "Recherche, fiches, assistance, tableaux de bord, Atelier de requêtes, actualisation de l’OU et lecture des dates AD et des mesures des postes."
+    ],
+    [
+      "Version décrite",
+      "Domenia 1.0 · RC1.17.39 (édition du texte)"
+    ],
+    [
+      "Captures",
+      "Captures historiques de la RC1.17.20 avec des données fictives, conservées comme repères visuels ; certains détails de l’interface peuvent différer de la version décrite."
+    ]
+  ],
+  "tocIntro": "Cliquez sur un chapitre pour y aller. Dans Word, le volet Navigation (Affichage > Volet de navigation) donne aussi accès aux chapitres et aux sections.",
+  "figures": {
+    "connexion": {
+      "file": "images/connexion.png",
+      "width": 10,
+      "crop": {
+        "x": 738,
+        "y": 287,
+        "w": 444,
+        "h": 506
+      }
+    },
+    "recherche-actions": {
+      "file": "images/recherche-actions.png",
+      "width": 16,
+      "crop": {
+        "x": 518,
+        "y": 466,
+        "w": 1378,
+        "h": 213
+      }
+    },
+    "fiche-poste": {
+      "file": "images/fiche-poste.png",
+      "width": 16
+    },
+    "actions-poste": {
+      "file": "images/actions-poste.png",
+      "width": 16,
+      "crop": {
+        "x": 228,
+        "y": 355,
+        "w": 1210,
+        "h": 543
+      }
+    },
+    "tableau-poste": {
+      "file": "images/tableau-poste.png",
+      "width": 16
+    },
+    "personnaliser": {
+      "file": "images/personnaliser.png",
+      "width": 16
+    },
+    "editeur-widget": {
+      "file": "images/editeur-widget.png",
+      "width": 16,
+      "crop": {
+        "x": 1060,
+        "y": 14,
+        "w": 846,
+        "h": 1017
+      }
+    },
+    "logiciels": {
+      "file": "images/logiciels.png",
+      "width": 16
+    },
+    "atelier-requetes": {
+      "file": "images/atelier-requetes.png",
+      "width": 16
+    },
+    "alerte-selection": {
+      "file": "images/alerte-selection.png",
+      "width": 16
+    },
+    "base-autonome": {
+      "file": "images/base-autonome.png",
+      "width": 16
+    },
+    "selecteur-ou": {
+      "file": "images/selecteur-ou.png",
+      "width": 10,
+      "crop": {
+        "x": 1248,
+        "y": 16,
+        "w": 656,
+        "h": 1012
+      }
+    },
+    "atelier-condition": {
+      "file": "images/atelier-condition.png",
+      "width": 16,
+      "crop": {
+        "x": 281,
+        "y": 590,
+        "w": 960,
+        "h": 145
+      }
+    },
+    "atelier-collecte": {
+      "file": "images/atelier-collecte.png",
+      "width": 16,
+      "crop": {
+        "x": 282,
+        "y": 1014,
+        "w": 625,
+        "h": 77
+      }
+    },
+    "atelier-fiche-locale": {
+      "file": "images/atelier-fiche-locale.png",
+      "width": 16,
+      "crop": {
+        "x": 280,
+        "y": 545,
+        "w": 1567,
+        "h": 500
+      }
+    },
+    "atelier-bibliotheque": {
+      "file": "images/atelier-bibliotheque.png",
+      "width": 16,
+      "crop": {
+        "x": 280,
+        "y": 450,
+        "w": 1567,
+        "h": 465
+      }
+    },
+    "accueil-sonde-requete": {
+      "file": "images/accueil-sonde-requete.png",
+      "width": 12,
+      "crop": {
+        "x": 220,
+        "y": 895,
+        "w": 842,
+        "h": 195
+      }
+    },
+    "recherche-requete": {
+      "file": "images/recherche-requete.png",
+      "width": 16,
+      "crop": {
+        "x": 518,
+        "y": 313,
+        "w": 1378,
+        "h": 140
+      }
+    },
+    "atelier-desactives": {
+      "file": "images/atelier-desactives.png",
+      "width": 13,
+      "crop": {
+        "x": 280,
+        "y": 450,
+        "w": 1567,
+        "h": 215
+      }
+    },
+    "base-commandes": {
+      "file": "images/base-mise-a-jour.png",
+      "width": 16,
+      "crop": {
+        "x": 247,
+        "y": 243,
+        "w": 1633,
+        "h": 470
+      }
+    },
+    "actions-poste-avancees": {
+      "file": "images/actions-poste.png",
+      "width": 14,
+      "crop": {
+        "x": 832,
+        "y": 451,
+        "w": 607,
+        "h": 447
+      }
+    },
+    "base-stockage": {
+      "file": "images/base-stockage.png",
+      "width": 16,
+      "crop": {
+        "x": 250,
+        "y": 270,
+        "w": 1110,
+        "h": 605
+      }
+    },
+    "atelier-catalogue": {
+      "file": "images/atelier-catalogue.png",
+      "width": 16,
+      "crop": {
+        "x": 264,
+        "y": 354,
+        "w": 1595,
+        "h": 578
+      }
+    },
+    "atelier-modeles": {
+      "file": "images/atelier-modeles.png",
+      "width": 16,
+      "crop": {
+        "x": 264,
+        "y": 354,
+        "w": 1595,
+        "h": 578
+      }
+    },
+    "atelier-poste": {
+      "file": "images/atelier-poste.png",
+      "width": 16,
+      "crop": {
+        "x": 250,
+        "y": 300,
+        "w": 1625,
+        "h": 800
+      }
+    },
+    "poste-sonde-requete": {
+      "file": "images/poste-sonde-requete.png",
+      "width": 12,
+      "crop": {
+        "x": 243,
+        "y": 757,
+        "w": 816,
+        "h": 195
+      }
+    },
+    "recherche-requetes": {
+      "file": "images/recherche-requetes.png",
+      "width": 16,
+      "crop": {
+        "x": 518,
+        "y": 315,
+        "w": 1378,
+        "h": 145
+      }
+    },
+    "recherche-inconnus": {
+      "file": "images/recherche-inconnus.png",
+      "width": 16,
+      "crop": {
+        "x": 518,
+        "y": 390,
+        "w": 1378,
+        "h": 70
+      }
+    },
+    "etat-moteur": {
+      "file": "images/etat-moteur.png",
+      "width": 16,
+      "crop": {
+        "x": 15,
+        "y": 63,
+        "w": 621,
+        "h": 666
+      }
+    }
+  }
+}

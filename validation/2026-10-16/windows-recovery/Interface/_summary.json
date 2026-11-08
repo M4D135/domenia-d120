@@ -1,0 +1,22 @@
+{
+    "Kind":  "LabRun",
+    "StartedFrom":  "C:\\DomeniaLab\\d120-rc1178-fix9\\dev",
+    "Host":  {
+                 "PSEdition":  "Desktop",
+                 "SessionId":  1,
+                 "Is64BitProcess":  true,
+                 "PSVersion":  "5.1.26100.6584",
+                 "Interactive":  true,
+                 "Platform":  "Windows",
+                 "OS":  "Microsoft Windows NT 10.0.26200.0"
+             },
+    "Suites":  [
+                   {
+                       "Suite":  "Test-DomeniaInterface.ps1",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "DurationMs":  64936,
+                       "ReportWritten":  true
+                   }
+               ]
+}

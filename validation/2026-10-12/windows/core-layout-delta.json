@@ -1,0 +1,8 @@
+{
+  "PreviousArchiveSHA256": "EA5B9D1298A3071AC76AB4BB77E83B71E8C0E2A2D54CFA83E558A1C3C2ADABEE",
+  "FinalArchiveSHA256": "C4C3A6E2F693A57BFE3C066F849A6896042DA1E60A04665064DF3FA0DD742338",
+  "Method": "PowerShell Parser.ParseFile, unique FunctionDefinitionAst named Get-MainXaml; compare source after replacing that exact function extent with fixed token",
+  "ChangedFunction": "Get-MainXaml",
+  "OtherCoreTextIdentical": true,
+  "OtherRuntimeFilesIdentical": 90
+}

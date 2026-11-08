@@ -1,0 +1,1 @@
+Runtime 2026.10.13-DOMENIA-1.0-RC1.17.6-D120 : 94 fichiers v‚rifi‚s en 1666 ms (plafond 250) ; 63 modules charg‚s et fonctions disponibles. Aucun accŠs AD.

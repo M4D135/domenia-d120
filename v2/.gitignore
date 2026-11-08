@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+Domenia.sln.DotSettings.user
+docs/catalogue-source/prompts/
+docs/catalogue-source/*.err
+docs/catalogue-source/*.tmp

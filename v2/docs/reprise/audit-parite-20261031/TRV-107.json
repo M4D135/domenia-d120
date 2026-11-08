@@ -1,0 +1,17 @@
+{
+  "id": "TRV-107",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Execution/AdaptiveReadBudget.cs:184-189 — sous-réseau présumé : clef « site:a.b.c.0/24 » par adresse IPv4 unicast (0, 127 et ≥ 224 exclus) ; l.174-183 — chaque contrôleur a son budget (« dc:<nom> », « dc:? »), les postes sans adresse vue partagent le groupe borné « site:? »",
+    "src/Domenia.Core/Execution/AdaptiveReadBudget.cs:263-269 — hausse additive : après Limit succès consécutifs, Limit + 1 par palier, plafonnée à owner.maximum (« jamais au-delà du plafond choisi », constructor l.43-48) ; l.240-247 — baisse de moitié (Limit/2) sur échec, avec cooldown de 10 s ; l.263-264 — réponse lente (> max(500 ms, 2× la base)) traitée comme un échec de débit, sans suspension",
+    "src/Domenia.Core/Execution/AdaptiveReadBudget.cs:248-252 — suspension doublée et bornée : 60 s × 2^(opens-1) plafonné à 900 s après 3 échecs ; reprise progressive : une seule lecture d'essai (group.Trial, RequireContinuation l.217-227 « Une seule lecture d'essai peut reprendre cette source ») ; l.257-260 — une réponse tardive ne rouvre ni ne prolonge la suspension",
+    "src/Domenia.Core/Execution/AdaptiveReadBudget.cs:201-207 — poste éteint, refus, classe absente, ignoré ou annulé = Neutral : ne pénalisent pas le site (seuls Interrupted→Timeout et Error→Failure comptent) ; l.85 et 248 — le groupe inconnu (Unknown) n'est jamais suspendu (« postes sans adresse sur un budget qui ne suspend jamais »)",
+    "src/Domenia.Core/Execution/AdaptiveReadBudget.cs:50-69 — dernière adresse vue par poste : ObserveAddress alimente un LRU borné à MaximumHosts = 20 000 noms (l.22), réinitialisé à la fin de liste ; src/Domenia.Inventory/WorkstationPresenceReader.cs:88-90 — l'adresse de la réponse ICMP est mémorisée pour le budget de présence et partagée comme simple indice au budget CIM",
+    "src/Domenia.Core/Execution/AdaptiveReadBudget.cs:14-15 et 98-99 — « Observed IPv4 /24 is a grouping hint only » et « no timer creates a read » : le budget n'initie jamais une mesure, il n'admet ou refuse que l'admission ; src/Domenia.Inventory/NativeReadClient.cs:47, WindowsSessionsReader.cs:35, WorkstationPresenceReader.cs:49 — tous les lecteurs physiques passent par Acquire/AcquireAsync avant envoi (hors contexte d'écriture)",
+    "tests/Domenia.Tests/AdaptiveReadBudgetTests.cs:70 — « one recovery trial, doubles bounded pause, then grows one step at a time » ; :94 — « slow answers halve with cooldown without suspension » ; :138 — « classifies actual partial answers and keeps rights, accounts and offline neutral » ; :36 — « unknown addresses never suspend » ; :153 et :229 — mémoire d'adresses bornée (20 000) et LRU à 100 000 noms ; :203 — la campagne attend la pause puis n'admet qu'un essai"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["TRV-103 (admission moteur globale au-dessus des budgets par source)"],
+  "risque": "lecture"
+}

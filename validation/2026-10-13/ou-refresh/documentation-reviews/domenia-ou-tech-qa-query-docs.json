@@ -1,0 +1,42 @@
+{
+  "reviewer": "query_docs",
+  "status": "pass",
+  "pages": [
+    1,
+    28
+  ],
+  "method": "All 28 page PNGs opened individually at original resolution. Pages 12, 13 and 14 reopened after table-width correction; other previously opened page bytes match final PNG SHA-256.",
+  "pageHashes": {
+    "1": "19afe4fb60d751d02420948b3717a7da6bb02089985a71b0d25b8b70251232a0",
+    "2": "a6dcf22dd979ded343c826770bf27d18f6d3b0810cd241c44284848f2ad6200a",
+    "3": "d93c25b2a52698e1bf28efd4c7f8698bc67a4187917bfa0b6bb74d93a4383de7",
+    "4": "d4077f0c06b7963c192d1197a893fac8a0ee05bb435fe6af6d983d2c98960b96",
+    "5": "63da6c1627d2c80c48f6fc2274a2adc3b86a8552a248cb41539f54e8f5ebc02d",
+    "6": "9b8aeec5ede73d5f93e0bf8236979ddaa6df8c3b83ba58df433ee3d7da44481e",
+    "7": "af8d8c081a77628602e924a4446db63b0aefe0925ca355177aec4595a9bb8bac",
+    "8": "8c53cea6fde7d91ed6cf1d83cbd674b5944ddacd6a2ec62645635889d8cdff38",
+    "9": "79b67f9d358eff216deb480c7dec47d26ed52f46e60a04f372645dbbb737ab88",
+    "10": "a0b61003393570f0bfd9b92f59c9164711f4fd14d00aebec017692f4432e15fb",
+    "11": "63626b833ef6fe5c5bea3f0874174679770bbaba2ae0ae84b7f145b6bb9924d4",
+    "12": "893d3216856aef73e4935e53799cf66fc26c74c40d5b2a843661d608aad65f9c",
+    "13": "b410038e6d5c2098064a2ed3898e6d4bf71b36dd6140d31a1c643513b18f060b",
+    "14": "2cbab77fe4ccddbf1582d76085e0455e50719124ae83f71d07e84295cd0cc5d5",
+    "15": "853b8cbf705f036ceab5975a9a5c5e0d03e18ffbaf9163c1041665dfecd46111",
+    "16": "90e04276e27efef880806482f7d5644305e7bfa230d21e2a7688773ed7015e7c",
+    "17": "4911a1159de5e267243402259abc4955c75b333fd8445bebb6fb0f951732bc99",
+    "18": "78f8bbf5054ac2d252f53e89acc9b7c277f1c5b6e758a60026b5e86659031e8a",
+    "19": "55158d673078736b24a90f367707830f0fd2ad9e4dd0f40114848ab6d2ad1744",
+    "20": "72e0aa4775aec5e43f5680d9e803e8ec70cad7d9b58f97b22febbb0e631d4cdb",
+    "21": "52dc4ece95c273e5da2f78aece29486570392e880d1037332137f9712fe4bf35",
+    "22": "8aafce783f6726362be1b942ed10b606cfd27e1e152fbee5bc9b8aa562e86591",
+    "23": "fd15dfb8cf8c35855879c3dbf05a3c4caeefb01f2df2f2a07989b685cc99068f",
+    "24": "4dbd6017f62d35f4e439204b8a2f792bb0c53cb0ee573d8ceabc72dbcecfed93",
+    "25": "dfbd178e3095905b3bf9ed12657f378e62bbf28ba2745dd69d80099a48ae29e1",
+    "26": "2709984fb7bd728bdb1b167cf94d93e6af030db2c85968815050e373f65e5d34",
+    "27": "a0f0a2d647552457dd7c6faf0598f6ae917f1f28b17b499eb1e5b0582df2ab25",
+    "28": "8a29c940a57032429295538fed027510c80c1036d49cd699eb82a372857d5874"
+  },
+  "findings": "No clipped text, overlapping elements, missing glyph, overflowing table, orphan caption or stray tooltip observed. Repeated table headers and figure framing checked.",
+  "renderFolder": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final",
+  "reviewedUtc": "2026-10-13T12:10:26.935749+00:00"
+}

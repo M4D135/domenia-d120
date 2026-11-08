@@ -1,0 +1,58 @@
+# Lot stockage 49–54 — 20 octobre 2026
+
+Statut : code et bancs ajoutés, **aucun test Windows/VM exécuté par ce lot**. Aucune clôture ni preuve de qualification n'est revendiquée. Aucun commit/push.
+
+| Point | Mise en œuvre et bancs | Preuve restant à produire |
+|---|---|---|
+| 49 — rotations/échéances | `StorageBackup` ne tourne que les noms réguliers reconnus de sa série et conserve toujours la nouvelle copie ; préserve rétention, migrations, gestes et fichiers opérateur. Core reçoit le même filtrage par patch appliqué par root. Bancs existants `Test-DomeniaStorageMaintenance.ps1`, `Test-DomeniaStoragePreferences.ps1` et `Test-DomeniaStorageFaults.ps1` enrichis ou conservés. Le banc séparé demandé à OpenCode n’a produit aucun fichier et a été arrêté au profit du correctif Live prioritaire. | Qualification Windows ciblée à venir ; rotations/échéances non déclarées qualifiées, métriques représentatives et lien au ZIP final encore requis. |
+| 50 — restaurer données/préférences/requêtes/dispositions | Les sauvegardes demandées par l'UI incluent une annexe `.db.preferences.json` (`Domenia.BackupPreferences.1`) liée au SHA-256 de la base. Snapshot des préférences approuvées, dispositions et choix de requêtes. Identités de connexion, chemins actifs et dates/reçus de backup exclus. Taille 4 Mio et profondeur 8 bornées avant lecture interne ; annexe 16 Mio max. Inspection et copie revérifient hash et empreinte de l'aperçu. Anciennes copies sans annexe : données seules, annoncé explicitement. Application après bascule DB vérifiée, via API existantes, rollback des préférences si écriture échoue. `StorageMaintenance` vérifie données, bibliothèque et révisions SQL, annexe complète, annexe modifiée, hash incorrect, profondeur excessive et copie ancienne. `StoragePreferences` vérifie dispositions, widgets, choix requêtes, conservation cheminDB/identités courants et rollback sur échec. | Windows 5.1, retour interface après restauration complète et ancienne copie. Une reprise après redémarrage ne doit pas prétendre restaurer un snapshot absent du reçu. |
+| 51 — disque plein/destination inaccessible/base verrouillée | `Test-DomeniaStorageFaults.ps1` existant exécute SQLITE_FULL via max_page_count et verrous réels avec reprise/absence de demi-écriture. Le banc supplémentaire OpenCode (parent absent et fichier verrouillé) n’a pas été produit ; ces scénarios restent à qualifier. L’export DB+annexe utilise des temporaires et copies `.previous`, rollback de destination si seconde publication échoue. | Windows 5.1 ; distinguer SQLITE_FULL réel du moteur et volume physiquement plein non simulé ici. |
+| 52 — coût écritures/rétention | Application à zéro candidat refusée avant sauvegarde complète ou écriture de révision. Test vérifie nombre de backups et révision inchangés. Compaction historique conserve l'existant en une passe ordonnée ; banc existant 400 000 lignes et bornes des périodes. Les copies pré-rétention ne sont plus éliminées par la rotation ordinaire. | Windows 5.1 ciblé puis métriques de qualification représentatives ; pas de campagnes illimitées. |
+| 53 — rollback migration | Patch Core fourni et appliqué par root : journal DELETE et quick_check après publication pour copie autonome avant migration ; `Migration.Worker` régénéré par root. Nouveau cas `StorageMaintenance` utilise helper production `Backup-DomeniaDatabase -Migration`, provoque erreur SQLite dans transaction DDL et vérifie schéma/données revenus, archive intacte après rotations. Le banc `StorageFaults` existant vérifie aussi import des mesures interrompu par arrêt du processus, marqueurs et reprise. | Exécution Windows 5.1 ; l'archive de migration préserve le schéma précédent et n'est pas affirmée compatible avec un runtime plus ancien/non testé. |
+| 54 — diagnostic expurgé | `New-DomeniaRedactedDiagnostic` accepte les versions numériques, build Domenia, profils/thèmes/statuts fermés, catalogue d'opérations réel. Faux identifiants bien formés rejetés ; types d'erreur résolus comme exceptions .NET et noms de fichiers libres retirés. Tests adversariaux dans `Observability.Tests.ps1`. `Test-DomeniaDiagnosticExport.ps1` exécute le worker de document : fichier identique à aperçu, sentinelles absentes, refus confirmation, annulation choix, destination verrouillée. | Windows 5.1 et recette du fichier effectivement exporté. |
+
+## Intégration root
+
+- Fonctions top-level nouvelles dans Storage.UI : `Get-DomeniaBackupPreferencesJson`, `Restore-DomeniaBackupPreferences` ; rafraîchir registre avec `integrate_lots.py --refresh-functions` après gel des lots.
+- Workers modifiés : `StorageBackup`, `StorageMaintenance`, `StorageRetention` ; Core `Backup-DomeniaDatabase` et `Migration.Worker` sont gérés par root. Revoir puis régénérer les contrats épinglés et les manifestes de livraison.
+- `Request-DomeniaStoreRead` appartient au root et ses changements sont préservés.
+- Patch additionnel de rotation du compagnon Core : `../stockage-20261020/core-backup-companion.patch` (hors dépôt), intégré par root avec garde de journalisation ; Migration.Worker régénéré par root.
+- Contrôle local effectué : `git diff --check` sur les fichiers du lot, sans erreur. Il ne qualifie aucun comportement Windows.
+
+## OpenCode/Spark et contrôle du brouillon
+
+KBZA doctor : identité mac et client local OK ; passerelle `/v1/models` et alias `spark-local` vérifiés. Aucun service, tunnel ou superviseur ancien relancé. Un seul appel LLM de cette file à la fois. Les profils temporaires interdisent shell, tests, réseau direct et sous-agents ; écritures limitées au lot courant.
+
+- Sauvegarde : session Spark `ses_ea52cc62bffeezy9ol4nH2YyHH` arrêtée proprement sans banc produit ; journaux conservés. Aucun `Test-DomeniaBackupQualification.ps1` revendiqué.
+- Race : session Spark fraîche `ses_ea518d676ffeLFsGBFFH7tsgWV` arrêtée après absence de sortie utile. Le fallback gratuit `opencode/glm-5.3-flash-free` est vérifié dans le catalogue live et autorisé par root. Un premier tour gratuit a atteint sa limite moteur de 32 000 tokens de raisonnement sans patch (coût déclaré 0), ce qui n’est pas un résultat de code.
+- Le tour compact gratuit en variante `low`, session `ses_ea5083578ffevQtI9bDZEjqeKd`, a écrit le brouillon Live/LocalPreview/test. Le superviseur l’a corrigé : aucun rejet prématuré du cache sur `DirectoryPipe.Completed`, car une erreur SQL utilise `Failure` et `Search.Error`. Seule la fin `Ended` sans erreur détache le reliquat avant sélection de cadence. Le test attend 201 lignes pendant le dernier COMMIT, cache vide et seules lignes AD après succès, et conservation de la file après erreur SQL.
+- Le tour gratuit low `turn-20261020T202414Z.jsonl` a terminé avec exit 0 : accents des messages Storage.UI, catch Widgets tracé, tests Python d’incidents et d’opération fictive. Relecture du superviseur : retrait supplémentaire du couplage au KI-001 courant ; le registre réel est testé sans quota ni incident figé, et une fixture vérifie le blocage/résolution.
+- Deux fixtures FI-13 de `Test-DomeniaWiringCache.ps1` importent maintenant les vraies fonctions de snapshot/defaults nécessaires à `New-DomeniaBackupPayload` ; assertions existantes conservées.
+
+**Codegate donné à root le 20/10 à 20:26 UTC pour build et qualification critique ciblée.** Aucune suite Windows n’a été exécutée par ce lot. Guides et revue globale suivent sans mutation du runtime ; une éventuelle anomalie de revue sera signalée séparément.
+
+Reprise locale : `../stockage-20261020/STATE.json` décrit la session active, les journaux et la file. Le lanceur reçoit le prompt intégral par stdin (réception confirmée via export CLI), sans troncature des fonctions ni secret dans les arguments. Commande type :
+
+```text
+python3 ../stockage-20261020/run-opencode.py --new-session --model opencode/glm-5.3-flash-free --variant low --profile opencode-guides.json --prompt-file CHEMIN_ABSOLU_DU_PROMPT
+```
+
+Ne pas lancer une seconde invocation tant que celle indiquée active dans STATE.json n’est pas terminée. Les fichiers de profil et les journaux restent hors du dépôt ; aucun jeton n’y est écrit en clair.
+
+## Guides RC39 et limite de preuve
+
+Les quatre sources `guides/{technicien,administrateur}.{md,json}` ont été mises à jour par le tour OpenCode gratuit low `turn-20261020T202648Z.jsonl`, terminé avec exit 0, puis relues et corrigées par le superviseur. Elles décrivent la paire DB/annexe, les anciennes copies de données seules, l’ordre de restauration et le rollback des préférences, les dispositions prédéfinies, l’aperçu local puis AD et la provenance des indicateurs de santé. Le texte est identifié RC1.17.39 ; les captures RC1.17.20 restent explicitement historiques. Les champs de figures/provenance et les autres métadonnées protégées sont inchangés, vérifiés par empreintes avant/après.
+
+Root a ensuite retiré le seul préfixe de citation des deux notes de début de guide pour compatibilité avec le générateur, texte conservé. La génération des documents compilés et la qualification Windows critique relèvent de root. La revue de sources ne transforme ni les nouvelles assertions ni les captures historiques en preuves d’exécution du candidat RC39.
+
+## Premières preuves Windows produites par root et relues
+
+Les rapports du lot critique sont maintenant présents : [StorageMaintenance](../../../../validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageMaintenance.json) 33/33 (192 assertions, SQLite temporaire) ; [StoragePreferences](../../../../validation/2026-10-20/rc39-critical/rc39-critical-tests/StoragePreferences.json) 9/9 (aller-retour disque, préférences utilisateur réelles non touchées) ; [StorageFaults](../../../../validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageFaults.json) 8/8, dont vrai SQLITE_FULL via max_page_count et arrêts de processus. Le dernier rapport porte explicitement `Qualifying=false` : pas de volume physiquement plein. Ces preuves ne qualifient ni les échéances sur une longue période ni les volumes d'endurance. DiagnosticExport n'a pas de reçu dans cette série.
+
+[LocalPreview](../../../../validation/2026-10-20/rc39-critical/rc39-critical-retest/LocalPreview.json) 19/19 et [LiveSearchView](../../../../validation/2026-10-20/rc39-critical/rc39-critical-retest/LiveSearchView.json) 16/16 ont été relus après correction des dépendances de fixture par root. La seconde suite utilise le vrai Dispatcher et des données synthétiques. Les hash de ces rapports précèdent le correctif d'arbre demandé ensuite ; root assure le rapprochement avec les packs finaux. Aucun test Windows n'a été lancé par ce sous-lot.
+
+## File terminée et dernier correctif arbre
+
+`Revue-Spark.md` fournit les ancres 1–17/55–60, les limites et les liens aux reçus réels. Après revue, root a autorisé le correctif effectif du rendu d'arbre : quota global, tranche coopérative de 8 ms, rotation et enfants système dans le job parent. Le brouillon GLM a été corrigé par le superviseur après échec d'edit et rejet de sous-jobs pouvant survivre à l'annulation. Trois fonctions Core changées, aucun attribut XAML ajouté. `Test-DomeniaTreeRendering.ps1` (quatre cas ciblés) est livré pour le delta Windows root. Voir `Point8-TvDirectory.md` : point 8 demeure PARTIEL sur la virtualisation mémoire.
+
+Tous les tours OpenCode sont terminés ; aucun processus de cette file n'est laissé actif. Dernier tour code `ses_ea4f23333ffe4O3uNVLw0H5JFB`, log `turn-20261020T204313Z.jsonl`, interrompu de façon contrôlée (exit -2) après erreur d'edit/lecture refusée ; correctif supervisé ensuite appliqué. Le profil et les journaux sont conservés hors dépôt. Nouveau codegate du sous-lot remis à root après BOM/LF et `git diff --check`, sans exécution Windows par ce sous-lot.

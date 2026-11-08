@@ -1,0 +1,24 @@
+{
+  "Lot": "refresh",
+  "Modules": [
+    {
+      "File": "Domenia-Refresh.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-BoardFleet.Model.ps1",
+        "Domenia-Park.UI.ps1",
+        "Domenia-Probes.Model.ps1",
+        "Domenia-Engine.UI.ps1",
+        "Domenia-Widgets.UI.ps1",
+        "Domenia-Query.Model.ps1"
+      ],
+      "DotSource": true
+    }
+  ],
+  "SelfTestRequiredFunctions": [
+    "Invoke-DomeniaOuRefresh",
+    "Stop-DomeniaOuRefresh",
+    "Get-DomeniaOuObservationFreshness",
+    "Format-DomeniaOuFreshnessSummary"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+ "id": "TRV-097",
+ "verdict": "partiel",
+ "preuves": [
+  "src/Domenia.Bridge/Operations/SyncOperations.cs:105 — opération « synchro.read.estimate » (IndexBuild) rendue avant « synchro.read.run » (l.128) ; src/Domenia.Ad/Screens/AdSyncReader.cs:143-149 — SyncEstimate construit la phrase (confirmText « Lire l'annuaire », avertissements bornés 300 000 objets, budget) sans aucune lecture réseau",
+  "web/js/pages/synchro/run.js:231-241 — tiroir « Estimation avant toute lecture de l'annuaire », bouton « Lancer la lecture » actif seulement quand current.ready après estimation ; web/js/pages/synchro/run.js:297-326 — rendu détails : Objets attendus, Durée estimée, budget, quota, Déroulement, limites de passe",
+  "src/Domenia.Bridge/Operations/RelationsOperations.cs:200-212 — « relations.harvest.estimate » (LogonHarvest) rendue « à confirmer avant toute lecture », « relations.harvest.run » exige estimateId ; src/Domenia.Ad/Screens/AdRelationsReader.Harvest.cs:22-24 — phrase une ligne « Lecture du journal Sécurité de … jusqu'à N événements … » ; src/Domenia.Ad/Screens/AdRelationsReader.Harvest.cs:37-39 — exécution refusée si base/compte/contrôleur changés depuis l'aperçu (l'opération ne part qu'une fois, de la confirmation)",
+  "src/Domenia.Bridge/Operations/RelationsOperations.cs:163-170 — « relations.detect.run » (UserComputerProbe) exige un planId ; src/Domenia.Simulation/Screens/Relations/SimulatedRelationsReader.cs:309 — « Aucun poste contacté. Le périmètre est montré avant toute lecture de poste. » ; l.372 refus « plan.Reason … Aucun poste contacté. »",
+  "src/Domenia.Store/Sqlite/schema-11.sql:36-45 — table operation_runs (duration_ms, bytes_estimated, ad_queries, remote_attempts, fallback_tasks, success_count/failure_count) et vue operation_stats : le schéma de mesures dans Domenia.db existe",
+  "web/js/shell/help-catalog.js:395 — onglet Expert « Charge & stats » : « Mesures réelles des opérations DOMENIA : durée, volume réseau estimé, fallback distant et taux de réussite » ; src/Domenia.Core/Screens/Operations/OperationsDiagnostics.cs:119-130 — séries p50/p95/max et successPercent par opération"
+ ],
+ "manque": "Calibrage sur mesures réelles absent : rg « INSERT INTO operation_runs » et « operation_stats » = 0 occurrence dans repo/v2/src — la table et la vue du schéma ne sont jamais alimentées ni lues, donc les garde-fous « mesures enregistrées dans Domenia.db pour affiner les estimations » et « fiabilité calibrée sur N exécutions réelles, historique ms/élément et taux de réussite » ne sont pas implémentés (AdSyncReader.cs:146 l'assume : « Durée non estimée sans mesure antérieure »). Détails Expert de l'estimation manquants : volume réseau, débits moyen et de pointe, parallélisme, lectures AD par seconde, replis par tâches planifiées et appels au Planificateur, charge estimée du contrôleur — rien de cela dans SyncEstimate ni RelationHarvestEstimate. Pour ParkSweep, seul un plan d'écriture existe (SyncOperations.cs:242 « synchro.park.reset.plan », état de balayage) sans phrase d'impact estimée.",
+ "effort": "M",
+ "depend": ["sujet opérations/stats (OperationActivity, onglet Charge & stats)", "TRV-098 (table des opérations pour classer l'impact annoncé)"],
+ "risque": "lecture"
+}

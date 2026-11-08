@@ -1,0 +1,24 @@
+{
+    "Suite":  "Domenia.QueryLibraryTiming",
+    "Status":  "PASS",
+    "Assertions":  12,
+    "PowerShell":  "5.1.26100.6584",
+    "Edition":  "Desktop",
+    "WindowsPowerShell51":  true,
+    "Repeat":  1,
+    "Templates":  631,
+    "SavedRecipes":  125,
+    "Measurements":  {
+                         "SearchStartupListMs":  152.9,
+                         "TemplatesColdBuildMs":  1421.1,
+                         "TemplatesWarmBuildMs":  7.6,
+                         "LibraryWorkerFreshRunspaceMedianMs":  1648.1,
+                         "PreparedModelsPublishMs":  40.1,
+                         "SearchListWithPreparedModelsMedianMs":  85.6,
+                         "LibraryFirstPageMedianMs":  101.1,
+                         "LibraryFilteredPageMedianMs":  36.5
+                     },
+    "Interpretation":  "Avant le point 61, Recherche construisait les modèles sur le fil UI à son initialisation (TemplatesColdBuildMs). Désormais le fil UI ne paie que SearchStartupListMs puis PreparedModelsPublishMs et SearchListWithPreparedModelsMedianMs ; la construction se fait dans le worker QueryLibrary (LibraryWorkerFreshRunspaceMedianMs).",
+    "Qualification":  "Mesure prise sous Windows PowerShell 5.1 : à rattacher au ZIP qualifié.",
+    "Scope":  "Actual models, worker body, Search mapping and library paging with inert controls; WPF rendering is not measured"
+}

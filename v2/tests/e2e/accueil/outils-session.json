@@ -1,0 +1,22 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : vérifier l’application, journal et cache",
+  "description": "Lance « Vérifier l’application » (lecture locale), ouvre le journal (opérations et journal technique), puis vide le cache de l’Accueil après confirmation.",
+  "modes": ["simulation"],
+  "start": "accueil",
+  "steps": [
+    { "do": "click", "text": "Vérifier l’application", "within": ".session-card", "title": "Lancer la vérification" },
+    { "do": "expect", "selector": ".acc-check .ck-list", "title": "Les contrôles s’affichent" },
+    { "do": "expect", "contains": "Mode de fonctionnement", "within": ".acc-check" },
+    { "do": "press", "key": "Escape" },
+    { "do": "click", "text": "Ouvrir le journal", "within": ".session-card" },
+    { "do": "expect", "selector": ".acc-journal .k-tl", "title": "Le journal des opérations s’affiche" },
+    { "do": "click", "text": "Journal technique", "within": ".acc-journal" },
+    { "do": "expect", "contains": "domenia.log", "within": ".acc-journal", "title": "Le chemin du journal technique est indiqué" },
+    { "do": "press", "key": "Escape" },
+    { "do": "click", "text": "Vider le cache", "within": ".session-card" },
+    { "do": "click", "text": "Vider le cache", "within": ".k-dlg-foot", "title": "Confirmer" },
+    { "do": "expect", "contains": "Cache vidé : la prochaine vue se recalcule depuis la base locale.", "within": ".toasts" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "TRV-217",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialVault.cs:51 — le coffre ne rend qu'une SecureString ; repo/v2/src/Domenia.Ad/AdCredentialValidation.cs:27 — toutes les validations reçoivent une SecureString, jamais une chaîne",
+    "repo/v2/src/Domenia.Ad/AdCredentialValidation.cs:36-39 — le NetworkCredential pour l'API Windows est construit depuis la SecureString à la dernière étape puis SecurePassword remis à null",
+    "repo/v2/src/Domenia.Ad/Screens/AdAccountsAccessReader.cs:190 — copie scellée pour le worker : password.Copy() puis MakeReadOnly, avec minuterie d'expiration (:191)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/SecureCredentialCopies.cs:13-17 — chaque copie en circulation est sous bail ; :25-37 — comparaison à temps constant avec ZeroFreeGlobalAllocUnicode, aucun texte en clair persistant",
+    "repo/v2/src/Domenia.Inventory/TaskSchedulerConnection.cs:39 — le mot de passe ne devient une chaîne native qu'au moment du Connect COM (SecureStringToBSTR) ; repo/v2/src/Domenia.Inventory/WindowsCredentialVault.cs:57 et :65-66 — idem pour l'écriture native, blob effacé et ZeroFree après appel",
+    "repo/v2/src/Domenia.Inventory/RemotePsExecPlan.cs:23 — plan PsExec refusé dès qu'un mot de passe est présent ; :42-47 — arguments fixes uniquement (\\hôte, -s, -r service), jamais le mot de passe en argument de processus",
+    "repo/v2/src/Domenia.Inventory/RemoteScriptPlan.cs:39 et repo/v2/src/Domenia.Inventory/RemoteTaskReadProgram.cs:42 — powershell.exe n'est invoqué qu'à distance par -File sur un script fermé, aucun texte opérateur ou AD n'y entre ; aucun processus PowerShell enfant local (aucun ProcessStartInfo powershell dans repo/v2/src)",
+    "repo/v2/src/Domenia.Core/Screens/Operations/OperationsDiagnostics.cs:32 et :387 — diagnostic d'assistance expurgé, configuration avec clés sensibles masquées ; aucune écriture de fichier contenant un mot de passe (aucune écriture de fichier avec secret trouvée dans repo/v2/src)",
+    "repo/v2/tests/Domenia.Tests/CredentialVaultTests.cs:137-143 — test : un mot de passe dans un message web est refusé avant toute fenêtre et tout réseau ; repo/v2/tests/Domenia.Tests/PhysicalWorkBudgetTests.cs:210-214 — test : copie tenue pendant le travail détaché, détruite avant restitution ; repo/v2/tests/Domenia.Tests/AdAccountsAccessTests.cs:164-168 — test : le bail distingue même secret et autre secret et se libère"
+  ],
+  "manque": "Rien de vérifiable : la chaîne complète (saisie native SecureEntry, copies scellées, bails, conversion uniquement au dernier moment pour l'API Windows, aucun argument de processus, aucun fichier IPC, aucun PowerShell enfant, diagnostics expurgés) est en place et testée.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

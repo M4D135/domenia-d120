@@ -1,0 +1,25 @@
+[
+    {
+        "Test":  "WiringRecherche",
+        "ExitCode":  1,
+        "TimedOut":  false,
+        "ElapsedMs":  52806,
+        "SourceSha256":  "EF1ED641347F568704A022985E438413E78CFEB3A1BF09B44F95BAC5D809A3D9",
+        "Arguments":  [
+                          "-Filter",
+                          "^(D012 A label|Rest policy|D028 |PF-14 |SE-13 |UX-25 )",
+                          "-ReportPath",
+                          "C:\\DomeniaLab\\RC35-qualification\\rc39-final-close\\WiringRecherche.json"
+                      ]
+    },
+    {
+        "Test":  "FinalStartupIntegrity",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ElapsedMs":  8161,
+        "SourceSha256":  "72D583EA58F7DC81AD9592ED7D0E6E3B5C270F8C1B7FBF7305DBB986BA5F78D9",
+        "Arguments":  [
+                          "-CheckOnly"
+                      ]
+    }
+]

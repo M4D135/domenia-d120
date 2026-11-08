@@ -1,0 +1,9 @@
+{
+    "Kind":  "GuestControlSameUserCopyFromTree",
+    "StartUtc":  "2026-10-13T01:11:13.4940772Z",
+    "EndUtc":  "2026-10-13T01:11:13.9938786Z",
+    "ExitCode":  0
+}
+
+
+SSH exit 0

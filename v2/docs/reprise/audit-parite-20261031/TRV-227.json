@@ -1,0 +1,19 @@
+{
+  "id": "TRV-227",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:9-13 — scellement du plan : identifiant, compte, mode, dates, empreinte et texte technique ajoutés au brouillon ; empreinte = SHA-256 canonique de tout ce que l'écriture dépend",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:178-212 — Validate refuse : identité cible incomplète (DN, GUID, nom, type — :187), plan sans changement ou plus de 64 (:191), confirmation/réversibilité absentes (:197), textes vides ou trop longs (:205)",
+    "repo/v2/src/Domenia.Core/Writes/WriteModels.cs:6-13 — types de changement exactement Replace, Clear, Add, Remove, Move, Reset (énumération : un type inconnu est impossible à construire)",
+    "repo/v2/src/Domenia.Core/Writes/WriteModels.cs:70 — « a secret is never part of a plan (TRV-227) » : valeurs brutes jamais secrètes",
+    "repo/v2/src/Domenia.Core/Writes/Accounts/AccountPasswordReset.cs:73 — le changement Mot de passe porte le texte « Nouvelle valeur saisie, ni affichée ni conservée » avec valeurs brutes null ; :318 — PasswordSecrets garde le secret en mémoire seulement, hors plan et hors empreinte ; :57 — secret disparu (plan expiré) = rien n'est envoyé",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:111-117 — IsIntact : comparaison à temps constant de l'empreinte recalculée ; :62 — les détails sont figés au scellement",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:101 — le jeton de confirmation est lié à l'empreinte du plan scellé ; :134 — à l'exécution l'empreinte est recalculée : rien ne peut avoir changé après l'écran de confirmation (write.planChanged, :148)",
+    "repo/v2/src/Domenia.Ad/Writes/AdAccountWriteExecutors.cs:137 — ValidatePlan exige plan intact (IsIntact), mode annuaire, non simulé, cible GUID valide ; :151 — contrôleur (destinataire) absent ou différent = refus",
+    "repo/v2/tests/Domenia.Tests/WriteCircuitTests.cs:644-660 — tests : plan intact, textes opérateur hors empreinte, toute altération (cible, contrôleur, changement) change l'empreinte et casse IsIntact ; :663-666 — jeton lié à l'empreinte et expirant avec le plan"
+  ],
+  "manque": "Rien de bloquant. La mention explicite « confirmer ne fige pas le secret » n'a pas été retrouvée telle quelle à l'écran (le secret est pourtant bien hors plan et hors empreinte, AccountPasswordReset.cs:73 et :318) ; le destinataire est exigé à l'exécution par les exécuteurs (AdAccountWriteExecutors.cs:151) et non au scellement (WritePlans.cs:143 accepte « non indiqué »).",
+  "effort": "S",
+  "depend": [],
+  "risque": "ecriture-AD"
+}

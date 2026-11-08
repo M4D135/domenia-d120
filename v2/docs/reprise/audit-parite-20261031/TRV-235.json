@@ -1,0 +1,29 @@
+{
+  "id": "TRV-235",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Writes/WriteCircuit.cs:283-290 — progress(Checking) puis executor.CheckAsync(plan) : si !precheck.Current, note « préconditions changées depuis le plan », ligne au journal et DomeniaOperationException(WriteErrors.Stale) — rien n'est envoyé",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:291-294 — la session est relue APRÈS les préconditions et revérifiée (RequireConnectedSession + origin.Matches) : « La session a changé pendant les préconditions ; aucune écriture envoyée. »",
+    "src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:38-46 — CheckAsync : ValidatePlan, session, bail d'écriture, EnsureController, relecture fraîche de la cible puis CheckCurrentAsync",
+    "src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:181-185 — EnsureController : plan.Controller doit être égal à Source.ControllerName, sinon refus « Contrôleur différent du plan ; rien n'a été envoyé. » (la relecture se fait bien sur le contrôleur prévu)",
+    "src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:54-56 — ExecuteAsync rejoue exactement la même relecture juste avant le Modify (double vérification)",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:804-881 — Check : GUID relu (814), DN (840), puis chaque valeur « avant » du plan (842-873) ; au moindre écart WritePrecheck.Stale avec « relisez-le puis préparez de nouveau l'écriture. Rien n'a été envoyé. »",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:890-924 — StateOf classe chaque changement en Before / Done / Changed ; Done = déjà dans l'état demandé (valide, non réécrit)",
+    "src/Domenia.Core/Screens/Fiche/FicheEntry.cs:212-230 — FicheValues.SameDn : comparaison de DN normalisée par DistinguishedName.AreEqual (avec repli OrdinalIgnoreCase seulement si le DN est mal formé)",
+    "src/Domenia.Ad/AdFicheObjects.cs:28 — la relecture demande allowedAttributes en excluant les attributs sensibles ; src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:177 — ValidatePlan refuse tout plan touchant un attribut sensible (FicheAttributeRules.IsSensitive) : les secrets sont exclus de la comparaison",
+    "src/Domenia.Core/Writes/Objects/ObjectWrites.cs:894-895 — unicodePwd (WriteChangeKind.Reset) est toujours jugé « Before » et n'est jamais comparé",
+    "src/Domenia.Ad/Writes/AdRawAttributeExecutor.cs:66-67 — pour l'écriture brute, la règle SE-02 est réappliquée juste avant l'envoi avec la politique retenue du plan ET une politique relue",
+    "tests/Domenia.Tests/AdFicheWriteTests.cs:33-34 — état frais : CheckAsync courant et « plan et préconditions en lecture seule » (0 écriture) ; :83 « plusieurs valeurs non écrasées » ; :86 « ancien GUID disparu »",
+    "tests/Domenia.Tests/SessionWritePolicyTests.cs:42-45 — session perdue pendant les préconditions : refus, et « préconditions réellement exécutées » (Checks == 1)",
+    "web/js/write-flow.js:28 — write.stale fait partie de REPLAN : la page propose alors le bouton « Préparer de nouveau » (write-flow.js:366-368)"
+  ],
+  "manque": "1) Le garde-fou « attribut absent de la relecture ≠ attribut vide » n'est pas appliqué : src/Domenia.Core/Writes/Objects/ObjectWrites.cs:909-912 construit la valeur relue avec current.All(change.Attribute) (tableau vide quand l'attribut est absent) puis compare value ?? \"\" à change.BeforeValue ?? \"\" ; de plus src/Domenia.Core/Screens/Fiche/FicheEntry.cs:39 (FicheEntry.Create) écarte les valeurs vides, donc un plan d'ajout (BeforeValue null) est jugé « avant conforme » que l'attribut soit absent, présent mais vide, ou simplement non retourné par la relecture. FicheEntry.Has existe (FicheEntry.cs:48) et sert exactement à cela ailleurs (src/Domenia.Ad/Screens/AdAuditReader.Directory.cs:92 : « Attribut tokenGroups non retourné ; absence de groupes non démontrée. ») mais n'est jamais appelé dans le précontrôle d'écriture. 2) Rien n'exige que la relecture ait réellement retourné les attributs que le plan modifie : l'énumération des états est limitée à Before / Done / Changed (src/Domenia.Core/Writes/Objects/ObjectWrites.cs:883-888) — aucun état « non relu », alors que l'énoncé demande que « n'a pas été relue » bloque aussi l'envoi. 3) Aucun test de la distinction absent / vide : les tests de CheckAsync (tests/Domenia.Tests/AdFicheWriteTests.cs:33, 57, 83, 86, 141, 201, 242-270, 301, 393-397, 443-447, 501-509) portent sur GUID, DN, références et multi-valeurs, jamais sur un attribut manquant de la relecture.",
+  "effort": "M",
+  "depend": [
+    "TRV-228 (revalidation du plan au moment de l'envoi, même fonction ObjectWrites.Check)",
+    "TRV-234 (écriture conditionnelle : la valeur « avant » supprimée doit être la valeur courante prouvée)",
+    "TRV-233 (un refus de précondition après reçu écrit ne doit pas devenir un « échec » non prouvé)",
+    "sujet « Attributs et valeurs » (FicheEntry.Create écarte les valeurs vides, src/Domenia.Core/Screens/Fiche/FicheEntry.cs:39)"
+  ],
+  "risque": "ecriture-AD"
+}

@@ -1,0 +1,49 @@
+﻿          <Grid x:Name="UxPageHeader" Grid.Row="1" Margin="2,0,0,12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="Accueil" FontSize="22" FontWeight="SemiBold" x:Name="LblUxPageTitle" TextTrimming="CharacterEllipsis"/>
+                <Border Background="{DynamicResource AccentSoft}" CornerRadius="12" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,5,0,0">
+                  <TextBlock Text="Session AD en préparation" FontSize="11" Foreground="{DynamicResource InfoFg}" x:Name="LblUxDomain"/>
+                </Border>
+              </StackPanel>
+              <WrapPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                <CheckBox x:Name="ChkReadOnlyMode" ToolTip="Coché : les écritures AD et les actions distantes classées comme modificatrices sont bloquées. Décocher ne donne pas de droits supplémentaires ; les confirmations restent nécessaires." Content="Lecture seule" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="0,6,14,6" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Protection des modifications" AutomationProperties.HelpText="Coché : les écritures AD et les actions distantes classées comme modificatrices sont bloquées. Décocher ne donne pas de droits supplémentaires ; les confirmations restent nécessaires."/>
+                <ComboBox x:Name="CmbUiProfile" ToolTip="Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire." Width="116" SelectedIndex="0" IsEnabled="True" IsHitTestVisible="True" VerticalContentAlignment="Center" Margin="0" Height="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Niveau de détail" AutomationProperties.HelpText="Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire.">
+                  <ComboBoxItem Content="Essentiel" Tag="Tech"/>
+                  <ComboBoxItem Content="Expert" Tag="Admin"/>
+                </ComboBox>
+              </WrapPanel>
+            </Grid>
+            <WrapPanel Grid.Row="1" Margin="0">
+              <TextBlock x:Name="LblStatus" Text="" Visibility="Collapsed" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis"/>
+              <TextBlock x:Name="LblPrivilegeTop" Text="" Visibility="Collapsed" Foreground="{DynamicResource PrivilegeFg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+              <Border x:Name="WriteModeBanner" Background="#B91C1C" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="10" Padding="12,7" Margin="0,4,10,0" Visibility="Collapsed" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                  <TextBlock Text="🔴" FontFamily="Segoe UI Emoji" Foreground="White" FontSize="14" FontWeight="Bold" Margin="0,0,7,0"/>
+                  <TextBlock x:Name="LblWriteMode" Text="MODE ECRITURE AD ACTIF" Foreground="White" FontWeight="Bold"/>
+                </StackPanel>
+              </Border>
+              <TextBlock x:Name="LblTaskElapsed" Text="" Foreground="{DynamicResource MutedColor}" FontSize="11" VerticalAlignment="Center" Margin="0,4,10,0" MaxWidth="420" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Style.Triggers>
+                      <Trigger Property="Text" Value="">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </Trigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+              <ProgressBar x:Name="PbTop" Width="130" Height="8" Visibility="Collapsed" IsIndeterminate="True" VerticalAlignment="Center" Margin="0,4,10,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
+              <Button x:Name="BtnCancelTask" ToolTip="Interrompt l operation en cours." Content="Annuler" Visibility="Collapsed" Margin="0,4,10,0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler" AutomationProperties.HelpText="Interrompt l operation en cours."/>
+              <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/>
+            </WrapPanel>
+          </Grid>

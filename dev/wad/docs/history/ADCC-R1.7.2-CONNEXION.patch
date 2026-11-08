@@ -1,0 +1,289 @@
+--- R1.7.1/wad/ADCC-Core.ps1
++++ R1.7.2/wad/ADCC-Core.ps1
+@@ -15955,12 +15955,13 @@
+         if ($null -eq $Entry) {
+             throw [System.InvalidOperationException]::new('ADCC_AUTH_ENTRY_NULL : objet ADSI absent.')
+         }
+-        # PSBase selects the CLR members, not an adapted directory attribute.
+-        $properties = $Entry.psbase.Properties
++        # psbase selects CLR members, but property syntax can still hide getter exceptions.
++        # Explicit getter METHOD calls preserve COM errors instead of yielding a silent null.
++        $properties = $Entry.psbase.get_Properties()
+         if ($null -eq $properties) {
+             throw [System.InvalidOperationException]::new('ADCC_AUTH_PROPERTIES_NULL : collection ADSI absente.')
+         }
+-        $values = $properties[$Name]
++        $values = $properties.get_Item($Name)
+         if ($null -eq $values -or $values.Count -eq 0) { return '' }
+         $value = $values[0]
+         if ($null -eq $value) { return '' }
+@@ -15982,8 +15983,60 @@
+         return $dn
+     }
+ 
++    function Protect-AuthDiagnosticText {
++        param([AllowNull()][string]$Text,[AllowNull()][string]$Secret='')
++        $safe=[string]$Text
++        if (-not [string]::IsNullOrEmpty($Secret)) { $safe=$safe.Replace($Secret,'[SECRET MASQUE]') }
++        # No invocation source / request / credential serialization. Bound diagnostic size.
++        if ($safe.Length -gt 4096) { $safe=$safe.Substring(0,4096)+' [tronque]' }
++        return $safe
++    }
++
++    function Get-AuthNativeFailure {
++        param($Record)
++        $deep=Get-DeepestException -ErrorRecord $Record
++        $hr=''; $nativeMessage=''; $extendedCode=''; $extendedMessage=''; $ldapCode=''
++        try { if ($null -ne $deep) { $hr=('0x{0:X8}' -f $deep.HResult); $nativeMessage=[string]$deep.Message } } catch { }
++        $cursor=$null
++        try { $cursor=$Record.Exception } catch { }
++        if ($null -eq $cursor -and $Record -is [System.Exception]) { $cursor=$Record }
++        for ($i=0; $null -ne $cursor -and $i -lt 12; $i++) {
++            if ($cursor -is [System.DirectoryServices.Protocols.LdapException]) {
++                $ldapCode=[string]$cursor.ErrorCode
++                $extendedMessage=[string]$cursor.ServerErrorMessage
++            }
++            if ($cursor -is [System.DirectoryServices.DirectoryServicesCOMException]) {
++                $extendedCode=[string]$cursor.ExtendedError
++                $extendedMessage=[string]$cursor.ExtendedErrorMessage
++            }
++            $cursor=$cursor.InnerException
++        }
++        $category=''; $summary=''
++        switch ($hr) {
++            '0x80070525' { $category='Credentials'; $summary='Compte inconnu du fournisseur d authentification.' }
++            '0x8007052E' { $category='Credentials'; $summary='Identifiant ou mot de passe refuse. Le code ne distingue pas les deux.' }
++            '0x8007052F' { $category='AccountRestriction'; $summary='Une restriction du compte interdit cette connexion.' }
++            '0x80070530' { $category='AccountRestriction'; $summary='Connexion interdite a cette heure pour ce compte.' }
++            '0x80070531' { $category='AccountRestriction'; $summary='Connexion interdite depuis ce poste pour ce compte.' }
++            '0x80070532' { $category='AccountRestriction'; $summary='Le mot de passe de ce compte a expire.' }
++            '0x80070533' { $category='AccountRestriction'; $summary='Ce compte est desactive.' }
++            '0x80070701' { $category='AccountRestriction'; $summary='Ce compte a expire.' }
++            '0x80070773' { $category='AccountRestriction'; $summary='Ce compte doit changer de mot de passe avant la connexion.' }
++            '0x80070775' { $category='AccountRestriction'; $summary='Ce compte est verrouille. Arrete les essais et verifie son etat.' }
++            '0x80070005' { $category='AccessDenied'; $summary='Acces refuse pendant cette etape.' }
++            '0x8007051F' { $category='DomainUnavailable'; $summary='Aucun serveur d ouverture de session disponible.' }
++            '0x8007054B' { $category='DomainUnavailable'; $summary='Le domaine n existe pas ou ne peut pas etre contacte.' }
++            '0x8007203A' { $category='DomainUnavailable'; $summary='Le serveur d annuaire n est pas operationnel.' }
++            '0x800705B4' { $category='Timeout'; $summary='Le delai de l operation est depasse.' }
++        }
++        return [pscustomobject]@{
++            HResult=$hr; Category=$category; Summary=$summary; NativeMessage=$nativeMessage
++            ExtendedCode=$extendedCode; ExtendedMessage=$extendedMessage; LdapCode=$ldapCode
++        }
++    }
++
+     function Get-AuthFailureDiagnostic {
+-        param($Record,[string]$Stage,[string]$ServerName,[bool]$CredentialAttempted=$false)
++        param($Record,[string]$Stage,[string]$ServerName,[bool]$CredentialAttempted=$false,[string]$BindIdentity='',[AllowNull()][string]$Secret='')
+         $errorId=''; $line=0; $stack=''; $exceptionType=''; $hresult=''
+         try { $errorId=[string]$Record.FullyQualifiedErrorId } catch { }
+         try { $line=[int]$Record.InvocationInfo.ScriptLineNumber } catch { }
+@@ -15995,11 +16048,18 @@
+                 $hresult=('0x{0:X8}' -f $deep.HResult)
+             }
+         } catch { }
+-        # Fixed whitelist: no Request, Credential, invocation source or fields.
++        $native=Get-AuthNativeFailure -Record $Record
++        $errorId=Protect-AuthDiagnosticText -Text $errorId -Secret $Secret
++        $stack=Protect-AuthDiagnosticText -Text $stack -Secret $Secret
++        # Fixed whitelist: identity and native error scalars only. No Request/Credential/source.
+         return [pscustomobject]@{
+             Stage=$Stage; Server=$ServerName; CredentialAttempted=$CredentialAttempted
+             ErrorId=$errorId; ExceptionType=$exceptionType; HResult=$hresult
+-            WorkerLine=$line; Stack=$stack
++            WorkerLine=$line; Stack=$stack; BindIdentity=$BindIdentity
++            NativeMessage=(Protect-AuthDiagnosticText -Text $native.NativeMessage -Secret $Secret)
++            ExtendedCode=$native.ExtendedCode
++            ExtendedMessage=(Protect-AuthDiagnosticText -Text $native.ExtendedMessage -Secret $Secret)
++            LdapCode=$native.LdapCode
+         }
+     }
+ 
+@@ -16013,12 +16073,19 @@
+             return 'Internal'
+         }
+         if ($Detail -match '(?i)ADCC_AUTH_METADATA_MISSING|defaultNamingContext absent') { return 'Metadata' }
+-        $nativeCode=''; try { $nativeCode=('0x{0:X8}' -f $deep.HResult) } catch { }
++        $native=Get-AuthNativeFailure -Record $Record
++        if (-not [string]::IsNullOrWhiteSpace($native.Category)) { return $native.Category }
++        if ($native.LdapCode -eq '49') { return 'Credentials' }
++        if ($native.LdapCode -eq '50') { return 'AccessDenied' }
++        if ($native.LdapCode -eq '81') { return 'DomainUnavailable' }
++        if ($native.LdapCode -eq '85') { return 'Timeout' }
++        $nativeCode=$native.HResult
+         if ($deep -is [System.UnauthorizedAccessException] -or $nativeCode -eq '0x80070005' -or
+             $Detail -match '(?i)access[ _-]?denied|acc[eè]s.*refus[eé]|insufficient access rights') { return 'AccessDenied' }
+         if ($Detail -match '(?i)identifiant|mot de passe|compte.*verrouill|compte.*desactiv|compte.*expir|ouvrir une session') { return 'Credentials' }
+         if ($deep -is [System.TimeoutException] -or $Detail -match '(?i)timeout|delai depasse') { return 'Timeout' }
+         if ($Stage -like 'Preparation*') { return 'Internal' }
++        if ($Stage -eq 'Explicit.NativeBind') { return 'Authentication' }
+         return 'DomainUnavailable'
+     }
+ 
+@@ -16049,7 +16116,11 @@
+     }
+ 
+     function Format-LdapError {
+-        param($ErrorRecord,[string]$ServerName)
++        param($ErrorRecord,[string]$ServerName,[AllowNull()][string]$Secret='')
++        $native=Get-AuthNativeFailure -Record $ErrorRecord
++        if (-not [string]::IsNullOrWhiteSpace($native.Summary)) {
++            return (Protect-AuthDiagnosticText -Text ("{0} (HRESULT={1}; serveur={2})" -f $native.Summary,$native.HResult,$ServerName) -Secret $Secret)
++        }
+         $outer = $null
+         try { $outer = $ErrorRecord.Exception } catch { }
+         $deepest = Get-DeepestException -ErrorRecord $ErrorRecord
+@@ -16078,7 +16149,10 @@
+             }
+             catch { }
+         }
+-        $messageText = (($messages.ToArray() | ForEach-Object { [string]$_ }) -join " | ")
++        if (-not [string]::IsNullOrWhiteSpace($native.ExtendedMessage) -and -not $messages.Contains($native.ExtendedMessage)) {
++            [void]$messages.Add($native.ExtendedMessage)
++        }
++        $messageText = Protect-AuthDiagnosticText -Text (($messages.ToArray() | ForEach-Object { [string]$_ }) -join " | ") -Secret $Secret
+         if ($code -eq 49) {
+             # Le controleur renvoie un sous-code hexadecimal dans le message,
+             # sous la forme  data 775 . Il distingue huit situations que
+@@ -16088,14 +16162,14 @@
+             if ($subMatch.Success) { $sub = $subMatch.Groups[1].Value.ToLowerInvariant() }
+             switch ($sub) {
+                 "525" { return "Ce compte n existe pas dans l annuaire." }
+-                "52e" { return "Mot de passe incorrect. Attention : quelques essais de plus peuvent verrouiller le compte." }
++                "52e" { return "Identifiant ou mot de passe refuse. Arrete les essais avant de verifier le compte." }
+                 "530" { return "Ce compte n est pas autorise a ouvrir une session a cette heure-ci." }
+                 "531" { return "Ce compte n est pas autorise a ouvrir une session depuis ce poste." }
+                 "532" { return "Le mot de passe de ce compte a expire. Change-le, puis reconnecte-toi." }
+                 "533" { return "Ce compte est desactive." }
+                 "701" { return "Ce compte a expire." }
+                 "773" { return "Ce compte doit changer de mot de passe avant de pouvoir se connecter." }
+-                "775" { return "Ce compte est VERROUILLE. Le mot de passe n est pas en cause : attends la fin du delai de verrouillage ou fais-le deverrouiller." }
++                "775" { return "Ce compte est VERROUILLE. Arrete les essais et verifie son etat." }
+                 default { return "Identifiant ou mot de passe refuse par $ServerName." }
+             }
+         }
+@@ -16103,7 +16177,7 @@
+         if ($code -eq 81 -or $messageText -match "(?i)server.*not operational|cannot contact|unavailable|connexion.*impossible|nom de serveur.*introuvable|no such host") { return "Controleur $ServerName injoignable." }
+         if ($code -eq 85 -or $messageText -match "(?i)time.?out|delai|delai|operation.*expir") { return "Timeout LDAP sur $ServerName." }
+         if ([string]::IsNullOrWhiteSpace($messageText) -or $messageText -eq "0") { return "Echec LDAP sans detail sur $ServerName (code $code)." }
+-        if ($code -lt 0) { return "$messageText (ADSI/PowerShell, serveur=$ServerName)" }
++        if ($code -lt 0) { return "$messageText (ADSI/PowerShell, HRESULT=$($native.HResult), serveur=$ServerName)" }
+         return "$messageText (LDAP=$code, serveur=$ServerName)"
+     }
+ 
+@@ -16281,7 +16355,7 @@
+                         $rootPath = "LDAP://$serverName/RootDSE"
+                         $authStage = 'Discovery.NativeBind'
+                         $discoveryRoot = New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @($rootPath)
+-                        $nativeRoot = $discoveryRoot.psbase.NativeObject
++                        $nativeRoot = $discoveryRoot.psbase.get_NativeObject()
+                         if ($null -eq $nativeRoot) { throw [System.InvalidOperationException]::new('ADCC_AUTH_NATIVE_NULL : RootDSE non valide.') }
+                         $nativeRoot = $null
+                         $authStage = 'Discovery.RootDSE' 
+@@ -16328,7 +16402,7 @@
+                         $plainPassword = [string]$Request.Credential.GetNetworkCredential().Password
+                         $selectedServer = if ([string]::IsNullOrWhiteSpace($detectedDc)) { [string]$serverName } else { $detectedDc }
+                         $basePath = "LDAP://$selectedServer/$effectiveBase"
+-                        Set-AuthProgress -Stage "Authentification Active Directory" -Detail "Validation unique du compte sur $selectedServer"
++                        Set-AuthProgress -Stage "Authentification Active Directory" -Detail "Validation unique de $bindLogin sur $selectedServer (ADSI get_NativeObject)"
+ 
+                         $authStage = 'Explicit.NativeBind'
+                         $explicitBindAttempted = $true
+@@ -16338,9 +16412,10 @@
+                             $plainPassword,
+                             [System.DirectoryServices.AuthenticationTypes]::Secure
+                         )
+-                        # NativeObject force reellement le bind. RefreshCache force ensuite une
+-                        # lecture minimale sur la base pour eviter un faux positif paresseux ADSI.
+-                        $nativeBase = $baseAdsi.psbase.NativeObject
++                        # R1.7.2: call the CLR getter as a METHOD, not a property. PowerShell can
++                        # silently turn a throwing property getter into null, hiding the real HRESULT.
++                        # Keep both the genuine-null guard and the subsequent base read.
++                        $nativeBase = $baseAdsi.psbase.get_NativeObject()
+                         if ($null -eq $nativeBase) { throw [System.InvalidOperationException]::new('ADCC_AUTH_NATIVE_NULL : authentification ADSI non confirmee.') }
+                         $nativeBase = $null
+                         $authStage = 'Explicit.ReadBase'
+@@ -16357,8 +16432,9 @@
+                     catch {
+                         $failure = $_
+                         $failureServer = if ($explicitBindAttempted) { [string]$selectedServer } else { [string]$serverName }
+-                        $lastFailure = Get-AuthFailureDiagnostic -Record $failure -Stage $authStage -ServerName $failureServer -CredentialAttempted $explicitBindAttempted
+-                        $detail = Format-LdapError -ErrorRecord $failure -ServerName $failureServer
++                        $diagnosticIdentity = if ($explicitBindAttempted) { [string]$bindLogin } else { '' }
++                        $lastFailure = Get-AuthFailureDiagnostic -Record $failure -Stage $authStage -ServerName $failureServer -CredentialAttempted $explicitBindAttempted -BindIdentity $diagnosticIdentity -Secret $plainPassword
++                        $detail = Format-LdapError -ErrorRecord $failure -ServerName $failureServer -Secret $plainPassword
+                         $category = Get-AuthFailureCategory -Record $failure -Detail $detail -Stage $authStage
+                         $lastCategory = $category
+ 
+@@ -16368,7 +16444,7 @@
+                             # l'utilisateur pourra relancer volontairement. ADCC ne multiplie pas les essais.
+                             $watch.Stop()
+                             Set-AuthProgress -Stage "Termine" -Detail $detail
+-                            return New-AuthResult -Success $false -AuthMode "Explicit" -AuthMethod "ADSI.DirectoryEntry+ContextDiscovery" -Error $detail -ErrorCategory $category -Server ([string]$serverName) -Attempts ([int]$explicitBindAttempted) -DurationMs $watch.ElapsedMilliseconds
++                            return New-AuthResult -Success $false -AuthMode "Explicit" -AuthMethod "ADSI.DirectoryEntry+ContextDiscovery" -Error $detail -ErrorCategory $category -Server $failureServer -Attempts ([int]$explicitBindAttempted) -DurationMs $watch.ElapsedMilliseconds
+                         }
+ 
+                         # Ici aucun mot de passe explicite n'a encore ete utilise. On peut donc
+@@ -18349,7 +18425,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.22-R1.7.1-LOGIN"
++$script:MasterBuild = "2026.09.22-R1.7.2-NATIVE"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -21897,7 +21973,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:AdccBuild = "ADCC 1.0 R1.7.1 CONNEXION"
++$script:AdccBuild = "ADCC 1.0 R1.7.2 CONNEXION"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -22144,16 +22220,17 @@
+     }
+     if ($c -eq 'Metadata') { return 'Lecture des informations AD incomplete. Consulte le diagnostic.' }
+     if ($c -eq 'AccessDenied') { return 'Acces refuse par AD. Consulte le diagnostic.' }
+-    if($m -match "(?i)(52e|8007052e|0x8007052e|logon failure|unknown user name or bad password|user name or password is incorrect|username or password is incorrect|nom d.?utilisateur.*mot de passe.*incorrect|identifiant.*mot de passe.*incorrect|mot de passe.*incorrect|invalid credentials|credentials.*invalid)") {
++    if ($c -in @('AccountRestriction','Authentication')) { return $m }
++    if($m -match "(?i)((?:\bdata\s+52e\b)|\b(?:0x)?8007052e\b|logon failure|unknown user name or bad password|user name or password is incorrect|username or password is incorrect|nom d.?utilisateur.*mot de passe.*incorrect|identifiant.*mot de passe.*incorrect|mot de passe.*incorrect|invalid credentials|credentials.*invalid)") {
+         return "Identifiant ou mot de passe incorrect."
+     }
+-    if($m -match "(?i)(775|account.*locked|compte.*verrouill)") {
++    if($m -match "(?i)((?:\bdata\s+775\b)|\b(?:0x)?80070775\b|account.*locked|compte.*verrouill)") {
+         return "Ce compte est verrouille."
+     }
+-    if($m -match "(?i)(533|account.*disabled|compte.*desactiv|compte.*desactiv)") {
++    if($m -match "(?i)((?:\bdata\s+533\b)|\b(?:0x)?80070533\b|account.*disabled|compte.*desactiv|compte.*desactiv)") {
+         return "Ce compte est desactive."
+     }
+-    if($m -match "(?i)(532|password.*expired|mot de passe.*expir)") {
++    if($m -match "(?i)((?:\bdata\s+532\b)|\b(?:0x)?80070532\b|password.*expired|mot de passe.*expir)") {
+         return "Le mot de passe de ce compte a expire."
+     }
+     if($c -eq "Credentials" -and -not [string]::IsNullOrWhiteSpace($m)) {
+@@ -22169,9 +22246,11 @@
+         return 'Ce defaut ne prouve pas un mauvais mot de passe. Ouvre le journal.'
+     }
+     if ($Category -eq 'Metadata') { return 'La lecture du domaine ou de la base a echoue. Ouvre le journal.' }
+-    if ($Category -eq 'AccessDenied') { return 'Verifie les droits du compte sur la base AD. Details dans le journal.' }
++    if ($Category -eq 'AccessDenied') { return 'Verifie le contexte, les droits du compte et les restrictions. Details dans le journal.' }
+     if ($Message -eq 'Identifiant ou mot de passe incorrect.') { return 'Verifie les identifiants avant tout nouvel essai.' }
+     if ($Category -eq 'Credentials') { return 'Compte refuse : lis le motif avant de refaire un essai.' }
++    if ($Category -eq 'AccountRestriction') { return 'Lis la restriction indiquee avant tout nouvel essai. Ne multiplie pas les tentatives.' }
++    if ($Category -eq 'Authentication') { return 'Le bind a echoue sans cause identifiee. Copie le diagnostic natif avant tout nouvel essai.' }
+     if ($Category -eq 'Input') { return 'Complete les informations demandees.' }
+     if ($Category -eq 'Timeout' -or $Category -eq 'DomainUnavailable') { return 'Verifie le reseau, le DNS ou le VPN. Details dans le journal.' }
+     return 'Ouvre le journal de connexion pour identifier l etape en echec.'
+@@ -22259,7 +22338,7 @@
+                 $diagnosticProperty = $result.PSObject.Properties['Diagnostic']
+                 if ($null -ne $diagnosticProperty -and $null -ne $diagnosticProperty.Value) {
+                     $d = $diagnosticProperty.Value
+-                    $diagnosticText = 'Category={0}; Stage={1}; ErrorId={2}; Type={3}; HResult={4}; WorkerLine={5}; CredentialAttempted={6}; Stack={7}' -f $errorCategory,$d.Stage,$d.ErrorId,$d.ExceptionType,$d.HResult,$d.WorkerLine,$d.CredentialAttempted,$d.Stack
++                    $diagnosticText = 'Category={0}; Stage={1}; ErrorId={2}; Type={3}; HResult={4}; WorkerLine={5}; CredentialAttempted={6}; Stack={7}; Server={8}; BindIdentity={9}; NativeMessage={10}; ExtendedCode={11}; ExtendedMessage={12}; LdapCode={13}' -f $errorCategory,$d.Stage,$d.ErrorId,$d.ExceptionType,$d.HResult,$d.WorkerLine,$d.CredentialAttempted,$d.Stack,$d.Server,$d.BindIdentity,$d.NativeMessage,$d.ExtendedCode,$d.ExtendedMessage,$d.LdapCode
+                     Add-AdccFastLoginDetail $diagnosticText
+                     Write-AdccFastLoginLog -Stage "LOGIN_DIAGNOSTIC" -Status "ERROR" -Detail $diagnosticText
+                 }

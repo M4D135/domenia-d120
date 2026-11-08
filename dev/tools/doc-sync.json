@@ -1,0 +1,11 @@
+{
+  "Schema": "DomeniaDocSync/1",
+  "Note": "Libellés retirés de lʼinterface : aucun guide, aucune aide contextuelle ne doit encore les citer. Ajouter ici lʼancien libellé à chaque renommage dʼune commande.",
+  "RetiredLabels": [
+    { "Pattern": "Postes (ping/WMI)", "Replacement": "« Ping » et « WMI », deux commandes distinctes sous « Données de lʼOU »" },
+    { "Pattern": "« Ping/WMI »", "Replacement": "« Ping » ou « WMI »" },
+    { "Pattern": "« Base locale »", "Replacement": "« Objets AD »" },
+    { "Pattern": "« Les deux »", "Replacement": "« Objets AD », puis « Ping » ou « WMI »" },
+    { "Pattern": "Base locale relit AD", "Replacement": "Objets AD relit AD" }
+  ]
+}

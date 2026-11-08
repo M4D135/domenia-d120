@@ -1,0 +1,18 @@
+{
+  "id": "TRV-040",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/AppPaths.cs:8 — AppDirectory = AppContext.BaseDirectory : la racine est le dossier de l'EXE compilé (aucune lecture de variable d'environnement dans ce fichier) ; lignes 10,17 — web/ et runtime/webview2 déduits de cette racine",
+    "repo/v2/src/Domenia.App/PackageLifecycle.Layout.cs:9-20 — ApplicationRoot : BaseDirectory, ajustée du deux layouts portables (racine plate ou dossier wad) avec refus explicite (« Dossier wad absent : réextrayez le pack complet. », « Deux dispositions de paquet mélangées ») ; repo/v2/src/Domenia.Store/Preferences/LegacyBoardLayoutFile.cs:34 — « Mode de stockage D1 inconnu ; aucun emplacement deviné. » : le premier candidat qualifié uniquement, pas de devinette",
+    "repo/v2/src/Domenia.App/AppPaths.cs:22-26 — UserData = %LOCALAPPDATA%\\Domenia, qualifié absolu ; le commentaire exclut explicitement le dossier courant (« never a path relative to the current folder, which may be the share or key the pack runs from ») : le repli sur le dossier courant de Domenia 1 est refusé par conception",
+    "repo/v2/src/Domenia.Store/Configuration/LegacyConfigurationFile.cs:11-19 — Domenia.config.json déduit du dossier passé (Program.cs:254 LegacyConfigurationFile.Read(AppPaths.AppDirectory, …)), avec journal « absent : réglages par défaut » ; repo/v2/src/Domenia.App/Branding/ProductBrand.cs:6-11,21-25 — icône de fenêtre tirée de la ressource embarquée « Domenia.Brand.Icon » (Apply : form.Icon = icon), refus si absente du programme : l'icône n'est jamais un fichier à régénérer",
+    "repo/v2/src/Domenia.Core/Screens/Settings/SettingsViews.cs:7 — « Connection preferences of the workstation (Domenia 1 PAR-049, HKCU\\Software\\DOMENIA, now in the local preferences …) » : la clé HKCU héritée de la racine est remplacée par les préférences locales ; la seule lecture HKCU de l'interface est le thème Windows (repo/v2/src/Domenia.App/Secrets/LoginVisuals.cs:34), sans lien avec la racine"
+  ],
+  "manque": "Sur la lettre de l'énoncé : 1) aucune prise en charge des variables DOMENIA_ROOT ni MEGAD_ROOT (aucune occurrence dans repo/v2/src) — la compatibilité de racine par environnement de Domenia 1 (et l'alias MegAD*) n'a pas d'équivalent ; le rejet du repli sur le dossier courant (AppPaths.cs:24-25) est un choix plus sûr que l'énoncé mais doit être acté comme écart, pas comme la fonction. 2) La clé HKCU dérivée de la racine n'existe pas (les repères D1 Get-MainXaml/registre sont devenus les préférences locales, SettingsViews.cs:7) : à acter au catalogue. 3) Le garde-fou « icône régénérée depuis la base64 embarquée si absente » est devenu sans objet (resource embarquée, ProductBrand.cs:6-11) mais n'est tracé nulle part comme décision. 4) Aucun test ne fixe l'ordre ou l'exclusion des candidats de racine : aucune occurrence de DOMENIA_ROOT, MEGAD_ROOT ou BaseDirectory dans les cas de test de résolution de racine (les tests de layout portent sur wad/flat, repo/v2/src/Domenia.App/PackageLifecycle.Layout.cs:22-29).",
+  "effort": "S",
+  "depend": [
+    "TRV-037 (DataRoot, dérivé de la racine et de %LOCALAPPDATA%, est le point de départ de la migration des préférences)",
+    "TRV-039 (la trace d'amorçage doit précéder tout module et dépend de ces chemins)"
+  ],
+  "risque": "lecture"
+}

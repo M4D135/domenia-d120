@@ -1,0 +1,73 @@
+﻿{
+    "Computer":  "W11-01",
+    "Utc":  "2026-10-18T07:46:07.3948701Z",
+    "Identity":  "CNAMTS\\Administrateur",
+    "PowerShell":  "5.1.26100.6584",
+    "DomainDn":  "DC=cnamts,DC=local",
+    "Dc":  "dc01.cnamts.local",
+    "Computers":  [
+                      {
+                          "Name":  "DC01",
+                          "DNSHostName":  "dc01.cnamts.local",
+                          "DistinguishedName":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local",
+                          "ObjectGuid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3",
+                          "Enabled":  true
+                      },
+                      {
+                          "Name":  "PC-IT-01",
+                          "DNSHostName":  null,
+                          "DistinguishedName":  "CN=PC-IT-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                          "ObjectGuid":  "0cf2121a-a934-45cc-8f21-0b4b0271c41f",
+                          "Enabled":  false
+                      },
+                      {
+                          "Name":  "PC-FIN-01",
+                          "DNSHostName":  null,
+                          "DistinguishedName":  "CN=PC-FIN-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                          "ObjectGuid":  "fdafa477-a10d-48dd-8604-e8122db5a8dc",
+                          "Enabled":  false
+                      },
+                      {
+                          "Name":  "PC-SUP-01",
+                          "DNSHostName":  null,
+                          "DistinguishedName":  "CN=PC-SUP-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                          "ObjectGuid":  "6d692e44-a050-4ced-afd0-c1a735a198a5",
+                          "Enabled":  false
+                      },
+                      {
+                          "Name":  "PC-SUP-02",
+                          "DNSHostName":  null,
+                          "DistinguishedName":  "CN=PC-SUP-02,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                          "ObjectGuid":  "f6c8ff5e-8d45-4c1a-a70c-08153b52e57b",
+                          "Enabled":  false
+                      },
+                      {
+                          "Name":  "SRV-APP-01",
+                          "DNSHostName":  null,
+                          "DistinguishedName":  "CN=SRV-APP-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                          "ObjectGuid":  "9010eea8-a4af-472e-8087-cc78999fad29",
+                          "Enabled":  false
+                      },
+                      {
+                          "Name":  "W11-01",
+                          "DNSHostName":  "w11-01.cnamts.local",
+                          "DistinguishedName":  "CN=W11-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                          "ObjectGuid":  "123c6f5d-56b8-4965-ba83-ef417174791b",
+                          "Enabled":  true
+                      },
+                      {
+                          "Name":  "R2-PC-A",
+                          "DNSHostName":  null,
+                          "DistinguishedName":  "CN=R2-PC-A,OU=MachinesA,OU=R2-20260928,OU=ADCC-Lab,DC=cnamts,DC=local",
+                          "ObjectGuid":  "dcfa45dd-b719-4e52-9d4a-fdd32f0bb22c",
+                          "Enabled":  false
+                      }
+                  ],
+    "AdPassed":  true,
+    "RemoteWmi":  {
+                      "Computer":  "DC01",
+                      "Caption":  "Microsoft Windows Server 2025 Standard Evaluation",
+                      "Version":  "10.0.26100"
+                  },
+    "WmiPassed":  true
+}

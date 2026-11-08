@@ -1,0 +1,170 @@
+{
+  "Kind": "EngineResilience",
+  "Passed": 32,
+  "Failed": 0,
+  "NativeWindowsPowerShell51": true,
+  "WpfExecuted": false,
+  "NetworkAccessed": false,
+  "Tests": [
+    {
+      "Name": "LiveCache refused write keeps observations and query queued",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "LiveCache admitted write moves exact items into the in-flight batch",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "LiveCache refused read remains eligible for later admission",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "AD success detaches stale cache queue and allows the idle heartbeat",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "AD partial result keeps cached fallback rows",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Full index queue accepts replacement and refuses a new identity",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Index persistence refuses a missing database context",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Base debounce invalidates older callbacks immediately",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Base errors from a previous context cannot replace current status",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Base page size and offset are the same in callback and worker",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Obsolete collection releases the lazy cache buffers",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lazy collection decode validates GUID and clears consumed JSON",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "One-level OU scope honors escaped backslash parity",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Memory query cache bounds total rows, preserving the newest full snapshot",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Memory query cache retains at most twenty small queries",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Shared CIM stream counts 10000 instances and retains twenty detail rows",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Interrupted CIM enumeration never becomes a successful partial count",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Backup export cannot target the active database or any SQLite journal",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Old backup callbacks cannot label a new context as backed up",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Unconfirmed backup payload cannot report success",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Storage preserves older rows before a bulk rebuild in FIFO order",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Storage isolates a bulk rebuild when it reaches the front",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lost save callback preserves its lot and suspends automatic replay",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Detached save still owns its slot and is never replayed",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Lost LiveCache callback requeues the exact batch without false saved state",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Index retry resumes the exact page only inside the same scope and epoch",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Index retry from another OU starts from the first page",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Index retry from a previous connection starts from the first page",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Typing during a busy retry resets the page even if the same term returns",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Park observation absent from a present search map never scans the grid",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Park singleton map hit updates exactly one row without scanning the grid",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Park without a search map scans once and retains DN and GUID identity guards",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+    "Kind":  "ParkDetection",
+    "Expected":  2,
+    "Filter":  "RC11711",
+    "Complete":  true,
+    "NativeWindowsPowerShell51":  true,
+    "LiveAD":  false,
+    "MockedNetwork":  true,
+    "Passed":  2,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "RC11711 : nettoyage après timeout et moteur saturé attendent sans arrêter ni perdre le poste suivant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RC11711 : le timeout WMI est enregistré et le poste suivant est traité",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "ACC-051",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:685 — l'entrée « Points d'attention » (FleetCatalog.Attention) porte targetsKey « fleet.attention » et le compte des postes en problème",
+    "src/Domenia.Core/Screens/Accueil/FleetBoardCalculator.cs:650 — l'ensemble exact des sains est publié sous la clé « fleet.health|Sans problème » (part « Sans problème » ligne 682, « Incomplets » ligne 684)",
+    "web/js/pages/accueil/board.js:266 — le chiffre cliquable (targetsKey et targets > 0) appelle onTargets, donc « Postes concernés » s'ouvre bien sur l'ensemble exact",
+    "web/js/pages/accueil/tools.js:43 — panneau « Postes concernés » ouvert avec la clé de l'ensemble ; ligne 99 : les GUID viennent du calcul via l'opération accueil.targets (aucune nouvelle lecture)",
+    "web/js/pages/accueil/tools.js:47 — la seule action de sortie du panneau est « Ouvrir l'OU dans Rechercher » (navigation vers rechercher, ligne 51) ; aucune action vers l'atelier de requêtes",
+    "src/Domenia.Bridge/Operations/AccueilOperations.cs:47 — accueil.targets renvoie les postes exacts du calcul qui a produit le chiffre ; aucune opération accueil.* ne transmet une sélection à l'atelier",
+    "src/Domenia.Bridge/Operations/RequetesOperations.cs:1002 — la seule fabrication d'une sélection figée (requetes.search.apply) part d'un aperçu de l'atelier, jamais d'un widget Accueil ; ligne 1013 : garde-fous GUID (cible postes, racine de session, epoch, compte de session) ; ligne 1015 : plafond 20 000 GUID ; ligne 1019 : nom = nom de la recette, horodatage et compte ; ligne 1021 : journalisé",
+    "web/js/pages/requetes.js:74 — paramètres d'entrée de l'atelier : onglet, recette, ldap, apercu, cible, poste, retour (ligne 541) ; aucun paramètre ne reçoit une sélection de GUID à figer",
+    "web/js/pages/rechercher.js:1061 — la sélection figée n'est consommée que par Rechercher (requetes.search.selection), sens atelier → Rechercher"
+  ],
+  "manque": "Aucun chemin des points d'attention vers l'atelier : le panneau « Postes concernés » (et les parts « Sans problème » / « Incomplets ») n'offre que « Ouvrir l'OU dans Rechercher » (web/js/pages/accueil/tools.js:47) ; aucune opération ne fige une sélection de GUID depuis un widget Accueil vers l'atelier, et l'atelier n'accepte aucun paramètre de sélection (web/js/pages/requetes.js:74, 541). La sélection figée nommée avec compte et date n'existe que dans l'autre sens, depuis un aperçu de l'atelier (src/Domenia.Bridge/Operations/RequetesOperations.cs:1002-1021).",
+  "effort": "M",
+  "depend": [
+    "ACC-050",
+    "REQ-048 (sélection figée atelier → Rechercher)",
+    "atelier de requêtes (page requetes)"
+  ],
+  "risque": "lecture"
+}

@@ -1,0 +1,62 @@
+﻿[
+    {
+        "Variant":  "Before",
+        "Milliseconds":  45598,
+        "Sql":  {
+                    "Prepared":  37,
+                    "Reused":  462,
+                    "Executed":  499,
+                    "Rows":  10066,
+                    "SqlMs":  27954.4
+                },
+        "Machines":  "5000",
+        "Healthy":  0,
+        "Unassessed":  378,
+        "Problems":  4571
+    },
+    {
+        "Variant":  "After",
+        "Milliseconds":  11120,
+        "Sql":  {
+                    "Prepared":  36,
+                    "Reused":  308,
+                    "Executed":  344,
+                    "Rows":  5117,
+                    "SqlMs":  4275.3
+                },
+        "Machines":  "5000",
+        "Healthy":  0,
+        "Unassessed":  378,
+        "Problems":  4571
+    },
+    {
+        "Variant":  "After",
+        "Milliseconds":  9722,
+        "Sql":  {
+                    "Prepared":  36,
+                    "Reused":  308,
+                    "Executed":  344,
+                    "Rows":  5117,
+                    "SqlMs":  3883
+                },
+        "Machines":  "5000",
+        "Healthy":  0,
+        "Unassessed":  378,
+        "Problems":  4571
+    },
+    {
+        "Variant":  "Before",
+        "Milliseconds":  35205,
+        "Sql":  {
+                    "Prepared":  37,
+                    "Reused":  462,
+                    "Executed":  499,
+                    "Rows":  10066,
+                    "SqlMs":  25417.9
+                },
+        "Machines":  "5000",
+        "Healthy":  0,
+        "Unassessed":  378,
+        "Problems":  4571
+    }
+]

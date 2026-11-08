@@ -1,0 +1,273 @@
+{
+    "Build":  "2026.10.01-DOMENIA-1.0-RC1.6-STABLEUI",
+    "Environment":  "Windows PowerShell 5.1 x64 STA / WPF",
+    "Passed":  52,
+    "Failed":  0,
+    "Expected":  52,
+    "Skipped":  0,
+    "Complete":  true,
+    "NoADAccess":  true,
+    "NoProductionData":  true,
+    "Tests":  [
+                  {
+                      "Name":  "Hote Windows PowerShell 5.1 x64 STA",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Analyse native du runtime et extraction sans bootstrap",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : formulaire FILPRO sans mini-journal au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : journal en memoire invisible avant validation",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : attente dans la meme fenetre sans agrandissement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : cent changements internes sans log visible ni saut",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : erreur lisible, commandes de diagnostic disponibles",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : diagnostic seulement sur action volontaire",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : nouvel essai masque aussi les erreurs precedentes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : confirmation de succes ne revele pas de mini-log",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : annuler attente rejoint le gestionnaire existant",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : Echap rejoint aussi une seule annulation",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : petite hauteur et erreur longue sans cacher les boutons",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : branchement de l attente non duplique",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : operations 0 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : operations 1 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : operations 9 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : operations 10 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : operations 99 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : operations 100 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : operations 0 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : acces 0 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : acces 1 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : acces 9 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : acces 16 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : acces 100 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : acces 0 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : formulaire FILPRO sans mini-journal au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : journal en memoire invisible avant validation",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : attente dans la meme fenetre sans agrandissement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : cent changements internes sans log visible ni saut",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : erreur lisible, commandes de diagnostic disponibles",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : diagnostic seulement sur action volontaire",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : nouvel essai masque aussi les erreurs precedentes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : confirmation de succes ne revele pas de mini-log",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : annuler attente rejoint le gestionnaire existant",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : Echap rejoint aussi une seule annulation",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : petite hauteur et erreur longue sans cacher les boutons",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : branchement de l attente non duplique",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : operations 0 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : operations 1 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : operations 9 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : operations 10 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : operations 99 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : operations 100 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : operations 0 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : acces 0 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : acces 1 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : acces 9 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : acces 16 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : acces 100 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : acces 0 sans deplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ]
+}

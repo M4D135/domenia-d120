@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : réinitialiser un mot de passe généré, avec déverrouillage",
+  "description": "Génère un mot de passe conforme (règles vérifiées en direct), prépare le plan (le mot de passe n’apparaît pas dans le plan : « Nouvelle valeur saisie, ni affichée ni conservée »), confirme l’écriture simulée, vérifie le reçu et l’effacement des champs.",
+  "modes": ["simulation"],
+  "start": "comptes?ou=OU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&compte=c.bernard&action=mdp",
+  "steps": [
+    { "do": "click", "text": "Générer un mot de passe", "within": ".cpt-pwd" },
+    { "do": "expect", "selector": ".cpt-pwd-rules li.met", "count": 4, "title": "Les quatre règles sont respectées" },
+    { "do": "expect", "selector": "[data-unlock]", "property": "checked", "equals": true, "title": "« Déverrouiller ensuite » est coché pour un compte verrouillé" },
+    { "do": "click", "text": "Préparer la réinitialisation…", "within": ".cpt-pwd" },
+    { "do": "wait", "contains": "Nouvelle valeur saisie, ni affichée ni conservée", "within": ".k-drw", "title": "Le plan ne contient jamais le mot de passe" },
+    { "do": "click", "text": "Confirmer…", "within": ".k-drw-foot" },
+    { "do": "click", "text": "Confirmer (simulation)", "within": ".k-dlg" },
+    { "do": "wait", "contains": "Réinitialisation du mot de passe", "within": ".toasts", "timeoutMs": 20000, "title": "Reçu de la réinitialisation" },
+    { "do": "click", "text": "Fermer", "within": ".k-drw-foot" },
+    { "do": "expect", "selector": "#cpt-pwd-new", "property": "value", "equals": "", "title": "Les champs du mot de passe sont vidés" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

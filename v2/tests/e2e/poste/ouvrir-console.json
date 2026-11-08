@@ -1,0 +1,73 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : choisir un poste et tester sa réponse",
+  "description": "Ouvre l’écran Poste sans paramètre, cherche PC-PAR-0001 dans la liste locale et ouvre sa console : l’ouverture depuis la liste envoie un seul ping (Domenia 1), puis « Tester la réponse » en envoie un autre sur geste.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste",
+  "steps": [
+    {
+      "do": "expect",
+      "text": "Choisir un poste",
+      "within": ".ps-pick-hero",
+      "title": "La page de choix s’affiche"
+    },
+    {
+      "do": "type",
+      "selector": "[data-search]",
+      "text": "PC-PAR-0001",
+      "title": "Recherche locale par nom"
+    },
+    {
+      "do": "wait",
+      "contains": "PC-PAR-0001",
+      "within": ".ps-pick-grid",
+      "title": "Le poste apparaît dans la grille"
+    },
+    {
+      "do": "press",
+      "key": "Enter",
+      "title": "Entrée ouvre le premier poste"
+    },
+    {
+      "do": "expect",
+      "text": "PC-PAR-0001",
+      "within": ".ps-hero h1",
+      "title": "La console du poste est ouverte"
+    },
+    {
+      "do": "expect",
+      "selector": ".ps-kpis .ps-kpi",
+      "count": 4,
+      "title": "Le bandeau a ses quatre indicateurs (disque, mémoire, démarrage, LAPS)"
+    },
+    {
+      "do": "wait",
+      "contains": "ping",
+      "within": ".toasts",
+      "title": "L’ouverture depuis la liste vérifie la présence (un seul ping)"
+    },
+    {
+      "do": "click",
+      "text": "Tester la réponse",
+      "within": ".ps-hero-bar"
+    },
+    {
+      "do": "wait",
+      "contains": "ping",
+      "within": ".toasts",
+      "title": "Le résultat du ping est annoncé"
+    },
+    {
+      "do": "shot",
+      "name": "console-ouverte",
+      "selector": ".ps-hero"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

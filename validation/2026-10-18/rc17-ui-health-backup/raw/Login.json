@@ -1,0 +1,37 @@
+[
+    {
+        "Id":  "BtnSuiteLoginTheme",
+        "Name":  "Passer au thème sombre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "1014;371;36;36"
+    },
+    {
+        "Id":  "BtnCancel",
+        "Name":  "Annuler",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "660;492;96;40"
+    },
+    {
+        "Id":  "BtnLoginOtherAccount",
+        "Name":  "Utiliser un autre compte",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "764;492;286;40"
+    },
+    {
+        "Id":  "BtnWindowsLogin",
+        "Name":  "Continuer en tant que CNAMTS\\Administrateur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true,
+        "Bounds":  "660;448;390;36"
+    },
+    {
+        "Id":  "LoginPrivacy",
+        "Name":  "Coffre Windows facultatif, lecture uniquement sur votre demande.",
+        "Type":  "ControlType.Text",
+        "Enabled":  true,
+        "Bounds":  "680;542;350;16"
+    }
+]

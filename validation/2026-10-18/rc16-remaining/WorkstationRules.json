@@ -1,0 +1,75 @@
+{
+  "Kind": "PureRules",
+  "Host": {
+    "PSVersion": "7.4.6",
+    "Platform": "NonWindows",
+    "PSEdition": "Core"
+  },
+  "NativeWindowsPowerShell51": false,
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "Passed": 9,
+  "Failed": 0,
+  "CoveredIds": [
+    "D096"
+  ],
+  "Complete": true,
+  "Limitation": "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+  "Tests": [
+    {
+      "Id": "D096",
+      "Name": "Texte mono-value : retrait de l ancienne valeur et ajout de la nouvelle dans la meme requete",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D096",
+      "Name": "Sans condition atomique : relecture avant et apres, limite exposee, aucune transaction promise",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D096",
+      "Name": "Une modification externe n est pas ecrasee silencieusement",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D096",
+      "Name": "Precondition non relue ou reponse absente : rien n est envoye ni annonce applique",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D096",
+      "Name": "Point 96 : resultat de tache lu, etats du planificateur distincts d un echec",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D096",
+      "Name": "Point 96 : demarrage automatique, seul le programme est garde, jamais ses arguments",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D096",
+      "Name": "Point 96 : cache du Planificateur, seules les dates communes a toutes les versions sont decodees",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D096",
+      "Name": "Point 96 : le worker d inventaire porte les copies exactes des regles et ne garde ni commande ni action",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D096",
+      "Name": "Point 96 : taches planifiees, une session WinRM en echec bascule sur la lecture CIM, jamais un refus d identifiant",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

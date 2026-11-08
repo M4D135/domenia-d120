@@ -1,0 +1,65 @@
+﻿[
+    {
+        "Name":  "Boards",
+        "StartedUtc":  "2026-10-20T10:34:39.3158927Z",
+        "Seconds":  240.2512768,
+        "ExitCode":  -999,
+        "TimedOut":  true
+    },
+    {
+        "Name":  "Freshness",
+        "StartedUtc":  "2026-10-20T10:38:39.5959150Z",
+        "Seconds":  71.0383523,
+        "ExitCode":  null,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "WiringCache",
+        "StartedUtc":  "2026-10-20T10:39:50.6937809Z",
+        "Seconds":  240.11464819999998,
+        "ExitCode":  -999,
+        "TimedOut":  true
+    },
+    {
+        "Name":  "OuRefresh",
+        "StartedUtc":  "2026-10-20T10:43:50.8224377Z",
+        "Seconds":  68.01255669999999,
+        "ExitCode":  null,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "Delivery",
+        "StartedUtc":  "2026-10-20T10:44:58.8349944Z",
+        "Seconds":  17.8546747,
+        "ExitCode":  null,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "NativeParser",
+        "StartedUtc":  "2026-10-20T10:45:16.7548733Z",
+        "Seconds":  192.10970939999999,
+        "ExitCode":  null,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "Ps51Compat",
+        "StartedUtc":  "2026-10-20T10:48:28.8773147Z",
+        "Seconds":  80.923101,
+        "ExitCode":  null,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "PROD-CheckOnly",
+        "StartedUtc":  "2026-10-20T10:49:49.8004157Z",
+        "Seconds":  20.518153899999998,
+        "ExitCode":  null,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "PROD-Builder",
+        "StartedUtc":  "2026-10-20T10:50:10.3256459Z",
+        "Seconds":  28.3571977,
+        "ExitCode":  null,
+        "TimedOut":  false
+    }
+]

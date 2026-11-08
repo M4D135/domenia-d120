@@ -1,0 +1,639 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.3-SELECTION",
+  "BaselineSha256": "5A2B1494DA120598B23E413AF89020ADD35BEC052C16BBDEB4E280EF7FCE86A0",
+  "CoreFunctionsChanged": [
+    "Get-MainXaml",
+    "Test-DomeniaGridSelectionMatches",
+    "Queue-DomeniaSelectedObjectOpen",
+    "Show-ObjectRows",
+    "Wire-Events",
+    "Initialize-DomeniaPresentation"
+  ],
+  "PreservedCoreFunctions": 567,
+  "Passed": 154,
+  "Failed": 0,
+  "NativeTestCasesProvided": 46,
+  "PowerShellExecuted": false,
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false,
+  "LiveCimExecuted": false,
+  "Checks": [
+    {
+      "Name": "18 result columns retained",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding Type}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding Name}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: SessionDisplay",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding SessionState}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding DirectoryState}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding Login}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding UPN}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding Association}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding LinkSource}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding LinkConfidence}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding Presence}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding State}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding OS}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding LastLogon}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding Mail}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding Description}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding Changed}",
+      "Passed": true
+    },
+    {
+      "Name": "Plain nonempty header: {Binding DN}",
+      "Passed": true
+    },
+    {
+      "Name": "Binding-based layout keys remain identical",
+      "Passed": true
+    },
+    {
+      "Name": "Current console and remembered association labelled separately",
+      "Passed": true
+    },
+    {
+      "Name": "Selection checkbox explained",
+      "Passed": true
+    },
+    {
+      "Name": "Recheck concerns one computer",
+      "Passed": true
+    },
+    {
+      "Name": "Grid help describes explicit opening",
+      "Passed": true
+    },
+    {
+      "Name": "Main selection event never opens a fiche",
+      "Passed": true
+    },
+    {
+      "Name": "Double click is gated to a data row",
+      "Passed": true
+    },
+    {
+      "Name": "Passive selection compatibility no longer opens a fiche",
+      "Passed": true
+    },
+    {
+      "Name": "No result-list ping call sites in the core",
+      "Passed": true
+    },
+    {
+      "Name": "No automatic one-result open branch",
+      "Passed": true
+    },
+    {
+      "Name": "Boolean selection guard no longer manipulates menus",
+      "Passed": true
+    },
+    {
+      "Name": "AD producer requires existing selection intent",
+      "Passed": true
+    },
+    {
+      "Name": "Intent created only by selection function",
+      "Passed": true
+    },
+    {
+      "Name": "Intent checks generation and identity",
+      "Passed": true
+    },
+    {
+      "Name": "Intent checks GUID",
+      "Passed": true
+    },
+    {
+      "Name": "Selection respects disabled grid and multiple selection",
+      "Passed": true
+    },
+    {
+      "Name": "Selection never loads or clears a fiche",
+      "Passed": true
+    },
+    {
+      "Name": "Explicit recheck does not iterate results",
+      "Passed": true
+    },
+    {
+      "Name": "Legacy autodetect flag cannot reinstate list scans",
+      "Passed": true
+    },
+    {
+      "Name": "Cached row requires fresh AD before probing",
+      "Passed": true
+    },
+    {
+      "Name": "Starter only uses explicitly selected row",
+      "Passed": true
+    },
+    {
+      "Name": "No visible-row or FIFO fallback starts other machines",
+      "Passed": true
+    },
+    {
+      "Name": "Starter captures one-shot intent before dispatch",
+      "Passed": true
+    },
+    {
+      "Name": "Native cleanup does not requeue probes",
+      "Passed": true
+    },
+    {
+      "Name": "Already active probe must match GUID to be shared",
+      "Passed": true
+    },
+    {
+      "Name": "New search clears unsent intent",
+      "Passed": true
+    },
+    {
+      "Name": "No stopping native jobs when merely changing selection",
+      "Passed": true
+    },
+    {
+      "Name": "Disk cache processing retained",
+      "Passed": true
+    },
+    {
+      "Name": "One tree restore per session/context",
+      "Passed": true
+    },
+    {
+      "Name": "Restore enqueues search after visual selection",
+      "Passed": true
+    },
+    {
+      "Name": "Do not wait for unrelated branches before scheduling content",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search consumed before dispatch",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search preserves current workspace/selection",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search gate: SessionEpoch",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search gate: GlobalSearchGeneration",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search gate: Context",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search gate: TypeFilter",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search gate: RestoringSettings",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search gate: SuppressBranchAutoLoad",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search gate: Test-DomeniaAccessBusyWrite",
+      "Passed": true
+    },
+    {
+      "Name": "Restored search gate: IsEnabled",
+      "Passed": true
+    },
+    {
+      "Name": "Manual tree navigation cancels queued restore",
+      "Passed": true
+    },
+    {
+      "Name": "No domain fallback for a missing OU",
+      "Passed": true
+    },
+    {
+      "Name": "Probe error target is not inferred from last fiche",
+      "Passed": true
+    },
+    {
+      "Name": "Alternate credential can use captured target",
+      "Passed": true
+    },
+    {
+      "Name": "20 modules remain explicitly loaded",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Live.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Access.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Continuity.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Continuity.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Guard.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Accounts.Async.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Storage.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Storage.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Sessions.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Dossier.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Dossier.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Reconcile.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Complete explicit export plan: Domenia-Guard.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved sensitive function: Invoke-DomeniaInProcessAuthProbe",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved sensitive function: Initialize-DomeniaDataStore",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved sensitive function: Get-DomeniaWorkerOperationHashes",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved sensitive function: Open-AdObject",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved sensitive function: Complete-DomeniaLiveSearch",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: Domenia.exe",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/Domenia-Start.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: tools/operation-contracts.json",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/Support/DEBLOQUER_TOUT.cmd",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/Support/Debloquer-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "No deleted core functions",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): Domenia.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): tools/Signer-Distribution.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/Domenia-Core.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/Domenia-Modules.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/Domenia-Start.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/Support/Debloquer-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/maintenance/Preview-DomeniaLogin.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/maintenance/Preview-DomeniaProgress.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/maintenance/Preview-DomeniaUi.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/maintenance/Sauvegarder-Cache.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/maintenance/Verifier-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Access.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Accounts.Async.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Continuity.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Continuity.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Dossier.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Dossier.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Guard.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Guard.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Live.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Reconcile.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Sessions.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Storage.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Storage.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/modules/Domenia-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-Domenia.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaAccounts.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaAcl.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaCandidate.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaCompactUi.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaExperience.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaInterface.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaLastUser.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaLogin.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaModules.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaRelease.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaRemote.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaSearchScope.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaSelection.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaStreaming.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaSupport.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/Test-DomeniaTheme.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/fixtures/AuthProbe-R1.7.1.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/fixtures/AuthProbe-R1.7.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical balance (not native execution): wad/tests/fixtures/RC1.1-ModuleImports.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "New native tests are included",
+      "Passed": true
+    },
+    {
+      "Name": "WPF realization assertion present",
+      "Passed": true
+    },
+    {
+      "Name": "Shared Suite boolean converter loaded by fixtures",
+      "Passed": true
+    },
+    {
+      "Name": "Installer invokes new suite before code copy",
+      "Passed": true
+    },
+    {
+      "Name": "Installer rejects skipped/incomplete new suite",
+      "Passed": true
+    }
+  ]
+}

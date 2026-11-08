@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : régler la fenêtre de collecte",
+  "description": "Dans Budgets réseau, saisit une fenêtre de collecte invalide (refus nommé, rien d’enregistré), puis une fenêtre valide dont l’état est calculé en direct et peint sur la grille de la semaine, et l’enregistre.",
+  "modes": ["simulation"],
+  "start": "parametres?section=collecte",
+  "steps": [
+    { "do": "wait", "ready": "parametres", "title": "L’écran Paramètres est prêt" },
+    { "do": "type", "selector": "[data-window]", "text": "lundy 08:00-09:00", "clear": true, "title": "Saisir une fenêtre invalide" },
+    { "do": "wait", "contains": "Jours non reconnus", "within": "[data-card=\"window\"]", "title": "Le jeton fautif est nommé" },
+    { "do": "type", "selector": "[data-window]", "text": "lun-ven 07:30-18:00", "clear": true, "title": "Saisir une fenêtre valide" },
+    { "do": "wait", "contains": "Fenêtre de collecte", "within": ".pr-window-state", "title": "L’état de la fenêtre est calculé" },
+    { "do": "expect", "selector": ".pr-week-row[data-day=\"0\"] .pr-cell.on", "title": "La grille de la semaine est peinte" },
+    { "do": "shot", "name": "fenetre-collecte", "selector": "[data-card=\"window\"]" },
+    { "do": "click", "selector": "[data-act=\"window-save\"]", "title": "Enregistrer la fenêtre" },
+    { "do": "expect", "contains": "Fenêtre de collecte enregistrée", "within": ".toasts", "title": "La notification confirme l’enregistrement" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

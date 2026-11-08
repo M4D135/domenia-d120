@@ -1,0 +1,17 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : préparer l’actualisation des stratégies et le réveil",
+  "description": "Depuis les actions à distance d’Intervenir : le plan de gpupdate /force (WinRM) est présenté sans rien envoyer, puis le réveil Wake-on-LAN présente son plan ou explique son refus (poste qui répond déjà, carte inconnue).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=intervenir",
+  "steps": [
+    { "do": "click", "selector": ".ps-action[data-act=gpupdate]", "title": "Actualiser les stratégies" },
+    { "do": "wait", "contains": "Actualiser les stratégies", "within": ".k-drw", "title": "Le plan de gpupdate est présenté" },
+    { "do": "press", "key": "Escape", "title": "Fermer sans rien envoyer" },
+    { "do": "click", "selector": ".ps-action[data-act=wake]", "title": "Réveiller le poste" },
+    { "do": "wait", "contains": "veil", "title": "Plan du réveil ou raison du refus" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

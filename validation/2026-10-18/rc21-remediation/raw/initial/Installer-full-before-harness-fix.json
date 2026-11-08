@@ -1,0 +1,170 @@
+{
+    "Suite":  "Test-DomeniaInstaller",
+    "Passed":  24,
+    "Failed":  2,
+    "Skipped":  0,
+    "Expected":  26,
+    "Complete":  true,
+    "NativeWindowsPowerShell51":  true,
+    "PSVersion":  "5.1.26100.6584",
+    "ElevatedSession":  true,
+    "ProfileDataDeletionExecuted":  false,
+    "Checks":  [
+                   {
+                       "Name":  "D114 version complete preparee, activation, preferences et donnees conservees, retour verifie",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  53.694
+                   },
+                   {
+                       "Name":  "D114 source corrompue refusee avant modification du code actif",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  6.333
+                   },
+                   {
+                       "Name":  "D114 verrou exclusif interdit le lancement et la mise a jour concurrents",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  3.393
+                   },
+                   {
+                       "Name":  "D114 interruption au milieu des copies bloque le lancement, restauration complete disponible",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  47.623
+                   },
+                   {
+                       "Name":  "D114 copie preparee independante des modifications ulterieures de la source",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  35.674
+                   },
+                   {
+                       "Name":  "D114 controle final couvre aussi les fichiers inchanges, conflit conserve et lancement bloque",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  28.698
+                   },
+                   {
+                       "Name":  "FI-06 -RequireQualification sans rapport lie au hash du ZIP : refus avant toute modification",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  4.879
+                   },
+                   {
+                       "Name":  "FI-06 rapport lie au hash du ZIP accepte, rapport d un autre ZIP refuse",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  31.09
+                   },
+                   {
+                       "Name":  "UX-29 sans reponse de l operateur rien n est installe, code 2 transmis par l entree DEV",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  11.614
+                   },
+                   {
+                       "Name":  "UX-29 reponse reelle de l operateur : N refuse (code 2), O installe par l entree DEV",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  32.602
+                   },
+                   {
+                       "Name":  "UX-29 cinq sauvegardes completes gardees, preparation abandonnee retiree, RestoreLatest",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  43.653
+                   },
+                   {
+                       "Name":  "FO-20 premiere installation PROD dans un dossier vide, raccourcis jamais crees sans reponse",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  57.065
+                   },
+                   {
+                       "Name":  "FO-20 reponses reelles : installation O, raccourci Bureau O cree par COM, menu Demarrer N",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  24.882
+                   },
+                   {
+                       "Name":  "FI-06 controles hors ligne du rapport : memes regles que release_guard.require_evidence",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  4.377
+                   },
+                   {
+                       "Name":  "FI-14 plafond du runtime lu dans wad/Domenia.release.json",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  15.656
+                   },
+                   {
+                       "Name":  "P143 migration du schema annoncee avant la reponse, consignee au journal et rappelee au retour arriere",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  42.108
+                   },
+                   {
+                       "Name":  "P143 meme schema : aucune migration annoncee ni avertissement de retour arriere",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  34.351
+                   },
+                   {
+                       "Name":  "P144 desinstallation sans reponse : rien nʼest supprime, code 2",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  25.402
+                   },
+                   {
+                       "Name":  "P144 -Confirm:$false : code, manifeste et verrou retires ; donnees du dossier conservees sans choix explicite",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  24.718
+                   },
+                   {
+                       "Name":  "P144 choix explicite -LocalData Supprimer : le dossier installe disparait entierement",
+                       "Status":  "Failed",
+                       "Detail":  "Cannot find path \u0027C:\\Users\\ADMINI~2\\AppData\\Local\\Temp\\Domenia-install-test-1defb6a319114285afea81f0ed7a4fbe\\8c022b4f0cd343279191e5cc6611ef6f\\fresh-remove\u0027 because it does not exist. at \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-remediation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 399\r\nat Case, C:\\DomeniaLab\\d120-rc11721-remediation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 19\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-remediation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 394\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-remediation\\Run-Installer.ps1: line 1",
+                       "DurationSeconds":  24.554
+                   },
+                   {
+                       "Name":  "P144 choix saisis en minuscules : -LocalData supprimer supprime, -LocalData demander conserve sans question",
+                       "Status":  "Failed",
+                       "Detail":  "Cannot find path \u0027C:\\Users\\ADMINI~2\\AppData\\Local\\Temp\\Domenia-install-test-1defb6a319114285afea81f0ed7a4fbe\\219e6113ed93452297b00d55f5611b6a\\fresh-lowercase\u0027 because it does not exist. at \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-remediation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 406\r\nat Case, C:\\DomeniaLab\\d120-rc11721-remediation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 19\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-remediation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 401\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-remediation\\Run-Installer.ps1: line 1",
+                       "DurationSeconds":  41.83
+                   },
+                   {
+                       "Name":  "P144 recus a verifier : suppression des donnees du profil refusee avant toute suppression",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  0.152
+                   },
+                   {
+                       "Name":  "P144 fichier de code modifie conserve et nomme, jonction dans les donnees refusee avant toute suppression",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  50.728
+                   },
+                   {
+                       "Name":  "P144 copie DEV et mise a jour inachevee refusees : rien nʼest supprime",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  24.907
+                   },
+                   {
+                       "Name":  "P144 reponses reelles : O desinstalle, N conserve les donnees, raccourcis de cette copie retires",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  25.345
+                   },
+                   {
+                       "Name":  "P144 droits standards : aucun recours a lʼelevation dans lʼinstallateur",
+                       "Status":  "Passed",
+                       "Detail":  "",
+                       "DurationSeconds":  0.013
+                   }
+               ]
+}

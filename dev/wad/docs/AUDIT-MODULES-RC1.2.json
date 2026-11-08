@@ -1,0 +1,397 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.2-MODULES",
+  "BaselineSha256": "B1452653533253045E58C6E84F1D8FC3D71C201C82981A5943170D5DF26D9D19",
+  "BaselineOmittedModules": [
+    "Domenia-Dossier.Model.ps1",
+    "Domenia-Dossier.UI.ps1",
+    "Domenia-Reconcile.UI.ps1"
+  ],
+  "Modules": 20,
+  "ExportedFunctions": 209,
+  "CoreFunctions": 573,
+  "CoreFunctionsChanged": [
+    "Initialize-DomeniaPresentation"
+  ],
+  "UnchangedCoreFunctions": 572,
+  "AllExistingModulesUnchanged": true,
+  "PowerShellExecuted": false,
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "ADExecuted": false,
+  "Passed": 93,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "Baseline archive CRC",
+      "Passed": true
+    },
+    {
+      "Name": "20 declared script modules",
+      "Passed": true
+    },
+    {
+      "Name": "No duplicate module declarations",
+      "Passed": true
+    },
+    {
+      "Name": "All shipped script modules included",
+      "Passed": true
+    },
+    {
+      "Name": "209 function exports explicitly checked",
+      "Passed": true
+    },
+    {
+      "Name": "18 direct imports and 2 nested UX dependencies",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Live.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Live.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Access.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Access.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Continuity.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Continuity.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Continuity.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Continuity.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Guard.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Guard.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Accounts.Async.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Accounts.Async.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Storage.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Storage.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Storage.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Storage.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Sessions.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Sessions.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Dossier.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Dossier.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Dossier.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Dossier.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Reconcile.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Reconcile.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Exports match definitions: Domenia-Guard.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module bytes unchanged: Domenia-Guard.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Reproduce omission in RC1.1 import graph",
+      "Passed": true
+    },
+    {
+      "Name": "Omitted module now directly loaded: Domenia-Dossier.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Omitted module now directly loaded: Domenia-Dossier.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Omitted module now directly loaded: Domenia-Reconcile.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Core dot-sources shared entry at script scope",
+      "Passed": true
+    },
+    {
+      "Name": "Validation occurs before configuration/data and login",
+      "Passed": true
+    },
+    {
+      "Name": "Module functions stay in caller scope",
+      "Passed": true
+    },
+    {
+      "Name": "Function existence and actual source checked",
+      "Passed": true
+    },
+    {
+      "Name": "Missing files checked before any imports",
+      "Passed": true
+    },
+    {
+      "Name": "Syntax checked before any imports",
+      "Passed": true
+    },
+    {
+      "Name": "Module import failures retain inner exception",
+      "Passed": true
+    },
+    {
+      "Name": "Not a dynamic plugin discovery",
+      "Passed": true
+    },
+    {
+      "Name": "No code starts windows or timers in loader",
+      "Passed": true
+    },
+    {
+      "Name": "CheckOnly exercises the same shared loader",
+      "Passed": true
+    },
+    {
+      "Name": "Runtime startup verifies all 20 module paths",
+      "Passed": true
+    },
+    {
+      "Name": "Runtime startup does not require development helpers",
+      "Passed": true
+    },
+    {
+      "Name": "All core function names preserved",
+      "Passed": true
+    },
+    {
+      "Name": "Only core presentation function changed",
+      "Passed": true
+    },
+    {
+      "Name": "Live initialization precedes reconciliation",
+      "Passed": true
+    },
+    {
+      "Name": "Common worker byte content unchanged",
+      "Passed": true
+    },
+    {
+      "Name": "Operation contracts unchanged",
+      "Passed": true
+    },
+    {
+      "Name": "ACL-only fix retained",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: Domenia.exe",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/Domenia.config.json",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/Support/DEBLOQUER_TOUT.cmd",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/Support/Debloquer-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved file: wad/Support/.lifecycle.lock",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance (not native parser): wad/Domenia-Core.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance (not native parser): wad/Domenia-Start.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance (not native parser): wad/Domenia-Modules.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance (not native parser): wad/tests/Test-DomeniaModules.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance (not native parser): INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers fresh runspace",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers real entry point",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers reference regression",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers missing exports",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers scope error",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers function origin",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers module syntax",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers no implicit plugin",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers WPF timer lifetime",
+      "Passed": true
+    },
+    {
+      "Name": "Native regression covers skipped not PASS",
+      "Passed": true
+    },
+    {
+      "Name": "Module tests run before backup/copy",
+      "Passed": true
+    },
+    {
+      "Name": "Installer refuses incomplete Windows module suite",
+      "Passed": true
+    },
+    {
+      "Name": "New loader belongs to runtime manifest generation",
+      "Passed": true
+    },
+    {
+      "Name": "Same Support placement preserved",
+      "Passed": true
+    }
+  ]
+}

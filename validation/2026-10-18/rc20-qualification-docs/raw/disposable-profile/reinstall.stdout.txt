@@ -1,0 +1,5 @@
+PremiŠre installation de la version 2026.10.18-DOMENIA-1.0-RC1.17.20-D120 dans C:\Users\DomeniaRC20Test\AppData\Local\DomeniaQualification\Installed2 : 173 fichiers.
+Runtime 2026.10.18-DOMENIA-1.0-RC1.17.20-D120 : 172 fichiers v‚rifi‚s en 2051 ms (plafond 250) ; 130 modules charg‚s et fonctions disponibles. Aucun accŠs AD.
+Domenia 2026.10.18-DOMENIA-1.0-RC1.17.20-D120 install‚ dans C:\Users\DomeniaRC20Test\AppData\Local\DomeniaQualification\Installed2 ; fichiers d‚bloqu‚s et contr“le de d‚marrage r‚ussi.
+Raccourci sur le Bureau non cr‚‚.
+Raccourci dans le menu D‚marrer non cr‚‚.

@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "verified_utc": "2026-10-13T01:57:46.077697+00:00",
+  "repository": "M4D135/domenia-d120",
+  "branch": "master",
+  "verified_commit": "abc400f93263dc4ec11691e7ac5f89bd3e2dde56",
+  "remote_head_at_check": "abc400f93263dc4ec11691e7ac5f89bd3e2dde56",
+  "method": "Authenticated GitHub contents API, exact commit; downloaded bytes checked against local delivery manifest.",
+  "archives": [
+    {
+      "path": "packs/Domenia_PROD.zip",
+      "commit": "abc400f93263dc4ec11691e7ac5f89bd3e2dde56",
+      "bytes": 2087747,
+      "sha256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+      "http_status": 200,
+      "matches_delivered_archive": true
+    },
+    {
+      "path": "packs/Domenia_DEV.zip",
+      "commit": "abc400f93263dc4ec11691e7ac5f89bd3e2dde56",
+      "bytes": 4357336,
+      "sha256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+      "http_status": 200,
+      "matches_delivered_archive": true
+    }
+  ],
+  "limits": "Artifact identity only; formal Windows AD qualification remains NOT_EVALUATED."
+}

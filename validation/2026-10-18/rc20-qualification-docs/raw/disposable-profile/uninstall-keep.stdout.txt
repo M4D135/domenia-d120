@@ -1,0 +1,9 @@
+D‚sinstallation de Domenia 2026.10.18-DOMENIA-1.0-RC1.17.20-D120 dans C:\Users\DomeniaRC20Test\AppData\Local\DomeniaQualification\Installed : 169 fichier(s) de code.
+Donn‚es de ce dossier pr‚sentes : wad/data, wad/Domenia.config.json, wad/Domenia.login-mode.cfg, wad/Domenia.theme.cfg, wad/Domenia.ui-profile.cfg.
+Donn‚es Domenia du profil Windows pr‚sentes : Domenia\Data, Domenia\Receipts (partag‚es par toutes les copies de ce compte).
+Domenia d‚sinstall‚ : 169 fichier(s) de code supprim‚(s), 0 raccourci(s) retir‚(s).
+Donn‚es de ce dossier conserv‚es : pr‚f‚rences, wad\data et sauvegardes du code.
+Donn‚es Domenia du profil Windows conserv‚es : base locale, journaux, sauvegardes de la base et re‡us.
+Comptes m‚moris‚s dans le Gestionnaire d'identification Windows : jamais supprim‚s par la d‚sinstallation ; retirez-les dans Domenia (Comptes et accŠs) ou dans le Gestionnaire d'identification.
+Une base d‚plac‚e hors du profil par Outils, Base autonome n'est pas supprim‚e.
+Dossier conserv‚ : C:\Users\DomeniaRC20Test\AppData\Local\DomeniaQualification\Installed (donn‚es conserv‚es ou fichiers non livr‚s par ce paquet).

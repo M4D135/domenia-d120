@@ -1,0 +1,366 @@
+{
+    "Kind":  "DomeniaGuiJourneyQualification",
+    "Qualifying":  false,
+    "Target":  "Preview",
+    "Verdict":  {
+                    "Status":  "Simulé seulement",
+                    "Qualified":  false,
+                    "Text":  "Événements simulés réussis ; parcours humain non relevé ou incomplet."
+                },
+    "Journeys":  {
+                     "Defined":  [
+                                     "navigation",
+                                     "defilement",
+                                     "fenetres",
+                                     "operations"
+                                 ],
+                     "Selected":  [
+                                      "navigation",
+                                      "defilement",
+                                      "fenetres",
+                                      "operations"
+                                  ],
+                     "NotRun":  [
+
+                                ]
+                 },
+    "Environment":  {
+                        "Computer":  "FILPRO-W11B",
+                        "Domain":  "cnamts.local",
+                        "Session":  1,
+                        "Screen":  "1920x1440",
+                        "WorkingArea":  "1920x1392",
+                        "PowerShell":  "5.1.26100.6584",
+                        "OS":  "Microsoft Windows NT 10.0.26200.0"
+                    },
+    "SimulatedEvents":  {
+                            "Note":  "Événements envoyés par ce programme (UI Automation et SendInput) : ils ne valent pas un parcours humain.",
+                            "Passed":  28,
+                            "Failed":  0,
+                            "Steps":  [
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  757
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  2,
+                                              "Action":  "Cliquer sur WsSearch",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Clic souris en 106,183",
+                                              "DurationMs":  1027
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  3,
+                                              "Action":  "Vérifier TxtGlobalSearch",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Contrôle présent, IsEnabled=True",
+                                              "DurationMs":  341
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  4,
+                                              "Action":  "Placer le focus sur TxtGlobalSearch",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Focus clavier obtenu",
+                                              "DurationMs":  417
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  5,
+                                              "Action":  "Saisir « pc-01 »",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "5 caractère(s) saisi(s) au clavier",
+                                              "DurationMs":  364
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  6,
+                                              "Action":  "Touches : Enter",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Touches : Enter",
+                                              "DurationMs":  467
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  7,
+                                              "Action":  "Capture recherche (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Capture 1920×1080, aucune infobulle",
+                                              "DurationMs":  985
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  8,
+                                              "Action":  "Touches : Tab, Tab, Shift+Tab",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Touches : Tab, Tab, Shift+Tab",
+                                              "DurationMs":  804
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  9,
+                                              "Action":  "Cliquer sur TabDashboard",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Clic souris en 106,135",
+                                              "DurationMs":  504
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  10,
+                                              "Action":  "Capture accueil (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Capture 1920×1080, aucune infobulle",
+                                              "DurationMs":  795
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  426
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  2,
+                                              "Action":  "Cliquer sur WsSearch",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Clic souris en 106,183",
+                                              "DurationMs":  538
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  3,
+                                              "Action":  "Vérifier DgObjects",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Contrôle présent, IsEnabled=True",
+                                              "DurationMs":  77
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  4,
+                                              "Action":  "Molette sur DgObjects : -6 cran(s)",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Molette envoyée ; contenu non défilable (rien à vérifier)",
+                                              "DurationMs":  816
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  5,
+                                              "Action":  "Touches : Ctrl+Home",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Touches : Ctrl+Home",
+                                              "DurationMs":  359
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  6,
+                                              "Action":  "Molette sur DgObjects : 3 cran(s)",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Molette envoyée ; contenu non défilable (rien à vérifier)",
+                                              "DurationMs":  620
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  7,
+                                              "Action":  "Capture grille (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Capture 1920×1080, aucune infobulle",
+                                              "DurationMs":  793
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Minimize",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Minimize",
+                                              "DurationMs":  996
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  2,
+                                              "Action":  "Fenêtre : Restore",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Restore",
+                                              "DurationMs":  1183
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  3,
+                                              "Action":  "Fenêtre : Maximize",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Maximize",
+                                              "DurationMs":  1440
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  4,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  987
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  5,
+                                              "Action":  "Vérifier TabDashboard",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Contrôle présent, IsEnabled=True",
+                                              "DurationMs":  6
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  6,
+                                              "Action":  "Capture apres-fenetres (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Capture 1920×1080, aucune infobulle",
+                                              "DurationMs":  793
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  403
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  2,
+                                              "Action":  "Activer BtnSuiteActivity",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Motif UI Automation activé",
+                                              "DurationMs":  755
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  3,
+                                              "Action":  "Capture operations (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Capture 1920×1080, aucune infobulle",
+                                              "DurationMs":  931
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  4,
+                                              "Action":  "Touches : Escape",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Touches : Escape",
+                                              "DurationMs":  362
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  5,
+                                              "Action":  "Vérifier BtnSuiteActivity",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Contrôle présent, IsEnabled=True",
+                                              "DurationMs":  78
+                                          }
+                                      ]
+                        },
+    "Captures":  [
+                     {
+                         "Journey":  "navigation",
+                         "Name":  "recherche",
+                         "Path":  "C:\\Windows\\Temp\\Domenia-RC22-Final\\gui-final\\captures\\navigation-recherche.png",
+                         "Width":  1920,
+                         "Height":  1080,
+                         "Tooltips":  0,
+                         "Sha256":  "E98BB1F7191D516BA5872D3103950023E1965AC4ABF3C5393D39DABB8C83C529",
+                         "Valid":  true,
+                         "Reasons":  [
+
+                                     ]
+                     },
+                     {
+                         "Journey":  "navigation",
+                         "Name":  "accueil",
+                         "Path":  "C:\\Windows\\Temp\\Domenia-RC22-Final\\gui-final\\captures\\navigation-accueil.png",
+                         "Width":  1920,
+                         "Height":  1080,
+                         "Tooltips":  0,
+                         "Sha256":  "29054D8710489D4AECAE1E777283524C5399EA748F61715E9D3E1F559C002236",
+                         "Valid":  true,
+                         "Reasons":  [
+
+                                     ]
+                     },
+                     {
+                         "Journey":  "defilement",
+                         "Name":  "grille",
+                         "Path":  "C:\\Windows\\Temp\\Domenia-RC22-Final\\gui-final\\captures\\defilement-grille.png",
+                         "Width":  1920,
+                         "Height":  1080,
+                         "Tooltips":  0,
+                         "Sha256":  "CA67D05447E3D5F5F07D5F37F9AA67B2839D33023242B9B237A48A8146DBEC2B",
+                         "Valid":  true,
+                         "Reasons":  [
+
+                                     ]
+                     },
+                     {
+                         "Journey":  "fenetres",
+                         "Name":  "apres-fenetres",
+                         "Path":  "C:\\Windows\\Temp\\Domenia-RC22-Final\\gui-final\\captures\\fenetres-apres-fenetres.png",
+                         "Width":  1920,
+                         "Height":  1080,
+                         "Tooltips":  0,
+                         "Sha256":  "8A8AAD22F10E19CD11DA9B8556EC5CA7A3550FDCBF138F73F0872807C62FF077",
+                         "Valid":  true,
+                         "Reasons":  [
+
+                                     ]
+                     },
+                     {
+                         "Journey":  "operations",
+                         "Name":  "operations",
+                         "Path":  "C:\\Windows\\Temp\\Domenia-RC22-Final\\gui-final\\captures\\operations-operations.png",
+                         "Width":  1920,
+                         "Height":  1080,
+                         "Tooltips":  0,
+                         "Sha256":  "F700AA296F9B88550069BC94ED93B2255DB9C01FE7C0C7775BC896C038383BD9",
+                         "Valid":  true,
+                         "Reasons":  [
+
+                                     ]
+                     }
+                 ],
+    "HumanJourney":  {
+                         "Status":  "NonRelevé",
+                         "Note":  "Aucun relevé humain fourni (-HumanRecord) : le parcours à la main reste à faire."
+                     }
+}

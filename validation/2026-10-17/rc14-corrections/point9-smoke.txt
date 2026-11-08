@@ -1,0 +1,6 @@
+OK   colonne grille Unknown annoncee : alice · identité non vérifiable
+OK   meme GUID sans note : alice
+OK   lien anterieur a la creation filtre : []
+OK   sans GUID du poste : aucune affirmation : alice
+OK   cote utilisateur : PC-U · identité non vérifiable
+exit=0

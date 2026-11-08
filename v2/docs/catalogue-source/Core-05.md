@@ -1,0 +1,349 @@
+
+
+## Fonctions visibles pour l'utilisateur
+- `Get-DomeniaSelectedGridRow` renvoie la ligne sélectionnée dans la grille `DgObjects` ou `null`.
+- `Stop-DomeniaSelectionOpenTimer` arrête le timer d’ouverture différée de la sélection.
+- `Test-DomeniaGridSelectionMatches` vérifie qu’une seule ligne sélectionnée correspond exactement au DN fourni.
+- `Clear-DomeniaCurrentObjectRequest` vide la requête objet courante si l’identifiant fourni est vide ou identique à la requête active.
+- `Test-DomeniaObjectCallbackIsCurrent` valide qu’un callback objet est encore courant selon la requête, l’époque, l’identité, la sélection et le jeton de chargement.
+- `Invoke-DomeniaPendingSelectionOpen` exécute l’ouverture différée de la sélection en attente si elle est encore valide.
+- `Queue-DomeniaSelectedObjectOpen` met en file l’ouverture de l’objet sélectionné avec temporisation, options `Immediate`, `Force` et `ReadOnlyRetry`.
+- `Open-SelectedObject` ouvre immédiatement l’objet sélectionné avec l’option `Force`.
+- `Start-PermissionAnalysis` lance l’estimation des droits sur l’objet sélectionné et met à jour la grille `DgPermissions`, le résumé `LblPermissionSummary` et le statut.
+- `Copy-PermissionReport` copie le rapport d’estimation des droits dans le presse-papiers.
+- `Start-SelfCheck` lance un self-check rapide ou complet et remplit la grille `DgSelfCheck`, le statut `LblSelfCheckStatus` et le tableau de bord.
+- `Copy-SelfCheckReport` copie le rapport de self-check dans le presse-papiers.
+- `Export-CurrentResults` exporte la liste affichée ou les lignes sélectionnées au format CSV selon le mode `Visible` ou `Selected`.
+- `Clear-DomeniaSecretClipboard` efface le presse-papiers uniquement s’il contient encore la valeur secrète attendue.
+- `Clear-Secrets` vide les secrets en mémoire, la grille `DgSecrets`, le statut, les timers, les lignes BitLocker et la carte de clé.
+- `Update-SecretsGrid` reconstruit l’affichage des secrets avec masquage, révélation unique et affichage spécial pour la clé BitLocker.
+- `Test-DomeniaSecretCallbackCurrent` valide qu’un callback de lecture de secrets est encore courant selon la requête, la génération, le DN et éventuellement le GUID.
+- `Clear-DomeniaSecretResultValues` vide les valeurs secrètes d’un résultat de worker.
+- `Stop-DomeniaSecretReadTasks` arrête les tâches asynchrones de lecture de secrets encore en cours.
+- `Complete-DomeniaSecretLoadUi` affiche le résultat d’une lecture de secrets BitLocker ou LAPS.
+- `Fail-DomeniaSecretLoadUi` affiche l’échec d’une lecture de secrets et propose une récupération d’accès si nécessaire.
+- `Start-LoadComputerSecrets` charge les secrets BitLocker ou LAPS de la machine sélectionnée avec un identifiant de requête et un callback.
+- `Toggle-SecretsVisibility` révèle ou masque les secrets selon la politique d’exposition et la sélection courante.
+- `Start-SecretClipboardAutoClear` programme l’effacement automatique du presse-papiers après copie d’un secret.
+- `Copy-SelectedSecret` copie le secret sélectionné après confirmation et programme son effacement.
+- `Copy-AllSecrets` copie tous les secrets si la copie groupée est autorisée par la politique d’exposition.
+- `Set-MachineCredentialFromUi` charge le compte poste depuis `TxtMachineAdminUser` et `PwdMachineAdmin` sans l’enregistrer.
+- `Clear-MachineCredential` oublie le compte poste, efface le champ de mot de passe et met à jour l’interface.
+- `Get-DomeniaInventoryWorkerCode` fournit le script de collecte d’inventaire poste exécuté en tâche asynchrone.
+- Les boutons visibles implicites sont `BtnPermissionRefresh`, `BtnSelfCheckQuick`, `BtnSelfCheckFull`, `BtnLoadBitLocker` et `BtnLoadLaps`.
+- Les grilles visibles sont `DgObjects`, `DgPermissions`, `DgSelfCheck` et `DgSecrets`.
+- Les libellés visibles sont `LblPermissionSummary`, `LblSelfCheckStatus` et `LblSecretsStatus`.
+- Les champs visibles sont `TxtCompName`, `TxtMachineAdminUser` et `PwdMachineAdmin`.
+- Les messages utilisateur passent par `Set-Status`, `Write-AppLog`, `Show-DomeniaOperationError` et `Show-ErrorBox`.
+- L’ouverture d’objet sélectionné peut être différée par un timer de debounce et peut être mise en pause si une écriture est occupée.
+- L’ouverture différée peut être forcée immédiatement via `Open-SelectedObject` ou `Queue-DomeniaSelectedObjectOpen -Immediate`.
+- L’analyse des droits affiche un résumé avec nombre d’ACE correspondantes, nombre de SID de jeton et propriétaire.
+- Le self-check affiche le nombre de tests `OK`, le nombre d’erreurs et la durée totale.
+- L’export CSV peut porter sur la liste affichée ou uniquement sur les lignes sélectionnées.
+- La lecture BitLocker peut afficher soit des clés lisibles, soit un état “aucun objet de récupération visible avec ce compte”.
+- La lecture LAPS affiche le nombre de valeurs chargées, masquées et conservées uniquement en mémoire.
+- La révélation d’un secret peut être globale ou limitée à une seule valeur selon la politique d’exposition.
+- La copie d’un secret affiche une limite explicite sur l’exposition dans le presse-papiers.
+- Le compte poste est chargé en mémoire uniquement et son changement fait avancer la génération de compte.
+
+## Opérations et lectures
+- Lecture AD/LDAP du `RootDSE` via `New-WRootDse` pour lire `defaultNamingContext` et `currentTime`.
+- Lecture AD/LDAP de la base via `New-WEntry` avec `RefreshCache` sur `distinguishedName` et `objectClass`.
+- Recherche AD/LDAP d’un utilisateur par `sAMAccountName` avec filtre `(&(objectCategory=person)(objectClass=user)(sAMAccountName=$esc))` et propriétés `objectSid`, `tokenGroups`, `distinguishedName`.
+- Recherche AD/LDAP d’utilisateurs via filtre `(&(objectCategory=person)(objectClass=user))` avec limite de 1 résultat dans le self-check.
+- Recherche AD/LDAP de machines via filtre `(objectCategory=computer)` avec limite de 1 résultat dans le self-check.
+- Recherche AD/LDAP de groupes via filtre `(objectCategory=group)` avec limite de 1 résultat dans le self-check.
+- Recherche AD/LDAP d’unités organisationnelles ou conteneurs via filtre `(|(objectClass=organizationalUnit)(objectClass=container))` avec limite de 5 résultats.
+- Lecture de la sécurité Active Directory via `Get-WActiveDirectorySecurity` avec ou sans propriétaire.
+- Lecture des objets BitLocker via recherche LDAP `msFVE-RecoveryInformation` en `OneLevel` sur le DN de la machine.
+- Lecture des attributs BitLocker `name`, `distinguishedName`, `msFVE-RecoveryPassword`, `msFVE-RecoveryGuid`, `whenCreated`, `whenChanged`.
+- Lecture des attributs LAPS `ms-Mcs-AdmPwd`, `ms-Mcs-AdmPwdExpirationTime`, `msLAPS-Password`, `msLAPS-PasswordExpirationTime`, `msLAPS-EncryptedPassword`.
+- Lecture Windows LAPS via `Get-LapsADPassword` avec `AsPlainText`, `DomainController`, `Credential` et `DecryptionCredential` quand disponibles.
+- Lecture du module Active Directory via `Import-WAdModule` et vérification des cmdlets requises.
+- Ping ICMP avant WMI via `Net.NetworkInformation.Ping` avec délai de 900 ms.
+- Résolution DNS du nom de poste via `Net.Dns::GetHostAddresses` avant le ping.
+- Sonde TCP des ports 135, 5985, 5986, 445 et 3389 via `Test-WTcpPort` avec délai de 1800 ms.
+- Ouverture de sessions CIM DCOM ou WinRM via `New-CimSession` avec validation immédiate par `Win32_OperatingSystem`.
+- Repli de transport CIM entre DCOM et WinRM si la source principale échoue.
+- Lecture WMI `Win32_ComputerSystem` pour nom, domaine, fabricant, modèle, mémoire, processeurs logiques, utilisateur connecté, rôle, type système et état de démarrage.
+- Lecture WMI `Win32_SystemEnclosure` pour numéro de série et types de châssis.
+- Lecture WMI `Win32_ComputerSystemProduct` pour UUID et référence produit.
+- Lecture WMI `Win32_BIOS` pour fabricant, versions, date et numéro de série.
+- Lecture WMI `Win32_BaseBoard` pour fabricant, produit et numéro de série.
+- Lecture WMI `Win32_Processor` pour modèle, cœurs, processeurs logiques, fréquence, charge et virtualisation firmware.
+- Lecture WMI `Win32_PhysicalMemory` pour capacité, vitesse et emplacement des barrettes.
+- Lecture WMI `Win32_PhysicalMemoryArray` pour emplacements et capacité maximale, en ne comptant que les tableaux mémoire `Use=3`.
+- Lecture WMI `Win32_OperatingSystem` pour nom, version, build, architecture, installation, dernier démarrage, mémoire libre, mémoire visible, répertoire Windows et langue.
+- Lecture WMI `Win32_PageFileUsage` pour taille et pic du fichier d’échange.
+- Lecture WMI `Win32_TimeZone` pour le fuseau horaire.
+- Lecture WMI `Win32_LogicalDisk` filtrée sur `DriveType=3` pour taille, espace libre et étiquette.
+- Lecture WMI `Win32_DiskDrive` pour modèle, taille, interface, numéro de série et état.
+- Lecture WMI `MSFT_PhysicalDisk` dans `root\Microsoft\Windows\Storage` pour type de support et état de santé.
+- Lecture WMI `Win32_EncryptableVolume` dans `root\cimv2\Security\MicrosoftVolumeEncryption` pour protection, méthode et état de chiffrement BitLocker.
+- Lecture WMI `Win32_Tpm` dans `root\cimv2\Security\MicrosoftTpm` pour présence, activation, opérationnalité, version et fabricant.
+- Lecture WMI `Win32_NetworkAdapterConfiguration` filtrée sur `IPEnabled=True` pour adresses IP, masque, passerelle, DNS, MAC, DHCP, bail et serveur DHCP.
+- Lecture WMI `Win32_NetworkAdapter` filtrée sur `PhysicalAdapter=True` pour état et vitesse des cartes réseau.
+- Lecture WMI `MSFT_NetConnectionProfile` dans `root\StandardCimv2` pour le profil réseau appliqué à chaque connexion.
+- Lecture WMI `AntiVirusProduct` dans `root\SecurityCenter2` pour nom, activation et fraîcheur des signatures.
+- Lecture WMI `Win32_QuickFixEngineering` pour nombre total de correctifs et liste des 15 plus récents.
+- Lecture WMI `Win32_StartupCommand` pour les éléments de démarrage automatique, en conservant uniquement le programme et non les arguments.
+- Lecture WMI `Win32_Service` pour services automatiques arrêtés, dépendances, codes de sortie et répartition des services pour le tableau de bord.
+- Lecture WMI `Win32_PnPEntity` filtrée sur `ConfigManagerErrorCode<>0` pour périphériques en erreur.
+- Lecture WMI `Win32_VideoController` pour carte graphique, mémoire vidéo, pilote et résolution.
+- Lecture WMI `WmiMonitorID` dans `root\wmi` pour nom, série et année de fabrication des écrans.
+- Lecture WMI `Win32_Battery` pour charge et état de la batterie.
+- Lecture WMI `Win32_PnPSignedDriver` filtrée sur `IsSigned=False` pour pilotes non signés.
+- Lecture WMI `Win32_UserAccount` filtrée sur `LocalAccount=True` pour comptes locaux actifs, désactivés, verrouillés et exigences de mot de passe.
+- Lecture WMI `Win32_LogonSession` filtrée sur `LogonType=2 OR LogonType=10` pour sessions interactives et bureau à distance.
+- Lecture WMI `Win32_Group` filtrée sur `LocalAccount=True AND SID="S-1-5-32-544"` pour le groupe Administrateurs local.
+- Lecture WMI `Win32_GroupUser` pour les membres du groupe Administrateurs local.
+- Lecture WMI `Win32_Share` pour les partages, chemins et descriptions.
+- Lecture WMI `Win32_Printer` pour imprimantes, ports, pilotes et imprimante par défaut.
+- Lecture WMI `Win32_NTLogEvent` filtrée sur `Logfile="System" AND EventType=1` sur 3 jours pour erreurs système.
+- Lecture WMI `MSFT_ScheduledTask` dans `root\Microsoft\Windows\TaskScheduler` pour tâches hors Microsoft non désactivées.
+- Lecture WMI `Win32_Process` pour échantillonnage de charge des processus, sans ligne de commande ni arguments.
+- Lecture WMI `Win32Reg_AddRemovePrograms` pour l’inventaire logiciel SCCM quand disponible.
+- Lecture du registre HKLM via `StdRegProv` avec `GetStringValue`, `GetDWORDValue`, `EnumKey`, `GetMultiStringValue` et `GetBinaryValue`.
+- Lecture du registre `SYSTEM\CurrentControlSet\Control\SecureBoot\State` pour `UEFISecureBootEnabled`.
+- Lecture du registre `SYSTEM\CurrentControlSet\Control` pour `PEFirmwareType`.
+- Lecture du registre `SOFTWARE\Microsoft\Windows NT\CurrentVersion` pour `DisplayVersion` et `UBR`.
+- Lecture du registre `SYSTEM\CurrentControlSet\Services\Tcpip\Parameters` pour le suffixe DNS principal.
+- Lecture du registre `SYSTEM\CurrentControlSet\Services\Netlogon\Parameters` pour le site Active Directory.
+- Lecture du registre `SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings` pour le proxy machine.
+- Lecture du registre des profils pare-feu domaine, privé et public, en stratégie et en réglage local.
+- Lecture du registre `MSFT_NetConnectionProfile` pour le profil appliqué aux connexions actives.
+- Lecture du registre `SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\Results` pour dernières détection, téléchargement et installation.
+- Lecture du registre `SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate` pour le serveur WSUS et `UseWUServer`.
+- Lecture du registre `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` et `SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall` pour les logiciels installés.
+- Lecture du registre `SYSTEM\CurrentControlSet\Services\<service>\DependOnService` pour les dépendances de services.
+- Lecture du registre `SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache` pour les identifiants et dates des tâches planifiées.
+- Lecture du registre `SOFTWARE\Microsoft\SystemCertificates\MY\Certificates` pour les certificats machine du magasin Personnel.
+- Lecture du registre `SYSTEM\CurrentControlSet\Control\ComputerName` pour le nom actif et le nom en attente.
+- Lecture du registre `SYSTEM\CurrentControlSet\Control\Session Manager` pour `PendingFileRenameOperations`.
+- Lecture du registre `SOFTWARE\Microsoft\Updates` pour `UpdateExeVolatile`.
+- Exécution distante WinRM via `Invoke-Command` pour lire les logiciels installés depuis le registre.
+- Exécution distante WinRM via `Invoke-Command` pour lire les tâches planifiées avec `Get-ScheduledTask` et `Get-ScheduledTaskInfo`.
+- Exécution distante WinRM via `Invoke-Command` pour lire les certificats machine avec `Get-ChildItem Cert:\LocalMachine\My`.
+- Exécution distante WinRM via `Invoke-Command` pour lire les connexions réseau établies avec `Get-NetTCPConnection`.
+- Repli d’inventaire par PsExec ou tâche planifiée via `Invoke-WRemoteTaskScript` quand DCOM et WinRM sont indisponibles.
+- Export CSV des résultats via `Export-DomeniaCsv`, `Get-DomeniaGridExportColumns`, `Expand-DomeniaResultExportColumns` et `Show-DomeniaExportResult`.
+- Copie presse-papiers via `Set-ClipboardSafe`, `Set-DomeniaProtectedClipboard` et `System.Windows.Clipboard`.
+- Écriture locale de test dans le dossier de données via `IO.File::WriteAllText` puis suppression immédiate pendant le self-check.
+- Mise à jour de l’index local des secrets via `Save-DomeniaSecretIndexEntry` et `Update-DomeniaSecretIndexFromRows`.
+- Aucune écriture AD, WMI, registre distant ou fichier distant n’est effectuée dans cette tranche.
+- Aucune table SQLite n’est manipulée directement dans cette tranche.
+- Le délai de l’analyse des droits est fixé à 35 secondes.
+- Le délai du self-check est configurable via `Async/SelfCheckTimeoutSeconds` avec défaut 120 secondes.
+- Le délai de lecture des secrets est fixé à 40 secondes.
+- Le budget global d’inventaire est borné à au moins 20000 ms via `BudgetMs`.
+- Le délai par collecteur WMI est borné par `MaxMs`, avec valeurs observées 12000, 15000, 20000, 30000 et 35000 ms.
+- Le ping utilise un délai de 900 ms.
+- La sonde TCP utilise un délai de 1800 ms par port.
+- Les sessions CIM utilisent des délais de 18 secondes pour la session principale et 15 secondes pour le repli.
+- Les appels WinRM utilisent des délais de 25 ou 30 secondes selon la source.
+- Le repli PsExec ou tâche planifiée utilise un délai maximal de 75 secondes.
+- Les recherches LDAP utilisent des limites de 1, 5 ou 25 résultats selon le test.
+- La lecture des logiciels par registre borne le nombre de clés à `MaxSoftwareKeys` avec minimum 50.
+- La lecture des correctifs limite l’affichage aux 15 plus récents.
+- La lecture des services en défaut limite l’affichage aux 40 premiers.
+- La lecture des périphériques en erreur limite l’affichage aux 30 premiers.
+- La lecture des pilotes non signés limite l’affichage aux 25 premiers.
+- La lecture des tâches planifiées limite l’affichage aux 40 premières.
+- La lecture des événements système limite l’affichage aux 15 premiers.
+- L’échantillonnage des processus limite la lecture à 600 processus et l’affichage aux 12 plus gros.
+- La lecture des certificats machine limite à 50 entrées par registre ou 25 par WinRM.
+- La lecture des connexions réseau limite à 30 connexions établies.
+
+## Règles métier et calculs
+- Le délai de debounce de sélection est lu dans `Browser/SelectionDebounceMs` avec défaut 180 ms et bornes 80 à 500 ms.
+- Une sélection en attente n’est ouverte que si son jeton correspond au `SelectionLoad` courant.
+- Si une écriture est occupée, l’ouverture de sélection est mise en pause et le timer est relancé à 300 ms.
+- Une ouverture ne déclenche pas de rafraîchissement si une lecture est déjà en cours sur le même DN.
+- Une même sélection déjà `Ready` ou `Failed` n’est pas rouverte sauf avec `Force`.
+- La décision de navigation brouillon est prise avant toute requête distante ou mise à jour de contexte.
+- Une sélection refusée est restaurée vers le DN du brouillon.
+- Un callback objet est ignoré si la requête, l’époque de session, l’identité, la sélection ou le jeton ne correspondent plus.
+- Un callback secret est ignoré si la requête active, la génération, le DN ou le GUID ne correspondent plus.
+- Les SID de jeton pour l’analyse des droits incluent toujours `S-1-1-0` et `S-1-5-11`.
+- Les SID de jeton incluent le SID de l’utilisateur de liaison et les SID de `tokenGroups` quand l’utilisateur est trouvé.
+- L’état d’une capacité ACL est `Refuse` si un refus ou `GenericAll` en refus est présent.
+- L’état d’une capacité ACL est `Autorise` si une autorisation ou `GenericAll` en autorisation est présent.
+- L’état d’une capacité ACL est `Indetermine` si aucune règle correspondante ne tranche.
+- Le reset de mot de passe est reconnu par l’`ExtendedRight` de GUID `00299570-246d-11d0-a768-00aa006e0529` ou par `ObjectType` vide.
+- La lecture de secrets est estimée uniquement à partir de `GenericAll` autorisé ou refusé.
+- Si le descripteur de sécurité n’est pas retourné, toutes les capacités sont `Indetermine` avec la source `ACL indisponible`.
+- Le résumé d’analyse des droits compte les ACE correspondantes, les SID de jeton et le propriétaire.
+- Le self-check complet utilise `SelfCheck/FullBenchmarkIterations` avec défaut 3 itérations.
+- Le self-check rapide utilise 1 itération.
+- L’audit statique du self-check exige le marqueur `DOMENIA_MASTER_LAST_V1`.
+- L’audit statique interdit la présence de `.DeleteTree(`.
+- L’audit statique interdit la présence de `Recursive=$true`.
+- L’audit statique exige la présence de `DomeniaWriteDispatched`.
+- L’audit statique interdit l’ancien accès `.Options.SecurityMasks =`.
+- Le self-check exige `RequireFreshObject`, `SingleWriteChannel` et `BlockProtectedObjects` activés.
+- Le self-check exige que `AllowRawAttributeWrite` soit désactivé.
+- Le self-check exige au moins 120 contrôles WPF détectés.
+- Le self-check exige que les fonctions critiques et contrôles critiques soient présents.
+- Le self-check exige que le moteur asynchrone soit prêt.
+- Le self-check exige que le dossier de données locale soit présent et inscriptible.
+- Le self-check exige que `defaultNamingContext` soit non vide.
+- Le self-check exige qu’au moins un utilisateur, une machine et un groupe soient lisibles.
+- Le self-check exige que la DACL de la base puisse être lue.
+- Le self-check vérifie la présence des outils `mstsc.exe`, `eventvwr.exe` et `compmgmt.msc`.
+- Le self-check vérifie la présence de `wapt-get.exe` dans le chemin configuré ou les emplacements standards.
+- Une valeur vide d’inventaire est remplacée par un libellé explicite selon le nom de l’élément.
+- Les statuts d’accès d’inventaire sont `OK`, `VIDE`, `PARTIEL`, `IGNORE`, `REFUSE`, `INDISPONIBLE`, `INJOIGNABLE` ou `ERREUR`.
+- Un échec de ping arrête l’inventaire WMI et conserve les dernières données valides.
+- Si ni DCOM ni WinRM ne sont ouverts, l’inventaire bascule vers PsExec ou tâche planifiée.
+- L’option `PreferWinrm` place WinRM avant DCOM quand les deux sont disponibles.
+- Le décalage d’horloge est mesuré contre le contrôleur de domaine via `currentTime` si disponible, sinon contre le poste.
+- `Secure Boot` est lu uniquement depuis `UEFISecureBootEnabled` et n’est jamais déduit.
+- Le type de firmware est `UEFI` si `PEFirmwareType` vaut 2, sinon `BIOS herite`.
+- Les emplacements mémoire ne comptent que les tableaux mémoire dont `Use` vaut 3.
+- L’état de santé disque est `Sain` pour code 0, `Avertissement` pour code 1, `Defaillant` pour code 2, sinon `inconnu`.
+- La protection BitLocker est `Active` pour statut 1, `Inconnu` pour statut 2, sinon `Desactive`.
+- L’état de chiffrement BitLocker est traduit depuis les codes de conversion 0 à 5.
+- L’état effectif du pare-feu donne la priorité à la clé de stratégie sur la clé locale.
+- Une divergence entre stratégie et réglage local du pare-feu est signalée.
+- L’antivirus est `Actif` si l’octet médian de `productState` est supérieur ou égal à 16, sinon `Inactif`.
+- L’antivirus est `A jour` si l’octet bas de `productState` vaut 0, sinon `Signatures obsoletes`.
+- L’inventaire logiciel dédoublonne par nom d’affichage en minuscules.
+- L’inventaire logiciel essaie d’abord SCCM, puis WinRM, puis le registre par appels unitaires bornés.
+- Les services en défaut listent les services automatiques arrêtés avec dépendances et code de sortie, sauf code 1077.
+- Le redémarrage en attente sépare les indicateurs confirmés des indices partiels.
+- Un renommage de poste est confirmé si le nom actif diffère du nom en attente.
+- L’échantillonnage des processus utilise deux lectures séparées par un intervalle par défaut de 2000 ms, borné à 1000-5000 ms.
+- Le processus PID 0 est exclu de l’échantillonnage de charge.
+- Les tâches planifiées excluent les tâches désactivées et les chemins `Microsoft\*`.
+- Sans WinRM, le dernier démarrage des tâches est lu depuis le cache registre du Planificateur, sans deviner le résultat.
+- Les certificats machine sont lus uniquement dans le magasin Personnel, sans lire les clés privées.
+- Les arguments des commandes de démarrage sont supprimés avant publication.
+- Un changement de compte poste incrémente `DomeniaAccountGeneration`.
+- Une révélation de secret en mode exposition unique ne révèle que la ligne explicitement sélectionnée.
+- Une ligne BitLocker contenant uniquement des métadonnées déclenche la lecture d’une seule clé lors d’une révélation ou copie explicite.
+- L’effacement automatique du presse-papiers secret est désactivé si `Security/AutoClearSecretClipboardSeconds` est inférieur ou égal à 0.
+- La copie groupée des secrets est refusée si la politique d’exposition unique est active.
+- Un résultat secret obsolète est vidé avant d’être ignoré.
+- Le refus de déchiffrement LAPS est distinct du refus de lecture LAPS.
+- Un refus de déchiffrement LAPS ne marque pas la ressource comme refusée en lecture.
+- Un refus de lecture LAPS marqué `ReadDenied` enregistre un défaut pour cette ressource.
+- L’absence d’objet BitLocker visible avec le compte courant n’est pas présentée comme une preuve d’absence de clé.
+- Si aucune valeur LAPS n’est retournée sans erreur explicite, le résultat est `NoReadableValue`.
+- Si le module Windows LAPS est absent, le résultat est `ModuleMissing`.
+- Si l’accès est refusé, le résultat est `AccessDenied`.
+- Si l’échec ressemble à une erreur d’ouverture de session ou de lecture, le résultat est `Failed`.
+- Si aucune valeur n’est confirmée, le résultat est `Unconfirmed`.
+
+## Réglages et données conservées
+- Clé de configuration `Browser/SelectionDebounceMs` avec défaut 180 ms.
+- Clé de configuration `SelfCheck/FullBenchmarkIterations` avec défaut 3.
+- Clé de configuration `Async/SelfCheckTimeoutSeconds` avec défaut 120 secondes.
+- Clé de configuration `Security/AutoClearSecretClipboardSeconds` avec défaut 30 secondes.
+- Commutateur de fonctionnalité référencé `Features.SecretSingleCopy`.
+- Commutateur de fonctionnalité référencé `Features.BitLockerKeySelection`.
+- Variable de session `$script:CurrentObjectRequestId` conserve l’identifiant de la requête objet courante.
+- Variable de session `$script:CurrentObjectRequestDn` conserve le DN de la requête objet courante.
+- Variable de session `$script:CurrentObjectRequestState` conserve l’état de la requête objet courante.
+- Variable de session `$script:SelectionOpenTimer` conserve le timer de debounce d’ouverture de sélection.
+- Variable de session `$script:PendingObjectSelection` conserve la sélection en attente d’ouverture.
+- Variable de session `$script:SelectionLoad` conserve le contexte et le jeton de chargement de la sélection.
+- Variable de session `$script:SessionEpoch` sert à invalider les callbacks obsolètes.
+- Variable de session `$script:SelectedObject` conserve l’objet sélectionné.
+- Variable de session `$script:SelectedObjectGeneration` sert à invalider les résultats obsolètes.
+- Variable de session `$script:PermissionRows` conserve les lignes d’analyse des droits.
+- Variable de session `$script:CurrentCapabilities` conserve les capacités estimées par l’analyse ACL.
+- Variable de session `$script:SelfCheckRows` conserve les lignes du self-check.
+- Variable de session `$script:LastSelfCheckSummary` conserve le résumé du dernier self-check.
+- Variable de session `$script:SecretClipboardTimer` conserve le timer d’effacement du presse-papiers secret.
+- Variable de session `$script:SecretClipboardValue` conserve la valeur secrète attendue dans le presse-papiers.
+- Variable de session `$script:ActiveSecretRequestId` conserve l’identifiant de la requête de secrets active.
+- Variable de session `$script:SecretLifetimeTimer` conserve le timer de durée de vie des secrets.
+- Variable de session `$script:SecretRevealTimer` conserve le timer de révélation temporaire des secrets.
+- Variable de session `$script:SecretRows` conserve les lignes de secrets en mémoire.
+- Variable de session `$script:SecretsVisible` conserve l’état d’affichage des secrets.
+- Variable de session `$script:RevealedSecretIndex` conserve l’index de la seule valeur révélée.
+- Variable de session `$script:SecretReveal` conserve l’état de révélation courante.
+- Variable de session `$script:BitLockerKeyList` conserve la liste des clés BitLocker.
+- Variable de session `$script:BitLockerKeyContext` conserve le contexte de clé BitLocker.
+- Variable de session `$script:MachineCredential` conserve le compte poste en mémoire.
+- Variable de session `$script:DomeniaAccountGeneration` conserve la génération du compte courant.
+- Variable de session `$script:AsyncJobs` conserve les tâches asynchrones, dont les lectures de secrets.
+- Le contexte expose `PowerShellVersion`, `IsSta`, `ExpectedControls`, `MissingCriticalFunctions`, `CriticalFunctionCount`.
+- Le contexte expose `RequireFreshObject`, `SingleWriteChannel`, `BlockProtectedObjects`, `AllowRawAttributeWrite`.
+- Le contexte expose `ScriptPath`, `DataDir`, `AdModuleSources`, `AsyncEngineReady`, `AdRequiredCommands`.
+- Le contexte expose `WaptGetPath`, `BaseDn`, `Server`, `BindUser`, `ProcessIdentity`.
+- Le dossier de données locale est testé en écriture via un fichier temporaire supprimé immédiatement.
+- L’index local des secrets est mis à jour avec le nom du poste, le mode, les lignes lues et un verdict.
+- L’index local BitLocker peut enregistrer un verdict “aucune cle visible avec ce compte”.
+- Aucun fichier SQLite n’est manipulé directement dans cette tranche.
+- Aucune préférence utilisateur n’est écrite sur disque dans cette tranche.
+
+## Sécurité et garde-fous
+- L’analyse des droits est exécutée en lecture seule et indique que le contrôleur de domaine reste l’autorité finale.
+- Le self-check est explicitement non destructif et ne doit invoquer aucune cmdlet AD d’écriture.
+- La lecture des secrets est en lecture seule et les valeurs restent uniquement en mémoire.
+- L’inventaire poste est en lecture seule et ne déclenche aucune écriture distante.
+- Aucune écriture AD n’est effectuée dans cette tranche.
+- Les résultats d’analyse des droits obsolètes sont ignorés si le DN ou la génération de l’objet a changé.
+- Les résultats de lecture de secrets obsolètes sont ignorés si la requête, la génération, le DN ou le GUID ne correspondent plus.
+- Les valeurs secrètes d’un résultat obsolète sont effacées avant l’abandon du callback.
+- Le presse-papiers secret n’est effacé que s’il contient encore la valeur attendue.
+- La copie d’un secret exige une confirmation explicite.
+- La copie groupée des secrets exige une confirmation explicite et est bloquée en exposition unique.
+- La copie d’un secret utilise un presse-papiers protégé avec longueur maximale de 1024 caractères.
+- L’effacement automatique du presse-papiers secret est programmé après chaque copie.
+- Le compte poste est construit depuis un `SecureString`, rendu en lecture seule, puis le champ de mot de passe est vidé.
+- Le compte poste n’est jamais enregistré sur disque.
+- Le changement ou l’oubli du compte poste incrémente la génération de compte pour invalider les travaux anciens.
+- Les tentatives d’authentification distante sont encadrées par `Enter-WCredentialAttempt`, `Assert-WCredentialAllowed`, `Exit-WCredentialAttempt` et `Register-WCredentialFailure`.
+- Les erreurs de credentials distants peuvent interrompre la collecte pour éviter des tentatives répétées.
+- L’audit statique du self-check vérifie l’absence de suppression récursive et de `DeleteTree`.
+- L’audit statique du self-check vérifie la présence de la garde d’état d’écriture `DomeniaWriteDispatched`.
+- L’audit statique du self-check vérifie que l’écriture brute est désactivée.
+- L’audit statique du self-check vérifie que la fraîcheur des objets et le canal d’écriture unique sont activés.
+- L’audit statique du self-check vérifie que les objets protégés sont bloqués.
+- Les arguments des commandes de démarrage sont supprimés avant publication pour éviter de divulguer des secrets.
+- Le contenu brut d’un attribut LAPS JSON invalide n’est pas journalisé.
+- Les clés privées des certificats machine ne sont jamais lues.
+- Les lignes de démarrage ne conservent que le programme, pas les arguments.
+- L’ouverture de sélection est supprimée pendant la fermeture du moteur asynchrone ou si les événements de sélection sont supprimés.
+- L’ouverture de sélection est mise en pause si une écriture est occupée.
+- L’export des résultats utilise un plan de portée qui distingue liste affichée et lignes sélectionnées.
+- L’export peut signaler les lignes exclues et l’état de complétude de la liste.
+- Le ping préalable évite d’attendre un délai WMI complet sur un poste injoignable.
+- La sonde TCP préalable évite d’ouvrir une session sur un port fermé ou filtré.
+- Le repli PsExec ou tâche planifiée n’est utilisé que si les transports classiques sont indisponibles.
+- Les budgets de temps bornent chaque collecteur pour éviter les blocages.
+- Les limites de lignes bornent les lectures potentiellement volumineuses.
+- Les callbacks vérifient l’époque de session pour invalider les résultats après changement de contexte.
+- Les callbacks vérifient l’identité de lecture pour éviter les mélanges de comptes.
+- Les callbacks vérifient le jeton de sélection pour éviter d’ouvrir une sélection périmée.
+- Les erreurs de lecture de secrets peuvent proposer une récupération d’accès sans masquer l’échec réel.
+- Une estimation ACL défavorable n’empêche pas la tentative réelle, mais elle est journalisée.
+- Une ACL indisponible n’empêche pas les actions, qui restent contrôlées par AD à l’exécution.
+
+## Dépendances
+- Fonctions de contrôle UI appelées : `Get-DomeniaControl`, `Set-DomeniaItemsSource`, `Set-DomeniaControlText`, `Update-DomeniaSelectionReadUi`, `Update-DomeniaSecretsView`, `Update-DomeniaSecretActionUi`, `Update-DomeniaMachineAccountUi`, `Update-Dashboard`.
+- Fonctions de sélection appelées : `Get-DomeniaSelectedGridRows`, `Test-DomeniaSelectionLoadCurrent`, `Get-DomeniaSelectionContext`, `Test-DomeniaDraftNavigation`, `Restore-DomeniaRefusedSelection`, `Clear-DomeniaSelectionEverywhere`, `Test-DomeniaSameSelectionContext`, `Enter-DomeniaSelectionContext`, `Set-DomeniaRelationsGridSelection`, `Select-DomeniaLiveResult`, `Get-DomeniaLandingView`, `Select-DomeniaWorkspace`, `Open-AdObject`.
+- Fonctions de timer et d’asynchrone appelées : `New-DomeniaTimer`, `Start-UiTask`, `Request-UiTaskStop`, `Get-DomeniaEffectiveWorkerResult`.
+- Fonctions LDAP appelées : `New-WRootDse`, `New-WEntry`, `New-WSearcher`, `Get-WPropAll`, `Get-WPropFirst`, `Convert-WSid`, `Convert-WGuid`, `Convert-WDate`, `Convert-WFileTime`, `Convert-WLargeInteger`, `Get-WActiveDirectorySecurity`, `Escape-WLdap`, `Get-WAdCredential`.
+- Fonctions WMI/CIM appelées : `Test-WTcpPort`, `Invoke-WRemoteTaskScript`, `Remove-WDomeniaCimSession`, `Get-WMachineCredential`.
+- Fonctions de garde de credentials appelées : `Enter-WCredentialAttempt`, `Assert-WCredentialAllowed`, `Exit-WCredentialAttempt`, `Register-WCredentialFailure`.
+- Fonctions de secrets appelées : `ConvertTo-DomeniaLapsView`, `Set-DomeniaSecretDenied`, `Request-DomeniaAccessRecovery`, `Save-DomeniaSecretIndexEntry`, `Update-DomeniaSecretIndexFromRows`, `Test-DomeniaSecretSingleExposure`, `Test-DomeniaSecretRevealAllowed`, `Get-DomeniaSelectedSecretSource`, `Get-DomeniaSelectedSecretIndex`, `Start-DomeniaSecretReveal`, `Get-DomeniaSecretExposurePolicy`, `Set-DomeniaProtectedClipboard`, `Get-DomeniaSecretIdentityReason`, `Test-DomeniaBitLockerKeySelection`, `Get-DomeniaBitLockerListWorkerCode`, `Request-DomeniaBitLockerKey`, `Get-DomeniaRevealedBitLockerKey`, `Get-DomeniaMember`.
+- Fonctions d’export appelées : `Get-DomeniaResultScopePlan`, `Expand-DomeniaResultExportColumns`, `Get-DomeniaGridExportColumns`, `Export-DomeniaCsv`, `Show-DomeniaExportResult`, `Get-DomeniaSearchExportSubject`.
+- Fonctions d’erreurs et statut appelées : `Write-AppLog`, `Write-DomeniaSwallowed`, `Set-Status`, `Show-DomeniaOperationError`, `Show-ErrorBox`, `Get-DomeniaAccessFailureKind`, `Get-DomeniaErrorDecision`, `Get-DomeniaStructuredError`, `Confirm-Action`.
+- Fonctions de configuration appelées : `Get-CfgValue`.
+- Fonctions presse-papiers appelées : `Set-ClipboardSafe`.
+- Fonctions de contexte machine appelées : `Get-CurrentSelectedComputerName`.
+- Fonctions d’interface de droits appelées : `Apply-CurrentPermissionUi`.
+- Fonctions d’interface de secrets appelées : `Hide-DomeniaSecretPeek`.
+- Fonctions de module AD appelées : `Import-WAdModule`.
+- Cmdlets Windows LAPS appelées : `Get-LapsADPassword`.
+- Cmdlets de tâches planifiées appelées : `Get-ScheduledTask`, `Get-ScheduledTaskInfo`.
+- Cmdlets réseau appelées : `Get-NetTCPConnection`.
+- Cmdlets de certificats appelées : `Get-ChildItem` sur `Cert:\LocalMachine\My`.
+- Outils Windows vérifiés : `mstsc.exe`, `eventvwr.exe`, `compmgmt.msc`.
+- Outil WAPT vérifié : `wapt-get.exe`.
+- Types .NET utilisés : `System.Windows.Clipboard`, `Net.NetworkInformation.Ping`, `Net.Dns`, `Diagnostics.Stopwatch`, `Collections.ArrayList`, `Collections.Generic.List`, `Security.Principal.SecurityIdentifier`, `DirectoryServices.ActiveDirectoryRights`, `Cryptography.X509Certificates.X509Certificate2`, `Management.Automation.PSCredential`.
+- Classes WMI dépendantes : `Win32_ComputerSystem`, `Win32_SystemEnclosure`, `Win32_ComputerSystemProduct`, `Win32_BIOS`, `Win32_BaseBoard`, `Win32_Processor`, `Win32_PhysicalMemory`, `Win32_PhysicalMemoryArray`, `Win32_OperatingSystem`, `Win32_PageFileUsage`, `Win32_TimeZone`, `Win32_LogicalDisk`, `Win32_DiskDrive`, `MSFT_PhysicalDisk`, `Win32_EncryptableVolume`, `Win32_Tpm`, `Win32_NetworkAdapterConfiguration`, `Win32_NetworkAdapter`, `MSFT_NetConnectionProfile`, `AntiVirusProduct`, `Win32_QuickFixEngineering`, `Win32_StartupCommand`, `Win32_Service`, `Win32_PnPEntity`, `Win32_VideoController`, `WmiMonitorID`, `Win32_Battery`, `Win32_PnPSignedDriver`, `Win32_UserAccount`, `Win32_LogonSession`, `Win32_Group`, `Win32_GroupUser`, `Win32_Share`, `Win32_Printer`, `Win32_NTLogEvent`, `MSFT_ScheduledTask`, `Win32_Process`, `Win32Reg_AddRemovePrograms`.
+- Classes CIM de registre dépendantes : `StdRegProv` avec méthodes `GetStringValue`, `GetDWORDValue`, `EnumKey`, `GetMultiStringValue`, `GetBinaryValue`.

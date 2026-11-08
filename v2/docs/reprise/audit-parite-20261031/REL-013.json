@@ -1,0 +1,26 @@
+{
+  "id": "REL-013",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Relations.cs:21-29 — ReadRelationsAsync : la table de Domenia 1 est bien lue par Domenia.Store, dans un fil séparé (Task.Run), en ouverture lecture seule (readOnly: true), sans création du fichier ni écriture",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Relations.cs:32-35 — table user_machine_links lue ; une table sans computer_key/user_login/computer est refusée (« aucune interprétation ni modification ») plutôt que devinée ; pas de migration de schéma",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Relations.cs:13-18 et 37-47 — projection bornée colonne par colonne (computer_key, user_login, computer, source, observed_at, details, user_guid, computer_guid, user_dn, computer_dn, batch_id, declarant, kind, verified_in_ad, confidence) ; les colonnes d'extension de Domenia 1 entrent dans l'empreinte physique (lignes 49-64)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Relations.cs:66-90 — lignes incohérentes comptées et écartées sans être supprimées (« conservées dans la base mais écartées »), dates non qualifiées comptées, plafond 50 000 lignes / 32 Mio signalé comme lecture partielle, « Clés de stockage et GUID historiques conservés ; aucun rapprochement par homonymie »",
+    "src/Domenia.Store/Sqlite/SqliteDatabase.cs:19 et 33 — attente de verrou bornée (busy timeout 2 500 ms borné 100..5 000), contrat OPE-032 du § 6.1 de docs/ops/relations.md:249-254",
+    "src/Domenia.Ad/Screens/AdRelationsReader.cs:17-31 — lecture locale au premier usage : magasin local exigé (« aucun annuaire de remplacement utilisé »), domaine de la base contrôlé, époque recontrôlée (« Session modifiée ; vue locale précédente écartée. ») ; src/Domenia.Bridge/Operations/RelationsOperations.cs:85-97 — relations.overview/list/subject sont LocalRead",
+    "src/Domenia.Ad/Screens/AdRelationSession.cs:62-124 — SaveAsync : les observations de la session restent en mémoire et sont enregistrées par lots ; à chaque lot la référence de l'écrivain est le contenu de la base relu à l'instant (ligne 75), une base partiellement lisible diffère le lot au lieu d'écrire contre une liste vide (lignes 77-79) ; les observations plus récentes arrivées pendant l'écriture sont conservées (lignes 82-90 et 102-110) ; une relecture finale acquitte ce qui est réellement enregistré (lignes 114-116)",
+    "src/Domenia.Ad/Screens/AdRelationSession.cs:119-123 — échec ou interruption : « observations conservées, aucun rejeu immédiat » ; lignes 154-158 — EnsureEpoch : les observations d'une session précédente sont écartées et refusées (« Session modifiée ; observations anciennes écartées. »)",
+    "src/Domenia.Ad/Writes/AdRelationChangeExecutor.cs:19-30 — avant toute préparation, la base est relue et sert de référence : base tronquée ou contenant des lignes rejetées refusée, domaine différent refusé, session modifiée refusée",
+    "web/js/pages/relations.js:525-540 — changement de session : sujet, recherches et observations de l'ancienne session écartés, « Rien n'a été enregistré ni retiré », puis relecture de la vue d'ensemble, de la liste et du journal",
+    "tests/Domenia.Tests/SqliteRelationReadTests.cs:21 — la lecture ne crée jamais une base absente et ne modifie aucune ligne existante ; ligne 35 — dates legacy en fuseau local et lots d'import lus sans migration de schéma ; ligne 63 — lignes malformées, étrangères ou trop grosses mises en quarantaine sans suppression",
+    "tests/Domenia.Tests/AdRelationSessionTests.cs:23 — observations enregistrées par lots de 64 sans LDAP et sans remplacer les assignations déclarées ; ligne 54 — une observation plus ancienne ou déjà enregistrée ne remonte pas les dates et n'engorge pas la mémoire de session ; ligne 68 — un lot échoué reste en attente sans réessai immédiat puis reprend sur demande ; ligne 81 — acquittement perdu après la commit réglé par relecture, sans seconde écriture ; ligne 94 — noms non qualifiés, objets étrangers, assignations et anciennes époques ne peuvent pas entrer dans la mémorisation automatique"
+  ],
+  "manque": "Rien de fonctionnel sur le contrat retenu, mais deux écarts de lettre avec la phrase d'origine, à assumer explicitement : (1) il n'y a pas de worker de lecture « au démarrage » — la table est lue au premier usage, hors du fil de l'interface (docs/ops/relations.md:249-254, AdRelationsReader.cs:17-31, opérations LocalRead) : rien n'est préchargé tant que l'écran Relations ne le demande pas ; (2) le déclencheur « après une bascule de base » n'a pas d'équivalent dans Domenia 2 : la base est fixée pour le processus (la démonstration ouvre un espace fictif dans un processus enfant distinct, docs/DEMONSTRATION.md:5) ; le changement de compte, lui, est bien traité par l'époque de session et la relecture de l'écran.",
+  "effort": "S",
+  "depend": [
+    "Domenia.Store (lecture SQLite du schéma 11 de Domenia 1)",
+    "REL-047 (reprise après changement de session)",
+    "OPE-032 (attente de verrou bornée)"
+  ],
+  "risque": "lecture"
+}

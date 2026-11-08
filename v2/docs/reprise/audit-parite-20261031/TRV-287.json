@@ -1,0 +1,31 @@
+{
+  "id": "TRV-287",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/pages/accueil/tools.js:230-232 — trois onglets du catalogue « Ajouter un widget » : « Widgets du parc », « Sondes WMI », « Requêtes »",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.cs:232-243 — Catalog() construit les groupes de widgets livrés (FleetCatalog) avec description et taille, les sondes groupées par catégorie avec leur résumé de contrat, et le drapeau des requêtes",
+    "src/Domenia.Core/Screens/Accueil/AccueilModels.cs:155 — FleetWidgetView porte Key, Title, Group, Kind, Visual, Visuals, Size, Description, Default : les informations du tableau sont listées avec leur description",
+    "src/Domenia.Core/Screens/Accueil/AccueilModels.cs:157 — ProbeView(Id, Name, Category, Mode, Transform, Visuals, Visual, Slow, SkipOnDc, Origin, Summary) : la projection du catalogue ne porte ni Class, ni Description, ni Compatibility",
+    "web/js/pages/accueil/tools.js:175-177 — carte de sonde : nom, résumé du contrat, étiquettes de représentation, étiquette « Lente » (data-tip « Collecte plus longue ») ou « Collecte explicite » pour une sonde personnalisée, « Hors contrôleurs » (data-tip « Jamais lue sur un contrôleur de domaine »), origine",
+    "web/js/pages/accueil/tools.js:169 — bandeau : « Le contrat précise les droits, le coût et les limites. »",
+    "web/js/pages/accueil/tools.js:178 — bouton « Contrat » par sonde (data-cat-probe), ouvert par web/js/pages/accueil/tools.js:302-317",
+    "src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:526-542 — lignes du contrat : Origine, Entrées (namespace · classe · propriétés · filtre · mode), Types, Privilèges, Coût, Comportement, Limites, Sources, Qualification, Tests attendus, Isolement",
+    "src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:545-547 — résumé : « Droits : … Coût : … — … Lecture déclarative : aucune écriture, aucun code. »",
+    "src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:426-437 — erreurs du contrat Domenia.ProbeContract/1 : privilèges ou coût non décrits, coût lourd sans collecte explicite, comportement refusé (écriture, code ou méthode WMI)",
+    "src/Domenia.Core/Screens/Accueil/ProbeCatalog.Loading.cs:40-41 — une sonde au contrat invalide fait refuser le catalogue entier (« Catalogue de sondes refusé : … ») : elle n'est donc jamais proposée",
+    "src/Domenia.Core/Screens/Accueil/ProbeCatalog.cs:594-597 — même refus pour les sondes embarquées (« Sonde embarquée refusée : … »)",
+    "src/Domenia.Core/Screens/Accueil/PersonalProbeCatalog.cs:95-96 — une sonde personnalisée au contrat incomplet est refusée à l'import et à la lecture (Validate appelé depuis AccueilService.cs:234 via PersonalProbeCatalog.Validate)",
+    "src/Domenia.Core/Screens/Accueil/AccueilService.Queries.cs:24-46 — CatalogAsync lit la bibliothèque du domaine et remplit QueriesAvailable, Queries et QueriesText : les requêtes enregistrées sont proposées",
+    "web/js/pages/accueil/tools.js:201-208 — panneau Requêtes : nom, cible, révision, empreinte, bouton « Ajouter »/« Affiché » et lien vers l'atelier",
+    "web/js/pages/accueil/tools.js:150-152 — aria-label sur chaque bouton d'ajout (« Ajouter … » ou « … : déjà sur le tableau ») ; web/js/pages/accueil/tools.js:168 — <span class=\"visually-hidden\">Filtrer les sondes</span>",
+    "tests/web/personal-probes.test.mjs:158-180 — openCatalog réel : catalogue relu après enregistrement d'une sonde personnalisée, aucune collecte réseau à l'import"
+  ],
+  "manque": "Trois éléments de la fiche ne sont pas exposés. (1) La classe WMI n'est pas en info-bulle : ProbeView (AccueilModels.cs:157) ne porte pas Class et les seuls data-tip des cartes sont « Confirmation requise avant la collecte », « Collecte plus longue » et « Jamais lue sur un contrôleur de domaine » (web/js/pages/accueil/tools.js:177) ; la classe n'apparaît que dans la section « Entrées » du contrat (ProbeCatalog.cs:529), donc après un clic sur « Contrat ». (2) La compatibilité n'est jamais affichée : ProbeDefinition.Compatibility est renseigné (ProbeCatalog.cs:586) et réécrit (src/Domenia.Core/Screens/Accueil/ProbeCatalog.Writing.cs:24) mais n'entre dans aucune ligne du contrat (liste à ProbeCatalog.cs:526-542) ni dans aucune vue du catalogue. (3) La description de la sonde n'est pas proposée : la carte n'affiche que p.summary (web/js/pages/accueil/tools.js:175) et ProbeView n'a pas de champ Description, contrairement aux widgets livrés (AccueilModels.cs:155). Enfin, le garde-fou « refus journalisé » n'est pas tenu aux points de refus : rg « Log|journal » dans ProbeCatalog.Loading.cs et PersonalProbeCatalog.cs ne renvoie rien ; le refus lève une exception sans ligne de journal (seule la bibliothèque de requêtes illisible est journalisée, AccueilService.Queries.cs:44).",
+  "effort": "S",
+  "depend": [
+    "TRV-190",
+    "TRV-021",
+    "ACC-048"
+  ],
+  "risque": "lecture"
+}

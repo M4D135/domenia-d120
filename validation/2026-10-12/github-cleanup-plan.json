@@ -1,0 +1,93 @@
+{
+  "checked_utc": "2026-10-12T18:59:54.061949+00:00",
+  "remote": "https://github.com/M4D135/domenia-d120.git",
+  "reviewed_work_base": "7ef127d32e97149d7170b97d21dae71bc94d42a7",
+  "branches": [
+    {
+      "ref": "refs/heads/claude/epic-newton-j5ir1w",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "7f1bd23ec6095f26ec2be516401efea7b820b382"
+    },
+    {
+      "ref": "refs/heads/fix/d120-index-maxobjects-20261009",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "29d629539f93350230f3253680511ed8fcf7fe41"
+    },
+    {
+      "ref": "refs/heads/lot/L10-spark",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "a5ebb07c81c1005c4bb6aea535b91238918b4a1c"
+    },
+    {
+      "ref": "refs/heads/lot/L11-spark",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "2275fd9ff09012706e9b08f71287a961026eb03d"
+    },
+    {
+      "ref": "refs/heads/lot/acces",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "5298e869c8fcd6c8c88a8376dc8efd84dba77dff"
+    },
+    {
+      "ref": "refs/heads/lot/annuaire",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "b5648639b73c39c0f15adb3532273560343e03a7"
+    },
+    {
+      "ref": "refs/heads/lot/cache",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "a4bb55608911aee2bcda6433149fc94c0f572eb8"
+    },
+    {
+      "ref": "refs/heads/lot/distribution",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "01fdf8a9c45ae00aa0b86c64f3a899257a1e70f5"
+    },
+    {
+      "ref": "refs/heads/lot/interface",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "f6caf8905a2d27f7352d69dc0d9f0566da7c4b33"
+    },
+    {
+      "ref": "refs/heads/lot/moteur",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "31868a484a745ef968a1d4d21d447376c5218bdd"
+    },
+    {
+      "ref": "refs/heads/lot/recherche",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "e38eff7008b3eec8133798332fff1745f8f349f2"
+    },
+    {
+      "ref": "refs/heads/lot/relations",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "f7c9b6d56dc4b8b359cafd03a59b2e162c432873"
+    },
+    {
+      "ref": "refs/heads/lot/suites",
+      "already_merged_into_work_base": true,
+      "action": "delete_after_final_master_push_with_expected_ref_lease",
+      "expected_commit": "0ba63e16c345a3243e98c2a988e05817f5cb01d7"
+    },
+    {
+      "ref": "refs/heads/master",
+      "already_merged_into_work_base": true,
+      "action": "retain",
+      "expected_commit": "7ef127d32e97149d7170b97d21dae71bc94d42a7"
+    }
+  ],
+  "remote_mutations_performed": false,
+  "local_worktrees_preserved": true
+}

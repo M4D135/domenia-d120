@@ -1,0 +1,29 @@
+{
+  "Build": "2026.10.16-DOMENIA-1.0-RC1.17.12-D120",
+  "ArchiveIntegrity": "PASS",
+  "SourceBytesIdentical": true,
+  "IdenticalRuntimeFiles": 172,
+  "SourceBaseCommit": "8dec896ca43262ae58a8e8f9562237f66dc6c533",
+  "Archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3054689,
+      "sha256": "120d3820c7f5708756bb4d2b31974a569609f6373681004cac60f0c17cabea26",
+      "files": 172,
+      "archive_files_including_manifest": 173,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6489005,
+      "sha256": "88aa24e2e257226a7d0beff3738c974b3a2fe354a86fa0c1697d592ecd369ce6",
+      "files": 636,
+      "archive_files_including_manifest": 637,
+      "archive_root": "dev/"
+    }
+  ],
+  "NativeTests": "115 targeted source cases passed; RC1.17.12 final ZIP not executed in Windows by user request",
+  "FormalWindowsQualified": false
+}

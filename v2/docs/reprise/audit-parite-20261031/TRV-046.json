@@ -1,0 +1,23 @@
+{
+  "id": "TRV-046",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:18-29 — Requested accepte --selftest, -DomeniaSelfTest et -MegADSelfTest ; Parse n’admet que « --selftest » seul ou avec --selftest-output / -DomeniaSelfTestResultPath / -MegADSelfTestResultPath, sinon ArgumentException (docs/STARTUP-DIAGNOSTICS.md:9 confirme les alias)",
+    "repo/v2/src/Domenia.App/Program.cs:35-42 et 57-76 — le mode s’exécute avant composition, fenêtre et profil : CheckModules puis DiagnoseAsync, résultat JSON « Domenia.SelfTest/1 » sur stderr, copie relue sur fichier local neuf via StartupPreflight.Save (StartupPreflight.cs:78-86), codes 0 (validé) / 1 (diagnostic ou écriture non validé) / 2 (arguments refusés, message « Autotest refusé : arguments ou destination invalides ; aucun accès AD. »)",
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:88-108 — QualifyOutput : chemin absolu local neuf exigé, UNC et lecteur réseau refusés, ancêtres reparse-point refusés, FileMode CreateNew + flushToDisk avec relecture octet à octet : le résultat est bien écrit dans le fichier demandé, sans remplacement",
+    "repo/v2/src/Domenia.Bridge/EngineSelfTest.cs:30,35,47 — chargeur d’ordonnanceur exercé : « scheduler.capacity » (file + retrait), « scheduler.cancel-before-send » (annulation avant envoi), « scheduler.release » (réservations rendues)",
+    "repo/v2/src/Domenia.Bridge/EngineSelfTest.cs:51-65 — budgets physiques : refus au plafond de lecture (« physical.read-ceiling »), réservations premier plan et écriture (« physical.foreground-reservations »), libération (« physical.release »), avec garde initiale « Autotest réservé à un processus sans travail physique actif. »",
+    "repo/v2/src/Domenia.Bridge/EngineSelfTest.cs:66-79 — « simulation.no-real-provider » et « write.closed-door » (portes d’écriture), « registry.rejects-duplicates », puis trois contrôles d’inactivité sur horloge sans minuterie (« inactivity.completed-progress », « inactivity.exact-expiry », « inactivity.no-late-revival »)",
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:58-69 — côté fournisseur de démonstration : un SimulatedDirectorySource réel est interrogé (réservé .invalid, lecture seule sans overlay, annulation respectée) — « simulation.reserved-domain », « simulation.read-only-start », « simulation.cancellation » ; le chargeur est couvert par CheckModules (lignes 31-49)",
+    "repo/v2/tests/Domenia.Tests/StartupPreflightTests.cs:11-30 — deux tests exécutent réellement DiagnoseAsync (succès complet, modules > 20, annulation et ensemble vide jamais tenus pour réussis, aucune réservation restante) ; lignes 33-53 refusent les combinaisons avec commande vivante, le chemin relatif, l’UNC et l’écrasement ; docs/STARTUP-DIAGNOSTICS.md:5,7 en sont la fiche",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/OperationRequirements.cs:64,70 — les deux opérations nommées par la fiche, DemoDirectory et EngineSelfTest, figurent bien au catalogue fermé des capacités (« Autotest du moteur », « Annuaire de démonstration »)"
+  ],
+  "manque": "Un seul item de la liste D1 n’a pas d’équivalent : le contrôle d’« activation ». Aucun nom de contrôle du self-test ne porte sur la promotion d’une demande en file vers l’exécution (le Promote de repo/v2/src/Domenia.Bridge/BridgeAdmission.cs:196 n’est jamais exercé dans EngineSelfTest.RunAsync, qui s’arrête à la capacité, au retrait et à l’annulation avant envoi) ; cette promotion est pourtant couverte hors self-test par tests/Domenia.Tests/BridgeSchedulingTests.cs et QueueTimingTests.cs — un --selftest actuellement vert ne prouverait donc pas que l’activation de la file fonctionne sur la machine ciblée. Deux écarts mineurs à acter : 1) l’écriture du résultat impose un fichier « neuf » (StartupPreflight.cs:106) là où D1 réécrivait le chemin demandé — comportement plus sûr mais différent, non signalé dans la fiche du catalogue ; 2) les noms de contrôles sont en anglais (scheduler.*, physical.*) et le JSON ne donne que types d’échec fermés (docs/STARTUP-DIAGNOSTICS.md:7), donc pas de comparaison directe possible avec le texte de Get-DomeniaWorkerEngineSelfTestCode.",
+  "effort": "S",
+  "depend": [
+    "TRV-029 (--check-only, même porte d’entrée : l’activation de la file s’ajouterait aux deux parcours)",
+    "TRV-125 (Retrait des demandes trop anciennes et promotion) — la promotion que le self-test ne reproduit pas, repo/v2/src/Domenia.Bridge/BridgeAdmission.cs:196",
+    "docs/STARTUP-DIAGNOSTICS.md:5 — phrase à compléter si un contrôle d’activation est ajouté"
+  ],
+  "risque": "lecture"
+}

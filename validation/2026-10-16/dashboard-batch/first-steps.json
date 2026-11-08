@@ -1,0 +1,21 @@
+﻿{
+    "Suite":  "Tableaux de bord en widgets",
+    "Host":  "5.1.26100.6584",
+    "Passed":  1,
+    "Failed":  0,
+    "Filter":  "Premiers pas",
+    "Complete":  true,
+    "LiveADExecuted":  false,
+    "NetworkAccessed":  false,
+    "RenderTimings":  [
+
+                      ],
+    "RenderTimingScope":  "Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded",
+    "Results":  [
+                    {
+                        "Name":  "Premiers pas : premier calcul automatique avant ouverture, echec et OU vide recuperables sans scan",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

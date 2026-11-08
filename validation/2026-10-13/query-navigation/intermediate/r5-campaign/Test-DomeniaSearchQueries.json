@@ -1,0 +1,245 @@
+{
+    "Suite":  "Domenia.SearchQueries",
+    "Platform":  "Win32NT",
+    "PowerShell":  "5.1.26100.6584",
+    "Pass":  47,
+    "Fail":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Catalog: 5 original LDAP views, 152 local models, one saved recipe",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Catalog: identifiers unique and both favorites preserved",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Catalog: user disable view remains separate from computer disable recipe",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Catalog: LDAP stale retains absent lastLogonTimestamp and no active-only clause",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Catalog: local stale keeps existing active, known-date semantics",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Catalog: accent-insensitive local filtering does not execute a query",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Catalog: favorites filter intersects text",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Catalog: every local entry compiles through the actual shared DLL",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: Match selects one row with complete totals",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: Unknown selects one row with complete totals",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: NoMatch selects one row with complete totals",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: all local computers include disabled and keep GUID/DN identities",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: limit truncates rows only, not population counts",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: invalid limit rejected",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: different GUID at reused DN stays unknown",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: expired inventory stays unknown despite recent ping",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Worker: second DLL page preserves 10002 rows and global ordering",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dispatch: reads Search OU and OneLevel, never dashboard scope or remote data",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dispatch: clears hidden text, presence, type and frozen GUID filters",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dispatch: no selected OU refuses without job",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dispatch: missing database refuses without job",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dispatch: read callback starts independent actual-query phase",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale Epoch",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale Generation",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale Path",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale OU",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale Depth",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale View",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale Text",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale Replacement",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: rejects stale Mode",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: busy/missing read is failure, not empty success",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: refuses wrong returned scope",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: local rows shown without probes and with explicit incomplete coverage",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback: failure never reuses old rows",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Clear: pending local query is invalidated and its late response rejected without opening workshop",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Clear: old local run cannot erase a later ordinary LDAP list",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Selector: details safe before login, execute disabled, chosen local result modes visible",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Selector: local result modes shown and LDAP result modes hidden",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "LDAP: original view executes explicitly and clears local intersections",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "LDAP: old view identifier remains callable for saved views",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Coverage: successful covering read and later partial attempt stay distinct",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "History: snapshot preserves local definition, selected result set and visible provenance",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "History: local refresh replays its definition without LDAP or current selector state",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "History: different query or result selection creates a distinct location",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Navigation: Search opens Tools/Workshop and retains Search return without calculation",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Navigation: existing Tools tab captured, repeated Show preserves manual return",
+                      "Pass":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Limitations":  "Actual shared query DLL and worker; mocked UI/SQLite dispatch; no WPF, AD, remote endpoints or Windows qualification."
+}

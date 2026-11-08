@@ -1,0 +1,28 @@
+{
+  "id": "TRV-233",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/Writes/WriteModels.cs:21-28 — WriteResult { Sent, Applied, NoChange, NotApplied, Unknown } ; WriteModels.cs:35-41 — VerificationState { Verified, Mismatch, Unknown, Reviewed }",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:316-322 — un exécuteur ne peut jamais se déclarer « envoyé » : une réponse Sent ou Unknown est forcée à Unknown avec ReceiptError write.outcomeUnknown",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:324-329 — DomeniaOperationException (refus attendu avant tout changement appliqué) → NotApplied, code et message gardés sur le reçu",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:330-337 — toute autre exception après l'envoi → Unknown + write.outcomeUnknown, avec le commentaire « the receipt must say « unknown », never lose it »",
+    "src/Domenia.Core/Writes/WriteReceipts.cs:21-28 — version 1 Sent écrite avant le départ de la requête ; :31-45 Completed ajoute le résultat ; :48-65 Verified ajoute une relecture",
+    "src/Domenia.Core/Writes/WriteReceipts.cs:60-62 — un reçu réglé par une revue manuelle ne redevient pas « à vérifier » quand une relecture ultérieure ne prouve rien (seule une conclusion Verified/Mismatch le remplace)",
+    "src/Domenia.Core/Writes/WriteReceipts.cs:95-99 — IsPending : Result ∈ {Sent, Unknown} ET Verification == Unknown ; c'est ce qui retient les nouvelles écritures",
+    "src/Domenia.Ad/Ldap/AdConnection.cs:718-727 — IsMutation (modify/rename/add/delete) et MapMutationFailure : un refus n'est prouvé que par une réponse serveur à ResultCode non-Success ; sinon AdWriteOutcomeUnknownException (issue inconnue)",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:352-375 — ReadBackAsync : échec de la relecture = VerificationState.Unknown, jamais une exception pour l'appelant (une incertitude n'est résolue que par vérification ou revue)",
+    "src/Domenia.Core/Writes/WriteCircuit.cs:228-255 — operations.receipts.review : la revue manuelle (12 à 240 caractères, rien qui ressemble à un secret) consigne un état Reviewed qui lève l'incertitude sans jamais être un succès automatique",
+    "tests/Domenia.Tests/WriteCircuitTests.cs:467-472 — relecture non concluante → Unknown, pending, ton Warn, erreur write.outcomeUnknown gardée et « jamais renvoyée »",
+    "tests/Domenia.Tests/WriteCircuitTests.cs:528-543 — refus (DomeniaOperationException « write.accessDenied ») → NotApplied, « un refus n'est pas incertain », et le double clic ne s'exécute jamais deux fois",
+    "tests/Domenia.Tests/WriteClosingTests.cs:49-61 — un reçu incertain exige un choix explicite de fermeture, « aucune réexécution » et « aucune relecture réseau implicite à la fermeture »"
+  ],
+  "manque": "1) Il n'y a pas de machine à états : aucune table de transitions nulle part. src/Domenia.Core/Writes/WriteReceipts.cs:31-45 (Completed) et :48-65 (Verified) écrivent Result et Verification à chaque nouvelle version sans vérifier la légalité du passage ; rien n'empêche Sent → NotApplied → Applied → NotApplied. 2) « Une demande envoyée ne redevient jamais non envoyée » n'est pas garanti : NotApplied est atteignable après la version durable Sent à partir d'un refus levé localement dans l'exécuteur — src/Domenia.Ad/Writes/AdFicheWriteExecutors.cs:56 (write.stale dans ExecuteAsync, donc après le reçu version 1 écrit à src/Domenia.Core/Writes/WriteCircuit.cs:296-300) et Protect (mêmes lignes 160-171) — et src/Domenia.Core/Writes/WriteCircuit.cs:324-328 l'enregistre comme « refus avant tout changement » sans distinguer l'origine. 3) « Échec après envoi accepté seulement avec un refus prouvé du contrôleur (code LDAP 1 à 80) » n'est pas contrôlé : src/Domenia.Core/Writes/WriteCircuit.cs:324-328 accepte n'importe quelle DomeniaOperationException, quel que soit son code (le test de tests/Domenia.Tests/WriteCircuitTests.cs:532 en invente un, « write.accessDenied ») ; aucune vérification de plage sur le code LDAP, et src/Domenia.Ad/Ldap/AdConnection.cs:963-973 transforme en DomeniaOperationException des codes serveur 51/52/81/91 (indisponible) et 85 (délai), qui se retrouvent donc enregistrés NotApplied avec le message « rien n'a été modifié » (src/Domenia.Core/Writes/WriteReceipts.cs:158). 4) Deux états de la note n'ont aucun équivalent dans le modèle : pas de « Réservée » (un plan préparé ne vit que dans le dictionnaire mémoire src/Domenia.Core/Writes/WriteCircuit.cs:39-40, jamais durable) et pas de « Livrée » (une écriture terminée sans preuve d'effet ne peut pas être consignée : src/Domenia.Core/Writes/WriteModels.cs:21-28 n'offre que cinq résultats, et NoChange/NotApplied ne disent pas « remise, effet non prouvé »). 5) Aucun test de transition illégale : rien n'affirme qu'une écriture envoyée ne peut pas redevenir non envoyée (les seuls tests d'états sont tests/Domenia.Tests/WriteCircuitTests.cs:467-472 et :531-540).",
+  "effort": "M",
+  "depend": [
+    "TRV-234 (le refus prouvé du contrôleur et ses codes 16/19/20 sont la condition d'entrée de « Échec »)",
+    "TRV-231 (reprise après redémarrage : un reçu Sent trouvé au démarrage doit rester incertain, jamais converti)",
+    "TRV-230 (un reçu non terminal bloque les écritures : la définition de IsPending est le point unique)",
+    "TRV-232 (sans registre, l'état « Réservée » n'existe nulle part)"
+  ],
+  "risque": "ecriture-AD"
+}

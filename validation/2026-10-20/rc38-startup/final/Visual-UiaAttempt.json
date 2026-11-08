@@ -1,0 +1,14 @@
+﻿{
+    "Passed":  false,
+    "Utc":  "2026-10-20T18:32:26.8439437Z",
+    "Steps":  [
+                  {
+                      "Screenshot":  "visual-home.png",
+                      "Width":  1140,
+                      "Height":  852,
+                      "Utc":  "2026-10-20T18:32:28.8903191Z"
+                  }
+              ],
+    "Error":  "Control unavailable: BtnUxNavTools",
+    "Stack":  "at Click, C:\\DomeniaLab\\RC35-qualification\\Visual-Final.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\Visual-Final.ps1: line 32"
+}

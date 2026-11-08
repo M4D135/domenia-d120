@@ -1,0 +1,129 @@
+{
+    "Kind":  "FaultInjection",
+    "Point":  "D007",
+    "Rule":  "Chaque panne conserve sa categorie et n aboutit ni a une reussite ni a une suppression inventee.",
+    "Faults":  [
+                   "DNS lent",
+                   "Refus AD",
+                   "Dechiffrement LAPS refuse",
+                   "Disque plein",
+                   "SQLite verrouille",
+                   "Coupure apres envoi"
+               ],
+    "Host":  {
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NoADAccess":  true,
+    "NoNetwork":  true,
+    "Passed":  21,
+    "Failed":  0,
+    "Complete":  true,
+    "Tests":  [
+                  {
+                      "Name":  "DNS lent puis delai depasse : categorie Delai conservee, aucun compte invente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "DNS lent avec reponse : observation reelle, pas de panne inventee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Delai depasse : jamais propose comme mauvais compte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Refus d acces (0x80070005) a la lecture console : categorie Refus conservee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Identifiants rejetes (0x8007052E) : categorie conservee et canal AD suspendu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecriture refusee par AD : echec certain, capacite verrouillee, aucune reussite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dechiffrement LAPS refuse : refus conserve, aucune valeur ni reussite affichee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Disque plein au recu : aucune ecriture AD envoyee, code 0x80070070 conserve",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Fichier local protege : version precedente conservee, aucun temporaire restant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SQLite verrouille : echec visible, aucune ligne perdue, reessai volontaire possible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Coupure apres envoi : etat inconnu, recu conserve, aucun rejeu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Coupure apres envoi : interface verrouillee en ecriture, sans message de reussite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-15 : acces fichier refuse hors tache AD, aucune proposition de changer de compte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-15 : refus venu d une tache qui exige un compte, reprise toujours proposee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-01 : exception levee pendant l affichage d une erreur, journalisee et comptee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-02 : meme erreur repetee, un seul code, une banniere comptee et une ligne par minute",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-02 : minuteur du moteur en panne arrete apres 3 echecs, sans boucle de fenetres",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-07 : code incident identique a l ecran, au journal lisible, au Support et sur une seule ligne de Domenia.log",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-02 : faute interne sans texte .NET a l ecran, message Domenia et refus systeme conserves",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-22 : erreur apres affichage annoncee comme arret inattendu, avant comme initialisation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Resultat d ecriture sans verification positive : jamais annonce reussi",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

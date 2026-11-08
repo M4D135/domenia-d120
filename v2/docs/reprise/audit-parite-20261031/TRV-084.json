@@ -1,0 +1,15 @@
+{
+  "id": "TRV-084",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Core/ProductInfo.cs:10-19 — identité unique : version stable + identité de livraison injectée (64 hexadécimaux) ; ligne 17 — « Identité de livraison injectée invalide » levée sinon, un texte qui ressemble seulement à l’identité est refusé",
+    "Directory.Build.props:23-29 — DomeniaBuildIdentity injecté comme InformationalVersion et AssemblyMetadata ; tools/build-vm.ps1:124 — buildIdentity = version + '+' + SHA-256 du texte d’identité source",
+    "src/Domenia.App/Composition.cs:45 — titre de fenêtre = ProductInfo.Name + ProductInfo.Version ; src/Domenia.Bridge/Operations/OperationsOperations.cs:538 — état du moteur ; src/Domenia.Bridge/Operations/AssistanceOperations.cs:711 — rapport Support ; toutes les surfaces tirent leur texte de la même source",
+    "tools/release-packages-vm.ps1:157 — package-release.json : version, build, sourceCommit, executableSha256 et versions des dépendances embarquées (Domenia.exe gardé par son SHA-256)",
+    "tests/Domenia.Tests/PackageLifecycleTests.cs:277-281 — « pas d’identité ressemblante » et refus d’un ancien canal pour la version stable testés"
+  ],
+  "manque": "Il n’existe pas de contrat de livraison unique : aucune étiquette de build (format « 2026.10.02-DOMENIA-1.0-RC1.11.0-D120 ») ni parseur équivalent à ConvertFrom-DomeniaBuildLabel/Get-DomeniaBuildLabelTokens — l’identité est un hexadécimal de 64 caractères sans date, étape, canal ni version du produit D1 ; aucune déclaration d’étape, de canaux ou de composants, pas d’empreinte du registre des workers (aucun Get-DomeniaWorkerRegistryFingerprint équivalent dans src/ ni tools/) ; pas de garde refusant une étape déjà utilisée par un autre build ; et pas de vérification Test-DomeniaReleaseConsistency : les surfaces lisent bien ProductInfo.Version (Composition.cs:45, OperationsOperations.cs:538, AssistanceOperations.cs:711) mais rien ne confronte leurs textes ni ne détecte une surface qui nommerait un autre build ; la version déclarée de Domenia.exe n’est pas liée à son SHA-256 (l’empreinte est consignée, tools/release-packages-vm.ps1:157, sans appariement à une version déclarée distincte).",
+  "effort": "L",
+  "depend": ["TRV-085 (manifeste et inventaires de livraison)", "outillage de publication (tools/build-vm.ps1, release-packages-vm.ps1, release-guard.py)"],
+  "risque": "ecriture-locale"
+}

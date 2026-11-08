@@ -1,0 +1,19 @@
+{
+    "Name":  "Test-DomeniaOuRefresh",
+    "PID":  2032,
+    "RunnerPID":  1092,
+    "StartedUTC":  "2026-10-13T16:00:44.2474752Z",
+    "Executable":  "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaOuRefresh.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaOuRefresh.json"
+                  ],
+    "ScriptSha256":  "497775fdb850e3a7ca8e6317d5e6a26a626d678050dc220b2def5070dc65784d",
+    "TimeoutSeconds":  180
+}

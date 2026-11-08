@@ -1,0 +1,16 @@
+{
+  "id": "TRV-213",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Writes/WriteModels.cs:120-141 — plan scellé : cible (DN + ObjectGuid lus, :58-66), changements ordonnés, contrôleur destination, compte opérateur, mode, empreinte figée avant confirmation",
+    "repo/v2/src/Domenia.Core/Writes/WritePlans.cs:60-62 — Seal calcule ComputeFingerprint puis le détail technique (DescribeTechnical) ; :11-12 — empreinte = opération, cible exacte, destination, compte, mode, changements ordonnés avec valeurs brutes et dates ; :17 — validité 5 min",
+    "repo/v2/web/js/write-flow.js:484-530 — panneau de la page : cible + DN, diff « Avant/Après » en clair (wf-diff rows), risques, faits (Contrôleur, Opérateur, Confirmation, Retour arrière :517-524), « Détails techniques » replié via bouton aria-expanded (:528-529) ; :274-294 — confirmation via confirmWrite avec les changements et saisie du nom exigée",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:133-145 — à l'envoi, empreinte recalculée depuis le plan tel qu'il est : un plan modifié après scellement ne correspond plus au jeton (write.planChanged / write.tokenInvalid) ; :149-155 — nom saisi différent → refus write.confirmationMismatch et plan dépensé (fail closed) ; :156-159 — jeton à usage unique : sans confirmation consommée, rien n'est envoyé",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:95-96 — origine de session revérifiée au plan (write.stale si la session a changé depuis la lecture) ; :284-294 — avant l'envoi, préconditions relues sur le DC (stage « Relecture de l'objet avant l'envoi », :74) et session contrôlée à nouveau",
+    "repo/v2/tests/Domenia.Tests/WriteCircuitTests.cs:307-308 — « le même plan ne repart pas » (TokenUsed) ; :320 — plan expiré refusé ; :427-433 — saisie exigée, nom différent refusé et plan dépensé ; :647-664 — empreinte insensible aux textes, sensible à cible/controller/confirmation, jeton lié à l'empreinte"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "ecriture-AD"
+}

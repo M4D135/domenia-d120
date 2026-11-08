@@ -1,0 +1,19 @@
+{
+  "id": "TRV-125",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Platform/QueueTiming.cs:9 — MaxQueueWaitSeconds borné à [5,600] (« Math.Clamp(maxQueueWaitSeconds, 5, 600) », 5 s au minimum) ; :20 — défaut « new(30, 120, 25) » : 120 s d'attente maximale et budget de tick 25 ms ; :18 — « TickBudget => TimeSpan.FromMilliseconds(TickBudgetMilliseconds) »",
+    "src/Domenia.Bridge/BridgeAdmission.cs:386-395 — retrait avant tout envoi : « else if (clock.GetUtcNow() - entry.At >= timing.Expiration) { Withdraw(entry, \"operation.queueExpired\", $\"Retirée de la file avant envoi : attente de {timing.MaxQueueWaitSeconds} secondes atteinte.\") ; } » — le tracé exact de l'énoncé est le message ; Withdraw (:418-419) ne fait que « TrySetException » sur l'entrée en file : aucun handler, aucun appel réseau",
+    "src/Domenia.Bridge/BridgeAdmission.cs:161-168 — le retrait court sur chaque tick, avant même la garde single-flight et indépendamment d'une qualification suspendue (« ExpireQueued() … independent of the single-flight guard », :216-224), et avant toute promotion (RemoveExpired :168)",
+    "src/Domenia.Bridge/BridgeAdmission.cs:182 — promotion bornée par le budget de tick : « while (queued.Count > 0 && Stopwatch.GetElapsedTime(started) < timing.TickBudget) » ; :184-196 — les entrées en attente sont promues par priorité (puis ordre d'arrivée) tant que l'admission dit Start : « if (!Capacity(candidate, Aged(candidate))) { continue; } » puis refus/attente selon ProviderAdmission (:190-192), « Promote(chosen) » (:196)",
+    "tests/Domenia.Tests/BridgeSchedulingTests.cs:159-172 — « A_read_expires_at_120_seconds_before_any_slot_is_released » : « expiration sans attendre un résultat réseau », « retrait avant envoi » (operation.queueExpired), « entrée expirée retirée » ; :389-403 — « A_suspended_qualification_still_expires_a_queued_read_at_120_seconds_without_a_handler » (« a tick must expire even while the qualification is suspended »)",
+    "tests/Domenia.Tests/BridgeSchedulingTests.cs:96-111 — « Explicit_then_selection_then_background_are_promoted_in_priority_and_arrival_order » avec « ordre d'arrivée entre priorités égales » ; tests/Domenia.Tests/QueueTimingTests.cs:26-29 — valeurs configurées bornées : « budget de promotion borné » (TickBudgetMs 1 ramené à 5)"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [
+    "TRV-123 (la file de 32 et l'admission « Start » que la promotion consulte, src/Domenia.Bridge/BridgeAdmission.cs:10,189-192)",
+    "TRV-124 (le vieillissement pris en compte dans l'ordre de promotion, src/Domenia.Bridge/BridgeAdmission.cs:184)"
+  ],
+  "risque": "lecture"
+}

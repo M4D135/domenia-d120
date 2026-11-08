@@ -1,0 +1,49 @@
+{
+  "Build": "2026.09.30-R1.9-OUSEARCH",
+  "InputArchiveSha256": "df29d78a7bdcd8eb827ca699dccc38341410a5ea1a3947855baedd2fcb4120cf",
+  "ChangedFunctions": [
+    "Get-MainXaml",
+    "Set-SelectedBranch",
+    "Get-GlobalSelectedTypeFilter",
+    "Go-RootBranch",
+    "Select-AdccWorkspace",
+    "Get-BranchQueryData",
+    "Complete-AdccBranchObjectsUi",
+    "Fail-AdccBranchObjectsUi",
+    "Load-BranchObjects",
+    "Complete-AdccGlobalSearchUi",
+    "Fail-AdccGlobalSearchUi",
+    "Clear-AdccGlobalSearch",
+    "Invoke-GlobalSearch",
+    "Show-ObjectRows",
+    "Wire-Events",
+    "Get-AdccWorkerOperationHashes",
+    "Initialize-AsyncEngine",
+    "Start-AdccWriteTask",
+    "Invoke-AdccSelfTest"
+  ],
+  "AddedFunctions": [
+    "Get-AdccSearchScope",
+    "Invalidate-AdccSearchResults",
+    "Invoke-AdccSearchFilterChanged",
+    "Reset-AdccSearchScope",
+    "Test-AdccSearchStateCurrent",
+    "Update-AdccSearchScopeUi"
+  ],
+  "UnchangedOriginalFunctionCount": 548,
+  "PreservedFiles": {
+    "ADCC.exe": "1ec0fb8663c2907d8de467172b4de391791f7a9496c0b22bdf1e1b7212cb5f15",
+    "ADCC.ico": "931af92eb1778934b22acb4d9dcc3f97234ee5daba8147e6cf7d7842db0ad923",
+    "wad/ADCC.theme.cfg": "68d7c58aabebf6e5e6879e2d9f716a3761ab69dce98a509f4d4d8533b0bf59c4",
+    "wad/ADCC.login-mode.cfg": "a6de7e58f772b9966b68d538f07edee828bfca03dacc5c97b67e2eeb1240d8bc",
+    "wad/Microsoft.ActiveDirectory.Management.dll": "1a6af7b8f8bce5b35ff873e2528746480c980526d86e38ca5acd04c2e9037157",
+    "wad/PsExec.exe": "edfae1a69522f87b12c6dac3225d930e4848832e3c551ee1e7d31736bf4525ef",
+    "wad/ADCC.ui-profile.cfg": "2164d5cde9a1f348cb49ffe865200f601c3f2abfbbc7f27b626262399184c706",
+    "wad/ADCC.ico": "931af92eb1778934b22acb4d9dcc3f97234ee5daba8147e6cf7d7842db0ad923",
+    "wad/ADCC.config.json": "70b0abb6ad60a0a4efad90fba7c33a435a8da2c76d1db866420c6f7f9383424c",
+    "wad/ActiveDirectoryPowerShellResources.dll": "e233d92238aa31ea1b3c60145d8811edb2e517e1b9b53f4bc496883ee5d9973b",
+    "wad/modules/ADCC-Support.xaml": "18b4cb8f942220dc49c35ba7c945431df8c185f7969945f168cc77a9c4eaf5db",
+    "wad/modules/ADCC-Support.UI.ps1": "4d8100dfdb3aca2146d2c706df44820366cfe91361bc4cd84af45fe1fee8eaf6",
+    "wad/modules/ADCC-Support.Model.ps1": "ed5f212635c43779b2357ba1d2eab837eff6268c913f9733da9f440e0cca2a39"
+  }
+}

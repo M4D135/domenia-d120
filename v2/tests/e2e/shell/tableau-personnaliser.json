@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : personnaliser le tableau de l’interface puis annuler",
+  "description": "Sur l’écran « Aide et interface », passe le tableau en mode Personnaliser, applique la disposition prête « Apparence », vérifie qu’Annuler est proposé, annule, puis termine la personnalisation.",
+  "modes": ["simulation"],
+  "start": "shell",
+  "steps": [
+    { "do": "wait", "selector": ".sh-board .sh-widget", "title": "Les widgets du tableau sont affichés" },
+    { "do": "click", "selector": ".sh-board [data-b=\"edit\"]", "title": "Personnaliser" },
+    { "do": "expect", "selector": ".sh-board.editing", "title": "Le mode Personnaliser est actif" },
+    { "do": "expect", "contains": "Terminer", "within": ".sh-board [data-b=\"edit\"]" },
+    { "do": "click", "selector": ".sh-board [data-b=\"presets\"]", "title": "Ouvrir les dispositions prêtes" },
+    { "do": "click", "text": "Apparence", "within": "[role=menu]", "title": "Choisir la disposition Apparence" },
+    { "do": "expect", "selector": ".sh-board [data-b=\"undo\"]", "property": "hidden", "equals": false, "title": "Annuler est proposé" },
+    { "do": "shot", "name": "tableau-apparence", "selector": ".sh-board" },
+    { "do": "click", "selector": ".sh-board [data-b=\"undo\"]", "title": "Annuler le changement" },
+    { "do": "click", "selector": ".sh-board [data-b=\"edit\"]", "title": "Terminer" },
+    { "do": "expect", "selector": ".sh-board.editing", "absent": true },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

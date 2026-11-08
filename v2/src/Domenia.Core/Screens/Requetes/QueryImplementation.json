@@ -1,0 +1,31 @@
+{
+  "format": "Domenia.QueryImplementation/1",
+  "implementation": "internal-v2",
+  "assembly": "Domenia.Core",
+  "runtimeDownload": false,
+  "upstreamRepository": "https://github.com/M4D135/m4d-admin-common",
+  "historicalCommit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
+  "reviewedCommit": "a050525abb46696d6b1516b18cccc2b837908a09",
+  "upstreamSource": "src/Query/QueryEngine.cs",
+  "upstreamBlob": "6b5e244c55c5eb301f15597403244bb104fc227e",
+  "upstreamAssemblyLoaded": false,
+  "relationship": "historical-contract-lineage",
+  "contracts": [
+    "Domenia.Query/1",
+    "Domenia.Query/2",
+    "Domenia.Query/3",
+    "Domenia.Query/4",
+    "Kleene-three-valued"
+  ],
+  "sources": [
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryEngine.cs",
+      "sha256": "0a5505c243bb0895a5f60c4e2f58cb315429dc2355bcf4815262452cf98cf8ae"
+    },
+    {
+      "path": "src/Domenia.Core/Screens/Requetes/QueryRecipeJson.cs",
+      "sha256": "cb0729f00a9202cc7184a9453ba8ea8118acff06fefa7658aef9a7e3a745e0d3"
+    }
+  ],
+  "sourceEncoding": "utf8-lf"
+}

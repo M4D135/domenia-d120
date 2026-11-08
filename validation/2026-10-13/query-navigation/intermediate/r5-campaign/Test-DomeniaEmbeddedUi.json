@@ -1,0 +1,499 @@
+{
+    "Build":  "Domenia 1.0 RC1.9",
+    "Host":  "5.1.26100.6584",
+    "Platform":  "Windows_NT",
+    "Passed":  97,
+    "Failed":  0,
+    "Skipped":  0,
+    "Complete":  true,
+    "LiveADExecuted":  false,
+    "MockedLDAP":  true,
+    "WpfExecuted":  true,
+    "Tests":  [
+                  {
+                      "Name":  "Parseur natif de tous les scripts runtime",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "GUID binaire retourne comme byte array unique",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "GUID binaire converti au format D",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ancien tableau de bytes deroule encore convertible",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "GUID deja type conserve",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "GUID texte normalise",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "GUID court non invente",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "GUID hors bornes refuse",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "GUID texte invalide refuse",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Attribut absent retourne le defaut",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Valeur string AD conservee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Regression avant correction : GUID deroule ne correspond pas",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Recherche AD reelle en code, transport double uniquement",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Selecteur recherche sur le domaine et pas une OU",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ressources de recherche liberees",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Deuxieme lecture exacte avant choix",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Objet recree refuse a la verification",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Objet hors domaine refuse avant lecture",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Recherche courte refusee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Recherche borne a 160 caracteres",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Jokers LDAP echappes",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Categorie utilisateur incluse explicitement",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Erreur AD ne devient pas une liste vide valide",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Liste complete vide reste un resultat vide",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Plafond annonce et applique",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dossier vide de reseau parcouru localement",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Validation ouverture existante",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Validation enregistrement absent sans creer",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ouverture inexistante refusee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dossier ne devient pas fichier",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Repertoire parent absent non cree",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Action de fichier inconnue refusee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changement de fichier modifie sa signature",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Aucun selecteur de fichier hors fenetre principale",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Bandeau : information courte 5 s, erreur ou detail jusqu a fermeture",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : cadre integre dans le vrai XAML",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : aucun HWND cree pour le formulaire",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : Dispatcher actif pendant la decision",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : page desactivee pendant le choix",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : annulation ne valide pas",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : aucune valeur saisie dans aide",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : foreground du theme commun",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : panneaux principaux immobiles",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : retour sans effacer la saisie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : hote et registre nettoyes",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : validation explicite conservee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : changement de session ferme sans valider",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : aucun LDAP au simple affichage",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : selection premiere ligne non automatique",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : recherche puis verification exacte",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : refus visible dans panneau sans choix",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : fermeture annule la lecture passee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : callback tardif ignore",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : annulation sans aucune recherche",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : information en bandeau, aucune fenetre",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : information courte fermee apres 5 s",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : erreur en bandeau, meme incident compte",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : copie pour le support avec le code",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : trois bandeaux au plus",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : bandeau lisible pendant un panneau modal",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : fermeture des bandeaux vide l hote",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : erreur sans code, code incident et ligne de journal",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : meme erreur sans code, un bandeau et une ligne",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : information repetee, detail du dernier appel",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : avertissement repete, libelle avertissement",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : bandeau epingle, minuteur non relance",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : cadre integre dans le vrai XAML",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : aucun HWND cree pour le formulaire",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : Dispatcher actif pendant la decision",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : page desactivee pendant le choix",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : annulation ne valide pas",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : aucune valeur saisie dans aide",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : foreground du theme commun",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : panneaux principaux immobiles",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : retour sans effacer la saisie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : hote et registre nettoyes",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : validation explicite conservee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : changement de session ferme sans valider",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : aucun LDAP au simple affichage",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : selection premiere ligne non automatique",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : recherche puis verification exacte",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : refus visible dans panneau sans choix",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : fermeture annule la lecture passee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : callback tardif ignore",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : annulation sans aucune recherche",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : information en bandeau, aucune fenetre",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : information courte fermee apres 5 s",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : erreur en bandeau, meme incident compte",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : copie pour le support avec le code",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : trois bandeaux au plus",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : bandeau lisible pendant un panneau modal",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : fermeture des bandeaux vide l hote",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : erreur sans code, code incident et ligne de journal",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : meme erreur sans code, un bandeau et une ligne",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : information repetee, detail du dernier appel",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : avertissement repete, libelle avertissement",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : bandeau epingle, minuteur non relance",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ]
+}

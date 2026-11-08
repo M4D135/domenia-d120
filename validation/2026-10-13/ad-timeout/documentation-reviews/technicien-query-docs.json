@@ -1,0 +1,22 @@
+{
+  "reviewer": "query_docs",
+  "status": "pass",
+  "reviewedUtc": "2026-10-13T13:20:42.361502+00:00",
+  "method": "Changed pages opened individually at original PNG resolution; only the pages listed here are newly reviewed.",
+  "pages": [
+    3,
+    5,
+    6,
+    7,
+    8
+  ],
+  "pageHashes": {
+    "3": "78cf526aae4ac3458c3c1e1a51ca85f93dc24d891826fe7cfb07a592a5017854",
+    "5": "0c4183b8c89ad8f458b5695f8c7662ed021f09f208fb4d20e4a686fb5f911624",
+    "6": "6e7a1692831e457551d01f20c72d4a4029d0a7e65ff3d99f71b65c18e2e3df9f",
+    "7": "7930092a471dc5c68ee2b35a1d4db1003ea670732f6df901a687aaac2b2a0991",
+    "8": "700faa9d27fa4c4709a8b90ecdd148c95e0e7e9cbc025b0e41b2f9cb0f98f154"
+  },
+  "renderFolder": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ad-timeout",
+  "findings": "No clipping, overlap, missing glyph, overflowing table, orphan caption or stray tooltip observed. Timeout versus network explanation, partial-result count, figures and continued text are readable."
+}

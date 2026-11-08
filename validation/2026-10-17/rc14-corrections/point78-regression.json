@@ -1,0 +1,75 @@
+{
+  "Suite": "HealthAdvanced",
+  "Passed": false,
+  "Total": 13,
+  "Failed": 1,
+  "WpfExecuted": false,
+  "NetworkUsed": false,
+  "Checks": [
+    {
+      "Name": "Parent dashboard assesses each computer with its own inherited OU thresholds",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Password threshold uses actual date, not the parent SQL bucket",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "A descendant can enable a rule disabled at domain level",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Suspension preserves evidence, excludes rule visibly and expires on next calculation",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Suspension validates UTC expiry, reason, uniqueness and domain inheritance",
+      "Passed": false,
+      "Error": "Suspension invalide : contrôle unique, motif de 3 à 240 caractères et échéance UTC obligatoires (64 maximum). at ConvertTo-DomeniaHealthSuspensions, /home/m4d135/domenia/autonomy-20261017-rc14/repo/dev/wad/modules/Domenia-HealthRules.Model.ps1: line 507\nat ConvertTo-DomeniaHealthPolicy, /home/m4d135/domenia/autonomy-20261017-rc14/repo/dev/wad/modules/Domenia-HealthRules.Model.ps1: line 70\nat ConvertTo-DomeniaHealthPolicyBook, /home/m4d135/domenia/autonomy-20261017-rc14/repo/dev/wad/modules/Domenia-HealthRules.Model.ps1: line 331\nat Set-DomeniaHealthScopePolicy, /home/m4d135/domenia/autonomy-20261017-rc14/repo/dev/wad/modules/Domenia-HealthRules.Model.ps1: line 369\nat <ScriptBlock>, /home/m4d135/domenia/autonomy-20261017-rc14/repo/dev/wad/tests/Test-DomeniaHealthAdvanced.ps1: line 54\nat Case, /home/m4d135/domenia/autonomy-20261017-rc14/repo/dev/wad/tests/Test-DomeniaHealthAdvanced.ps1: line 12\nat <ScriptBlock>, /home/m4d135/domenia/autonomy-20261017-rc14/repo/dev/wad/tests/Test-DomeniaHealthAdvanced.ps1: line 50"
+    },
+    {
+      "Name": "Comparisons separate population coverage and policy changes from observed state",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "All cross-table cells keep exact unique GUIDs and include unread dimensions",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 85: model x BIOS cross table reads the dated BIOS probe and keeps unread workstations apart",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 75: per-OU explanation lists masked workstations without scoring them",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 78: a daily comparison names a coverage improvement, not a fleet change",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Point 79: every fleet cross table opens as a matrix whose totals match its workstations",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Points 75 to 79: the dashboard dialogs call the tested rules",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "New GUI modules and worker body parse, keyboard and canonical hooks remain present",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

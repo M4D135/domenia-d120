@@ -1,0 +1,157 @@
+{
+    "Build":  "RC1.17.39",
+    "Passed":  true,
+    "LiveAD":  true,
+    "LiveRemoteWmi":  true,
+    "MockedNetwork":  false,
+    "MockedCallbacks":  false,
+    "MockedStorage":  false,
+    "Utc":  "2026-10-20T20:39:59.7807900Z",
+    "FaultMethod":  "First endpoint only: real network call with engine idle timeout shortened from 25 to 2 seconds; no callback/result injection",
+    "Steps":  [
+                  "Native application engine and isolated SQLite initialized"
+              ],
+    "DirectorySample":  [
+                            {
+                                "Name":  "DC01",
+                                "DistinguishedName":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local",
+                                "ObjectGuid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3"
+                            },
+                            {
+                                "Name":  "PC-IT-01",
+                                "DistinguishedName":  "CN=PC-IT-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "0cf2121a-a934-45cc-8f21-0b4b0271c41f"
+                            },
+                            {
+                                "Name":  "PC-FIN-01",
+                                "DistinguishedName":  "CN=PC-FIN-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "fdafa477-a10d-48dd-8604-e8122db5a8dc"
+                            },
+                            {
+                                "Name":  "PC-SUP-01",
+                                "DistinguishedName":  "CN=PC-SUP-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "6d692e44-a050-4ced-afd0-c1a735a198a5"
+                            },
+                            {
+                                "Name":  "PC-SUP-02",
+                                "DistinguishedName":  "CN=PC-SUP-02,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "f6c8ff5e-8d45-4c1a-a70c-08153b52e57b"
+                            },
+                            {
+                                "Name":  "SRV-APP-01",
+                                "DistinguishedName":  "CN=SRV-APP-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "9010eea8-a4af-472e-8087-cc78999fad29"
+                            },
+                            {
+                                "Name":  "W11-01",
+                                "DistinguishedName":  "CN=W11-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "123c6f5d-56b8-4965-ba83-ef417174791b"
+                            },
+                            {
+                                "Name":  "R2-PC-A",
+                                "DistinguishedName":  "CN=R2-PC-A,OU=MachinesA,OU=R2-20260928,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "dcfa45dd-b719-4e52-9d4a-fdd32f0bb22c"
+                            }
+                        ],
+    "DirectoryObject":  {
+                            "Name":  "DC01",
+                            "DNSHostName":  "dc01.cnamts.local",
+                            "DN":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local",
+                            "Guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3"
+                        },
+    "Run":  {
+                "ElapsedMs":  9622,
+                "Loading":  false,
+                "Approved":  true,
+                "Completed":  true,
+                "Stopping":  false,
+                "Done":  2,
+                "Failed":  1,
+                "Next":  2,
+                "Status":  "Relevé terminé : 2/2 postes lus · 1 lecture non confirmée. 0 identités en cache, 0 association(s) créée(s) ou changée(s), 0 mesures encore fraîches réutilisées. Bilan : 0 pinglés, 0 muets, 2 lus, 0 réutilisés, 0 sautés.",
+                "StopReason":  "",
+                "FailureMessage":  "",
+                "Pending":  0,
+                "StorePending":  0,
+                "Events":  [
+                               {
+                                   "Event":  "WorkerStarted",
+                                   "AtMs":  2046,
+                                   "Id":  "WMI du perimetre : 10.77.0.254:2:54f3f38d",
+                                   "Name":  "WMI du perimetre : 10.77.0.254",
+                                   "Operation":  "LiveConsole",
+                                   "TimeoutSeconds":  2
+                               },
+                               {
+                                   "Event":  "WorkerStarted",
+                                   "AtMs":  6069,
+                                   "Id":  "WMI du perimetre : dc01.cnamts.local:3:b81f2588",
+                                   "Name":  "WMI du perimetre : dc01.cnamts.local",
+                                   "Operation":  "LiveConsole",
+                                   "TimeoutSeconds":  25
+                               }
+                           ],
+                "PersistenceFault":  ""
+            },
+    "DatabasePath":  "C:\\DomeniaLab\\RC35-qualification\\rc39-live-timeout\\profile\\Domenia\\Data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Domenia.db",
+    "StoredRows":  [
+
+                   ],
+    "RuntimeHashes":  [
+                          {
+                              "Path":  "Domenia-Core.ps1",
+                              "SHA256":  "D0F72C209121A26CBFF14EAE9B35F371AEC1F534B0AF81CAD77CCFE468D61874"
+                          },
+                          {
+                              "Path":  "modules\\Domenia-Park.UI.ps1",
+                              "SHA256":  "215FA7D2A6DD26D1A2DAC708BB0822FE7D4FAB05A8D81A63C29616CC581C307C"
+                          },
+                          {
+                              "Path":  "modules\\Domenia-Live.Model.ps1",
+                              "SHA256":  "C929DB49DC4DF6C259EA4A45BC5341BDB2AC615B6D941B0E02B73104A2233734"
+                          }
+                      ],
+    "CanonicalRows":  [
+                          {
+                              "object_guid":  "11716000-0000-0000-0000-000000000001",
+                              "family":  "Probe:hw.memoryusage",
+                              "dn":  "cn=timeoutendpoint,ou=qualification,dc=cnamts,dc=local",
+                              "definition_hash":  "97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98",
+                              "attempt_at":  "2026-10-20T20:40:09.9641766Z",
+                              "status":  "Error",
+                              "error":  "Délai dépassé : WMI du perimetre : 10.77.0.254 — aucune étape terminée pendant le délai ; 2 s écoulées, 2 s sans nouvelle étape, 0 étape(s) terminée(s). Aucune mesure partielle nʼest conservée.",
+                              "success_at":  "",
+                              "payload":  "null",
+                              "attempt_payload":  "{\"Computer\":\"10.77.0.254\",\"Probes\":{\"hw.memoryusage\":{\"Rows\":[],\"Count\":0,\"Error\":\"Délai dépassé : WMI du perimetre : 10.77.0.254 — aucune étape terminée pendant le délai ; 2 s écoulées, 2 s sans nouvelle étape, 0 étape(s) terminée(s). Aucune mesure partielle nʼest conservée.\",\"Truncated\":false,\"DefinitionHash\":\"97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98\",\"CheckedUtc\":\"2026-10-20T20:40:09.9641766Z\"}}}",
+                              "summary_payload":  null,
+                              "attempt_summary":  "{\"Probes\":{\"hw.memoryusage\":{\"Rows\":[],\"Count\":0,\"Error\":\"Délai dépassé : WMI du perimetre : 10.77.0.254 — aucune étape terminée pendant le délai ; 2 s écoulées, 2 s sans nouvelle étape, 0 étape(s) terminée(s). Aucune mesure partielle nʼest conservée.\",\"Truncated\":false,\"DefinitionHash\":\"97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98\",\"CheckedUtc\":\"2026-10-20T20:40:09.9641766Z\"}}}",
+                              "revision":  1
+                          },
+                          {
+                              "object_guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3",
+                              "family":  "Probe:hw.memoryusage",
+                              "dn":  "cn=dc01,ou=domain controllers,dc=cnamts,dc=local",
+                              "definition_hash":  "97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98",
+                              "attempt_at":  "2026-10-20T20:40:12.2343790Z",
+                              "status":  "Success",
+                              "error":  "",
+                              "success_at":  "2026-10-20T20:40:12.2343790Z",
+                              "payload":  "{\"Computer\":\"dc01.cnamts.local\",\"Probes\":{\"hw.memoryusage\":{\"Rows\":[[\"4174724\",\"2332704\",\"4895620\",\"3372320\"]],\"Count\":1,\"Error\":\"\",\"Truncated\":false,\"DefinitionHash\":\"97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98\",\"CheckedUtc\":\"2026-10-20T20:40:12.2343790Z\",\"Properties\":[\"TotalVisibleMemorySize\",\"FreePhysicalMemory\",\"TotalVirtualMemorySize\",\"FreeVirtualMemory\"],\"Instances\":[{\"Id\":\"\",\"Index\":1,\"Values\":{\"TotalVisibleMemorySize\":4174724,\"FreePhysicalMemory\":2332704,\"TotalVirtualMemorySize\":4895620,\"FreeVirtualMemory\":3372320},\"IncompleteProperties\":[]}],\"StoredCount\":1,\"CountComplete\":true,\"Mode\":\"First\",\"LimitReason\":\"\",\"DetailBudgetBytes\":98304,\"DetailBytes\":1246,\"EnumerationComplete\":true}}}",
+                              "attempt_payload":  "null",
+                              "summary_payload":  "{\"Probes\":{\"hw.memoryusage\":{\"Rows\":[[\"4174724\",\"2332704\",\"4895620\",\"3372320\"]],\"Count\":1,\"Error\":\"\",\"Truncated\":false,\"DefinitionHash\":\"97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98\",\"CheckedUtc\":\"2026-10-20T20:40:12.2343790Z\",\"Properties\":[\"TotalVisibleMemorySize\",\"FreePhysicalMemory\",\"TotalVirtualMemorySize\",\"FreeVirtualMemory\"],\"StoredCount\":1,\"CountComplete\":true,\"Mode\":\"First\",\"LimitReason\":\"\",\"DetailBudgetBytes\":98304,\"DetailBytes\":1246,\"EnumerationComplete\":true}}}",
+                              "attempt_summary":  null,
+                              "revision":  2
+                          }
+                      ],
+    "Tables":  [
+                   {
+                       "name":  "park_session_cache"
+                   },
+                   {
+                       "name":  "domenia_observations"
+                   },
+                   {
+                       "name":  "domenia_legacy_observation_imports"
+                   }
+               ]
+}

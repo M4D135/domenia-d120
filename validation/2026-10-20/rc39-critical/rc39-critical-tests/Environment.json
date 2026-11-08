@@ -1,0 +1,12 @@
+{
+    "StartedUtc":  "2026-10-20T20:29:15.0222285Z",
+    "PSVersion":  "5.1.26100.6584",
+    "SourceBindings":  {
+                           "wad/Domenia.release.json":  "D89D91A696AEB0A3CA314BF5B286228FE318C8D2EE3974962B2BA4FCC619EC4C",
+                           "wad/package-manifest.json":  "94784A8D28502CB9DB3503F6962F9D6F6F05E0304DA6DABF1930602095C12C3B",
+                           "wad/Domenia-Core.ps1":  "D0F72C209121A26CBFF14EAE9B35F371AEC1F534B0AF81CAD77CCFE468D61874",
+                           "wad/Domenia-Modules.ps1":  "FC989685E068C44E00F5117A735A6376EB8887AF52DD7CA6680367A998BB4BE7"
+                       },
+    "Is64Bit":  true,
+    "Apartment":  "STA"
+}

@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "build": "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
+  "checks": [
+    {
+      "edition": "PROD",
+      "filesComparedToSource": 94,
+      "status": "PASS",
+      "archiveSha256": "9cc5dfc58614456cfcb328e139ee4d5e01d0b214bb31dad31f89629e20bc4517"
+    },
+    {
+      "edition": "DEV",
+      "filesComparedToSource": 397,
+      "status": "PASS",
+      "archiveSha256": "fcb09dfc3fca21c7dd626db826050d625a8ca08c77fa83b539b4943d33369481"
+    }
+  ],
+  "note": "Every DEV byte including generated manifest compared with final source; PROD payload bytes likewise. PROD generated manifest validated by build guard."
+}

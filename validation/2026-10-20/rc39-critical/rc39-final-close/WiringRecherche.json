@@ -1,0 +1,75 @@
+{
+    "Kind":  "Wiring",
+    "Lot":  "recherche",
+    "Points":  [
+                   "D012",
+                   "D031",
+                   "D032",
+                   "D033",
+                   "D034",
+                   "D035",
+                   "D036",
+                   "D037",
+                   "D038",
+                   "D039",
+                   "D040",
+                   "CO-20",
+                   "CO-21",
+                   "DS-07",
+                   "FI-21",
+                   "FO-04",
+                   "PF-14",
+                   "SE-13",
+                   "UI-16",
+                   "UX-25",
+                   "UX-33",
+                   "UX-26",
+                   "CO-35",
+                   "SP-05",
+                   "SP-15"
+               ],
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell51":  true,
+    "Wpf":  true,
+    "LiveAD":  false,
+    "LiveCIM":  false,
+    "LivePing":  false,
+    "Passed":  5,
+    "Failed":  1,
+    "Complete":  false,
+    "Filter":  "^(D012 A label|Rest policy|D028 |PF-14 |SE-13 |UX-25 )",
+    "Subset":  true,
+    "Limitation":  "Raccordement prouve par les vraies fonctions et de vrais controles WPF, reseau double. Ne prouve pas un acces a un domaine reel.",
+    "Tests":  [
+                  {
+                      "Name":  "D012 A label change never changes the target of the fiche read",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rest policy (C1) and demonstration (C2) gate the live background work",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 LblLiveState porte le libelle de la regle",
+                      "Status":  "Failed",
+                      "Detail":  "Ecriture non lancee ou non comptee : The term \u0027Get-DomeniaQueryLibraryDefinitionValidationCode\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again. @ at Expect, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 834\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 809"
+                  },
+                  {
+                      "Name":  "PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris immediate",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-13 RevalidateListedObjects faux par defaut : aucune lecture AD sans geste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filtre local memorises",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

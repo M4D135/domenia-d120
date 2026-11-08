@@ -1,0 +1,9 @@
+{
+    "Computer":  "W11-01",
+    "Desktop":  {
+                    "ScreenSaveActive":  "0",
+                    "ScreenSaverIsSecure":  "0"
+                },
+    "InactivityTimeoutSecs":  0,
+    "AcDisplaySleepHibernateDisabled":  true
+}

@@ -1,0 +1,19 @@
+{
+  "id": "TRV-215",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/web/js/write-flow.js:337-341 — done(receipt) : toastReceipt + appel unique de onDone + affichage du reçu dans le panneau de la page ; :428-438 toast avec lien « Voir le reçu dans Opérations »",
+    "repo/v2/web/js/write-flow.js:419-424 — libellés d'issue : verified→« conforme », pending→« issue à vérifier », mismatch→« écart à la relecture » ; l'inconnu n'est jamais rendu comme succès complet",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:362-373 — relecture interrompue (fermeture) ou impossible → VerificationState.Unknown, journalisé ; jamais lu comme succès",
+    "repo/v2/src/Domenia.Core/Screens/Operations/WriteKindRules.cs:116-155 — Assess : compensation offerte seulement si appliquée et vérifiée par relecture ; refusée si pending/Unknown/Mismatch/Reviewed/NoChange ou attribut secret ; texte « comme une nouvelle écriture… Jamais automatique »",
+    "repo/v2/src/Domenia.Core/Screens/Operations/CompensationPlanner.cs:19-79 — PlanAsync construit l'inverse par les planners typés existants (nouveau plan complet) ; :86-100 VerifyInverse : identité, contrôleur et valeurs relues confrontés au reçu d'origine, refus sinon",
+    "repo/v2/tests/Domenia.Tests/FicheWorkflowTests.cs:22 — test « Compensation is a new exact plan and refuses an intervening change » ; :40-50 — VerifyInverse rejette cible recréée, contrôleur différent, attribut non relu",
+    "repo/v2/web/js/pages/fiche/attributes.js:124 — onDone: () => { S.reload({ quiet: true }); load(); } : la fiche est relue après l'écriture",
+    "repo/v2/web/js/pages/fiche/members.js:163 — création d'OU : onDone: () => S.reload({ quiet: true })",
+    "repo/v2/web/js/pages/rechercher/actions.js:434-443 — après unlock, revalidation ciblée des lignes (search.revalidate) et mise à jour du résultat et de l'aperçu"
+  ],
+  "manque": "La relecture automatique après écriture ne couvre pas l'arborescence : le plan d'écriture ne connaît que son appelant (repo/v2/web/js/write-flow.js:340, onDone fourni par chaque page) et aucune arborescence n'y est abonnée — la fenêtre de l'arborescence (repo/v2/web/js/pages/rechercher/side.js:314-317, :337) ne se recharge que sur geste manuel (« Actualiser cette branche », F5), et le menu « Nouvelle unité d'organisation » (side.js:309-310) délègue à la fiche sans jamais rafraîchir l'arbre ; les écritures structurelles (création OU, déplacement, suppression) laissent donc l'arbre obsolète jusqu'à F5. Aucun équivalent d'Invoke-DomeniaWritePostAction/Invoke-DomeniaPostWriteRefresh : pas de règle de post-action par opération (OpenAdObject) centralisée, chaque page recharge pour elle-même ou pas du tout.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

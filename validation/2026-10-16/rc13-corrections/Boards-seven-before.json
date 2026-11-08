@@ -1,0 +1,51 @@
+﻿{
+    "Suite":  "Tableaux de bord en widgets",
+    "Host":  "5.1.26100.6584",
+    "Passed":  6,
+    "Failed":  1,
+    "Filter":  "Parc : tableau calcule|Score partiel|Widget sans chiffre|Tableau flotteur : une fonction|Clic sur une part|Atelier : le vrai clic|Grille fluide",
+    "Complete":  true,
+    "LiveADExecuted":  false,
+    "NetworkAccessed":  false,
+    "RenderTimings":  [
+
+                      ],
+    "RenderTimingScope":  "Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded",
+    "Results":  [
+                    {
+                        "Name":  "Parc : tableau calcule sur le perimetre et serveurs reconnus",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Score partiel : badge et bouton Inventaire complet dans la carte, lance seulement au clic (UX-23)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Widget sans chiffre : place compacte qui dit pourquoi et propose sa collecte, plus de Non lu par cet inventaire (SP-18, demande David)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Tableau flotteur : une fonction absente est nommee, pas noyee dans un echec metier",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Clic sur une part ou une barre : le critere remonte au tableau de bord, une part sans critere ne fait rien (FO-09)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Atelier : le vrai clic Ajouter accepte une condition numerique et conserve sa valeur decimale",
+                        "Passed":  false,
+                        "Error":  "System.Management.Automation.RuntimeException: La condition ajoutee ne se voit pas dans le tableau\r\nat Expect, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 18\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 1165\r\nat Case, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 22\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11711-ui1\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 1147"
+                    },
+                    {
+                        "Name":  "Grille fluide : 4, 3 ou 2 colonnes selon la largeur, tailles fixes et hauteurs alignees (DS-04)",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

@@ -1,0 +1,119 @@
+{
+    "Kind":  "WiringSuites",
+    "Lot":  "suites",
+    "Points":  [
+                   "D004",
+                   "D008",
+                   "D005",
+                   "D006",
+                   "D007"
+               ],
+    "Host":  {
+                 "Sta":  true,
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NoADAccess":  true,
+    "NoNetwork":  true,
+    "NoWrite":  true,
+    "Passed":  19,
+    "Failed":  0,
+    "Complete":  true,
+    "Tests":  [
+                  {
+                      "Name":  "D004 : GUID binaire unique rendu en un seul tableau de 16 octets",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D004 : une valeur d un seul octet reste un tableau d un octet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D004 : tokenGroups a zero, un et plusieurs SID",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D004 : attribut absent ou vide rend la valeur par defaut sans erreur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D004 : memberOf a une seule valeur rend une chaine, pas ses caracteres",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D004 : FILETIME, jamais et grand entier COM a partie basse negative",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D004 : lecture d objet par Get-WAllProperties sans deroulement ni valeur binaire brute",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D004 : du resultat worker a la fiche, GUID et premiere valeur sans confusion",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D004 : identite de selection et sacs de proprietes du modele annuaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D008 : sequences A/B/C generees, une reponse d un ancien contexte ne change rien",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D008 : reponse du contexte courant toujours affichee (preuve non vide)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D008 : changement de compte pendant la lecture, la reponse n est pas affichee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Suites : Test-DomeniaRegressions.ps1 presente, analysable et au contrat de rapport",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Suites : Test-DomeniaGeometry.ps1 presente, analysable et au contrat de rapport",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Suites : Test-DomeniaFaults.ps1 presente, analysable et au contrat de rapport",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Suites : Test-DomeniaWiringSuites.ps1 presente, analysable et au contrat de rapport",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Suites : regles de courses chargees par le lanceur de regles",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Suites : aucun nombre d operations ecrit en dur dans les suites",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Suites : bibliotheque de fixtures AD utilisee par les suites du lot",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

@@ -1,0 +1,554 @@
+[
+    {
+        "Id":  "RootScroll",
+        "Name":  "",
+        "Type":  "ControlType.Pane",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxBrandCompact",
+        "Name":  "D",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabApplicationTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxSidebarToggle",
+        "Name":  "Déployer le menu : icônes et libellés.",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabDashboard",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavBack",
+        "Name":  "Précédent",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavForward",
+        "Name":  "Suivant",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblUxPageTitle",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUxDomain",
+        "Name":  "Connecté à cnamts.local",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUxSubject",
+        "Name":  "Poste · DC01",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxSubjectClear",
+        "Name":  "Désélectionner",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ChkReadOnlyMode",
+        "Name":  "Protection des modifications",
+        "Type":  "ControlType.CheckBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WorkspaceTabs",
+        "Name":  "Choisissez une rubrique dans la barre latérale",
+        "Type":  "ControlType.Tab",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnTreeRefresh",
+        "Name":  "Actualiser l’arbre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnOuMenu",
+        "Name":  "Options de lʼarbre des OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtOuFilter",
+        "Name":  "Filtrer les OU",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxOuRefreshExpander",
+        "Name":  "Afficher les commandes de mise à jour de lʼOU",
+        "Type":  "ControlType.Group",
+        "Enabled":  true
+    },
+    {
+        "Id":  "HeaderSite",
+        "Name":  "Actualiser lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxSearchOuRefreshTitle",
+        "Name":  "Données de lʼOU",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchOuRefreshScope",
+        "Name":  "Périmètre des données de l’OU",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchRefreshBase",
+        "Name":  "Mettre à jour la base locale de l’OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchRefreshPostes",
+        "Name":  "Actualiser les postes de l’OU par ping et WMI",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchRefreshBoth",
+        "Name":  "Mettre à jour la base locale puis les postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchOuRefreshStatus",
+        "Name":  "Progression de l’actualisation de l’OU",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblTreeStatus",
+        "Name":  "11 sous-branche(s) affichee(s).",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TvDirectory",
+        "Name":  "Arbre des OU et conteneurs",
+        "Type":  "ControlType.Tree",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Expander",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Expander",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Expander",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Expander",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Expander",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Expander",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Expander",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "SearchOuSplitter",
+        "Name":  "Largeur de l’arbre des OU",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchCardCount",
+        "Name":  "Lignes affichées",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "CmbWorkViewScope",
+        "Name":  "Périmètre des requêtes",
+        "Type":  "ControlType.ComboBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchScope",
+        "Name":  "Recherche · Partout · Tous les types · Aucun filtre de liste",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchHint",
+        "Name":  "Lecture de la saisie",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblGlobalLimitUnit",
+        "Name":  "Unité de la limite",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtGlobalLimit",
+        "Name":  "Lignes max",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtSearchQueryFilter",
+        "Name":  "Rechercher dans les requêtes",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ChkSearchQueryFavorites",
+        "Name":  "Requêtes favorites",
+        "Type":  "ControlType.CheckBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "CmbWorkView",
+        "Name":  "Requête à exécuter",
+        "Type":  "ControlType.ComboBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnWorkView",
+        "Name":  "Exécuter la requête",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnSearchQueryFavorite",
+        "Name":  "Épingler la requête",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnSearchQueryWorkshop",
+        "Name":  "Modifier dans lʼatelier",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchQueryDetails",
+        "Name":  "Choisissez une requête ; la sélection seule ne lance rien. OU=Domain Controllers,DC=cnamts,DC=local · sous-OU incluses. Les modèles livrés sʼajoutent à lʼouverture de la liste, après une préparation locale.",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchQuery",
+        "Name":  "Aucune requête appliquée aux résultats.",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnQueryClearSearch",
+        "Name":  "Effacer la requête appliquée",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalClear",
+        "Name":  "Effacer la recherche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchResultMenu",
+        "Name":  "Autres actions de la liste",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchMore",
+        "Name":  "Charger la suite",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblBranchCount",
+        "Name":  "1 résultat(s) · liste complète",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchContains",
+        "Name":  "Chercher aussi les noms qui contiennent « DC01 »",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxResultToolsExpander",
+        "Name":  "Afficher les actions, filtres et vues de la liste",
+        "Type":  "ControlType.Group",
+        "Enabled":  true
+    },
+    {
+        "Id":  "HeaderSite",
+        "Name":  "Actions, filtres et vues",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "DgObjects",
+        "Name":  "Résultats : sélection et ouverture explicite",
+        "Type":  "ControlType.DataGrid",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_ColumnHeadersPresenter",
+        "Name":  "",
+        "Type":  "ControlType.Header",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_LeftHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_LeftHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_LeftHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_LeftHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_LeftHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PresenceAgeText",
+        "Name":  "",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUiLogLast",
+        "Name":  "Dernier message du journal",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxLogToggle",
+        "Name":  "Déplier le journal",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LstSearchBarScope",
+        "Name":  "Où chercher",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ItmSearchBarScopeOu",
+        "Name":  "Dans lʼOU choisie",
+        "Type":  "ControlType.ListItem",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblSearchBarScopeOu",
+        "Name":  "OU de la recherche",
+        "Type":  "ControlType.Text",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LstSearchBarType",
+        "Name":  "Type cherché",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalSearchClear",
+        "Name":  "Vider la recherche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCommandPalette",
+        "Name":  "Palette de commandes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnAccessRecovery",
+        "Name":  "Accès",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSuiteActivity",
+        "Name":  "Opérations",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnThemeToggle",
+        "Name":  "Passer au thème sombre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxHelpToggle",
+        "Name":  "Afficher lʼaide",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomOut",
+        "Name":  "Réduire le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomReset",
+        "Name":  "Réinitialiser le zoom à 100 %",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomIn",
+        "Name":  "Agrandir le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    }
+]

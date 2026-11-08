@@ -1,0 +1,1 @@
+Regles : 547 reussis, 0 en echec, 213 points couverts. Rapport : C:\DomeniaLab\codex-ui-20261012-final2\proofs\Test-DomeniaRules.json

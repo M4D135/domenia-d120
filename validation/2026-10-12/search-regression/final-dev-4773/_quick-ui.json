@@ -1,0 +1,36 @@
+{
+  "Kind": "QuickWindowsUi",
+  "UTC": "2026-10-12T20:20:44.0860218Z",
+  "VM": "W11-01",
+  "PowerShell": "5.1.26100.6584",
+  "Apartment": "STA",
+  "Is64Bit": true,
+  "Session": 0,
+  "Data": "Synthetic fixtures",
+  "ADAccessed": false,
+  "RuntimeChanged": [],
+  "Suites": [
+    {
+      "Suite": "ProdFactory",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 37925,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "StartupCheckOnly",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 4463,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaIndexSorting",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 7204,
+      "ReportWritten": false
+    }
+  ],
+  "CaptureProvenance": "Real WPF layout rendered in Windows from current source with fictitious fixture values; no live AD inventory."
+}

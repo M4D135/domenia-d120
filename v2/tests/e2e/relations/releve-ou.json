@@ -1,0 +1,75 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : relevé des consoles de l’OU de travail",
+  "description": "Prépare la file de priorité du relevé (jamais relevés d’abord), lance le relevé (ping groupé puis consoles), vérifie les compteurs et le résultat, puis prépare « Oublier les relevés » sans le confirmer.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?panneau=releve",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"prepare\"]",
+      "title": "Le panneau du relevé est ouvert"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"prepare\"]",
+      "title": "Préparer la file"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-plan-targets li",
+      "title": "La liste exacte des postes est montrée avant tout contact"
+    },
+    {
+      "do": "expect",
+      "contains": "Ping groupé",
+      "within": ".rel-panel",
+      "title": "Le ping par lots est annoncé"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"run\"]",
+      "title": "Lancer le relevé"
+    },
+    {
+      "do": "wait",
+      "contains": "Relevé terminé",
+      "within": ".rel-panel",
+      "timeoutMs": 30000,
+      "title": "Le relevé est terminé"
+    },
+    {
+      "do": "shot",
+      "name": "releve-resultat",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"forget\"]",
+      "title": "Préparer « Oublier les relevés »"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-target",
+      "title": "Le plan d’effacement est affiché"
+    },
+    {
+      "do": "expect",
+      "contains": "Non réversible",
+      "title": "Le plan dit qu’il n’est pas réversible"
+    },
+    {
+      "do": "click",
+      "text": "Annuler",
+      "within": ".k-drw-layer.modal",
+      "title": "Ne rien effacer"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

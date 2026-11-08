@@ -1,0 +1,12 @@
+{
+  "Lot": "query",
+  "Modules": [
+    {"File":"Domenia-Query.Model.ps1","Phase":"Modules","Requires":["Domenia-Common.Model.ps1","Domenia-Probes.Model.ps1","Domenia-Boards.Model.ps1"],"DotSource":true},
+    {"File":"Domenia-Query.Worker.ps1","Phase":"Modules","Requires":["Domenia-Query.Model.ps1"],"DotSource":true},
+    {"File":"Domenia-Query.UI.ps1","Phase":"Modules","Requires":["Domenia-Query.Model.ps1","Domenia-Query.Worker.ps1"],"DotSource":true}
+  ],
+  "TypeFiles":[{"File":"M4D.Admin.Common.Query.dll","Types":["M4D.Admin.Common.Query.QueryEngine"]}],
+  "StartRequired":["wad/modules/Domenia-CommonLibrary.json"],
+  "Operations":[{"Operation":"LocalQuery","File":"wad/modules/Domenia-Query.Worker.ps1","Function":"Get-DomeniaQueryWorkerCode","LiteralIndex":0,"Provider":"Storage","Resource":"Local","NeedsDirectoryCredential":false,"NeedsMachineCredential":false,"NonDirectory":true,"IsWrite":false,"Class":"Interactive"}],
+  "SelfTestRequiredFunctions":["ConvertTo-DomeniaCompiledQuery","ConvertTo-DomeniaQueryRecords","Start-DomeniaQueryEvaluation"]
+}

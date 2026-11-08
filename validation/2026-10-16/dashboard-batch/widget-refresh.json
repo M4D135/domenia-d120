@@ -1,0 +1,61 @@
+﻿{
+    "Suite":  "Tableaux de bord en widgets",
+    "Host":  "5.1.26100.6584",
+    "Passed":  9,
+    "Failed":  0,
+    "Filter":  "RC11711|Premiers pas|Widget AD|Widget ajoute|Widget du poste|Widget de requete en attente",
+    "Complete":  true,
+    "LiveADExecuted":  false,
+    "NetworkAccessed":  false,
+    "RenderTimings":  [
+
+                      ],
+    "RenderTimingScope":  "Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded",
+    "Results":  [
+                    {
+                        "Name":  "Widget de requete en attente : etat explicite, puis rempli par un resultat",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "RC11711 : dates des sources, jamais celles du dessin ou de la tentative en echec",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "RC11711 : bouton permanent du widget, accessible et relie a la collecte",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "RC11711 : synthese du parc relit AD puis ses mesures, sans collection etrangere",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "RC11711 : apres AD le lot relit uniquement les mesures du widget avec ForceRefresh",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Premiers pas : premier calcul automatique avant ouverture, echec et OU vide recuperables sans scan",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Widget ajoute : collecte immediate des seules donnees manquantes de l OU, progression sur le widget, file d attente (demande David)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Widget du poste : la collecte demandee pour un poste ne s affiche ni ne part sur un autre poste (demande David)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Widget AD de l OU : seule une lecture lancee par le clic est suivie, jamais une actualisation deja en cours (demande David)",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

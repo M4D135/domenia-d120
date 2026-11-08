@@ -1,0 +1,186 @@
+{
+  "Build": "2026.09.21-R1.2-REMOTE",
+  "Environment": "Linux, Python",
+  "PowerShellExecuted": false,
+  "WindowsWpfExecuted": false,
+  "LiveAdSmbExecuted": false,
+  "CoreSha256": "26E367B4EF629FBA6CFCDC080574124B9844AB5F1C5040BC7553BB2D280F9F30",
+  "Passed": 29,
+  "Failed": 0,
+  "Tests": [
+    {
+      "Name": "PsExec: cible calculee avant la liste",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "PsExec: options distinctes et garde avant lancement",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "PsExec: variable automatique args non reutilisee",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "PsExec: appel nomme, pas de shell intermediaire",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "PsExec: credential efface de la liste locale en finally",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "PsExec: exitcode non nul refuse meme avec un resultat",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Detail licence remplace par explication ciblee",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Meme selection de credential pour les trois transports",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Aucune substitution apres refus ADMIN$",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Staging: chemin PSDrive authentifie",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Staging: pas d IO .NET sur les chemins distants",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Staging: lecture et ecriture via fournisseur PowerShell",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Staging: publication JSON temporaire avant renommage",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Staging: nettoyage sur succes et echec",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "LastUser conserve le credential LDAP",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Erreur LDAP distincte utilisateur absent",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Exceptions Dispose ne remplacent pas un resultat LDAP",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Erreurs DCOM et Wsman conservees",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Plus de message classique generique sans detail",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "WinRM desactive respecte et HTTPS choisi si seul 5986 ouvert",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Compte effectif journalise sans mot de passe",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "UI: anciennes associations conservees si distant KO",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "UI: pas de double log de la licence complete",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Installateur: tests natifs avant remplacement du code",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Tests Windows: fonctions reelles extraites, pas de demarrage application",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Tests Windows: mock processus obligatoire, vrai lanceur non importe",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Tests Windows: pas de cible de production",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Tests Windows: dependence du hash importee",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Empreinte exacte du nouveau worker",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS",
+      "Detail": ""
+    }
+  ]
+}

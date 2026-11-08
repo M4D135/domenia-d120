@@ -1,0 +1,23 @@
+{
+  "id": "PAR-015",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/pages/parametres/donnees.js:84 — bouton « Ouvrir l'emplacement » de la carte Emplacement, désactivé avec sa raison (« Base de démonstration : aucun fichier sur le disque à montrer. » / « Aucune base locale pour ce domaine : rien à montrer. ») ; lignes 531-535 — l'appel settings.folder.open avec folder « base » (ou le dossier porté par l'action open:xxx)",
+    "src/Domenia.App/Settings/SettingsHostOperations.cs:208-236 — settings.folder.open : refus d'abord (212-219), résolution du chemin selon le nom (221-229), refus si l'emplacement n'existe pas (230-233, « Emplacement absent sur ce poste : rien à ouvrir. »), ouverture (234) ; jamais de chemin venant de la page",
+    "src/Domenia.App/Settings/HostFacts.cs:242-252 — HostFacts.Open lance explorer.exe de Windows, avec /select,\"…\" quand la cible est un fichier : le fichier est bien sélectionné dans le dossier",
+    "src/Domenia.Core/Screens/Settings/TechnicalLogTail.cs:107 — l'ensemble fermé des emplacements admissibles est app, data, logs, preferences, receipts, profile, base ; ligne 110 — IsFile ne reconnaît comme fichier que preferences et receipts ; lignes 116-131 — Refusal refuse toujours « base », en démonstration comme en mode annuaire",
+    "src/Domenia.App/Settings/HostFacts.cs:206-225 — les emplacements proposés à l'écran sont app, data, preferences, receipts, logs et profile : le fichier de la base n'en fait pas partie",
+    "web/js/pages/parametres/donnees.js:248 et web/js/pages/parametres/apropos.js:59 — les boutons « Ouvrir » des lignes de la politique des données et de la carte « Emplacements » couvrent bien les données, journaux, préférences, reçus et profil, avec le contrôle canOpen (src/Domenia.App/Settings/HostFacts.cs:212-216, existe et hors capture)",
+    "src/Domenia.Core/Screens/Settings/TechnicalLogTail.cs:116-119 — refus en capture ou scénario E2E (« l'Explorateur n'est pas ouvert »), testé tests/Domenia.Tests/SettingsCompletionTests.cs:92 ; ligne 128 — le refus de « base » est testé aux lignes 94-95 des mêmes tests",
+    "web/js/shell/gui-policy.js:4 — BtnIndexOpenFolder est mappé sur '[data-act=\"open-base\"]' dans '.pr-page' ; web/js/shell/help-catalog.js:781 — « Ouvre le dossier de la base dans l'explorateur, fichier sélectionné. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:150 et src/Domenia.Ad/Screens/AdSettingsReader.cs:11-13 — en mode annuaire la base est bien un fichier SQLite réel (PathLabel, bytes, journal) : la condition « la base n'a pas de fichier » qui motivait le refus n'existe plus"
+  ],
+  "manque": "« Ouvrir l'emplacement » de la base ne peut jamais réussir, même quand le fichier existe. (1) src/Domenia.Core/Screens/Settings/TechnicalLogTail.cs:125-129 refuse « base » sans jamais regarder le disque : le motif « mode annuaire de cette version » est caduc depuis que Domenia.Store est branché (src/Domenia.Ad/Screens/AdSettingsReader.cs:11-13, src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:150) ; le garde-fou voulu — refus quand la base n'existe pas — est pourtant déjà assuré ailleurs (src/Domenia.App/Settings/SettingsHostOperations.cs:230-233). (2) Lever ce refus ne suffirait pas : le switch de src/Domenia.App/Settings/SettingsHostOperations.cs:221-229 n'a pas de cas « base » et retomberait sur « _ => AppPaths.WebViewUserData(mode) », c'est-à-dire le profil du moteur web, et src/Domenia.Core/Screens/Settings/TechnicalLogTail.cs:110 ne classe pas « base » comme fichier, donc HostFacts.Open (src/Domenia.App/Settings/HostFacts.cs:242-252) ouvrirait le dossier sans sélectionner le fichier, contrairement à la description et à l'aide (web/js/shell/help-catalog.js:781). (3) Aucun test du chemin ouvert pour la base : tests/Domenia.Tests/SettingsCompletionTests.cs:94-95 ne teste que le refus ; le bouton n'apparaît dans aucun scénario de tests/e2e/parametres. Le reste du « reste » est fait : ouverture des données, journaux, préférences, reçus et profil (src/Domenia.App/Settings/HostFacts.cs:206-225, web/js/pages/parametres/donnees.js:248, web/js/pages/parametres/apropos.js:59).",
+  "effort": "S",
+  "depend": [
+    "Domenia.Store (chemin réel de la base et de son journal, src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:150)",
+    "PAR-013 et PAR-014 (même carte : la raison affichée sur le bouton doit dire la vraie cause, absence du fichier et non « mode annuaire »)",
+    "GuiElementPolicy / PAR-044 (web/js/shell/gui-policy.js:4 — BtnIndexOpenFolder)"
+  ],
+  "risque": "lecture"
+}

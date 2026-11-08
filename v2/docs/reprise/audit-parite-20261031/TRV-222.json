@@ -1,0 +1,17 @@
+{
+  "id": "TRV-222",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Ad/AdSessionIdentity.cs:14-41 — ReadAsync : une seule recherche exacte (SizeLimit=2, PageSize=1) par sAMAccountName ou UPN avec filtre objectCategory=person lit objectSid + les autres noms (sAMAccountName, userPrincipalName, displayName, givenName) ; 0 = inconnu, >1 = « Identité de connexion ambiguë » (l.22), délai 10 s (l.20)",
+    "repo/v2/src/Domenia.Ad/AdSessionIdentity.cs:53-58 — Filter : UPN → (userPrincipalName=…), down-level domaine connu → (sAMAccountName=…), enveloppé dans « (&(objectCategory=person)(objectClass=user)…) » ; hors domaine/autorité inconnue → null (non recherché)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:949-971 — LearnSessionSidAsync : le SID de session est lu une seule fois par session (garde sessionSidRead) puis rangé dans sids[Key(session, login, null)]",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1027-1031 — à chaque validation réussie, sids[Key(session, answer.BindUser, target)] = sid : le SID de l'identité validée est mémorisé",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1270-1287 — PausedLocked : si deux clés partagent le même SID, la pause de l'une s'applique à l'autre (pause unique par SID) ; propagation de la pause existante aux alias",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:1361-1363,1372-1373 — SameSid + ligne « Même compte que … (SID confirmé par l'annuaire) » : le SID n'est jamais affiché, seuls les noms le sont",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/OperationRequirements.cs:45 — « AccountAliasRead » déclaré au catalogue des droits (Directory/Read, « Autres noms d'un compte (même SID) »)"
+  ],
+  "manque": "Le rapprochement par SID existe pour la pause (sids + PausedLocked/SameSid) et l'identité de session est bien résolue par une recherche exacte objectCategory=person. Mais le worker d'alias décrit est absent : « AccountAliasRead » n'est qu'une ligne du catalogue OperationRequirements.cs:45, sans aucun handler/worker (rg src/ web/ tests/ : aucune Request/Invoke/Complete/Fail-AliasRead, aucun Get-DomeniaAccountAliasSummary, aucun code worker). Manquent donc : la recherche proactive « après chaque identité validée » qui lit les AUTRES noms (le SID vient du bind/AdSessionIdentity, jamais d'une recherche d'alias pour les comptes secondaires/temporaires) ; la file de 8 avec une lecture à la fois ; la classe Background et le délai 30 s (AdSessionIdentity.cs:20 = 10 s) ; le verdict 3 résultats Résolu/Ambigu/Introuvable exposé ; les bornes 64 groupes / 16 noms ; le conflit journalisé quand un nom est lié à un autre SID (jamais déplacé) ; « une fois par session ET par identité » (sessionSidRead ne couvre que le SID de session). De plus le verrou d'authentification n'est PAS partagé par SID : AdAuthenticationGate est indexé par accountKey (AdAuthenticationGate.cs:15-28), seul le défaut de pause est partagé par SID.",
+  "effort": "L",
+  "depend": ["TRV-223"],
+  "risque": "reseau"
+}

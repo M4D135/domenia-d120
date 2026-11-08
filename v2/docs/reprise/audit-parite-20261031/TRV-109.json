@@ -1,0 +1,25 @@
+{
+  "id": "TRV-109",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Execution/ReadProgressDeadline.cs:3,44-48 — ReadProgressState expose Elapsed (temps total), Idle (temps depuis le dernier pas validé), Received (nombre de pas) et StopReason ; seul du travail réellement terminé avance l'horloge (Progress ligne 31-42)",
+    "src/Domenia.Core/Execution/ReadProgressDeadline.cs:51-58 — distingue le blocage (now-last >= inactivité → « Délai sans nouvelle donnée atteint ») de l'écoulement du plafond absolu (now-started >= total → « Plafond total atteint ») : un poste lent qui avance renouvelle l'inactivité, un poste bloqué non",
+    "src/Domenia.Inventory/NativeReadProgress.cs:24-32 — « A completed source operation only » : seul une opération de source terminée crédite un pas (Completed→deadline.Progress(1)) ; annulation terminale, les notifications UI/cache ne créditent jamais",
+    "src/Domenia.Core/Screens/Accueil/RefreshPerformance.cs:5,25-31 — par méthode : Reads, CacheHits, QueueMs (attente réelle) et ExecutionMs séparés, TotalMs = temps total de campagne ; commentaire « Parallel durations ... never presented as wall time »",
+    "src/Domenia.Inventory/WmiReadWorkers.cs:8,97-100 — quota de 6 workers (places libres) ; refus « machine.busy » quand les places sont prises ; TakeQueueMilliseconds (attente réelle d'admission, ligne 21)",
+    "src/Domenia.Core/Screens/Search/SearchSurvey.cs:356-374 — état détaillé d'une campagne (RCH-099) : « Résultats validés : N sur M · attente réelle X s », « Sources ralenties : … en plus de 2 s » (poste lent qui avance) vs « Sources suspendues : … rejeté le compte » (bloqué), budget « N postes à la fois »/« échos par lots de 32 » (places)",
+    "src/Domenia.Core/Screens/Search/SearchService.cs:638,684-694 — chaque cible terminée publie un pas (SurveyProgress done++ par poste), StatusOf rappelant SearchSurvey.Status ; src/Domenia.Core/Screens/Search/SearchPolicy.cs:36-38 — concurrency 4 défaut, 1..8",
+    "src/Domenia.Core/Screens/Accueil/HomeCampaign.cs:11 — « Progress identifies only facts already committed locally » ; src/Domenia.Core/Screens/Accueil/QueryRefreshDispatcher.cs:5-6,31-45 — l'achèvement d'une requête n'est compté qu'après le sauvetage local (COMMIT), file bornée par concurrency (clamp 1..6)",
+    "tests/Domenia.Tests/ReadProgressDeadlineTests.cs:8-21 — 8 pas étendent l'inactivité sans bouger le plafond total : Elapsed=900 s (« temps total »), Idle=100 s (« inactivité réelle ») ; lignes 24-33 — l'inactivité expire et ne se réanime pas ; lignes 47-55 — un heartbeat (Progress(0)) n'est pas un pas",
+    "tests/Domenia.Tests/NativeReadProgressTests.cs:49-65 — « deux opérations achevées, pas deux notifications UI » (pas = requête CIM terminée) ; lignes 133-168 et 278-302 — un poste lent qui avance garde ses sources terminées, l'expiration n'invente pas une fin physique et ne libère pas une place worker",
+    "tests/Domenia.Tests/SearchRulesTests.cs:186-191 — état de campagne : « 12 sur 48 » (résultats validés) et « rejeté le compte distant » (source suspendue/bloquée) distingués"
+  ],
+  "manque": "Rien de bloquant. Le contrat est couvert mais réparti sur deux subsystems plutôt qu'une seule fonction d'état comme le Get-DomeniaCampaignProgressState de D1 : la progression par worker (ReadProgressDeadline : total + inactivité) d'un côté, l'état chiffré de campagne (SearchSurvey.Status : « Résultats validés », « attente réelle », « Sources ralenties/suspendues », budget « N postes à la fois ») de l'autre, avec les places libres portées par le quota WmiReadWorkers et la concurrency. Le garde-fou « résultats validés = relus après COMMIT » est satisfait sémantiquement (HomeCampaign.cs:11 « only facts already committed locally » + QueryRefreshDispatcher qui ne compte un answered qu'après le sauvetage local) plutôt que par une relecture littérale après un COMMIT explicite.",
+  "effort": "S",
+  "depend": [
+    "TRV-108 (mêmes workers/lectures natives)",
+    "TRV-110 (vocabulaire des états de mesure comptés par la progression)",
+    "moteur Accueil (HomeCampaign, QueryRefreshDispatcher) et atelier de requêtes"
+  ],
+  "risque": "reseau"
+}

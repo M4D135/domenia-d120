@@ -1,0 +1,17 @@
+{
+  "id": "TRV-224",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:168-186 — AccountKey : DNS\\x (down-level égal au domaine DNS connu) et x@dns (UPN du domaine connu) ramenés à netbios\\x minuscule ; .\\x devient poste\\x avec la cible (MachineKey) ; sans résolution réseau, simple travail de chaînes",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:50-65 — Parse des trois formes (domaine\\nom, nom@domaine, nu) ; :84 — MachineKey : une clé par poste, premier libellé DNS en minuscules (PC-01 = pc-01.example.local)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/CredentialRules.cs:153-162 — fusion limitée aux domaines connus de la session : autorité inconnue refusée, jamais fusionnée ni résolue",
+    "repo/v2/src/Domenia.Bridge/Operations/AccountsOperations.cs:126-127 — les deux écritures du même compte (domaine\\sam et sam@dns) produisent la même clé",
+    "repo/v2/src/Domenia.Bridge/Operations/FicheOperations.cs:288-289 — clés de compte du diagnostic verrouillage : sam du domaine et UPN normalisés par AccountKey (équivalent Get-DomeniaLockoutAccountKeys)",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheDiagnostics.cs:286, :375 — le diagnostic de verrouillage rapproche les événements par ces clés (ensemble insensible à la casse), sans empreinte ni secret",
+    "repo/v2/tests/Domenia.Tests/AccountsRulesTests.cs:298 — test : « clé commune UPN et NetBIOS » (adm@test.local → test\\adm) ; repo/v2/tests/Domenia.Tests/AccountsAccessTests.cs — test : même clé de compte = même pause pour annuaire/LAPS/BitLocker (« clé de compte, Domenia 1 »)"
+  ],
+  "manque": "Rien de bloquant. La forme canonique retenue est « netbios\\nom » en minuscules (CredentialRules.cs:185) au lieu de « x@dns » de l'énoncé : les alias du domaine connu convergent bien vers une clé unique, le nom d'un domaine inconnu reste distinct, et aucune résolution DNS/LDAP n'intervient.",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

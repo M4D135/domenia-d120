@@ -1,0 +1,24 @@
+{
+  "id": "TRV-279",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:95-145 — ReadQueryLibrary projette les recettes de Domenia 1 (table domenia_query_recipes) dans le document V2 : identité, catégorie, révision, dates avec fuseau exigé (:158-164), archivage, empreinte, historique, provenance et consommateurs",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:99-101 — marqueur durable calculé sur l'ensemble repris (recettes + révisions + provenances + dépendances) ; :108-109 — à chaque lecture, si ce marqueur ne correspond plus à la colonne legacy_sha256 : « Bibliothèque Domenia 1 modifiée depuis la reprise ; réconciliation explicite nécessaire, aucune version écrasée. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:147-156 — LegacyQueryRows : table lue en lecture seule, 5 000 recettes et 16 Mio au plus, 1 Mio par définition (clause length au-delà la ligne devient NULL et fait refuser), domaine vérifié par DistinguishedName.AreEqual : une recette d'un autre domaine refuse tout",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLegacy.cs:17-31 — les trois tables d'historique de Domenia 1 sont lues (domenia_query_recipe_revisions, domenia_query_recipe_provenance, domenia_query_recipe_dependencies) avec plafonds 20 000 / 20 000 / 5 000 et « aucune reprise partielle » si un plafond est dépassé",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLegacy.cs:39-99 — ProjectQueryLegacy : révision orpheline, date incohérente, divergence entre révision courante et historique, provenance mal formée ou dépendance sans révision disponible = refus ; :101-109 — LegacyQueryDefinition vérifie l'empreinte SHA-256 et le format de chaque définition héritée et refuse les identifiants réservés des modèles (QueryTemplates.Prefix)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLegacy.cs:88-91 — les liens des widgets existants sont repris comme références explicites legacyFleet / legacyComputer à la révision liée, sans inventer de disposition ni installer de widget",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:47-57 — avant d'écrire, l'original est copié dans domenia_v2_query_library_archive puis relu octet à octet (empreinte et contenu) ; quota 512 entrées / 128 Mio, « originaux conservés, écriture refusée » au-delà",
+    "src/Domenia.Store/Sqlite/LegacySearchFile.cs:9-43 — seul le réglage historique SavedSearches est lu dans les Domenia.settings.json / ADCC.settings.json (chemins candidats en src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:70-72 et :120) ; aucune lecture d'un réglage Query.Library n'existe dans src (rg « Query.Library » ne renvoie que docs/FEATURES.md:9673 et docs/features.json:20294)",
+    "src/Domenia.Core/Screens/Settings/LegacyRules.cs:45-51 — la reprise historique des fichiers de l'ancienne version ne couvre que cinq fichiers (objets, parc, recherches, secrets, liens) : aucune recette de requêtes n'y transite",
+    "tests/Domenia.Tests/QueryLegacyStoreTests.cs:38-67 — Legacy_query_migration_preserves_all_revisions_provenance_and_inherited_dependencies : 7 révisions et leurs provenances conservées, dépendance héritée à sa révision réelle, aucun widget inventé, base comparée avant/après (« reprise en lecture seule sans créer de table ») et originaux Domenia 1 intacts",
+    "tests/Domenia.Tests/QueryLegacyStoreTests.cs:69-80 — une provenance modifiée après la reprise est détectée même si la définition courante ne change pas, et le refus n'écrit rien ; :82-90 — dépendance orpheline = refus sans reprise partielle"
+  ],
+  "manque": "La reprise couverte est celle des tables SQLite de Domenia 1, pas celle de l'ancien réglage JSON Query.Library : aucune lecture de cette clé n'existe dans src (seul SavedSearches est importé des fichiers de réglages), donc un domaine dont Domenia 1 n'avait jamais achevé la migration JSON→SQLite n'a aucune recette reprise. Trois garde-fous de la fiche sans équivalent : pas d'import par lots de 50 recettes / 2,5 Mo (tout est lu en une passe sous les plafonds 5 000 recettes / 16 Mio, DomeniaDatabase.QueryLibrary.cs:150-154) ; pas de report pendant la maintenance de la base (aucun contrôle de maintenance sur le chemin bibliothèque : rg « maintenance » dans src/Domenia.Bridge/Operations/RequetesOperations.cs et src/Domenia.Core/Screens/Requetes/QueryLibrary.cs ne renvoie rien) ; le marqueur durable est une colonne legacy_sha256 par domaine (lignes 99-101, 108-109), pas un marqueur d'import par empreinte de recette, et il n'existe pas de reçu d'import consultable pour cette reprise (les reçus domenia_v2_legacy_receipts, src/Domenia.Store/Sqlite/DomeniaDatabase.Legacy.cs:164-168, concernent la reprise des fichiers, pas les recettes).",
+  "effort": "M",
+  "depend": [
+    "TRV-277 (bibliothèque SQLite par domaine)",
+    "reprise historique du stockage (LegacyRules, domenia_v2_legacy_receipts)"
+  ],
+  "risque": "ecriture-locale"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "ACC-031",
+  "verdict": "partiel",
+  "preuves": [
+    "web/js/pages/accueil/board.js:87 — bouton « Ouvrir les postes dans Rechercher » dans la barre de commandes du tableau du parc, désactivé sans OU de travail avec le motif « Rechercher ne s'ouvre jamais sur tout le domaine » (ligne 88)",
+    "web/js/pages/accueil.js:1417 — onOpenSearch refuse la racine du domaine (!isRootDn) et passe ou / sousou / type = computers / source = accueil (ligne 1421)",
+    "web/js/pages/accueil/tools.js:51 — le tiroir « Postes concernés » transmet en plus revision (le calcul) et cle (la clé de l'ensemble) à Rechercher ; bouton désactivé pour le domaine entier (ligne 60)",
+    "web/js/pages/accueil/board.js:215 — populationLine affiche la population calculée (comptes ordinateur, activés, désactivés, état inconnu) : les désactivés sont bien comptés dans la population de l'OU",
+    "web/js/pages/rechercher.js:1079 — côté Rechercher, le paramètre « ou » déclenche browse(p.ou, …, type = computers) ; la liste des paramètres de route (lignes 9-11) ne contient ni revision ni cle",
+    "src/Domenia.Core/Screens/Search/SearchService.cs:170 — BrowseAsync construit une liste Browse et la relit via ISearchReader (RequireBaseAsync, ligne 174) : c'est une relecture du conteneur, pas la reprise d'une population transmise",
+    "src/Domenia.Bridge/Operations/SearchOperations.cs:81 — search.browse ne reçoit que dn, subtree, type, limit : aucune opération de Rechercher n'accepte une liste de GUID ni une clé d'ensemble",
+    "src/Domenia.Core/Screens/Search/SearchText.cs:504 — BrowsePlan : « Contenu de l'OU, sans filtre caché », donc aucun terme ni requête cachée n'est conservé dans la nouvelle liste"
+  ],
+  "manque": "Rechercher n'exploite pas la liste exacte transmise : les paramètres « revision » et « cle » envoyés par le tiroir (web/js/pages/accueil/tools.js:51) ne sont lus nulle part dans web/js/pages/rechercher.js (paramètres de route, lignes 9-11) — la liste affichée vient d'une relecture de l'OU par search.browse (web/js/pages/rechercher.js:1079), donc ni la révision du calcul ni la clé de l'ensemble ne bornent la liste, et un poste sorti de l'OU entre-temps change le résultat. Garde-fous non trouvés : le bouton reste actif pendant un recalcul (seul « Recalculer la vue » est coupé par st.loading, web/js/pages/accueil/board.js:75 ; la barre n'est coupée que pendant l'écriture de la disposition, ligne 93), sans contrôle de données périmées ni de session différente ; le libellé (web/js/pages/accueil/board.js:87) ne nomme pas la révision locale. Aucun test : aucune occurrence de onOpenSearch ou du libellé dans tests/.",
+  "effort": "M",
+  "depend": ["ACC-039", "RCH (liste de Rechercher reprise depuis une population transmise)"],
+  "risque": "lecture"
+}

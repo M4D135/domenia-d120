@@ -1,0 +1,379 @@
+{
+  "Build": "2026.09.30-R1.9-OUSEARCH",
+  "Environment": "Linux/Python",
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveAdExecuted": false,
+  "NativeScenariosProvidedNotExecuted": 42,
+  "ChangedFunctions": [
+    "Clear-AdccGlobalSearch",
+    "Complete-AdccBranchObjectsUi",
+    "Complete-AdccGlobalSearchUi",
+    "Fail-AdccBranchObjectsUi",
+    "Fail-AdccGlobalSearchUi",
+    "Get-AdccWorkerOperationHashes",
+    "Get-BranchQueryData",
+    "Get-GlobalSelectedTypeFilter",
+    "Get-MainXaml",
+    "Go-RootBranch",
+    "Initialize-AsyncEngine",
+    "Invoke-AdccSelfTest",
+    "Invoke-GlobalSearch",
+    "Load-BranchObjects",
+    "Select-AdccWorkspace",
+    "Set-SelectedBranch",
+    "Show-ObjectRows",
+    "Start-AdccWriteTask",
+    "Wire-Events"
+  ],
+  "UnchangedOriginalFunctions": 548,
+  "Passed": 69,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "All original core functions retained",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "No duplicate top-level function",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Only reviewed functions changed against dev.zip",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Only the six search helpers added",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Login engine exact normalized source preserved",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Worker common body byte-equivalent after newline normalization",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved ADCC.exe",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved ADCC.ico",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/ADCC.theme.cfg",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/ADCC.login-mode.cfg",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/Microsoft.ActiveDirectory.Management.dll",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/PsExec.exe",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/ADCC.ui-profile.cfg",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/ADCC.ico",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/ADCC.config.json",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/ActiveDirectoryPowerShellResources.dll",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/modules/ADCC-Support.xaml",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/modules/ADCC-Support.UI.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved wad/modules/ADCC-Support.Model.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate delimiters wad/ADCC-Core.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "UTF8 BOM wad/ADCC-Core.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate delimiters wad/modules/ADCC-UX.UI.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "UTF8 BOM wad/modules/ADCC-UX.UI.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate delimiters wad/maintenance/Preview-AdccUi.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "UTF8 BOM wad/maintenance/Preview-AdccUi.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate delimiters wad/tests/Test-ADCCSearchScope.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "UTF8 BOM wad/tests/Test-ADCCSearchScope.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Approximate delimiters INSTALLER-MISE-A-JOUR.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "UTF8 BOM INSTALLER-MISE-A-JOUR.ps1",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "XAML namescopes unique",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Real tree and real result grid share WsSearch",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "No independent directory page or sidebar entry",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Tree left / splitter / results right",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Splitter preserves both panel sizing",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Subtree checkbox initially checked",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Scope control is not hidden in the old legacy block",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "All static resource references resolved",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Accessible explanation BtnSearchAllDomain",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Accessible explanation SearchOuSplitter",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Accessible explanation ChkSubtree",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Accessible explanation TvDirectory",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Accessible explanation CmbGlobalType",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Worker root is Payload.BaseDn",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Worker depth is Payload.Scope",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "No silent root fallback in worker",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Only supported depths accepted",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Worker result identifies root and scope",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Groups and OU allowed in the result",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Local previews skipped outside whole-domain subtree",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Cache segregates root and depth",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Result state validates root depth text type generation",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Both success/error reject stale scope",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Tree selection uses unified query",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Old branch actions use unified worker",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "New filter controls included in write lock set",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "No extra write operation in new helpers",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Reset domain preserves query text",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Startup suppression honored before querying",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Checkbox and type filter changes trigger query",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Explicit searches do not preserve an old selection",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "All 45 active pinned workers resolve to exact literals",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "New search worker matches pinned hash",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Retired separate branch worker is not registered",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Engine startup count agrees with registry",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preview remains offline and uses actual XAML",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Preview includes OU synthetic filter interactions",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Native search tests run before backup/copy",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "42 isolated PowerShell cases provided",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Native tests load only fixed function definitions",
+      "Status": "PASS",
+      "Detail": ""
+    }
+  ]
+}

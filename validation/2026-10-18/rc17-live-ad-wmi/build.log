@@ -1,0 +1,126 @@
+{
+  "prod": {
+    "Archive": "Domenia_1.0_RC1.17.17_PROD.zip",
+    "Bytes": 3066076,
+    "Sha256": "0393C1B7FD23E732209D3F96C4C91196AFCB57BA26F02E86D79BBBC7EB4E908A",
+    "Files": 172,
+    "ZipIntegrity": true,
+    "ManifestValid": true,
+    "ReleaseGuard": "PASS",
+    "WindowsQualification": "NOT_EVALUATED"
+  },
+  "dev": {
+    "Archive": "Domenia_1.0_RC1.17.17_DEV.zip",
+    "Bytes": 6539327,
+    "Sha256": "001AE72DB21059BDA3AD5AC72E810D8C69E20B948E2FC18C224F5B070A2EB04B",
+    "Files": 642,
+    "ZipIntegrity": true,
+    "ManifestValid": true,
+    "ReleaseGuard": "PASS",
+    "WindowsQualification": "NOT_EVALUATED"
+  },
+  "IdenticalRuntimeFiles": 172,
+  "Publishable": false,
+  "Build": "2026.10.18-DOMENIA-1.0-RC1.17.17-D120",
+  "Environment": {
+    "Commit": "5cc71745b410f8a27823d043880b28995498d813",
+    "Dirty": true,
+    "ContractSHA256": "BDD42456B368FAF169E3BC93781EFA2FB442C57BF996936D8F405BBA906C432E",
+    "Python": "3.14.7",
+    "PythonImplementation": "CPython",
+    "Zlib": "1.2.12",
+    "Platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+    "Tools": [
+      {
+        "Name": "python",
+        "Version": "3.14.7"
+      },
+      {
+        "Name": "zlib",
+        "Version": "1.2.12"
+      },
+      {
+        "Name": "build_packages.py",
+        "Version": "035F70F1B32220EA95396F6EC723BA025D3A4366674C68C0372EB416698D14B2"
+      }
+    ],
+    "Note": "Reconstruction identique attendue a environnement (Python, zlib) et commit egaux ; sinon qualifier puis garder le fichier exact."
+  },
+  "Components": [
+    {
+      "Path": "Domenia.exe",
+      "Sha256": "3535A6CBCEEA3BAA0066D9024EA316A8DFA2992A463F8EB17CC8BAA40B6BE7AC",
+      "FileVersion": "1.0.0.1",
+      "DeclaredSha256": "3535A6CBCEEA3BAA0066D9024EA316A8DFA2992A463F8EB17CC8BAA40B6BE7AC",
+      "Name": "Lanceur natif Domenia",
+      "Bound": true
+    },
+    {
+      "Path": "wad/ActiveDirectoryPowerShellResources.dll",
+      "Sha256": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
+      "FileVersion": "10.0.19041.1",
+      "DeclaredSha256": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
+      "Name": "Ressources PowerShell Active Directory",
+      "Bound": true
+    },
+    {
+      "Path": "wad/Microsoft.ActiveDirectory.Management.dll",
+      "Sha256": "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
+      "FileVersion": "10.0.19041.1",
+      "DeclaredSha256": "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
+      "Name": "Microsoft Active Directory Management",
+      "Bound": true
+    },
+    {
+      "Path": "wad/PsExec.exe",
+      "Sha256": "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
+      "FileVersion": "2.43.0.0",
+      "DeclaredSha256": "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
+      "Name": "Sysinternals PsExec",
+      "Bound": true
+    },
+    {
+      "Path": "wad/modules/Domenia.Native.dll",
+      "Sha256": "C3659BB893ABCBE9B09237EE4428DC9AEC9ECB1ADB2B4502087A36A384CF8D66",
+      "FileVersion": "1.0.0.0",
+      "DeclaredSha256": "C3659BB893ABCBE9B09237EE4428DC9AEC9ECB1ADB2B4502087A36A384CF8D66",
+      "Name": "Lecteur et agr\u00e9gateur natifs Domenia",
+      "Bound": true
+    },
+    {
+      "Path": "wad/modules/M4D.Admin.Common.Query.dll",
+      "Sha256": "472D9C5FEBA970E2999621072DED76A8BF691EF22DC4DE23FD4E5D0FB45A4D98",
+      "FileVersion": "0.1.1.1",
+      "DeclaredSha256": "472D9C5FEBA970E2999621072DED76A8BF691EF22DC4DE23FD4E5D0FB45A4D98",
+      "Name": "Moteur de requ\u00eates commun",
+      "Bound": true
+    }
+  ],
+  "SignedStage": "",
+  "Licences": {
+    "ReviewedOn": "2026-10-16",
+    "Publishable": false,
+    "Blocking": [
+      {
+        "Id": "m4d-admin-common",
+        "Name": "Moteur de requ\u00eates commun M4D.Admin.Common",
+        "Redistribution": "NonEtablie",
+        "Alternative": "Joindre \u00e0 vendor/m4d-admin-common le texte de licence du d\u00e9p\u00f4t amont, ou une autorisation \u00e9crite de son titulaire, puis passer l\u02bcentr\u00e9e \u00e0 Accordee avec cette preuve."
+      },
+      {
+        "Id": "ad-management",
+        "Name": "Biblioth\u00e8ques Active Directory de Microsoft (RSAT)",
+        "Redistribution": "NonEtablie",
+        "Alternative": "Faire valider la diffusion interne par le service juridique, ou s\u02bcappuyer sur le module ActiveDirectory des RSAT install\u00e9 sur le poste au lieu de livrer ces fichiers."
+      },
+      {
+        "Id": "psexec",
+        "Name": "Sysinternals PsExec",
+        "Redistribution": "NonEtablie",
+        "Alternative": "Ne plus livrer PsExec : l\u02bcorganisation le d\u00e9ploie elle-m\u00eame apr\u00e8s acceptation de sa licence, \u00e0 c\u00f4t\u00e9 de Domenia.exe ou dans wad (emplacements d\u00e9j\u00e0 lus par Get-WPsExecPath)."
+      }
+    ],
+    "Inventory": "tools/licence-inventory.json"
+  },
+  "PublicationRule": "Publiable uniquement avec un rapport Windows PowerShell 5.1 lie au SHA-256 des deux ZIP (release_guard.py --require-windows) et sans composant livre dont la redistribution reste non etablie ou refusee (tools/licence-inventory.json)."
+}

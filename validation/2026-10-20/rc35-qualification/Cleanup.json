@@ -1,0 +1,21 @@
+﻿{
+    "Utc":  "2026-10-20T13:37:43.5750590Z",
+    "RemovedQualificationTasks":  [
+                                      "Domenia-RC35-Check-FirstStepsReopen",
+                                      "Domenia-RC35-Final",
+                                      "Domenia-RC35-Finish-FirstSteps",
+                                      "Domenia-RC35-FirstSteps",
+                                      "Domenia-RC35-Inspect-FirstSteps",
+                                      "Domenia-RC35-NativeProbe",
+                                      "Domenia-RC35-Restore",
+                                      "Domenia-RC35-RestoreClick",
+                                      "Domenia-RC35-RestoreFinish",
+                                      "Domenia-RC35-RestoreNow",
+                                      "Domenia-RC35-RestoreReadback",
+                                      "Domenia-RC35-RestoreVerified",
+                                      "Domenia-RC35-Verify-ChangedStartup",
+                                      "Domenia-RC35-Verify-Reopen"
+                                  ],
+    "VmRetained":  true,
+    "QualificationFilesRetained":  true
+}

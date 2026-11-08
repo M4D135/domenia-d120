@@ -1,0 +1,26 @@
+{
+    "Build":  "RC1.17.39",
+    "Stage":  "VisualRetest",
+    "Passed":  false,
+    "StartedUtc":  "2026-10-20T21:54:19.2694285Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-20T21:54:28.5084477Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T21:55:06.1259075Z",
+                      "Text":  "Authenticated main window visible"
+                  },
+                  {
+                      "Utc":  "2026-10-20T21:55:23.7381914Z",
+                      "Text":  "Final native pack reopened existing profile; home/search/dashboard visible; normal close"
+                  }
+              ],
+    "AppId":  4840,
+    "CoreSha256":  "1C6913CACD820669B750FDE2E09E1E4C4A09F936B327B8225DD38BE295037F74",
+    "ReleaseSha256":  "D89D91A696AEB0A3CA314BF5B286228FE318C8D2EE3974962B2BA4FCC619EC4C",
+    "TreeItems":  7
+}

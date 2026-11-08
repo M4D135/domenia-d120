@@ -1,0 +1,25 @@
+{
+  "id": "TRV-277",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:45 — table domenia_v2_query_library(domain_key PRIMARY KEY, document, sha256, legacy_sha256, revision) : une ligne par domaine, la clé étant l'empreinte SHA-256 de la racine (src/Domenia.Core/Screens/Requetes/QueryLibrary.cs:178-183)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:46 — table domenia_v2_query_library_archive(id, domain_key, document, sha256, at_utc) ; :49-51 quotas 512 entrées et 128 Mio avec refus et originaux conservés ; :54-56 l'archive est relue (contenu et empreinte) avant commit, sinon transaction annulée",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:12-13 — CheckQueryRoot : « Bibliothèque d'un autre domaine ; aucune lecture ni écriture. » ; :17,32 — CompatibleDirectoryCache.ValidateLocalPath sur le chemin de la base (src/Domenia.Store/Sqlite/CompatibleDirectoryCache.cs:152-160 : chemin absolu, pas d'UNC, pas de lecteur réseau, pas de fichier ni d'ancêtre redirigé)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:20,34,36 — CheckIdentity à chaque lecture et à chaque écriture (src/Domenia.Store/Sqlite/DomeniaDatabase.cs:159-183 : schema_version 11, révision domenia_schema, store_id et domain_dn comparés, sinon « Cette base appartient à un autre domaine ou emplacement »)",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:37,59,62-63 — la révision du stockage est lue, incrémentée avec la bibliothèque, puis revérifiée après écriture ; :67-68 le reçu porte Source=SQLite, StoreId, StoreRevision, DomainKey, DocumentSha256",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLibrary.cs:95-145 — révisions, provenance par révision et dépendances sont bien stockées et relues : projetées des tables Domenia 1 vers le document (history, provenance, consumers) puis contrôlées à chaque lecture ; :99-101,108-109 — marqueur durable legacy_sha256 sur l'ensemble repris, refus explicite et sans écrasement s'il diverge",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.QueryLegacy.cs:29-31 — les quatre tables de Domenia 1 sont la source de ces données (domenia_query_recipes en :152, domenia_query_recipe_revisions, domenia_query_recipe_provenance, domenia_query_recipe_dependencies) avec plafonds 5 000 / 20 000 / 20 000 / 5 000 et refus de toute reprise partielle",
+    "recherche par nom sans accents : src/Domenia.Bridge/Operations/RequetesOperations.cs:616 — les termes et les champs comparés sont repliés par FrenchText.Fold ; :627-631 — tri par catégorie puis nom repliés, pagination Skip/Take ; src/Domenia.Core/Text/FrenchText.cs:27-42 — Fold décompose en NFD, retire les marques non espacées et remplace œ par oe",
+    "src/Domenia.Bridge/Operations/Requetes/QueryLibraryFiles.cs:64-67 — en mode annuaire c'est bien ce magasin SQLite qui sert de support à la bibliothèque (src/Domenia.Ad/Screens/AdQuerySource.cs:7, src/Domenia.Store/Sqlite/SqliteDirectoryCache.Queries.cs:19-24)",
+    "tests/Domenia.Tests/QueryLegacyStoreTests.cs:38-67 — reprise complète lue depuis la base SQLite (7 révisions, provenance par révision, dépendance héritée à sa révision réelle, originaux intacts, aucune table créée en lecture) ; :69-80 et :82-90 — divergence du marqueur et dépendance orpheline refusées sans aucune écriture",
+    "tests/Domenia.Tests/QueryReferencePatchTests.cs:59 — reçu SQLite et original complet survivent au redémarrage et au rejeu ; :110 — un ajout concurrent est refusé sans écriture partielle ; :127,147 — annulation au commit et après commit : l'écriture reste atomique et le reçu est relu"
+  ],
+  "manque": "Le contenu et les garde-fous de la fiche sont là, la forme physique diffère de Domenia 1 : au lieu de tables recettes / révisions / provenance / dépendances / marqueurs, il y a une ligne par domaine contenant le document JSON complet (document, sha256, legacy_sha256, revision) et une table d'archives ; les révisions, provenances et dépendances sont donc portées par le document et ne sont pas interrogeables en SQL, et les tables homonymes de Domenia 1 ne sont que lues, jamais écrites par Domenia 2 (DomeniaDatabase.QueryLibrary.cs:147-156, QueryLegacy.cs:17-31). Deux trous de preuve : la recherche sans accents de la liste n'est exercée par aucun test (rg « search » dans tests/Domenia.Tests/RequetesOperations.cs ne porte que sur requetes.search.*) ; les refus de CheckIdentity (schéma, StoreId, domaine, chemin) ne sont testés que sur d'autres chemins, pas sur celui de la bibliothèque.",
+  "effort": "M",
+  "depend": [
+    "TRV-278 (lecture confirmée et paginée)",
+    "TRV-279 (migration de l'ancienne bibliothèque)",
+    "TRV-280 (validation des définitions côté écrivain)"
+  ],
+  "risque": "ecriture-locale"
+}

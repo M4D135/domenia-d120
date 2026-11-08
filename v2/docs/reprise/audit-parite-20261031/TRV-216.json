@@ -1,0 +1,17 @@
+{
+  "id": "TRV-216",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Writes/Poste/PosteRemoteWrites.cs:44-47 — engagement lu : « The receipt then says what left and what the re-read saw ; an effect that cannot be read back stays « à vérifier » » ; plans restart/gpupdate/service/run/wake avec risques, confirmation typée et réversibilité en clair",
+    "repo/v2/src/Domenia.Core/Screens/Operations/WriteKindRules.cs:79-82 — postconditions par nature (équivalent Get-DomeniaPostconditionRule) : redémarrage « Relire le dernier démarrage du poste : postérieur à l'envoi », stratégies « Relire la dernière application des stratégies », service « Relire l'état du service », exécution « Aucune relecture générique : le résultat d'un script distant se vérifie sur le poste »",
+    "repo/v2/src/Domenia.Simulation/Writes/Poste/SimulatedPosteRemoteExecutors.cs:233 — VerifyAsync gpupdate : VerificationState.Unknown, « Effet à vérifier : relisez les stratégies appliquées (RSoP) ou les événements Stratégie de groupe du poste » ; :141 — restart non confirmé à la relecture reste inconnu ; :391 — exécution « non vérifiée : seule la tâche (créée puis supprimée) l'est »",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:362-373 — relecture interrompue ou impossible → VerificationState.Unknown ; :378-395 — fail closed (Assert-WriteAllowed, OPE-025/OPE-026) : un reçu à vérifier bloque toute nouvelle écriture (write.targetPending / write.receiptsPending)",
+    "repo/v2/src/Domenia.Core/Screens/Operations/ReceiptReviews.cs:100-125 — le reçu à vérifier énonce la vérification à faire : relecture sur le contrôleur initial, sinon contrôle avec un autre outil puis revue manuelle consignee",
+    "repo/v2/src/Domenia.Bridge/AdmissionGuards.cs:37-46 — mode annuaire : tout Write hors write.execute est refusé avant son handler (write.unavailable), classes inconnues refusées aussi (filet fermée) ; :52-56 — porte unique des écritures",
+    "repo/v2/tests/Domenia.Tests/PosteOperationsTests.cs:517 — plan gpupdate testé ; :560 — test : magasin de reçus défaillant, « the write stays « à vérifier » » ; :417 et :430 — écriture à vérifier sur le poste bloque les autorisations, reçu illisible sans cible connue interdit l'accord"
+  ],
+  "manque": "Les trois actions visées n'ont aucun exécuteur réel en mode annuaire : aucun IPosteRestartExecutor / IPosteGpUpdateExecutor / IPosteRunExecutor (ni service, wake) implémenté hors simulation — ls repo/v2/src/Domenia.Ad/Writes ne montre qu'exécuteurs de fiche, relations et stockage ; l'écrivain write.execute ne découvrira que les exécuteurs Simulated* de repo/v2/src/Domenia.Simulation/Writes/Poste/SimulatedPosteRemoteExecutors.cs, donc le chemin livraison→reçu→« À vérifier » n'est exécuté qu'en simulation, jamais sur un poste réel. Le garde-fou D1 « interrupteur de lecture seule illisible bloque l'action distante » n'a pas d'équivalent d'état : ChkReadOnlyMode n'existe que dans le catalogue d'aide (repo/v2/web/js/shell/help-catalog.js:55) et le réglage D1 ReadOnlyReturnMinutes n'est qu'une ligne de rapport (repo/v2/src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:96, note « Domenia 2 confirme chaque écriture ») ; le blocage repose sur le mode fail-closed et la confirmation par action, sans interrupteur serveur dont l'état illisible bloquerait.",
+  "effort": "M",
+  "depend": ["PST-013", "PST-014", "PST-015", "PST-016"],
+  "risque": "reseau"
+}

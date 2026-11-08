@@ -1,0 +1,80 @@
+[
+ {
+  "Text": "Detail",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "$Progress[\"Detail\"] = $Detail",
+  "Reason": "Clé « Detail » de la table de progression de la connexion, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "try { $detail = [string]$session.Progress[\"Detail\"] } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginAttempt' $_ }",
+  "Reason": "Clé « Detail » de la table de progression de la connexion, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if (@(\"debug\",\"diagnostic\",\"diag\",\"verbose\",\"detail\",\"detailed\",\"true\",\"1\",\"on\",\"oui\") -contains $normalizedCfg) { return \"Debug\" }",
+  "Reason": "Valeur de configuration du mode de diagnostic (« detail »), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/Domenia-Core.ps1",
+  "Code": "if (@(\"debug\",\"diagnostic\",\"diag\",\"verbose\",\"detail\",\"detailed\",\"true\",\"1\",\"on\",\"oui\") -contains $normalized) { return \"Debug\" }",
+  "Reason": "Valeur de configuration du mode de diagnostic (« detail »), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Embedded.UI.ps1",
+  "Code": "'Detail'{",
+  "Reason": "Commande « Detail » portée par le Tag du bandeau, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($field.Name -in @('Outcome','Detail','PresenceDetail','InventoryError','ConsoleError','Error','ErrorKind','Status','DirectoryAuthRejected')){$p[$field.Name]=$field.Value}",
+  "Reason": "Nom de champ du résultat dʼun worker, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($kind -notin @('Directory','Observation','Detail','AccountPreference','QueryLibrary')){throw 'Lecture canonique inconnue.'}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Engine.Worker.ps1",
+  "Code": "if($kind -eq 'Detail' -and $null -ne $query.PSObject.Properties['DetailProjection'] -and [string]$query.DetailProjection){$readArgs.DetailProjection=[string]$query.DetailProjection}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-QueryDetails.UI.ps1",
+  "Code": "$query=if($definition.Kind -eq 'Detail'){[pscustomobject]@{Kind='Detail';ResultKind='WmiQuery';RequestKey=$definition.RequestKey;ScopeDn=$Read.Context.ScopeDn;Subtree=$Read.Context.Subtree;Offset=$Read.Offset;Limit=250;Projection='List';DetailProjection='QuerySummary'}}else{[pscustomobject]@{Kind='Observation';Family=('Probe:'+$definition.RequestKey);ScopeDn=$Read.Context.ScopeDn;Subtree=$Read.Context.Subtree;Offset=$Read.Offset;Limit=25;Projection='List'}}",
+  "Reason": "Type de lecture « Detail » de lʼindex local (Kind), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Storage.Worker.ps1",
+  "Code": "if($field.Name -in @('Outcome','Detail','PresenceDetail','InventoryError','ConsoleError','Error','ErrorKind','Status','DirectoryAuthRejected')){$p[$field.Name]=$field.Value}",
+  "Reason": "Nom de champ du résultat dʼun worker, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Detail",
+  "File": "wad/modules/Domenia-Storage.Worker.ps1",
+  "Code": "if($family -ne 'Detail'){$where+=' AND '+$(if($family -eq 'Probe'){\"family LIKE 'Probe:%'\"}else{'family='+(ConvertTo-DomeniaSqlLiteral $family)});$where+=' AND object_guid IN (SELECT object_guid FROM domenia_legacy_observation_imports)'}",
+  "Reason": "Famille dʼobservations « Detail » de la base locale, pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Etat",
+  "File": "wad/modules/Domenia-Dashboard.UI.ps1",
+  "Code": "$items = @($Rows | Where-Object { [string]$_.Category -eq $Category -and [string]$_.Item -ne 'Etat' })",
+  "Reason": "Compare lʼélément « Etat » des lignes dʼinventaire (Add-Item, hors passe de langue), pas lʼen-tête de colonne."
+ },
+ {
+  "Text": "Etat",
+  "File": "wad/modules/Domenia-Dashboard.UI.ps1",
+  "Code": "$state = @($Rows | Where-Object { [string]$_.Category -eq $Category -and [string]$_.Item -eq 'Etat' } | Select-Object -First 1)",
+  "Reason": "Compare lʼélément « Etat » des lignes dʼinventaire (Add-Item, hors passe de langue), pas lʼen-tête de colonne."
+ }
+]

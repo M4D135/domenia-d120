@@ -1,0 +1,1 @@
+PASS DN scopes: 284 assertions; real SQLite + compiled Query + fleet widgets, no WPF/AD

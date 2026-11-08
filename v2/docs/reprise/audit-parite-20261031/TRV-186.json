@@ -1,0 +1,20 @@
+{
+  "id": "TRV-186",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Directory/SessionModels.cs:98-99 — « A session never grants a global write authority. Each real mutation needs a new confirmed plan. » ; WritePolicy = « confirmationPerOperation »",
+    "repo/v2/src/Domenia.Ad/AdDirectorySource.cs:304 — SessionSnapshot construit avec ReadOnly = true même connecté : la session reste en lecture seule, aucune bascule globale",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:14,109,142 — la porte unique des écritures : plan préparé, confirmation par l'opérateur dans la page (saisie du nom quand requis), refus journalisés",
+    "repo/v2/src/Domenia.Core/Writes/ConfirmationTokens.cs:17-21 — jetons de confirmation à usage unique (32 octets aléatoires, comparaison en temps constant), un seul envoi par confirmation",
+    "repo/v2/web/js/pages/ecritures.js:96 — « Un plan ne modifie rien ; seule la confirmation envoie l'écriture. »",
+    "repo/v2/src/Domenia.App/MainForm.Closing.cs:29-31 — écriture en cours jamais interrompue : « Fermeture différée : écriture en cours. » ; WriteCircuit.Closing.cs:9 — clôture cloisonnée avant reçus",
+    "repo/v2/src/Domenia.Bridge/AdmissionGuards.cs:26 — mode démonstration/simulation : écritures refusées (SimulationReadOnly), verrou permanente plus stricte que « démo verrouillée »",
+    "repo/v2/src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:96 — Security.ReadOnlyReturnMinutes (15, borné 5-120) n'est que rapporté : « Domenia 1 : retour en lecture seule après ce délai sans écriture ; Domenia 2 confirme chaque écriture. »",
+    "repo/v2/web/js/shell/help.js:151 — bandeau « Lecture seule active : les modifications sont désactivées. » (état affiché, pas un interrupteur)",
+    "repo/v2/web/js/shell/help-catalog.js:55,632 — vestiges : ChkReadOnlyMode et BtnReadOnlyResume décrits dans le catalogue d'aide alors qu'aucun contrôle correspondant n'existe dans web/js (aucune occurrence hors aide)"
+  ],
+  "manque": "L'interrupteur lui-même n'existe pas : pas de case « Autoriser les modifications ? » avec confirmation risque Danger, pas de libellé « Écriture active · N min », pas de minuterie de 15 s ni de retour automatique après Security.ReadOnlyReturnMinutes sans écriture, pas de bouton « Repasser en lecture seule » (BtnReadOnlyResume), pas de journalisation d'un passage en mode écriture en zone Sécurité. La conception Domenia 2 remplace le basculement global par la confirmation au cas par cas (WritePolicy « confirmationPerOperation », SessionModels.cs:99) : la sécurité visée est couverte plus strictement, mais les éléments d'interface et le réglage promis par la fiche TRV-186 sont absents, et le catalogue d'aide (help-catalog.js:55) continue de promettre un interrupteur et un retour automatique après 15 min qui n'existent pas — contre-vérité à corriger (aligner l'aide ou réintroduire l'interrupteur).",
+  "effort": "M",
+  "depend": ["TRV-183"],
+  "risque": "lecture"
+}

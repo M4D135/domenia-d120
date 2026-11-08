@@ -1,0 +1,48 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : lire la session d’un poste",
+  "description": "Depuis le poste PC-PAR-0012, lit la session console (geste explicite, simulation), vérifie le contrôle d’identité du compte lu et le détail des tentatives avec sa colonne Ressource.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?sujet=PC-PAR-0012&panneau=session",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"read\"]",
+      "title": "Le panneau « Lire la session » est ouvert"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"read\"]",
+      "title": "Lire la session de ce poste"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-session-card",
+      "timeoutMs": 20000,
+      "title": "Le résultat de la lecture est affiché"
+    },
+    {
+      "do": "click",
+      "selector": ".rel-attempts summary",
+      "title": "Ouvrir le détail des tentatives"
+    },
+    {
+      "do": "expect",
+      "contains": "Ressource",
+      "within": ".rel-attempts",
+      "title": "La colonne Ressource est affichée"
+    },
+    {
+      "do": "shot",
+      "name": "session-poste",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

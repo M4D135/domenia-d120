@@ -1,0 +1,27 @@
+{
+  "id": "PST-023",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Inventory/RemoteTaskReadRunner.cs:24 — Budget = TimeSpan.FromSeconds(35) pour une exécution de repli, avec timeout lié ligne 50 et attente externe Budget + 5 s ligne 63",
+    "src/Domenia.Inventory/RemoteTaskReadRunner.PsExec.cs:18-24 — en méthode « auto » l'ordre est WinRM, puis WMI, puis tâche planifiée (ligne 22), puis PsExec (ligne 23) : la tâche est choisie avant PsExec, et un seul transport est retenu",
+    "src/Domenia.Inventory/RemoteTaskReadRunner.PsExec.cs:28-30 — commentaire du contrat : « Chooses one transport for the durable plan; there is no second attempt after that plan has been claimed » ; ligne 46 « aucun repli autorisé disponible » refuse sans essayer un autre transport",
+    "src/Domenia.Inventory/RemoteTaskReadBackend.cs:48-51 — tâche créée par l'API COM : Activator.CreateInstance(Type.GetTypeFromProgID(\"Schedule.Service\")) puis TaskSchedulerConnection.Connect et GetFolder(\"\\\\\")",
+    "src/Domenia.Inventory/RemoteTaskReadBackend.cs:89 — RegisterTask(plan.TaskName, Xml(plan), 2, \"SYSTEM\", null, 5, TaskAcl) : logon type 5 (ServiceAccount) ; RemoteTaskReadProgram.cs:81 Triggers vides et :86 ExecutionTimeLimit PT30S, donc exécution à la demande unique (RunOnce), sans redémarrage sur échec (:109 RestartOnFailure refusé)",
+    "src/Domenia.Inventory/RemoteTaskReadBackend.cs:30,43 — dépôt sous le partage ADMIN$ du poste (Parent = ADMIN$/Temp du poste, DirectorySafe contrôle répertoire et point de réanalyse) ; ligne 33 Files() exécute les accès sous le compte choisi",
+    "src/Domenia.Inventory/TaskSchedulerConnection.cs:33-40 — connexion authentifiée au planificateur : BSTR temporaires pour compte, autorité et SecureStringToBSTR du mot de passe, aucun secret managé",
+    "src/Domenia.Inventory/RemotePsExecBinary.cs:21-32,64-70 — le binaire est cherché localement (PsExec64.exe, wad\\PsExec.exe…), borné à 16 Mio et refusé si « Empreinte PsExec non approuvée » ; RemotePsExecReadBackend.cs:30 « PsExec approuvé absent près de Domenia ; aucun téléchargement ni copie »",
+    "src/Domenia.Ad/Screens/AdPosteReader.TaskFallback.cs:24-25 — sans Covers(ConsentKind.ReadFallback) la lecture s'arrête avec l'action « readFallback » ; ligne 49 consent.ConsumeReadFallback(...) consommé par l'inventaire, les logiciels, le diagnostic ou l'utilisateur",
+    "src/Domenia.Core/Screens/Poste/PosteSession.cs:168-179 — ConsumeReadFallback retire le consentement après usage (ligne 178) et journalise « Lecture de repli consommée par : … »",
+    "src/Domenia.Inventory/RemoteTaskReadRunner.cs:92 — authorizeArtifacts appelé après le précontrôle et avant Start : « Autorisation ponctuelle absente ou expirée ; aucun artefact créé » ; lignes 120-137 nettoyage et reçu de nettoyage journalisés",
+    "src/Domenia.Inventory/RemoteTaskReadProgram.cs:16-17 — TaskAcl « D:P(A;;FA;;;SY)(A;;FA;;;BA) » et DirectoryAcl identique en hérité : permissions du dépôt seulement, SYSTEM et administrateurs",
+    "tests/Domenia.Tests/RemoteTaskReadTests.cs:83,87 — « autorisation consommée après précontrôle », « nettoyage une fois », ligne 89 « aucun deuxième lancement » ; tests/Domenia.Tests/RemotePsExecPlanTests.cs:39 options PsExec interdites (-u, -p, -d, -c, -f)"
+  ],
+  "manque": "Le chaînage décrit n'existe pas : PrepareFallbackPlan (src/Domenia.Inventory/RemoteTaskReadRunner.PsExec.cs:18-26) choisit UN transport et n'enchaîne jamais PsExec puis la tâche planifiée dans un même budget — en « auto » la tâche est même essayée avant PsExec (ligne 22 contre ligne 23), contrairement à « d'abord PsExec, puis tâche planifiée ». Aucun sous-budget PsExec de ≈35 % (10-15 s) : un seul Budget de 35 s (RemoteTaskReadRunner.cs:24) couvre l'unique transport choisi, l'appelant disposant de 45 s (AdPosteReader.TaskFallback.cs:26). L'échec ne cite pas les trois méthodes : le reçu ne porte que le transport utilisé (RemoteTaskReadRunner.cs:116-117 « Lecture distante non aboutie (code 0x…) ») et le seul message de refus ne nomme que PsExec et la tâche (RemoteTaskReadRunner.PsExec.cs:46) ; les trois méthodes n'apparaissent que comme lignes séparées du diagnostic complet (src/Domenia.Ad/Screens/AdPosteReader.FullDiagnostic.cs:77-83, 102-106). Le binaire PsExec portable n'est toujours pas livré (RemotePsExecBinary.cs:21-32 exige un exécutable local à empreinte approuvée, aucun fichier PsExec*.exe dans le dépôt).",
+  "effort": "M",
+  "depend": [
+    "PosteConfiguration Remote.TransientMethod / UsePsExecFallback (src/Domenia.Core/Screens/Poste/PosteConfiguration.cs:108)",
+    "accord de David pour livrer le binaire PsExec et son empreinte approuvée",
+    "journal des lectures de repli (IRemoteTaskReadJournal, Domenia.Store)"
+  ],
+  "risque": "reseau"
+}

@@ -1,0 +1,1291 @@
+{
+    "Generated":  "2026-10-13T00:27:32.0530318+02:00",
+    "Environment":  "Windows PowerShell 5.1 x64",
+    "PowerShell":  "5.1.26100.6584",
+    "Passed":  213,
+    "Failed":  0,
+    "WpfRequested":  true,
+    "Results":  [
+                    {
+                        "Name":  "Parseur natif PowerShell : coeur",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  17,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : INSTALLER-MISE-A-JOUR.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-NativeParser.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  90,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Invoke-DomeniaQuickUi.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaProdFactory.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : build_native.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Fabriquer-Prod.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  34,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Production.Source.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  211,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Signer-Distribution.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaPs51Compat.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaSignature.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaUiBlocking.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaUiBlockingDebt.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-Query.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Core.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  202,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Modules.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Start.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Preview-DomeniaLogin.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Preview-DomeniaProgress.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Preview-DomeniaUi.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  148,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Sauvegarder-Cache.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Verifier-Paquet.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Access.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Access.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Accounts.Async.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-BoardComputer.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-BoardFleet.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Boards.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-BoardSoftware.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Cache.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Charts.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  26,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Common.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Continuity.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Continuity.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  8,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Dashboard.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Demo.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Demo.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Demo.Worker.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  0,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Directory.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Dossier.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Dossier.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Embedded.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  31,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Engine.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Engine.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Engine.Worker.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Experience.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Experience.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  13,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Guard.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Guard.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  6,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Inline.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Insight.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Isolation.Worker.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  0,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Live.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Live.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  8,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Migration.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Migration.Worker.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Park.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Park.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Probes.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Query.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  8,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Query.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Query.Worker.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  0,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-QueryTargets.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Receipts.Worker.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Reconcile.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Relations.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  6,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Relations.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  90,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Release.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  9,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Safety.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  6,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Search.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Search.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Secrets.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Secrets.Worker.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  0,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Selection.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Sessions.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Shell.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Startup.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Storage.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Storage.Worker.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Support.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Support.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-UX.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  26,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Widgets.UI.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  26,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-Workstation.Model.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  12,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Debloquer-Paquet.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : INSTALLER-MISE-A-JOUR.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  6,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-Domenia.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  14,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaAccounts.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaAcl.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaActivityLayout.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaBoards.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  24,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaCandidate.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaCompactUi.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaDnScopes.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaEmbeddedUi.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaEngineLoad.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaEngineResilience.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaExperience.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaFaults.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaGeometry.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  6,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaIndexActions.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaIndexPersistence.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaIndexSorting.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaInstaller.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  223,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaInterface.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  0,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaLastUser.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaLiveSearchView.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaLogin.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  8,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaLoginForeground.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaModules.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaNative.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaParkDetection.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaPreload.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaQuery.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaQueryTargets.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaQueryTemplates.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaRegressions.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaRelationsAlignment.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaRelease.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaRemote.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaRules.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaScale.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaSearchPresence.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaSearchScope.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaSelection.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaSelectionIdentity.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaStableUi.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaStartupLogin.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaStreaming.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaSupport.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaTheme.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaUxRefinements.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  5,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringAcces.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringCache.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  20,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringEcritures.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  10,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringInline.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringInterface.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringMoteur.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  9,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringRecherche.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  12,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringRelations.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  12,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Test-DomeniaWiringSuites.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : AuthProbe-R1.7.1.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : AuthProbe-R1.7.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Domenia-AdFixtures.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : RC1.1-ModuleImports.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  0,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Access.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : BoardFleet.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Boards.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : BoardSoftware.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Cache.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Directory.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  78,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Engine.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Fixtures.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Insight.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Live.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Probes.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  1,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Races.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Relations.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Release.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  12,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Safety.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Search.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  2,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Shell.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Parseur natif : Workstation.Tests.ps1",
+                        "Status":  "PASS",
+                        "Milliseconds":  6,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Ecriture atomique UTF-8 et derniere version valide",
+                        "Status":  "PASS",
+                        "Milliseconds":  109,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "D118 : une preference non inscriptible ne se replie pas dans le dossier de l application",
+                        "Status":  "PASS",
+                        "Milliseconds":  57,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Preferences : repli sur JSON .bak valide",
+                        "Status":  "PASS",
+                        "Milliseconds":  38,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Journal : Bearer, mot de passe, BitLocker, secret connu",
+                        "Status":  "PASS",
+                        "Milliseconds":  25,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CSV : formules, separateurs, textes et nombres",
+                        "Status":  "PASS",
+                        "Milliseconds":  47,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Journal FI-09 : CR, LF et TAB echappes, pile sur des lignes |",
+                        "Status":  "PASS",
+                        "Milliseconds":  29,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Journal FI-08 : WARN et ERROR de Set-Status ecrits dans Domenia.log",
+                        "Status":  "PASS",
+                        "Milliseconds":  104,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Journal FI-08 : une seule ligne quand Set-Status et Write-AppLog disent la meme phrase",
+                        "Status":  "PASS",
+                        "Milliseconds":  61,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Journal FI-10 : repli LOCALAPPDATA puis TEMP, puis retour sur Domenia.log",
+                        "Status":  "PASS",
+                        "Milliseconds":  65,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Journal FI-10 : aucun emplacement inscriptible, lignes gardees en file et pertes comptees",
+                        "Status":  "PASS",
+                        "Milliseconds":  78,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Journal PF-09 : file videe toutes les 500 ms et a la fermeture de la fenetre",
+                        "Status":  "PASS",
+                        "Milliseconds":  915,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CSV CO-04 : separateur point-virgule, BOM, colonnes visibles et en-tetes francais",
+                        "Status":  "PASS",
+                        "Milliseconds":  119,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CSV UX-02 : nom Domenia-\u003cOU ou poste\u003e-AAAAMMJJ-HHmm, jamais d ecrasement",
+                        "Status":  "PASS",
+                        "Milliseconds":  22,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CSV : import accepte le point-virgule de Domenia et la virgule historique",
+                        "Status":  "PASS",
+                        "Milliseconds":  14,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "LIKE : echappement independant du SQL",
+                        "Status":  "PASS",
+                        "Milliseconds":  4,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Perimetres : cle stable et domaines distincts",
+                        "Status":  "PASS",
+                        "Milliseconds":  13,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WMI : filtre borne et fournisseur MSI refuse",
+                        "Status":  "PASS",
+                        "Milliseconds":  238,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WMI : le worker refuse le fournisseur MSI sans en recopier la liste",
+                        "Status":  "PASS",
+                        "Milliseconds":  40,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Secrets : masque integral et absence de Value dans la grille",
+                        "Status":  "PASS",
+                        "Milliseconds":  23,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Registre ferme : corps du contrat DEV et rejet d un corps modifie",
+                        "Status":  "PASS",
+                        "Milliseconds":  2132,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Nettoyage reel : runspace local annule et detache",
+                        "Status":  "PASS",
+                        "Milliseconds":  50,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "SQLite Windows : WAL, sauvegarde native et controle de la copie",
+                        "Status":  "PASS",
+                        "Milliseconds":  214,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "SQLite Windows : adoption ancienne base seulement pour le bon perimetre",
+                        "Status":  "PASS",
+                        "Milliseconds":  17,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "SQLite Windows : recherche UPN et metacaracteres litteraux",
+                        "Status":  "PASS",
+                        "Milliseconds":  205,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Base autonome : la coupe du serveur est nommee avec sa propre limite",
+                        "Status":  "PASS",
+                        "Milliseconds":  7,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Base autonome : le périmètre choisi est indépendant de Recherche",
+                        "Status":  "PASS",
+                        "Milliseconds":  6,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CO-03 : les dates et les tailles des grilles se trient par valeur",
+                        "Status":  "PASS",
+                        "Milliseconds":  91,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CO-27 : creer une OU reste dans l onglet et ne promet pas la protection",
+                        "Status":  "PASS",
+                        "Milliseconds":  75,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CO-23 : la date du mot de passe est nommee et expliquee",
+                        "Status":  "PASS",
+                        "Milliseconds":  38,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CO-22 : les options du compte se lisent, les identifiants se nomment",
+                        "Status":  "PASS",
+                        "Milliseconds":  27,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "CO-01 : deux controles interactifs ne se partagent pas la meme cellule",
+                        "Status":  "PASS",
+                        "Milliseconds":  62,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "SE-10 : les options a haut risque sont repliees et reservees a Expert",
+                        "Status":  "PASS",
+                        "Milliseconds":  85,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UX-27 : la fiche souvre sur la vue qui se lit et non sur le resume technique",
+                        "Status":  "PASS",
+                        "Milliseconds":  173,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UX-05 : la destination du deplacement se choisit dans le selecteur d OU",
+                        "Status":  "PASS",
+                        "Milliseconds":  88,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UX-14 : le responsable se lit en nom et se choisit, il ne se tape plus",
+                        "Status":  "PASS",
+                        "Milliseconds":  146,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UX-36 : le mot de passe remis par le support se genere et se change",
+                        "Status":  "PASS",
+                        "Milliseconds":  79,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UX-13 : la fiche se verrouille, un crayon la modifie, la page dit ce qui est abandonne",
+                        "Status":  "PASS",
+                        "Milliseconds":  306,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Integrite : le deblocage tolere les fins de ligne et refuse un contenu modifie",
+                        "Status":  "PASS",
+                        "Milliseconds":  169,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "FO-06 : la fiche annonce verrouillage, echeance et echecs de mot de passe",
+                        "Status":  "PASS",
+                        "Milliseconds":  130,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "SP-06 : les boutons de l inventaire annoncent la duree que le code paie",
+                        "Status":  "PASS",
+                        "Milliseconds":  20,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UX-37 : la grille d inventaire affiche le libelle calcule, la valeur brute reste relisible",
+                        "Status":  "PASS",
+                        "Milliseconds":  22,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UX-39 : la page des sessions rend la vue testee, plus les lignes brutes du poste",
+                        "Status":  "PASS",
+                        "Milliseconds":  93,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UX-17 : le diagnostic rend sa phrase en francais et garde les codes pour la copie",
+                        "Status":  "PASS",
+                        "Milliseconds":  15,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "UI-08 : la liste des logiciels passe avant la synthese en graphiques",
+                        "Status":  "PASS",
+                        "Milliseconds":  14,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "FO-09 : un clic sur une part ou une barre filtre la liste et la pastille le dit",
+                        "Status":  "PASS",
+                        "Milliseconds":  25,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "FO-07 : la derniere lecture du poste est reprise de la session avec son age",
+                        "Status":  "PASS",
+                        "Milliseconds":  122,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "MO-09 : les logiciels par utilisateur se lisent par StdRegProv sur HKU, sans WinRM",
+                        "Status":  "PASS",
+                        "Milliseconds":  3,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire",
+                        "Status":  "PASS",
+                        "Milliseconds":  17,
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF et moteur : autotest interne dans un processus dedie",
+                        "Status":  "PASS",
+                        "Milliseconds":  7733,
+                        "Detail":  ""
+                    }
+                ],
+    "Messages":  [
+                     "Preference \u0027no-root-fallback.json\u0027 non persistee dans \u0027C:\\Users\\Administrateur\\AppData\\Local\\Temp\\domenia-root-2d33de0ff80a46b18b869031ae761629\\blocker\\Preferences\\no-root-fallback.json\u0027 : Exception calling \"CreateDirectory\" with \"1\" argument(s): \"Cannot create \"C:\\Users\\Administrateur\\AppData\\Local\\Temp\\domenia-root-2d33de0ff80a46b18b869031ae761629\\blocker\" because a file or directory with the same name already exists.\""
+                 ]
+}

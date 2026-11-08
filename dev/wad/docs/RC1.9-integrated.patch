@@ -1,0 +1,1249 @@
+--- RC1.8/wad/Domenia-Core.ps1
++++ RC1.9/wad/Domenia-Core.ps1
+@@ -1717,6 +1717,12 @@
+ 
+     if ([string]::IsNullOrWhiteSpace($Title)) { $Title = $script:AppName }
+ 
++    if ($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done) {
++        $script:DomeniaSurfaceState.Status.Text=$Title+': '+$Message
++        try { Write-AppLog ($Title+': '+$Message) 'WARN' } catch { }
++        if ($Buttons -eq 'YesNo') { return [Windows.MessageBoxResult]::No }
++        return [Windows.MessageBoxResult]::OK
++    }
+     $window = New-Object System.Windows.Window
+     $window.Title = $Title
+     $window.Width = 580
+@@ -1826,11 +1832,12 @@
+     $window.MaxHeight=[Math]::Max(240,[Windows.SystemParameters]::WorkArea.Height-40)
+     $window.MaxWidth=[Math]::Max(340,[Windows.SystemParameters]::WorkArea.Width-40)
+     $window.MinWidth=[Math]::Min($window.MinWidth,$window.MaxWidth)
++    $embeddedTiming = Test-DomeniaEmbeddedHost
+     $modalWatch = [System.Diagnostics.Stopwatch]::StartNew()
+-    try { [void]$window.ShowDialog() }
++    try { [void](Show-DomeniaEmbeddedWindow -Window $window) }
+     finally {
+         $modalWatch.Stop()
+-        try { $script:ModalBlockedMs = [long]$script:ModalBlockedMs + [long]$modalWatch.ElapsedMilliseconds } catch { $script:ModalBlockedMs = [long]$modalWatch.ElapsedMilliseconds }
++        if(-not $embeddedTiming){try { $script:ModalBlockedMs = [long]$script:ModalBlockedMs + [long]$modalWatch.ElapsedMilliseconds } catch { $script:ModalBlockedMs = [long]$modalWatch.ElapsedMilliseconds }}
+     }
+     $result=$script:__DomeniaDialogResult
+     Remove-Variable -Scope Script -Name __DomeniaDialogResult -ErrorAction SilentlyContinue
+@@ -1905,12 +1912,12 @@
+     [void]$panel.Children.Add($bp)
+     $scroll.Content=$panel;$window.Content=$scroll
+     $first=$controls.Values|Select-Object -First 1
+-    $window.Add_ContentRendered({if($null-ne $first){$first.Focus();$first.SelectAll()}})
++    Register-DomeniaSurfaceReady $window ({if($null-ne $first){$first.Focus();$first.SelectAll()}})
+     $window.MaxHeight=[Math]::Max(240,[Windows.SystemParameters]::WorkArea.Height-40)
+     $window.MaxWidth=[Math]::Max(340,[Windows.SystemParameters]::WorkArea.Width-40)
+     $window.MinWidth=[Math]::Min($window.MinWidth,$window.MaxWidth)
+     $script:__DomeniaFormResult=$null
+-    [void]$window.ShowDialog()
++    [void](Show-DomeniaEmbeddedWindow -Window $window)
+     $result=$script:__DomeniaFormResult
+     Remove-Variable -Scope Script -Name __DomeniaFormResult -ErrorAction SilentlyContinue
+     return $result
+@@ -3994,7 +4001,7 @@
+               </Button>
+             </StackPanel>
+             <StackPanel DockPanel.Dock="Bottom" Margin="8,12,0,6" x:Name="UxNavFooter">
+-              <TextBlock Text="DOMENIA 1.0 · R1.13" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
++              <TextBlock Text="DOMENIA 1.0 · RC1.9" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+               <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"/>
+             </StackPanel>
+             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+@@ -5024,7 +5031,8 @@
+                     </StackPanel>
+                     <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                       <WrapPanel>
+-                        <Button x:Name="BtnDetectUserComputers" ToolTip="Cherche les postes connus et les indices AD du compte sélectionné. Aucune console n’est interrogée sans choix et confirmation explicites." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher les postes" AutomationProperties.HelpText="Cherche les postes connus et les indices AD du compte sélectionné. Aucune console n’est interrogée sans choix et confirmation explicites." Content="Rechercher les postes" Style="{StaticResource RunButton}" Margin="0,0,8,8"/>
++                        <Button x:Name="BtnRelationSelectUser" Content="Choisir un utilisateur" ToolTip="Rechercher un utilisateur dans un volet intégré, sans sonde de poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir un utilisateur" AutomationProperties.HelpText="Rechercher un utilisateur dans un volet intégré, sans sonde de poste."/>
++<Button x:Name="BtnDetectUserComputers" ToolTip="Cherche les postes connus et les indices AD du compte sélectionné. Aucune console n’est interrogée sans choix et confirmation explicites." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher les postes" AutomationProperties.HelpText="Cherche les postes connus et les indices AD du compte sélectionné. Aucune console n’est interrogée sans choix et confirmation explicites." Content="Rechercher les postes" Style="{StaticResource RunButton}" Margin="0,0,8,8"/>
+                         <Button x:Name="BtnLinkSelected" ToolTip="Choisit un objet dans l’annuaire et demande une confirmation. Déclaration locale, pas preuve de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associer manuellement" AutomationProperties.HelpText="Choisit un objet dans l’annuaire et demande une confirmation. Déclaration locale, pas preuve de session." Content="Associer un poste" Margin="0,0,8,8"/>
+                         <Button x:Name="BtnRemoveLink" ToolTip="Retire seulement le lien choisi dans l’onglet actif après confirmation, pas l’objet AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Supprimer le lien sélectionné" AutomationProperties.HelpText="Retire seulement le lien choisi dans l’onglet actif après confirmation, pas l’objet AD." Content="Supprimer l’association" Style="{StaticResource DangerButton}" Margin="0,0,8,8"/>
+                         <Button x:Name="BtnImportLinks" ToolTip="Importe des associations locales depuis un CSV choisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Importer des liens" AutomationProperties.HelpText="Importe des associations locales depuis un CSV choisi." Content="Importer" Margin="0,0,8,8"/>
+@@ -5972,6 +5980,7 @@
+         </Grid>
+       </Grid>
+     </ScrollViewer>
++    <Grid x:Name="DomeniaDialogLayer" Visibility="Collapsed" Panel.ZIndex="2000"/>
+     <Border x:Name="WriteModeHalo" Margin="3" BorderBrush="#DC2626" BorderThickness="6" CornerRadius="22" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="1000">
+       <Border.Effect>
+         <DropShadowEffect Color="#DC2626" BlurRadius="34" ShadowDepth="0" Opacity="0.86"/>
+@@ -7310,160 +7319,11 @@
+ 
+ function Show-DomeniaObjectPicker {
+     [CmdletBinding()]
+-    param(
+-        [Parameter(Mandatory=$true)][ValidateSet("Machine","Utilisateur")][string]$Kind,
+-        [string]$Title = "",
+-        [string]$Prompt = "",
+-        [string]$InitialTerm = ""
+-    )
+-    if ([string]::IsNullOrWhiteSpace($Title)) {
+-        if ($Kind -eq "Machine") { $Title = "Choisir un poste" } else { $Title = "Choisir un utilisateur" }
+-    }
+-    if ([string]::IsNullOrWhiteSpace($Prompt)) {
+-        if ($Kind -eq "Machine") { $Prompt = "Saisis le debut du nom du poste, puis choisis-le dans la liste." }
+-        else { $Prompt = "Saisis le debut du nom ou de l identifiant, puis choisis le compte dans la liste." }
+-    }
+-
+-    $window = New-Object System.Windows.Window
+-    $window.Title = $Title
+-    $window.Width = 660
+-    $window.Height = 520
+-    $window.MinWidth = 520
+-    $window.MinHeight = 380
+-    $window.WindowStartupLocation = "CenterOwner"
+-    $window.ResizeMode = "CanResize"
+-    $window.ShowInTaskbar = $false
+-    $window.Background = "White"
+-    try { Set-AppWindowIcon $window } catch { }
+-    $owner = Get-DomeniaDialogOwner
+-    if ($null -ne $owner) { try { $window.Owner = $owner } catch { } }
+-
+-    $grid = New-Object System.Windows.Controls.Grid
+-    $grid.Margin = "20"
+-    foreach ($h in @("Auto","Auto","*","Auto","Auto")) {
+-        $rd = New-Object System.Windows.Controls.RowDefinition
+-        $rd.Height = [System.Windows.GridLength]::Auto
+-        if ($h -eq "*") { $rd.Height = New-Object System.Windows.GridLength 1,([System.Windows.GridUnitType]::Star) }
+-        [void]$grid.RowDefinitions.Add($rd)
+-    }
+-
+-    $promptBlock = New-Object System.Windows.Controls.TextBlock
+-    $promptBlock.Text = [string]$Prompt
+-    $promptBlock.TextWrapping = "Wrap"
+-    $promptBlock.Foreground = "#475569"
+-    $promptBlock.Margin = "0,0,0,12"
+-    [System.Windows.Controls.Grid]::SetRow($promptBlock,0)
+-    [void]$grid.Children.Add($promptBlock)
+-
+-    $searchRow = New-Object System.Windows.Controls.Grid
+-    $searchRow.Margin = "0,0,0,10"
+-    foreach ($w in @(1,0)) {
+-        $cd = New-Object System.Windows.Controls.ColumnDefinition
+-        if ($w -eq 1) { $cd.Width = New-Object System.Windows.GridLength 1,([System.Windows.GridUnitType]::Star) }
+-        else { $cd.Width = [System.Windows.GridLength]::Auto }
+-        [void]$searchRow.ColumnDefinitions.Add($cd)
+-    }
+-    $box = New-Object System.Windows.Controls.TextBox
+-    $box.Text = [string]$InitialTerm
+-    $box.MinHeight = 34
+-    $box.Padding = "8,6"
+-    $box.FontSize = 13
+-    [System.Windows.Controls.Grid]::SetColumn($box,0)
+-    [void]$searchRow.Children.Add($box)
+-    $go = New-Object System.Windows.Controls.Button
+-    $go.Content = "Rechercher"
+-    $go.Width = 120
+-    $go.Height = 34
+-    $go.Margin = "10,0,0,0"
+-    [System.Windows.Controls.Grid]::SetColumn($go,1)
+-    [void]$searchRow.Children.Add($go)
+-    [System.Windows.Controls.Grid]::SetRow($searchRow,1)
+-    [void]$grid.Children.Add($searchRow)
+-
+-    $list = New-Object System.Windows.Controls.ListBox
+-    $list.FontFamily = "Consolas"
+-    $list.FontSize = 12
+-    [System.Windows.Controls.Grid]::SetRow($list,2)
+-    [void]$grid.Children.Add($list)
+-
+-    $status = New-Object System.Windows.Controls.TextBlock
+-    $status.Foreground = "#475569"
+-    $status.TextWrapping = "Wrap"
+-    $status.MinHeight = 34
+-    $status.Margin = "0,10,0,0"
+-    $status.Text = "Saisis au moins deux caracteres."
+-    [System.Windows.Controls.Grid]::SetRow($status,3)
+-    [void]$grid.Children.Add($status)
+-
+-    $buttons = New-Object System.Windows.Controls.StackPanel
+-    $buttons.Orientation = "Horizontal"
+-    $buttons.HorizontalAlignment = "Right"
+-    $buttons.Margin = "0,12,0,0"
+-    $cancel = New-Object System.Windows.Controls.Button
+-    $cancel.Content = "Annuler"
+-    $cancel.Width = 110
+-    $cancel.Height = 38
+-    $cancel.Margin = "0,0,10,0"
+-    $cancel.IsCancel = $true
+-    [void]$buttons.Children.Add($cancel)
+-    $accept = New-Object System.Windows.Controls.Button
+-    $accept.Content = "Choisir"
+-    $accept.Width = 130
+-    $accept.Height = 38
+-    $accept.IsDefault = $true
+-    $accept.IsEnabled = $false
+-    [void]$buttons.Children.Add($accept)
+-    [System.Windows.Controls.Grid]::SetRow($buttons,4)
+-    [void]$grid.Children.Add($buttons)
+-    $window.Content = $grid
+-
+-    $state = [pscustomobject]@{ Rows=@(); Selected=$null; Kind=$Kind }
+-
+-    $runSearch = {
+-        $term = ([string]$box.Text).Trim()
+-        $list.Items.Clear()
+-        $state.Rows = @()
+-        $accept.IsEnabled = $false
+-        if ($term.Length -lt 2) { $status.Text = "Saisis au moins deux caracteres."; return }
+-        $status.Text = "Recherche en cours..."
+-        try { $window.Cursor = [System.Windows.Input.Cursors]::Wait } catch { }
+-        try {
+-            $rows = @(Search-DomeniaPickerObjects -Kind $state.Kind -Term $term)
+-            $state.Rows = $rows
+-            foreach ($r in $rows) {
+-                $label = "{0,-22} {1}" -f [string]$r.Name,[string]$r.Second
+-                if (-not [string]::IsNullOrWhiteSpace([string]$r.Description)) { $label = $label + "    " + [string]$r.Description }
+-                [void]$list.Items.Add($label)
+-            }
+-            if (@($rows).Count -eq 0) { $status.Text = "Aucun objet trouve pour '$term'." }
+-            else { $status.Text = "{0} objet(s) trouve(s). Choisis-en un dans la liste." -f @($rows).Count }
+-        }
+-        catch {
+-            $status.Text = "Recherche impossible : " + $_.Exception.Message
+-        }
+-        finally { try { $window.Cursor = $null } catch { } }
+-    }
+-
+-    $go.Add_Click($runSearch)
+-    $box.Add_KeyDown({
+-        param($sender,$e)
+-        if ($e.Key -eq [System.Windows.Input.Key]::Return) { & $runSearch; $e.Handled = $true }
+-    })
+-    $list.Add_SelectionChanged({ $accept.IsEnabled = ($list.SelectedIndex -ge 0) })
+-    $list.Add_MouseDoubleClick({ if ($list.SelectedIndex -ge 0) { $state.Selected = @($state.Rows)[$list.SelectedIndex]; $window.DialogResult = $true } })
+-    $accept.Add_Click({
+-        if ($list.SelectedIndex -lt 0) { return }
+-        $state.Selected = @($state.Rows)[$list.SelectedIndex]
+-        $window.DialogResult = $true
+-    })
+-    $window.Add_ContentRendered({
+-        $box.Focus() | Out-Null
+-        if (-not [string]::IsNullOrWhiteSpace([string]$box.Text)) { & $runSearch }
+-    })
+-
+-    $result = $window.ShowDialog()
+-    if ($result -ne $true) { return $null }
+-    return $state.Selected
++    param([Parameter(Mandatory=$true)][ValidateSet('Machine','Utilisateur')][string]$Kind,
++        [string]$Title='', [string]$Prompt='', [string]$InitialTerm='')
++    if (-not $Title) { $Title=if($Kind -eq 'Machine'){'Choisir un poste'}else{'Choisir un utilisateur'} }
++    if (-not $Prompt) { $Prompt='Rechercher dans le domaine, choisir une ligne puis valider. Aucune sonde de poste.' }
++    return (Show-DomeniaInlinePicker -Kind $Kind -Title $Title -Prompt $Prompt -InitialTerm $InitialTerm)
+ }
+ 
+ 
+@@ -7518,120 +7378,8 @@
+ 
+ function Show-DomeniaOuPicker {
+     param([string]$ObjectName,[string]$CurrentParentDn)
+-
+-    $window = New-Object System.Windows.Window
+-    $window.Title = "Deplacer / changer d'OU"
+-    $window.Width = 820
+-    $window.Height = 610
+-    $window.MinWidth = 650
+-    $window.MinHeight = 460
+-    $window.WindowStartupLocation = "CenterOwner"
+-    $window.ResizeMode = "CanResize"
+-    $window.ShowInTaskbar = $false
+-    $window.Background = "White"
+-    try { Set-AppWindowIcon $window } catch { }
+-    $owner = Get-DomeniaDialogOwner
+-    if ($null -ne $owner) { try { $window.Owner = $owner } catch { } }
+-
+-    $grid = New-Object System.Windows.Controls.Grid
+-    $grid.Margin = "20"
+-    foreach ($h in @("Auto","Auto","Auto","*","Auto","Auto")) {
+-        $rd = New-Object System.Windows.Controls.RowDefinition
+-        if ($h -eq "*") { $rd.Height = New-Object System.Windows.GridLength 1,([System.Windows.GridUnitType]::Star) }
+-        else { $rd.Height = [System.Windows.GridLength]::Auto }
+-        [void]$grid.RowDefinitions.Add($rd)
+-    }
+-
+-    $title = New-Object System.Windows.Controls.TextBlock
+-    $title.Text = "Choisir la nouvelle unite d'organisation"
+-    $title.FontSize = 18
+-    $title.FontWeight = "SemiBold"
+-    $title.Margin = "0,0,0,6"
+-    [System.Windows.Controls.Grid]::SetRow($title,0)
+-    [void]$grid.Children.Add($title)
+-
+-    $current = New-Object System.Windows.Controls.TextBlock
+-    $current.Text = "Poste : $ObjectName`r`nOU actuelle : $CurrentParentDn"
+-    $current.TextWrapping = "Wrap"
+-    $current.Foreground = "#475569"
+-    $current.Margin = "0,0,0,14"
+-    [System.Windows.Controls.Grid]::SetRow($current,1)
+-    [void]$grid.Children.Add($current)
+-
+-    $searchRow = New-Object System.Windows.Controls.Grid
+-    $searchRow.Margin = "0,0,0,10"
+-    $c0 = New-Object System.Windows.Controls.ColumnDefinition
+-    $c0.Width = New-Object System.Windows.GridLength 1,([System.Windows.GridUnitType]::Star)
+-    $c1 = New-Object System.Windows.Controls.ColumnDefinition
+-    $c1.Width = [System.Windows.GridLength]::Auto
+-    [void]$searchRow.ColumnDefinitions.Add($c0); [void]$searchRow.ColumnDefinitions.Add($c1)
+-    $box = New-Object System.Windows.Controls.TextBox
+-    $box.MinHeight = 34; $box.Padding = "8,6"; $box.FontSize = 13
+-    $box.ToolTip = "Recherche par nom d'OU. Laisse vide pour afficher les premieres OU du domaine."
+-    [System.Windows.Controls.Grid]::SetColumn($box,0); [void]$searchRow.Children.Add($box)
+-    $go = New-Object System.Windows.Controls.Button
+-    $go.Content = "Rechercher"; $go.Width = 120; $go.Height = 34; $go.Margin = "10,0,0,0"
+-    [System.Windows.Controls.Grid]::SetColumn($go,1); [void]$searchRow.Children.Add($go)
+-    [System.Windows.Controls.Grid]::SetRow($searchRow,2); [void]$grid.Children.Add($searchRow)
+-
+-    $list = New-Object System.Windows.Controls.ListBox
+-    $list.FontFamily = "Consolas"; $list.FontSize = 12
+-    [System.Windows.Controls.Grid]::SetRow($list,3); [void]$grid.Children.Add($list)
+-
+-    $status = New-Object System.Windows.Controls.TextBlock
+-    $status.Foreground = "#475569"; $status.TextWrapping = "Wrap"; $status.Margin = "0,10,0,0"; $status.MinHeight = 36
+-    [System.Windows.Controls.Grid]::SetRow($status,4); [void]$grid.Children.Add($status)
+-
+-    $buttons = New-Object System.Windows.Controls.StackPanel
+-    $buttons.Orientation = "Horizontal"; $buttons.HorizontalAlignment = "Right"; $buttons.Margin = "0,12,0,0"
+-    $cancel = New-Object System.Windows.Controls.Button
+-    $cancel.Content = "Annuler"; $cancel.Width = 110; $cancel.Height = 38; $cancel.Margin = "0,0,10,0"; $cancel.IsCancel = $true
+-    [void]$buttons.Children.Add($cancel)
+-    $accept = New-Object System.Windows.Controls.Button
+-    $accept.Content = "Choisir cette OU"; $accept.Width = 150; $accept.Height = 38; $accept.IsDefault = $true; $accept.IsEnabled = $false
+-    [void]$buttons.Children.Add($accept)
+-    [System.Windows.Controls.Grid]::SetRow($buttons,5); [void]$grid.Children.Add($buttons)
+-    $window.Content = $grid
+-
+-    $state = [pscustomobject]@{ Rows=@(); Selected=$null }
+-    $runSearch = {
+-        $list.Items.Clear(); $state.Rows = @(); $state.Selected = $null; $accept.IsEnabled = $false
+-        $status.Text = "Recherche des unites d organisation..."
+-        try { $window.Cursor = [System.Windows.Input.Cursors]::Wait } catch { }
+-        try {
+-            $rows = @(Search-DomeniaOuPickerObjects -Term ([string]$box.Text) -Limit 250)
+-            $state.Rows = $rows
+-            foreach ($r in $rows) { [void]$list.Items.Add(("{0,-28}  {1}" -f [string]$r.Name,[string]$r.DN)) }
+-            if ($rows.Count -eq 0) { $status.Text = "Aucune OU trouvee." }
+-            elseif ($rows.Count -ge 250) { $status.Text = "250 resultats affiches. Affine la recherche si necessaire." }
+-            else { $status.Text = "$($rows.Count) OU trouvee(s)." }
+-            if (-not [string]::IsNullOrWhiteSpace($CurrentParentDn)) {
+-                for ($i=0; $i -lt $rows.Count; $i++) {
+-                    if ([string]$rows[$i].DN -ieq $CurrentParentDn) { $list.SelectedIndex = $i; break }
+-                }
+-            }
+-        }
+-        catch { $status.Text = "Recherche impossible : $($_.Exception.Message)" }
+-        finally { try { $window.Cursor = $null } catch { } }
+-    }
+-
+-    $go.Add_Click($runSearch)
+-    $box.Add_KeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Return) { & $runSearch; $e.Handled = $true } })
+-    $list.Add_SelectionChanged({
+-        $accept.IsEnabled = ($list.SelectedIndex -ge 0)
+-        if ($list.SelectedIndex -ge 0) {
+-            $r = @($state.Rows)[$list.SelectedIndex]
+-            if ([string]$r.DN -ieq $CurrentParentDn) { $status.Text = "OU actuelle selectionnee : aucun deplacement ne sera necessaire." }
+-            else { $status.Text = "Destination : " + [string]$r.DN }
+-        }
+-    })
+-    $list.Add_MouseDoubleClick({ if ($list.SelectedIndex -ge 0) { $state.Selected = @($state.Rows)[$list.SelectedIndex]; $window.DialogResult = $true } })
+-    $accept.Add_Click({ if ($list.SelectedIndex -ge 0) { $state.Selected = @($state.Rows)[$list.SelectedIndex]; $window.DialogResult = $true } })
+-    $window.Add_ContentRendered({ & $runSearch; $box.Focus() | Out-Null })
+-
+-    $result = $window.ShowDialog()
+-    if ($result -ne $true) { return $null }
+-    return $state.Selected
++    return (Show-DomeniaInlinePicker -Kind OU -Title 'Choisir la nouvelle OU' -Prompt (
++        'Poste : '+$ObjectName+"`r`nOU actuelle : "+$CurrentParentDn+"`r`nRecherchez une OU puis confirmez. Le déplacement n'est pas lancé par cette sélection."))
+ }
+ 
+ function Move-DomeniaSelectedComputerWithOuPicker {
+@@ -7721,7 +7469,7 @@
+ 
+ function Import-LinksCsv {
+     try {
+-        $dlg = New-Object Microsoft.Win32.OpenFileDialog
++        $dlg = New-DomeniaFileRequest -Mode Open
+         $dlg.Filter = "CSV (*.csv)|*.csv|Tous les fichiers (*.*)|*.*"
+         if (-not $dlg.ShowDialog()) { return }
+ 
+@@ -8192,7 +7940,11 @@
+ }
+ function Get-WPropFirst {
+     param($Props, [string]$Name, $Default = "")
+-    try { if ($Props -and $Props.Contains($Name) -and $Props[$Name].Count -gt 0) { return $Props[$Name][0] } } catch { }
++    if ($null -ne $Props -and $Props.Contains($Name) -and $Props[$Name].Count -gt 0) {
++        $value=$Props[$Name][0]
++        if ($value -is [byte[]]) { return ,$value }
++        return $value
++    }
+     return $Default
+ }
+ function Get-WPropAll {
+@@ -8225,7 +7977,20 @@
+ }
+ function Convert-WGuid {
+     param($Value)
+-    try { if ($Value -is [byte[]]) { return ([guid]$Value).Guid }; return [string]$Value } catch { return "" }
++    try {
++        if ($Value -is [guid]) { return $Value.ToString('D') }
++        if ($Value -is [array]) {
++            if ($Value.Count -ne 16) { return '' }
++            foreach($part in $Value) {
++                if ($part -isnot [byte] -and $part -isnot [int] -and $part -isnot [long]) { return '' }
++                if ([long]$part -lt 0 -or [long]$part -gt 255) { return '' }
++            }
++            return ([guid]::new([byte[]]$Value)).ToString('D')
++        }
++        $parsed=[guid]::Empty
++        if ([guid]::TryParse([string]$Value,[ref]$parsed)) { return $parsed.ToString('D') }
++    } catch { }
++    return ''
+ }
+ function Convert-WSid {
+     param($Value)
+@@ -10494,7 +10259,7 @@
+         if($null -eq $grid){return}
+         $rows = @(Get-DomeniaExperienceExportRows -VisibleRows @(Get-DomeniaExperienceVisibleRows) -SelectedRows @($grid.SelectedItems))
+         if ($rows.Count -eq 0) { Set-Status "Aucun resultat a exporter." "WARN"; return }
+-        $dlg = New-Object Microsoft.Win32.SaveFileDialog
++        $dlg = New-DomeniaFileRequest -Mode Save
+         $dlg.Filter = "CSV UTF-8 (*.csv)|*.csv"
+         $dlg.FileName = "Domenia-AD-$((Get-Date).ToString("yyyyMMdd-HHmmss")).csv"
+         if ($dlg.ShowDialog()) { $rows | ConvertTo-DomeniaSpreadsheetSafeRow | Export-Csv -LiteralPath $dlg.FileName -NoTypeInformation -Encoding UTF8; Set-Status "$($rows.Count) ligne(s) exportee(s)." }
+@@ -16617,11 +16382,11 @@
+                 $user=([string]$dlg.FindName("TxtRUser").Text).Trim();if($mode-eq"Interactive"-and[string]::IsNullOrWhiteSpace($user)){throw "Renseigne le compte de la session interactive."}
+                 if($mode-eq"MachineCredential"-and$null-eq$script:MachineCredential){throw "Renseigne d abord le compte poste dans l onglet Diagnostic."}
+                 $dlg.Tag=[pscustomobject]@{Computer=$computer;Command=$exe;Arguments=[string]$dlg.FindName("TxtRArgs").Text;Mode=$mode;RunUser=$user;Elevated=[bool]$dlg.FindName("ChkRElevated").IsChecked}
+-                $dlg.DialogResult=$true;$dlg.Close()
+-            }catch{[System.Windows.MessageBox]::Show($_.Exception.Message,"Rimotte",'OK','Warning')|Out-Null}
++                Set-DomeniaSurfaceResult $dlg $true
++            }catch{Show-DomeniaDialog -Message $_.Exception.Message -Title 'Exécution distante' -Kind Warning|Out-Null}
+         })
+-        $cancel.Add_Click({$dlg.DialogResult=$false;$dlg.Close()})
+-        $ok=$dlg.ShowDialog()
++        $cancel.Add_Click({Set-DomeniaSurfaceResult $dlg $false})
++        $ok=Show-DomeniaEmbeddedWindow -Window $dlg
+         if($ok -and $null-ne$dlg.Tag){Start-DomeniaRimotteRun -Settings $dlg.Tag}
+     } catch { [void](Show-DomeniaOperationError -Operation "Rimotte" -ErrorRecordOrException $_) }
+ }
+@@ -18411,8 +18176,7 @@
+     $run={
+         $item=$list.SelectedItem
+         if($null -eq $item){return}
+-        $window.DialogResult=$true
+-        $window.Close()
++        Set-DomeniaSurfaceResult $window $true
+         switch([string]$item.Key){
+             "search" { $c=Get-DomeniaControl -Name "TxtGlobalSearch"; if($null -ne $c){$c.Focus();$c.SelectAll()} }
+             "root" { Go-RootBranch }
+@@ -18443,8 +18207,8 @@
+         $footer.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty,'MutedColor')
+     }
+     $window.Content=$root
+-    $window.Add_ContentRendered({$search.Focus();$list.SelectedIndex=0})
+-    [void]$window.ShowDialog()
++    Register-DomeniaSurfaceReady $window ({$search.Focus();$list.SelectedIndex=0})
++    [void](Show-DomeniaEmbeddedWindow -Window $window)
+ }
+ 
+ 
+@@ -19116,7 +18880,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.8-RELATIONS"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.9-INTEGRATED"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -20142,7 +19906,7 @@
+          "Impact serveur AD : $([string]$Estimate.Impact)`r`n"+
+          "Confiance de l estimation : $cal$hist`r`n`r`n"+
+          "DOMENIA enregistrera la duree, le volume estime, les reussites et le taux de fallback dans Domenia.db afin de recalibrer les prochaines previsions.`r`n`r`nLancer ?"
+-    return (([System.Windows.MessageBox]::Show($msg,$Title,[System.Windows.MessageBoxButton]::YesNo,[System.Windows.MessageBoxImage]::Question)) -eq [System.Windows.MessageBoxResult]::Yes)
++    return (Confirm-Action -Message $msg -Title $Title)
+ }
+ 
+ function Get-LinkCsvPath {
+@@ -20300,6 +20064,8 @@
+         DocumentStore        = "1C3586124D76C145FB35E933C5962DAB37DA447F3AE17093D7D301202A7E99EE"
+         LocalStore           = "C3AC442159F01B268243A881383EF193BEA3F53322950318C61983E2D78F6054"
+         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
++            EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
++        EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
+     }
+ }
+ 
+@@ -20308,7 +20074,7 @@
+     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
+     # Pin the entire reviewed map, not a separately maintained operation counter.
+     # This digest is updated only by the DEV release tool after contract review.
+-    $expectedFingerprint = "35CCA8C65234C05E1630CBD1FF2383F2D5916288DC387CE3DAB79F4F3A0897A2"
++    $expectedFingerprint = "E824F6B27D8A040EA7B0330AFC72B45CD47256213F51951189031AA0AA006BAD"
+     if ($null -eq $Registry -or $Registry.Count -eq 0) {
+         throw 'Registre worker absent ou vide.'
+     }
+@@ -20932,7 +20698,7 @@
+     $static = $script:WorkerContextStatic
+     $remoteOperations = @("SessionsList","ComputerDiagnostics","ComputerLastUser","LiveConsole","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
+     $machineCredentialOperations = @("SessionsList","ComputerDiagnostics","ComputerInventory","SoftwareInventory","ParkSweep","WmiNamespaces","WmiClasses","WmiQuery","ComputerLastUser","LiveConsole","ComputerGpUpdate","ComputerRestart","UserComputerProbe","RimotteRun")
+-    $nonDirectoryOperations = @("CmdletHelp","CmdletInventory","EngineSelfTest","LiveCache","LiveSelectedPing","LocalStore","ReceiptStore","SessionsList","DocumentStore") + $remoteOperations
++    $nonDirectoryOperations = @("CmdletHelp","CmdletInventory","EngineSelfTest","LiveCache","LiveSelectedPing","LocalStore","ReceiptStore","SessionsList","DocumentStore","EmbeddedPathBrowse") + $remoteOperations
+     # ComputerLastUser valide les candidats dans LDAP : ce n est pas une
+     # operation exclusivement distante, contrairement au ping/inventaire.
+     $needsDirectoryCredential = ($OperationId -in @('ComputerLastUser','LiveConsole') -or $nonDirectoryOperations -notcontains $OperationId)
+@@ -21699,7 +21465,7 @@
+     Initialize-DomeniaGuard
+     Initialize-DomeniaLive
+     Initialize-DomeniaReconcile
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.8 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.9 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -22482,7 +22248,7 @@
+ function Export-SelfCheckReport {
+     try {
+         Initialize-DomeniaDataStore | Out-Null
+-        $dlg = New-Object Microsoft.Win32.SaveFileDialog
++        $dlg = New-DomeniaFileRequest -Mode Save
+         $dlg.Filter = "Archive diagnostic ZIP (*.zip)|*.zip"
+         $dlg.FileName = "Domenia-Diagnostic-$((Get-Date).ToString('yyyyMMdd-HHmmss')).zip"
+         if (-not $dlg.ShowDialog()) { return }
+@@ -22829,7 +22595,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1.8"
++$script:DomeniaBuild = "Domenia 1.0 RC1.9"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -23076,8 +22842,7 @@
+     try { $ui.Password.Password = "" } catch { }
+     try { $ui.PasswordVisible.Text = "" } catch { }
+     $state.Password = ""
+-    $ui.Window.DialogResult = $true
+-    $ui.Window.Close()
++    Set-DomeniaSurfaceResult $ui.Window $true
+ }
+ 
+ function Convert-DomeniaLoginFailureMessage {
+@@ -23707,8 +23472,7 @@
+             return
+         }
+         $script:FastLoginState.LoginOk = $false
+-        $script:FastLoginUi.Window.DialogResult = $false
+-        $script:FastLoginUi.Window.Close()
++        Set-DomeniaSurfaceResult $script:FastLoginUi.Window $false
+     })
+     $ui.OpenLog.Add_Click({
+         try {
+@@ -23726,11 +23490,11 @@
+         }
+         catch { $script:FastLoginUi.Error.Text = "Copie impossible : $($_.Exception.Message)" }
+     })
+-    $window.Add_KeyDown({
++    Register-DomeniaSurfaceKeys $window ({
+         param($sender,$eventArgs)
+-        if ($eventArgs.Key -eq "Enter" -and $script:FastLoginUi.Connect.IsEnabled) { Start-DomeniaFastLoginAttempt }
++        if ($eventArgs.Key -eq "Enter" -and $script:FastLoginUi.Connect.IsEnabled) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt }
+     })
+-    $window.Add_ContentRendered({
++    Register-DomeniaSurfaceReady $window ({
+         Write-DomeniaFastLoginLog -Stage "WINDOW_READY" -Detail "Fenetre affichee. Mode=$($script:FastLoginMode) Source=$($script:LoginWindowModeSource) Script=$($script:LaunchPath)"
+         Add-DomeniaFastLoginDetail "Build : $($script:DomeniaBuild)"
+         Add-DomeniaFastLoginDetail "Mode : $($script:FastLoginMode) ; source : $($script:LoginWindowModeSource)"
+@@ -23746,7 +23510,7 @@
+     })
+ 
+     Write-DomeniaFastLoginLog -Stage "WINDOW_SHOW" -Detail "ShowDialog"
+-    $null = $window.ShowDialog()
++    $null = Show-DomeniaEmbeddedWindow -Window $window -ManagedCancel -PreserveTheme
+     $ok = [bool]$script:FastLoginState.LoginOk
+     if ($null -ne $script:FastLoginState.Session) { Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics }
+     $script:FastLoginState.Password = ""
+--- RC1.8/wad/Domenia-Modules.ps1
++++ RC1.9/wad/Domenia-Modules.ps1
+@@ -5,6 +5,28 @@
+ 
+ function Get-DomeniaRuntimeModulePlan {
+     @(
++        [pscustomobject]@{ File='Domenia-Embedded.UI.ps1'; DotSource=$true; Functions=@(
++            'Test-DomeniaEmbeddedHost',
++            'Get-DomeniaSurfaceRecord',
++            'Register-DomeniaSurfaceReady',
++            'Register-DomeniaSurfaceKeys',
++            'Get-DomeniaOwningDialog',
++            'Set-DomeniaSurfaceResult',
++            'Get-DomeniaLogicalControls',
++            'Set-DomeniaEmbeddedTheme',
++            'Show-DomeniaEmbeddedWindow',
++            'Get-DomeniaEmbeddedLookupCode',
++            'Complete-DomeniaEmbeddedLookup',
++            'Fail-DomeniaEmbeddedLookup',
++            'Show-DomeniaInlinePicker',
++            'Select-DomeniaRelationsUser',
++            'Get-DomeniaEmbeddedContext',
++            'New-DomeniaFileRequest',
++            'Get-DomeniaEmbeddedPathCode',
++            'Complete-DomeniaEmbeddedPath',
++            'Fail-DomeniaEmbeddedPath',
++            'Show-DomeniaInlineFilePicker'
++        ) }
+         [pscustomobject]@{ File='Domenia-Relations.UI.ps1'; DotSource=$true; Functions=@(
+             'Initialize-DomeniaRelationsState',
+             'Set-DomeniaRelationsSelection',
+--- RC1.8/wad/Domenia-Start.ps1
++++ RC1.9/wad/Domenia-Start.ps1
+@@ -45,6 +45,7 @@
+         'wad/Domenia-Core.ps1',
+         'wad/Domenia-Start.ps1',
+         'wad/Domenia-Modules.ps1',
++        'wad/modules/Domenia-Embedded.UI.ps1',
+         'wad/modules/Domenia-UX.UI.ps1',
+         'wad/modules/Domenia-Experience.Model.ps1',
+         'wad/modules/Domenia-Experience.UI.ps1',
+@@ -74,9 +75,11 @@
+         $importReport = @(& {
+             param([string]$BootstrapPath)
+             . $BootstrapPath
+-            $script:DomeniaRuntimeImports
++            [pscustomobject]@{Imports=@($script:DomeniaRuntimeImports);Expected=@(Get-DomeniaRuntimeModulePlan).Count}
+         } (Join-Path $PSScriptRoot 'Domenia-Modules.ps1'))
+-        if($importReport.Count -ne 20){throw 'Validation des modules incomplete.'}
++        $expectedModules=[int]$importReport[0].Expected
++        $importReport=@($importReport[0].Imports)
++        if($importReport.Count -ne $expectedModules){throw 'Validation des modules incomplete.'}
+         Write-Host ('Runtime '+$manifest.Build+' : '+$entries.Count+' fichiers verifies ; '+$importReport.Count+' modules charges et fonctions disponibles. Aucun acces AD.')
+         exit 0
+     }
+--- RC1.8/wad/modules/Domenia-Relations.UI.ps1
++++ RC1.9/wad/modules/Domenia-Relations.UI.ps1
+@@ -83,6 +83,7 @@
+         $c.Visibility=if($isUser){'Visible'}else{'Collapsed'};$c.IsEnabled=($isUser -and -not $busy -and -not $locked)
+     }
+     $stop=Get-DomeniaControl 'BtnRelationsStop';if($null -ne $stop){$stop.IsEnabled=$busy;$stop.Visibility=if($busy){'Visible'}else{'Hidden'}}
++    $choose=Get-DomeniaControl 'BtnRelationSelectUser';if($null -ne $choose){$choose.IsEnabled=(-not $busy -and -not $locked)}
+     $a=Get-DomeniaControl 'BtnLinkSelected';if($null -ne $a){$a.Content=if($isUser){'Associer un poste'}else{'Associer un utilisateur'};$a.IsEnabled=(($isUser -or $isMachine) -and -not $busy -and -not $locked)}
+     $grid=Get-DomeniaRelationsActiveGrid;$remove=Get-DomeniaControl 'BtnRemoveLink'
+     if($null -ne $remove){$remove.IsEnabled=($null -ne $grid -and $null -ne $grid.SelectedItem -and -not $locked)}
+@@ -192,7 +193,11 @@
+     $q.Attempts=[Collections.ArrayList]::new();foreach($a in @($r.Attempts)){[void]$q.Attempts.Add($a)}
+     $q.Hints=[Collections.ArrayList]::new();foreach($h in @($r.Hints)){[void]$q.Hints.Add($h)}
+     $known=@(Get-DomeniaRelationsSelectedLinks).Count;$confirmed=@($r.Candidates|Where-Object{$_.Confirmed -eq $true}).Count
+-    $message=if(-not $r.Success){'Recherche AD non confirmée. Les associations connues restent conservées.'}else{
++    $message=if(-not $r.Success){
++        $first=@($r.Attempts|Where-Object{$_.Status -notin @('OK','VIDE','NON_DEMANDE')}|Select-Object -First 1)
++        $reason=if($first.Count){' '+[string]$first[0].Method+' : '+[string]$first[0].Detail}else{''}
++        'Recherche AD non confirmée.'+$reason+' Les associations connues restent conservées.'
++    }else{
+         '{0} association(s) connue(s), {1} candidat(s), {2} console(s) confirmée(s) sur {3} poste(s) interrogé(s).' -f $known,@($r.Candidates).Count,$confirmed,[int]$r.ScanStats.Probed
+     }
+     if($r.Partial){$message+=' Résultat partiel : limites ou erreurs dans Détail de la recherche.'}
+@@ -284,6 +289,8 @@
+     Initialize-DomeniaRelationsState
+     if($script:Relations.Bound){return}
+     $script:Relations.Bound=$true
++    $choose=Get-DomeniaControl 'BtnRelationSelectUser'
++    if($null -ne $choose){$choose.Add_Click({Select-DomeniaRelationsUser})}
+     $t=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
+     $t.Interval=[timespan]::FromMilliseconds(120);$t.Add_Tick({try{Invoke-DomeniaRelationsTick}catch{Write-AppLog ('Affichage des relations : '+$_.Exception.Message) 'WARN'}});$script:Relations.Timer=$t
+     $script:Window.Add_Closed({if($null -ne $script:Relations){$script:Relations.Timer.Stop();$script:Relations.Query=$null;$script:Relations.Subject=$null;$script:Relations.PendingConfirmed=$null}})
+@@ -389,6 +396,7 @@
+     $u=@(Read-RelationDirectory $userDn '(&(objectCategory=person)(objectClass=user))' @('sAMAccountName','userPrincipalName','objectGUID','objectSid') 'Base' 1);$directoryReads++
+     if($u.Count -ne 1){throw 'Compte sélectionné non retrouvé dans Active Directory.'}
+     $actualGuid=Convert-WGuid $u[0].objectguid
++    if(-not $actualGuid){throw 'GUID du compte non lisible : aucune association ne sera inventée.'}
+     if($userGuid -and $actualGuid -ine $userGuid){throw 'Le compte a été recréé : rechargez sa fiche avant de chercher ses postes.'}
+     if([string]$u[0].samaccountname -ine $login){throw 'Identifiant du compte modifié : rechargez la sélection.'}
+     $userGuid=$actualGuid;$upn=[string]$u[0].userprincipalname
+--- RC1.8/wad/modules/Domenia-Access.UI.ps1
++++ RC1.9/wad/modules/Domenia-Access.UI.ps1
+@@ -11,6 +11,7 @@
+     param([string]$OperationId)
+     if($OperationId -eq 'UserComputerProbe'){return 'AD:UserComputerProbe'}
+     if($OperationId -eq 'LiveSelectedPing'){return 'Presence'}
++    if($OperationId -eq 'EmbeddedPathBrowse'){return 'LocalFile'}
+     if($OperationId -in @('LiveDirectoryCheck','ScopeReconcile')){return 'AD:GlobalSearch'}
+     if($OperationId -in @('ReadLaps','ReadBitLocker')){return $OperationId}
+     if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','BatchNetworkDiag','ParkSweep')){return 'Remote'}
+@@ -19,7 +20,7 @@
+ }
+ function Get-DomeniaRetryCredential {
+     param([string]$OperationId)
+-    if($OperationId -eq 'LiveSelectedPing'){return $null}
++    if($OperationId -in @('LiveSelectedPing','EmbeddedPathBrowse')){return $null}
+     if($null -eq $script:AccessState){return $null}
+     if($script:AccessState.Epoch -ne [long]$script:SessionEpoch -or $script:AccessState.BaseDn -ine [string]$script:Conn.BaseDn){return $null}
+     $scope=Get-DomeniaAccessScope $(if($OperationId -in @('LiveDirectoryCheck','ScopeReconcile')){'GlobalSearch'}else{$OperationId})
+@@ -62,6 +63,7 @@
+     $job=$script:AccessCurrentJob
+     if($null -ne $job -and $null -ne $job.PSObject.Properties['SessionEpoch'] -and [long]$job.SessionEpoch -ne [long]$script:SessionEpoch){return $false}
+     if(-not $OperationId -and $null -ne $job){$OperationId=[string]$job.OperationId}
++    if($OperationId -in @('LiveSelectedPing','EmbeddedPathBrowse')){return $false}
+     if($null -ne $job -and $job.OperationId -in @('ReadLaps','ReadBitLocker')){
+         if($null -ne $job.CallbackState -and [long]$job.CallbackState.Generation -ne [long]$script:SelectedObjectGeneration){return $false}
+     }
+@@ -134,7 +136,7 @@
+  <TextBlock Text="Mot de passe" Margin="0,12,0,5"/>
+  <PasswordBox x:Name="Password" ToolTip="Ni journalise ni enregistre sur disque. Le compte actuel reste conserve en cas d annulation."/>
+  <TextBlock x:Name="Status" Margin="0,12,0,12" TextWrapping="Wrap"/>
+- <ProgressBar x:Name="Progress" Height="4" IsIndeterminate="True" Visibility="Collapsed" Margin="0,0,0,12"/>
++ <ProgressBar x:Name="Progress" Height="4" IsIndeterminate="True" Visibility="Hidden" Margin="0,0,0,12"/>
+  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+  <Button x:Name="Cancel" Content="Annuler" IsCancel="True" ToolTip="Fermer sans remplacer le compte actif."/>
+  <Button x:Name="Connect" Grid.Column="2" Content="Valider ce compte" IsDefault="True" ToolTip="Un seul essai de validation : AD pour l annuaire, CIM/DCOM sur la machine pour un compte poste. Cela ne certifie pas tous les autres droits."/>
+@@ -172,7 +174,7 @@
+             if(-not $state.Session.AsyncResult.IsCompleted){
+                 if(([datetime]::UtcNow-$state.Started).TotalSeconds -lt 14){return}
+                 $timer.Stop();Stop-DomeniaLoginAuthRunspace -Session $state.Session -Terminate
+-                $ui.Progress.Visibility='Collapsed';$ui.Status.Text='Delai depasse. Aucun compte remplace. Fermez cette fenetre et attendez le nettoyage avant un nouvel essai.';return
++                $ui.Progress.Visibility='Hidden';$ui.Status.Text='Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.';return
+             }
+             $timer.Stop();$r=Read-DomeniaAuthRunspaceResult -Session $state.Session
+             if(-not (Test-DomeniaAccessSessionCurrent -Epoch $state.Epoch -BaseDn $state.BaseDn)){throw 'La session a change. Aucun compte remplace.'}
+@@ -180,16 +182,16 @@
+             if(($r.AuthMode -ne $(if($remoteValidation){'Remote'}else{'Explicit'})) -or -not [string]$r.BindUser -or [string]$r.BaseDn -ine $state.BaseDn){throw 'Contexte AD non confirme. Aucun compte remplace.'}
+             $secure=$ui.Password.SecurePassword.Copy();$secure.MakeReadOnly()
+             $state.Credential=[Management.Automation.PSCredential]::new([string]$r.BindUser,$secure)
+-            $state.Done=$true;$w.DialogResult=$true
++            $state.Done=$true;Set-DomeniaSurfaceResult $w $true
+         }catch{$ui.Status.Text=$_.Exception.Message;$ui.Connect.IsEnabled=$true;$ui.User.IsEnabled=$true;$ui.Password.IsEnabled=$true}
+         finally{
+             if($null -ne $state.Session -and $state.Session.AsyncResult.IsCompleted){Stop-DomeniaLoginAuthRunspace -Session $state.Session -Terminate;$access.AuthSession=$null;$state.Session=$null}
+-            if($null -eq $state.Session -or $state.Session.AsyncResult.IsCompleted){$ui.Progress.Visibility='Collapsed'}
++            if($null -eq $state.Session -or $state.Session.AsyncResult.IsCompleted){$ui.Progress.Visibility='Hidden'}
+         }
+     }.GetNewClosure()
+     $ui.Connect.Add_Click($connect);$timer.Add_Tick($tick)
+-    $w.Add_ContentRendered({$ui.User.Focus()}.GetNewClosure())
+-    try{[void]$w.ShowDialog();return $state.Credential}
++    Register-DomeniaSurfaceReady $w ({$ui.User.Focus()}.GetNewClosure())
++    try{[void](Show-DomeniaEmbeddedWindow -Window $w);return $state.Credential}
+     finally{
+         $timer.Stop();$ui.Password.Clear()
+         if($null -ne $state.Session){Stop-DomeniaLoginAuthRunspace -Session $state.Session -Terminate}
+@@ -198,6 +200,7 @@
+ function Invoke-DomeniaAccessRecovery {
+     param($Record)
+     if($null -eq $Record -or $null -eq $script:AccessState -or $script:AccessState.Showing){return}
++    if($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done){return}
+     if($Record.Epoch -ne [long]$script:SessionEpoch){return}
+     if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Une ecriture reste active ou a verifier. Le compte ne peut pas etre change avant sa verification.';return}
+     $script:AccessState.Showing=$true
+@@ -269,6 +272,7 @@
+                 }
+             }
+         }
++        if($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done){return}
+         if(-not (Test-DomeniaAccessBusyWrite) -and $script:Window.IsActive){
+             $next=@($script:AccessState.Pending.Values|Where-Object{$_.Interactive}|Sort-Object At|Select-Object -First 1)
+             if($next.Count){Invoke-DomeniaAccessRecovery $next[0]}
+--- RC1.8/wad/modules/Domenia-Experience.UI.ps1
++++ RC1.9/wad/modules/Domenia-Experience.UI.ps1
+@@ -274,7 +274,7 @@
+     $button=$Window.FindName('BtnSuiteLoginTheme')
+     if($null -ne $button){
+         $button.Content=if((Get-DomeniaStoredTheme) -eq 'Dark'){'☀'}else{'☾'}
+-        $button.Add_Click({param($s,$e) Switch-DomeniaExperienceLoginTheme -Window ([Windows.Window]::GetWindow($s))})
++        $button.Add_Click({param($s,$e) Switch-DomeniaExperienceLoginTheme -Window (Get-DomeniaOwningDialog $s)})
+     }
+     $Window.Add_Activated({param($s,$e) Update-DomeniaExperienceCapsLock $s})
+     $Window.Add_PreviewKeyUp({param($s,$e) Update-DomeniaExperienceCapsLock $s})
+--- RC1.8/wad/modules/Domenia-Dossier.UI.ps1
++++ RC1.9/wad/modules/Domenia-Dossier.UI.ps1
+@@ -32,8 +32,8 @@
+         $clean=ConvertTo-DomeniaStoredCapture $capture ([string]$script:Conn.BaseDn)
+         $text=[pscustomobject]@{Format='Domenia.Capture.1';Capture=$clean}|ConvertTo-Json -Depth 8
+         if(-not (Confirm-Action 'Enregistrer cette capture historique ? Elle contient des noms et appartenances internes, pas les champs secrets dedies. Choisissez un dossier protege.')){return}
+-        $dialog=[Microsoft.Win32.SaveFileDialog]::new();$dialog.FileName='Domenia-Capture-'+$slot+'.json';$dialog.OverwritePrompt=$true
+-    }else{$dialog=[Microsoft.Win32.OpenFileDialog]::new();$dialog.CheckFileExists=$true}
++        $dialog=(New-DomeniaFileRequest -Mode Save);$dialog.FileName='Domenia-Capture-'+$slot+'.json';$dialog.OverwritePrompt=$true
++    }else{$dialog=(New-DomeniaFileRequest -Mode Open);$dialog.CheckFileExists=$true}
+     $dialog.Filter='Capture Domenia (*.json)|*.json';$dialog.Title='Capture historique '+$slot
+     if($dialog.ShowDialog($script:Window) -ne $true){return}
+     Start-DomeniaDocumentTask -Action $Action -Path $dialog.FileName -Text $text -Slot $slot
+@@ -45,6 +45,6 @@
+     $text=$counts|ConvertTo-Json -Depth 4
+     [void](Show-DomeniaDialog -Title 'Apercu du dossier technique' -Message 'Ce dossier ne contient que les compteurs ci-dessous. Aucun compte, nom de machine, journal brut, mot de passe ou cle ne sera ajoute.' -Details $text)
+     if(-not (Confirm-Action 'Enregistrer exactement ces compteurs dans un fichier local ? Aucun envoi automatique.')){return}
+-    $d=[Microsoft.Win32.SaveFileDialog]::new();$d.Filter='Dossier technique (*.json)|*.json';$d.FileName='Domenia-Support.json';$d.OverwritePrompt=$true
++    $d=(New-DomeniaFileRequest -Mode Save);$d.Filter='Dossier technique (*.json)|*.json';$d.FileName='Domenia-Support.json';$d.OverwritePrompt=$true
+     if($d.ShowDialog($script:Window) -eq $true){Start-DomeniaDocumentTask -Action Write -Path $d.FileName -Text $text}
+ }
+--- RC1.8/wad/modules/Domenia-Support.UI.ps1
++++ RC1.9/wad/modules/Domenia-Support.UI.ps1
+@@ -211,7 +211,7 @@
+ function Export-DomeniaSupportHtml {
+     $report=New-DomeniaSupportUiReport
+     if (-not (Confirm-Action 'Le dossier contient des identifiants et metadonnees internes du parc. Il ne contient pas les champs secrets dedies. Enregistrer ce dossier localement ?')) { return }
+-    $dialog=New-Object Microsoft.Win32.SaveFileDialog
++    $dialog=New-DomeniaFileRequest -Mode Save
+     $dialog.Title='DOMENIA : enregistrer le dossier support'
+     $dialog.Filter='Dossier HTML (*.html)|*.html'; $dialog.DefaultExt='.html';$dialog.AddExtension=$true;$dialog.OverwritePrompt=$true
+     $dialog.FileName='Domenia-Support-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.html'
+--- RC1.8/wad/modules/Domenia-Embedded.UI.ps1
++++ RC1.9/wad/modules/Domenia-Embedded.UI.ps1
+@@ -0,0 +1,448 @@
++# Definition-only presentation module. Business panels use the existing main window.
++$script:DomeniaSurfaceState=$null
++$script:DomeniaSurfaceRecords=@{}
++function Test-DomeniaEmbeddedHost {
++    return ($null -ne $script:Window -and $script:Window.IsVisible -and $script:Window.Content -is [Windows.Controls.Grid])
++}
++function Get-DomeniaSurfaceRecord {
++    param($Window)
++    if(-not $script:DomeniaSurfaceRecords.ContainsKey($Window)){
++        $script:DomeniaSurfaceRecords[$Window]=[pscustomobject]@{Window=$Window;Ready=$null;Keys=$null;Embedded=$false;Done=$false;Accepted=$false;Frame=$null;Status=$null;Cleanup=$null}
++    }
++    return $script:DomeniaSurfaceRecords[$Window]
++}
++function Register-DomeniaSurfaceReady {
++    param($Window,[scriptblock]$Handler)
++    if(Test-DomeniaEmbeddedHost){(Get-DomeniaSurfaceRecord $Window).Ready=$Handler}
++    else{$Window.Add_ContentRendered($Handler)}
++}
++function Register-DomeniaSurfaceKeys {
++    param($Window,[scriptblock]$Handler)
++    if(Test-DomeniaEmbeddedHost){(Get-DomeniaSurfaceRecord $Window).Keys=$Handler}
++    else{$Window.Add_KeyDown($Handler)}
++}
++function Get-DomeniaOwningDialog {
++    param($Control)
++    $active=$script:DomeniaSurfaceState
++    if($null -ne $active -and -not $active.Done){return $active.Window}
++    return [Windows.Window]::GetWindow($Control)
++}
++function Set-DomeniaSurfaceResult {
++    param($Window,[bool]$Result)
++    if($script:DomeniaSurfaceRecords.ContainsKey($Window) -and $script:DomeniaSurfaceRecords[$Window].Embedded){
++        $r=$script:DomeniaSurfaceRecords[$Window];$r.Accepted=$Result;$Window.Close()
++    }else{$Window.DialogResult=$Result}
++}
++function Get-DomeniaLogicalControls {
++    param($Root)
++    if($null -eq $Root){return}
++    $queue=[Collections.Queue]::new();$queue.Enqueue($Root)
++    $seen=[Collections.Generic.HashSet[object]]::new()
++    while($queue.Count){
++        $c=$queue.Dequeue();if($null -eq $c -or -not $seen.Add($c)){continue}
++        if($c -isnot [Windows.DependencyObject]){continue}
++        Write-Output -NoEnumerate $c
++        foreach($child in [Windows.LogicalTreeHelper]::GetChildren($c)){if($child -is [Windows.DependencyObject]){$queue.Enqueue($child)}}
++    }
++}
++function Set-DomeniaEmbeddedTheme {
++    param($Root)
++    foreach($c in @(Get-DomeniaLogicalControls $Root)){
++        if($c -is [Windows.Controls.Primitives.TextBoxBase] -or $c -is [Windows.Controls.PasswordBox] -or $c -is [Windows.Controls.Primitives.Selector]){
++            $c.SetResourceReference([Windows.Controls.Control]::BackgroundProperty,'BgInput')
++            $c.SetResourceReference([Windows.Controls.Control]::ForegroundProperty,'TextColor')
++            $c.SetResourceReference([Windows.Controls.Control]::BorderBrushProperty,'BorderColor')
++        }elseif($c -is [Windows.Controls.Button]){
++            $style=if($c.IsDefault){'RunButton'}else{'BaseButton'}
++            $c.SetResourceReference([Windows.FrameworkElement]::StyleProperty,$style)
++            # Drop legacy local colors so the shared style controls the palette.
++            $c.ClearValue([Windows.Controls.Control]::BackgroundProperty)
++            $c.ClearValue([Windows.Controls.Control]::ForegroundProperty)
++            $c.ClearValue([Windows.Controls.Control]::BorderBrushProperty)
++        }elseif($c -is [Windows.Controls.TextBlock]){
++            $c.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'TextColor')
++        }elseif($c -is [Windows.Controls.Control]){
++            $c.SetResourceReference([Windows.Controls.Control]::ForegroundProperty,'TextColor')
++        }elseif($c -is [Windows.Controls.Border] -and $null -ne $c.Background -and $c.Background -is [Windows.Media.SolidColorBrush] -and $c.Background.Color.A -ne 0){
++            $c.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgCard')
++            $c.SetResourceReference([Windows.Controls.Border]::BorderBrushProperty,'BorderColor')
++        }
++        if($c -is [Windows.Controls.Control]){
++            [Windows.Controls.ToolTipService]::SetShowOnDisabled($c,$true)
++            [Windows.Controls.ToolTipService]::SetInitialShowDelay($c,350)
++            if($null -eq $c.ToolTip){
++                $hint=switch($c.GetType().Name){
++                    'PasswordBox'{'Mot de passe de cette demande. Jamais enregistré dans les préférences.'}
++                    'TextBox'{'Saisie de ce panneau. Annuler ne valide aucune modification.'}
++                    'DataGrid'{'Sélectionnez une ligne. Le choix doit être confirmé avec le bouton du panneau.'}
++                    'ListBox'{'Sélectionnez un élément puis confirmez votre choix.'}
++                    'Button'{'Action de ce panneau. Les contrôles de droits restent applicables.'}
++                    default{'Contrôle du panneau intégré.'}
++                }
++                $c.ToolTip=$hint
++            }
++            [Windows.Automation.AutomationProperties]::SetHelpText($c,[string]$c.ToolTip)
++            if(-not [Windows.Automation.AutomationProperties]::GetName($c)) {
++                $role=if($c.Name){[string]$c.Name}else{[string]$c.ToolTip}
++                [Windows.Automation.AutomationProperties]::SetName($c,$role)
++            }
++        }
++    }
++}
++function Show-DomeniaEmbeddedWindow {
++    param([Parameter(Mandatory=$true)]$Window,[switch]$ManagedCancel,[switch]$PreserveTheme)
++    if(-not (Test-DomeniaEmbeddedHost)){
++        if($null -ne $script:Window -and $script:Window.IsLoaded){$Window.Close();return $false}
++        # Only the initial login or a fatal startup report can exist without the main host.
++        return $Window.ShowDialog()
++    }
++    $parent=$script:DomeniaSurfaceState
++    if($null -ne $parent -and -not $parent.Done){
++        # An asynchronous warning must not open another sheet over a pending decision.
++        $parent.Status.Text='Une autre demande attend. Terminez ou annulez ce panneau avant de la relancer.'
++        try{Write-AppLog ('Demande intégrée reportée : '+[string]$Window.Title) 'WARN'}catch{}
++        $Window.Close();[void]$script:DomeniaSurfaceRecords.Remove($Window);return $false
++    }
++    $main=$script:Window;$root=$main.Content
++    $layer=$main.FindName('DomeniaDialogLayer')
++    if($null -eq $layer){throw 'Hôte intégré absent du XAML principal. Réinstallez le pack complet.'}
++    if(-not $main.Dispatcher.CheckAccess()){throw 'Un panneau métier doit être demandé depuis le Dispatcher.'}
++    $r=Get-DomeniaSurfaceRecord $Window;$r.Embedded=$true;$r.Done=$false;$r.Accepted=$false
++    $r.Frame=[Windows.Threading.DispatcherFrame]::new()
++    $epoch=[long]$script:SessionEpoch;$base=[string]$script:Conn.BaseDn
++    $body=$Window.Content;$Window.Content=$null
++    if($null -eq $body){throw 'Le panneau demandé est vide.'}
++    if($PreserveTheme){$body.Resources.MergedDictionaries.Add($Window.Resources)}else{Set-DomeniaEmbeddedTheme $body}
++    $layer.Children.Clear();$layer.Visibility='Visible';$layer.Background='#66000000'
++    [Windows.Input.KeyboardNavigation]::SetTabNavigation($layer,'Cycle')
++    [Windows.Input.KeyboardNavigation]::SetControlTabNavigation($layer,'Cycle')
++    $card=[Windows.Controls.Border]::new();$card.CornerRadius='16';$card.BorderThickness='1';$card.Margin='16'
++    $card.HorizontalAlignment='Right';$card.VerticalAlignment='Stretch';$card.Padding='18'
++    $card.MaxWidth=if([double]::IsNaN($Window.Width)){720.0}else{[Math]::Max(480.0,[Math]::Min(900.0,$Window.Width))}
++    $card.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgCard')
++    $card.SetResourceReference([Windows.Controls.Border]::BorderBrushProperty,'BorderColor')
++    $layout=[Windows.Controls.Grid]::new()
++    foreach($h in @('Auto','*','Auto')){[void]$layout.RowDefinitions.Add([Windows.Controls.RowDefinition]::new());$layout.RowDefinitions[$layout.RowDefinitions.Count-1].Height=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($h)}
++    $header=[Windows.Controls.Grid]::new();$header.Margin='0,0,0,12'
++    [void]$header.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new())
++    [void]$header.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());$header.ColumnDefinitions[1].Width='Auto'
++    $title=[Windows.Controls.TextBlock]::new();$title.Text=[string]$Window.Title;$title.FontSize=18;$title.FontWeight='SemiBold';$title.TextWrapping='Wrap';$title.VerticalAlignment='Center';$title.Margin='0,0,12,0'
++    $title.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'TextColor')
++    [void]$header.Children.Add($title)
++    $close=[Windows.Controls.Button]::new();$close.Name='EmbeddedClose';$close.Content='Fermer';$close.Width=84;$close.Height=36;$close.Margin='0'
++    $close.ToolTip='Fermer ce panneau sans valider. La sélection principale est conservée.'
++    [Windows.Automation.AutomationProperties]::SetName($close,'Fermer le panneau intégré')
++    [Windows.Controls.Grid]::SetColumn($close,1);[void]$header.Children.Add($close)
++    [void]$layout.Children.Add($header)
++    [Windows.Controls.Grid]::SetRow($body,1);[void]$layout.Children.Add($body)
++    $r.Status=[Windows.Controls.TextBlock]::new();$r.Status.TextWrapping='Wrap';$r.Status.MaxHeight=72;$r.Status.Margin='0,8,0,0';$r.Status.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedColor')
++    [Windows.Controls.Grid]::SetRow($r.Status,2);[void]$layout.Children.Add($r.Status)
++    $card.Child=$layout;[void]$layer.Children.Add($card)
++    $saved=@();$bindings=@($main.InputBindings);$previousFocus=[Windows.Input.Keyboard]::FocusedElement
++    foreach($item in @($root.Children)){
++        if($item -ne $layer){$saved+=,[pscustomobject]@{Control=$item;Enabled=$item.IsEnabled};$item.IsEnabled=$false}
++    }
++    $main.InputBindings.Clear()
++    $buttonStates=@();$cancel=$null;$defaults=@()
++    foreach($b in @(Get-DomeniaLogicalControls $body|Where-Object{$_ -is [Windows.Controls.Button]})){
++        if($b.IsCancel -or $b.IsDefault){$buttonStates+=,[pscustomobject]@{Control=$b;Cancel=$b.IsCancel;Default=$b.IsDefault}}
++        if($b.IsCancel){$cancel=$b;$b.IsCancel=$false
++            if(-not $ManagedCancel){$cancelSource=$Window;$b.Add_Click({$cancelSource.Close()}.GetNewClosure())}
++        }
++        if($b.IsDefault){$defaults+=,$b;$b.IsDefault=$false}
++    }
++    $cancelAction={
++        if($ManagedCancel -and $null -ne $cancel -and $cancel.IsEnabled){$cancel.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))}
++        else{$Window.Close()}
++    }.GetNewClosure()
++    $close.Add_Click($cancelAction)
++    $r.Cleanup={
++        if($r.Done){return};$r.Done=$true;$r.Frame.Continue=$false
++        [void]$layout.Children.Remove($body);$layer.Children.Clear();$layer.Visibility='Collapsed'
++        foreach($s in $saved){$s.Control.IsEnabled=$s.Enabled}
++        foreach($binding in $bindings){[void]$main.InputBindings.Add($binding)}
++        foreach($b in $buttonStates){$b.Control.IsCancel=$b.Cancel;$b.Control.IsDefault=$b.Default}
++        if($null -ne $previousFocus -and $previousFocus -is [Windows.UIElement] -and $previousFocus.IsVisible -and $previousFocus.IsEnabled){[void]$previousFocus.Focus()}
++    }.GetNewClosure()
++    $onClosed={& $r.Cleanup}.GetNewClosure();$Window.Add_Closed($onClosed)
++    $keys={param($sender,$e)
++        if($e.Key -eq [Windows.Input.Key]::Escape){& $cancelAction;$e.Handled=$true;return}
++        if($null -ne $r.Keys){& $r.Keys $Window $e}
++        if(-not $e.Handled -and $e.Key -eq [Windows.Input.Key]::Enter){
++            $multiline=($e.OriginalSource -is [Windows.Controls.TextBox] -and $e.OriginalSource.AcceptsReturn)
++            if(-not $multiline){$d=@($defaults|Where-Object{$_.IsEnabled -and $_.IsVisible}|Select-Object -First 1);if($d.Count){$d[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent));$e.Handled=$true}}
++        }
++        # Prevent an application shortcut from acting on the disabled page underneath.
++        if([Windows.Input.Keyboard]::Modifiers -ne [Windows.Input.ModifierKeys]::None -and $e.Key -notin @([Windows.Input.Key]::Tab,[Windows.Input.Key]::LeftShift,[Windows.Input.Key]::RightShift)){$e.Handled=$true}
++    }.GetNewClosure()
++    $layer.Add_KeyDown($keys)
++    $keyUp={param($sender,$e)
++        if($PreserveTheme -and $null -ne $Window.FindName('LblSuiteCapsLock')){Update-DomeniaExperienceCapsLock $Window}
++    }.GetNewClosure()
++    $layer.Add_PreviewKeyUp($keyUp)
++    $tick=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$tick.Interval=[timespan]::FromMilliseconds(150)
++    $guard={
++        $current=Get-DomeniaEmbeddedContext
++        if(-not $main.IsVisible -or $current.Closing -or $current.Epoch -ne $epoch -or $current.BaseDn -ine $base){$r.Accepted=$false;$Window.Close()}
++    }.GetNewClosure();$tick.Add_Tick($guard)
++    $script:DomeniaSurfaceState=$r;$watch=[Diagnostics.Stopwatch]::StartNew()
++    try{
++        $tick.Start()
++        if($null -ne $r.Ready){& $r.Ready $Window $null|Out-Null}
++        else{[void]$close.Focus()}
++        if(-not $r.Done){[Windows.Threading.Dispatcher]::PushFrame($r.Frame)}
++        return [bool]$r.Accepted
++    }finally{
++        $tick.Stop();$tick.Remove_Tick($guard);$layer.Remove_KeyDown($keys);$layer.Remove_PreviewKeyUp($keyUp);$Window.Remove_Closed($onClosed)
++        & $r.Cleanup
++        foreach($c in @(Get-DomeniaLogicalControls $body)){if($c -is [Windows.Controls.PasswordBox]){$c.Clear()}}
++        $watch.Stop();$script:ModalBlockedMs=[long]$script:ModalBlockedMs+$watch.ElapsedMilliseconds
++        if($script:DomeniaSurfaceState -eq $r){$script:DomeniaSurfaceState=$null}
++        [void]$script:DomeniaSurfaceRecords.Remove($Window)
++    }
++}
++function Get-DomeniaEmbeddedLookupCode {
++@'
++$kind=[string]$Payload.Kind
++if($kind -notin @('Machine','Utilisateur','OU')){throw 'Type de recherche non autorisé.'}
++$term=([string]$Payload.Term).Trim()
++$verify=[bool]$Payload.Verify
++$properties=@('name','sAMAccountName','displayName','givenName','sn','mail','userPrincipalName','dNSHostName','description','distinguishedName','objectGUID')
++$category=switch($kind){'Machine'{'(objectCategory=computer)'}'Utilisateur'{'(&(objectCategory=person)(objectClass=user))'}'OU'{'(objectClass=organizationalUnit)'}}
++$root=[string]$Context.BaseDn;$scope='Subtree';$maximum=100
++if($verify){
++    $root=[string]$Payload.DN;$scope='Base';$maximum=2;$filter=$category
++    if(-not $root.EndsWith(','+[string]$Context.BaseDn,[StringComparison]::OrdinalIgnoreCase)){throw 'Cible hors du domaine courant.'}
++}else{
++    if($kind -ne 'OU' -and $term.Length -lt 2){throw 'Saisissez au moins deux caractères.'}
++    if($term.Length -gt 160){throw 'Recherche trop longue (160 caractères maximum).'}
++    $escaped=Escape-WLdap $term
++    $filter=if(-not $term){$category}else{'(&'+$category+'(|(name=*'+$escaped+'*)(sAMAccountName='+$escaped+'*)(displayName=*'+$escaped+'*)(givenName='+$escaped+'*)(sn='+$escaped+'*)(mail='+$escaped+'*)(userPrincipalName='+$escaped+'*)(dNSHostName='+$escaped+'*)))'}
++}
++$s=$null;$owned=$null;$set=$null;$rows=[Collections.Generic.List[object]]::new()
++try{
++    $s=New-WSearcher $Context $root $filter $properties $scope ($maximum+1);$owned=$s.SearchRoot
++    $s.PageSize=40;$s.CacheResults=$false;$s.ServerTimeLimit=[timespan]::FromSeconds(8);$s.ClientTimeout=[timespan]::FromSeconds(10)
++    $set=$s.FindAll()
++    foreach($item in $set){
++        if($rows.Count -gt $maximum){break}
++        $p=$item.Properties;$guid=Convert-WGuid (Get-WPropFirst $p 'objectguid' $null)
++        if(-not $guid){throw 'GUID AD non lisible ; aucun choix ne sera validé.'}
++        $name=[string](Get-WPropFirst $p 'name' '');$dn=[string](Get-WPropFirst $p 'distinguishedname' '')
++        $login=[string](Get-WPropFirst $p 'samaccountname' '');$second=if($kind -eq 'Utilisateur'){$login}elseif($kind -eq 'OU'){$dn}else{[string](Get-WPropFirst $p 'dnshostname' '')}
++        $rows.Add([pscustomobject]@{Type=$kind;Name=$name;Login=$login;Second=$second;DN=$dn;Guid=$guid;Description=[string](Get-WPropFirst $p 'description' '')})
++    }
++    if($verify){
++        if($rows.Count -ne 1 -or $rows[0].Guid -ine [string]$Payload.Guid -or $rows[0].DN -ine $root){throw 'Objet déplacé, recréé ou devenu inaccessible. Relancez la recherche.'}
++    }
++    [pscustomobject]@{Rows=@($rows.ToArray()|Select-Object -First $maximum);Capped=($rows.Count -gt $maximum);Verified=$verify;RequestId=[string]$Payload.RequestId;Server=[string]$Context.Server}
++}finally{if($null -ne $set){$set.Dispose()};if($null -ne $s){$s.Dispose()};if($null -ne $owned){$owned.Dispose()}}
++'@
++}
++function Complete-DomeniaEmbeddedLookup {
++    param($Result,$State)
++    $r=$State.Owner
++    if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.BaseDn -ine [string]$script:Conn.BaseDn){return}
++    $data=Get-DomeniaEffectiveWorkerResult $Result @('Rows','RequestId','Verified')
++    if($null -eq $data -or $data.RequestId -cne $State.RequestId){Fail-DomeniaEmbeddedLookup 'Retour de recherche incohérent.' $State;return}
++    $r.Job='';$r.Go.IsEnabled=$true;$r.Box.IsEnabled=$true;$r.Grid.IsEnabled=$true;$r.Busy.Visibility='Hidden'
++    if([bool]$data.Verified -ne [bool]$State.Verify){Fail-DomeniaEmbeddedLookup 'Phase de recherche incohérente.' $State;return}
++    if($data.Verified){
++        $verified=@($data.Rows)
++        if($verified.Count -ne 1 -or $verified[0].DN -ine $State.DN -or $verified[0].Guid -ine $State.Guid){Fail-DomeniaEmbeddedLookup 'Le choix vérifié ne correspond plus à la demande.' $State;return}
++        $r.Selected=$verified[0];Set-DomeniaSurfaceResult $r.Window $true;return
++    }
++    $list=[Collections.ArrayList]::new();foreach($row in @($data.Rows)){[void]$list.Add($row)};$r.Grid.ItemsSource=$list
++    $r.Accept.IsEnabled=$false
++    $r.Status.Text=if($list.Count){$list.Count.ToString()+' résultat(s). Sélectionnez une ligne, puis confirmez.'}else{'Aucun résultat dans le domaine. Les filtres de la page principale ne sont pas utilisés.'}
++    if($data.Capped){$r.Status.Text+=' Limite atteinte : affinez la recherche.'}
++}
++function Fail-DomeniaEmbeddedLookup {
++    param($Message,$State)
++    $r=$State.Owner
++    if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch){return}
++    $r.Job='';$r.Go.IsEnabled=$true;$r.Box.IsEnabled=$true;$r.Grid.IsEnabled=$true;$r.Accept.IsEnabled=$false;$r.Busy.Visibility='Hidden'
++    $r.Status.Text='Lecture non confirmée : '+[string]$Message
++}
++function Show-DomeniaInlinePicker {
++    param([ValidateSet('Machine','Utilisateur','OU')][string]$Kind,[string]$Title,[string]$Prompt,[string]$InitialTerm='')
++    if(-not (Test-DomeniaEmbeddedHost)){throw 'Ouvrez la fenêtre principale avant de sélectionner un objet.'}
++    $w=[Windows.Window]::new();$w.Title=$Title;$w.Width=820;$w.Height=600
++    $root=[Windows.Controls.Grid]::new();$root.Name='IntegratedObjectPicker'
++    foreach($h in @('Auto','Auto','*','64','Auto')){$rd=[Windows.Controls.RowDefinition]::new();$rd.Height=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($h);[void]$root.RowDefinitions.Add($rd)}
++    $hint=[Windows.Controls.TextBlock]::new();$hint.Text=$Prompt;$hint.TextWrapping='Wrap';$hint.Margin='0,0,0,12';[void]$root.Children.Add($hint)
++    $search=[Windows.Controls.Grid]::new();[void]$search.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());$col=[Windows.Controls.ColumnDefinition]::new();$col.Width='Auto';[void]$search.ColumnDefinitions.Add($col)
++    $box=[Windows.Controls.TextBox]::new();$box.Text=$InitialTerm;$box.Name='EmbeddedObjectTerm';$box.MaxLength=160;$box.MinHeight=40;$box.Margin='0,0,10,0';$box.ToolTip='Rechercher ce type d''objet sur tout le domaine, sans filtre OU. Les caractères spéciaux sont littéraux.'
++    [void]$search.Children.Add($box)
++    $go=[Windows.Controls.Button]::new();$go.Name='EmbeddedObjectSearch';$go.ToolTip='Rechercher dans tout le domaine. La liste principale et ses filtres restent inchangés.';$go.Content='Rechercher';$go.Width=124;$go.Height=40;$go.Margin='0';[Windows.Controls.Grid]::SetColumn($go,1);[void]$search.Children.Add($go)
++    $search.Margin='0,0,0,12';[Windows.Controls.Grid]::SetRow($search,1);[void]$root.Children.Add($search)
++    $grid=[Windows.Controls.DataGrid]::new();$grid.Name='EmbeddedObjectResults';$grid.AutoGenerateColumns=$false;$grid.IsReadOnly=$true;$grid.SelectionMode='Single';$grid.EnableRowVirtualization=$true;$grid.CanUserAddRows=$false
++    foreach($spec in @(@('Nom','Name','160'),@('Identifiant / DNS','Second','200'),@('Description','Description','*'))){$c=[Windows.Controls.DataGridTextColumn]::new();$c.Header=$spec[0];$c.Binding=[Windows.Data.Binding]::new($spec[1]);$c.Width=[Windows.Controls.DataGridLengthConverter]::new().ConvertFromInvariantString($spec[2]);[void]$grid.Columns.Add($c)}
++    [Windows.Controls.Grid]::SetRow($grid,2);[void]$root.Children.Add($grid)
++    $status=[Windows.Controls.TextBlock]::new();$status.Name='EmbeddedObjectStatus';$status.Text=if($Kind -eq 'OU'){'Rechercher affiche les OU ; saisir un nom permet d affiner.'}else{'Saisissez au moins deux caractères, puis Rechercher.'};$status.TextWrapping='Wrap';$status.Margin='0,10,0,6';$status.MaxHeight=52
++    [Windows.Controls.Grid]::SetRow($status,3);[void]$root.Children.Add($status)
++    $foot=[Windows.Controls.Grid]::new();[void]$foot.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());$col=[Windows.Controls.ColumnDefinition]::new();$col.Width='Auto';[void]$foot.ColumnDefinitions.Add($col)
++    $busy=[Windows.Controls.ProgressBar]::new();$busy.IsIndeterminate=$true;$busy.Width=120;$busy.Height=4;$busy.Visibility='Hidden';$busy.HorizontalAlignment='Left';[void]$foot.Children.Add($busy)
++    $buttons=[Windows.Controls.StackPanel]::new();$buttons.Orientation='Horizontal';[Windows.Controls.Grid]::SetColumn($buttons,1);[void]$foot.Children.Add($buttons)
++    $cancel=[Windows.Controls.Button]::new();$cancel.Name='EmbeddedObjectCancel';$cancel.ToolTip='Fermer sans choisir ni enregistrer une association.';$cancel.Content='Annuler';$cancel.Width=108;$cancel.Height=40;$cancel.IsCancel=$true;[void]$buttons.Children.Add($cancel)
++    $accept=[Windows.Controls.Button]::new();$accept.Name='EmbeddedObjectAccept';$accept.ToolTip='Revérifier l objet choisi et le transmettre au formulaire. Une association ou un déplacement demande encore sa confirmation.';$accept.Content='Choisir';$accept.Width=130;$accept.Height=40;$accept.Margin='0';$accept.IsEnabled=$false;$accept.IsDefault=$true;[void]$buttons.Children.Add($accept)
++    [Windows.Controls.Grid]::SetRow($foot,4);[void]$root.Children.Add($foot);$w.Content=$root
++    $r=[pscustomobject]@{Window=$w;Kind=$Kind;Box=$box;Grid=$grid;Go=$go;Accept=$accept;Busy=$busy;Status=$status;RequestId='';Closed=$false;Job='';Selected=$null}
++    $run={param([bool]$Verify=$false)
++        try{
++            if($r.Job){return}
++            $term=([string]$r.Box.Text).Trim();$row=$r.Grid.SelectedItem
++            if(-not $Verify -and $r.Kind -ne 'OU' -and $term.Length -lt 2){$r.Status.Text='Saisissez au moins deux caractères.';return}
++            if($Verify -and $null -eq $row){return}
++            $r.RequestId=[guid]::NewGuid().ToString('N');$r.Accept.IsEnabled=$false;$r.Go.IsEnabled=$false;$r.Box.IsEnabled=$false;$r.Grid.IsEnabled=$false;$r.Busy.Visibility='Visible'
++            if(-not $Verify){$r.Grid.ItemsSource=$null}
++            $r.Status.Text=if($Verify){'Vérification de l''objet sélectionné…'}else{'Recherche dans le domaine…'}
++            $ctx=Get-DomeniaEmbeddedContext
++            $state=[pscustomobject]@{Owner=$r;RequestId=$r.RequestId;Epoch=$ctx.Epoch;BaseDn=$ctx.BaseDn;Verify=$Verify;DN=$(if($null -ne $row){[string]$row.DN}else{''});Guid=$(if($null -ne $row){[string]$row.Guid}else{''})}
++            $payload=[pscustomobject]@{Kind=$r.Kind;Term=$term;Verify=$Verify;RequestId=$r.RequestId;DN=$(if($null -ne $row){[string]$row.DN}else{''});Guid=$(if($null -ne $row){[string]$row.Guid}else{''})}
++            $r.Job=Start-UiTask -Name 'Choix intégré dans AD' -OperationId 'EmbeddedDirectoryLookup' -Code (Get-DomeniaEmbeddedLookupCode) -Payload $payload -CallbackState $state -ReplaceKey 'embedded:lookup' -TimeoutSeconds 18 -SuccessHandler 'Complete-DomeniaEmbeddedLookup' -ErrorHandler 'Fail-DomeniaEmbeddedLookup'
++        }catch{$r.Job='';$r.Go.IsEnabled=$true;$r.Box.IsEnabled=$true;$r.Grid.IsEnabled=$true;$r.Busy.Visibility='Hidden';$r.Status.Text='Recherche non confirmée : '+$_.Exception.Message}
++    }.GetNewClosure()
++    $go.Add_Click({& $run $false}.GetNewClosure());$accept.Add_Click({& $run $true}.GetNewClosure())
++    $box.Add_KeyDown({param($s,$e) if($e.Key -eq 'Return'){$e.Handled=$true;& $run $false}}.GetNewClosure())
++    $grid.Add_SelectionChanged({$r.Accept.IsEnabled=($null -ne $r.Grid.SelectedItem -and -not $r.Job)}.GetNewClosure())
++    $box.Add_TextChanged({$r.Accept.IsEnabled=$false;$r.Grid.ItemsSource=$null}.GetNewClosure())
++    Register-DomeniaSurfaceReady $w ({ [void]$box.Focus() }.GetNewClosure())
++    try{[void](Show-DomeniaEmbeddedWindow $w);return $r.Selected}
++    finally{$r.Closed=$true;if($r.Job){Request-UiTaskStop -Id $r.Job -Silent -Force -Superseded -Reason 'Sélecteur fermé'|Out-Null};$grid.ItemsSource=$null;$w.Close()}
++}
++function Select-DomeniaRelationsUser {
++    $row=Show-DomeniaInlinePicker -Kind Utilisateur -Title 'Choisir un utilisateur' -Prompt 'Recherchez un utilisateur dans tout le domaine. Aucune machine n''est sondée.'
++    if($null -ne $row){Set-DomeniaRelationsSelection -Row $row;Refresh-DomeniaRelationViews}
++}
++function Get-DomeniaEmbeddedContext {
++    return [pscustomobject]@{Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn;Closing=[bool]$script:AsyncEngineClosing}
++}
++function New-DomeniaFileRequest {
++    param([ValidateSet('Open','Save')][string]$Mode)
++    $request=[pscustomobject]@{Mode=$Mode;Title='Choisir un fichier';FileName='';Filter='Tous les fichiers (*.*)|*.*';InitialDirectory='';OverwritePrompt=$true;CheckFileExists=$true;DefaultExt='';AddExtension=$true}
++    $request|Add-Member -MemberType ScriptMethod -Name ShowDialog -Value {param($Owner);return (Show-DomeniaInlineFilePicker -Request $this)}
++    return $request
++}
++function Get-DomeniaEmbeddedPathCode {
++@'
++$action=[string]$Payload.Action
++$path=[IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables([string]$Payload.Path))
++if($action -eq 'Validate'){
++    $parent=[IO.Path]::GetDirectoryName($path)
++    $parentInfo=Get-Item -LiteralPath $parent -ErrorAction Stop
++    if($parentInfo -isnot [IO.DirectoryInfo]){throw 'Le dossier de destination n''existe pas.'}
++    $item=$null
++    try { $item=Get-Item -LiteralPath $path -ErrorAction Stop }
++    catch [Management.Automation.ItemNotFoundException] { $item=$null }
++    if($null -ne $item -and $item -isnot [IO.FileInfo]){throw 'Sélectionnez un fichier, pas un dossier.'}
++    if($Payload.Mode -eq 'Open' -and $null -eq $item){throw 'Fichier introuvable ou inaccessible.'}
++    $signature=if($null -ne $item){$item.Length.ToString()+'|'+$item.LastWriteTimeUtc.Ticks.ToString()}else{'absent'}
++    [pscustomobject]@{Action=$action;RequestId=$Payload.RequestId;Path=$path;Exists=($null -ne $item);Signature=$signature;Rows=@();Capped=$false}
++}elseif($action -eq 'Browse'){
++    $dir=Get-Item -LiteralPath $path -ErrorAction Stop
++    if($dir -isnot [IO.DirectoryInfo]){throw 'Saisissez un dossier existant.'}
++    $rows=[Collections.Generic.List[object]]::new();$capped=$false
++    foreach($item in (Get-ChildItem -LiteralPath $path -ErrorAction Stop | Select-Object -First 501)){
++        if($rows.Count -ge 500){$capped=$true;break}
++        $rows.Add([pscustomobject]@{Name=$item.Name;Path=$item.FullName;IsDirectory=[bool]$item.PSIsContainer;Kind=$(if($item.PSIsContainer){'Dossier'}else{'Fichier'});Length=$(if($item.PSIsContainer){''}else{[string]$item.Length})})
++    }
++    [pscustomobject]@{Action=$action;RequestId=$Payload.RequestId;Path=$path;Exists=$true;Signature='';Rows=@($rows.ToArray()|Sort-Object @{Expression='IsDirectory';Descending=$true},Name);Capped=$capped}
++}else{throw 'Action de fichier non autorisée.'}
++'@
++}
++function Complete-DomeniaEmbeddedPath {
++    param($Result,$State)
++    $r=$State.Owner
++    if($r.Closed -or $State.RequestId -cne $r.RequestId){return}
++    $ctx=Get-DomeniaEmbeddedContext
++    if($ctx.Epoch -ne $State.Epoch){return}
++    $data=Get-DomeniaEffectiveWorkerResult $Result @('Action','RequestId','Path','Rows')
++    if($null -eq $data -or $data.RequestId -cne $State.RequestId){Fail-DomeniaEmbeddedPath 'Retour de fichiers incohérent.' $State;return}
++    $r.Job='';$r.Busy.Visibility='Hidden';$r.Go.IsEnabled=$true;$r.Accept.IsEnabled=$true;$r.Folder.IsEnabled=$true;$r.File.IsEnabled=$true;$r.Up.IsEnabled=$true
++    if($data.Action -eq 'Browse'){
++        $r.Path=$data.Path;$r.Folder.Text=$data.Path
++        $list=[Collections.ArrayList]::new();foreach($row in @($data.Rows)){[void]$list.Add($row)};$r.Grid.ItemsSource=$list
++        $r.Status.Text=$list.Count.ToString()+' entrée(s). Double-cliquez un dossier pour le parcourir. Aucune création de dossier automatique.'
++        if($data.Capped){$r.Status.Text+=' Affichage limité à 500 entrées ; saisissez le nom exact si nécessaire.'}
++    }else{
++        if($r.Request.Mode -eq 'Save' -and $data.Exists -and $r.Request.OverwritePrompt -and $r.Overwrite -cne ($data.Path+'|'+$data.Signature)){
++            $r.Overwrite=$data.Path+'|'+$data.Signature;$r.Accept.Content='Remplacer';$r.Status.Text='Ce fichier existe. Cliquez explicitement sur Remplacer pour confirmer, ou Annuler.';return
++        }
++        $r.Request.FileName=$data.Path;Set-DomeniaSurfaceResult $r.Window $true
++    }
++}
++function Fail-DomeniaEmbeddedPath {
++    param($Message,$State)
++    $r=$State.Owner
++    if($r.Closed -or $State.RequestId -cne $r.RequestId){return}
++    $r.Job='';$r.Busy.Visibility='Hidden';$r.Go.IsEnabled=$true;$r.Accept.IsEnabled=$true;$r.Folder.IsEnabled=$true;$r.File.IsEnabled=$true;$r.Up.IsEnabled=$true
++    $r.Status.Text='Accès au fichier non confirmé : '+[string]$Message
++}
++function Show-DomeniaInlineFilePicker {
++    param($Request)
++    if(-not (Test-DomeniaEmbeddedHost)){throw 'Le choix de fichier nécessite la fenêtre principale.'}
++    $w=[Windows.Window]::new();$w.Width=860;$w.Height=620;$w.Title=[string]$Request.Title
++    $grid=[Windows.Controls.Grid]::new();$grid.Name='IntegratedFilePicker'
++    foreach($h in @('Auto','Auto','*','Auto','68','Auto')){$rd=[Windows.Controls.RowDefinition]::new();$rd.Height=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($h);[void]$grid.RowDefinitions.Add($rd)}
++    $info=[Windows.Controls.TextBlock]::new();$info.Text=if($Request.Mode -eq 'Open'){'Ouvrir un fichier. La lecture métier commence seulement après validation.'}else{'Choisir où enregistrer. Aucun envoi automatique ni création de dossier.'};$info.TextWrapping='Wrap';$info.Margin='0,0,0,10';[void]$grid.Children.Add($info)
++    $bar=[Windows.Controls.Grid]::new();[void]$bar.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());foreach($i in 1..2){$c=[Windows.Controls.ColumnDefinition]::new();$c.Width='Auto';[void]$bar.ColumnDefinitions.Add($c)}
++    $folder=[Windows.Controls.TextBox]::new();$folder.Name='EmbeddedFolder';$folder.MinHeight=40;$folder.Margin='0,0,8,0';$folder.ToolTip='Chemin du dossier à parcourir. Un partage réseau n''est interrogé que sur votre demande.';[void]$bar.Children.Add($folder)
++    $go=[Windows.Controls.Button]::new();$go.Name='EmbeddedBrowse';$go.ToolTip='Lire les fichiers et dossiers de ce seul emplacement, en arrière-plan (maximum 500 entrées).';$go.Content='Parcourir';$go.Width=110;$go.Height=40;[Windows.Controls.Grid]::SetColumn($go,1);[void]$bar.Children.Add($go)
++    $up=[Windows.Controls.Button]::new();$up.ToolTip='Afficher le dossier parent dans ce même panneau.';$up.Content='Parent';$up.Width=86;$up.Height=40;$up.Margin='0';[Windows.Controls.Grid]::SetColumn($up,2);[void]$bar.Children.Add($up)
++    $bar.Margin='0,0,0,10';[Windows.Controls.Grid]::SetRow($bar,1);[void]$grid.Children.Add($bar)
++    $list=[Windows.Controls.DataGrid]::new();$list.Name='EmbeddedFileResults';$list.AutoGenerateColumns=$false;$list.IsReadOnly=$true;$list.SelectionMode='Single';$list.CanUserAddRows=$false
++    foreach($s in @(@('Nom','Name','*'),@('Type','Kind','90'),@('Octets','Length','100'))){$c=[Windows.Controls.DataGridTextColumn]::new();$c.Header=$s[0];$c.Binding=[Windows.Data.Binding]::new($s[1]);$c.Width=[Windows.Controls.DataGridLengthConverter]::new().ConvertFromInvariantString($s[2]);[void]$list.Columns.Add($c)}
++    [Windows.Controls.Grid]::SetRow($list,2);[void]$grid.Children.Add($list)
++    $filePanel=[Windows.Controls.StackPanel]::new();$filePanel.Margin='0,10,0,0'
++    $label=[Windows.Controls.TextBlock]::new();$label.Text='Nom du fichier';$label.Margin='0,0,0,4';[void]$filePanel.Children.Add($label)
++    $file=[Windows.Controls.TextBox]::new();$file.Name='EmbeddedFileName';$file.MinHeight=40;$file.ToolTip='Nom du fichier. Un chemin complet est aussi accepté.';[void]$filePanel.Children.Add($file)
++    [Windows.Controls.Grid]::SetRow($filePanel,3);[void]$grid.Children.Add($filePanel)
++    $status=[Windows.Controls.TextBlock]::new();$status.Margin='0,10,0,6';$status.TextWrapping='Wrap';$status.MaxHeight=60;[Windows.Controls.Grid]::SetRow($status,4);[void]$grid.Children.Add($status)
++    $foot=[Windows.Controls.Grid]::new();[void]$foot.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());$col=[Windows.Controls.ColumnDefinition]::new();$col.Width='Auto';[void]$foot.ColumnDefinitions.Add($col)
++    $busy=[Windows.Controls.ProgressBar]::new();$busy.Width=120;$busy.Height=4;$busy.IsIndeterminate=$true;$busy.Visibility='Hidden';$busy.HorizontalAlignment='Left';[void]$foot.Children.Add($busy)
++    $buttons=[Windows.Controls.StackPanel]::new();$buttons.Orientation='Horizontal';[Windows.Controls.Grid]::SetColumn($buttons,1);[void]$foot.Children.Add($buttons)
++    $cancel=[Windows.Controls.Button]::new();$cancel.Content='Annuler';$cancel.Height=40;$cancel.Width=100;$cancel.IsCancel=$true;[void]$buttons.Children.Add($cancel)
++    $accept=[Windows.Controls.Button]::new();$accept.Name='EmbeddedFileAccept';$accept.ToolTip='Vérifier ce chemin puis le transmettre à la commande. Un fichier existant à remplacer exige une confirmation.';$accept.Content=if($Request.Mode -eq 'Open'){'Ouvrir'}else{'Enregistrer'};$accept.Height=40;$accept.Width=135;$accept.Margin='0';$accept.IsDefault=$true;[void]$buttons.Children.Add($accept)
++    [Windows.Controls.Grid]::SetRow($foot,5);[void]$grid.Children.Add($foot);$w.Content=$grid
++    $r=[pscustomobject]@{Window=$w;Request=$Request;Folder=$folder;File=$file;Grid=$list;Go=$go;Up=$up;Accept=$accept;Busy=$busy;Status=$status;Path='';RequestId='';Closed=$false;Job='';Overwrite=''}
++    $folder.Text=if($Request.InitialDirectory){$Request.InitialDirectory}else{[Environment]::GetFolderPath('UserProfile')}
++    $file.Text=[string]$Request.FileName
++    $submit={param([string]$Action='Browse')
++        if($r.Job){return}
++        try{
++            $ctx=Get-DomeniaEmbeddedContext
++            if($Action -eq 'Browse'){$path=$r.Folder.Text.Trim()}
++            else{
++                $name=$r.File.Text.Trim();if(-not $name){$r.Status.Text='Saisissez un nom de fichier.';return}
++                if($r.Request.Mode -eq 'Save' -and $r.Request.AddExtension -and -not [IO.Path]::GetExtension($name)){
++                    $ext=$r.Request.DefaultExt
++                    if(-not $ext -and $r.Request.Filter -match '\*\.(\w+)'){$ext='.'+$Matches[1]}
++                    if($ext){if(-not $ext.StartsWith('.')){$ext='.'+$ext};$name+=$ext}
++                }
++                $path=if([IO.Path]::IsPathRooted($name)){$name}else{Join-Path $r.Folder.Text.Trim() $name}
++            }
++            if(-not [IO.Path]::IsPathRooted($path)){throw 'Utilisez un chemin complet de dossier.'}
++            $r.RequestId=[guid]::NewGuid().ToString('N');$r.Accept.IsEnabled=$false;$r.Go.IsEnabled=$false;$r.Up.IsEnabled=$false;$r.Folder.IsEnabled=$false;$r.File.IsEnabled=$false;$r.Busy.Visibility='Visible'
++            $r.Status.Text='Lecture du dossier…'
++            $payload=[pscustomobject]@{Action=$Action;Path=$path;Mode=$r.Request.Mode;RequestId=$r.RequestId}
++            $state=[pscustomobject]@{Owner=$r;RequestId=$r.RequestId;Epoch=$ctx.Epoch}
++            $r.Job=Start-UiTask -Name 'Choix du fichier' -OperationId 'EmbeddedPathBrowse' -Code (Get-DomeniaEmbeddedPathCode) -Payload $payload -CallbackState $state -ReplaceKey 'embedded:files' -TimeoutSeconds 15 -SuccessHandler 'Complete-DomeniaEmbeddedPath' -ErrorHandler 'Fail-DomeniaEmbeddedPath'
++        }catch{$r.Job='';$r.Go.IsEnabled=$true;$r.Up.IsEnabled=$true;$r.Accept.IsEnabled=$true;$r.Folder.IsEnabled=$true;$r.File.IsEnabled=$true;$r.Busy.Visibility='Hidden';$r.Status.Text=$_.Exception.Message}
++    }.GetNewClosure()
++    $go.Add_Click({& $submit 'Browse'}.GetNewClosure());$accept.Add_Click({& $submit 'Validate'}.GetNewClosure())
++    $folder.Add_KeyDown({param($s,$e) if($e.Key -eq 'Return'){$e.Handled=$true;& $submit 'Browse'}}.GetNewClosure())
++    $up.Add_Click({try{$parent=[IO.Directory]::GetParent($r.Folder.Text.Trim());if($null -ne $parent){$r.Folder.Text=$parent.FullName;& $submit 'Browse'}}catch{$r.Status.Text=$_.Exception.Message}}.GetNewClosure())
++    $list.Add_SelectionChanged({$row=$r.Grid.SelectedItem;if($null -ne $row -and -not $row.IsDirectory){$r.File.Text=$row.Name}}.GetNewClosure())
++    $list.Add_MouseDoubleClick({param($s,$e)
++        $origin=$e.OriginalSource;$container=[Windows.Controls.ItemsControl]::ContainerFromElement($r.Grid,$origin)
++        if($container -isnot [Windows.Controls.DataGridRow]){return}
++        $row=$container.Item;if($row.IsDirectory -and -not $r.Job){$r.Folder.Text=$row.Path;& $submit 'Browse'}
++    }.GetNewClosure())
++    $reset={ $r.Overwrite='';$r.Accept.Content=if($r.Request.Mode -eq 'Open'){'Ouvrir'}else{'Enregistrer'} }.GetNewClosure()
++    $file.Add_TextChanged($reset);$folder.Add_TextChanged($reset)
++    Register-DomeniaSurfaceReady $w ({[void]$folder.Focus();$folder.SelectAll()}.GetNewClosure())
++    $status.Text='Parcourir lit ce dossier en arrière-plan. Vous pouvez aussi saisir directement un chemin de fichier. Format attendu : '+$Request.Filter
++    try{return (Show-DomeniaEmbeddedWindow $w)}
++    finally{$r.Closed=$true;if($r.Job){Request-UiTaskStop -Id $r.Job -Silent -Force -Superseded -Reason 'Choix de fichier fermé'|Out-Null};$list.ItemsSource=$null;$w.Close()}
++}
+--- RC1.8/wad/modules/Domenia-UX.UI.ps1
++++ RC1.9/wad/modules/Domenia-UX.UI.ps1
+@@ -469,7 +469,7 @@
+         if ($null -ne $waitCancel) {
+             $waitCancel.Add_Click({
+                 param($sender,$eventArgs)
+-                $owner = [Windows.Window]::GetWindow($sender)
++                $owner = (Get-DomeniaOwningDialog $sender)
+                 $cancel = $owner.FindName('BtnCancel')
+                 if ($null -ne $cancel) { $cancel.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent)) }
+             })

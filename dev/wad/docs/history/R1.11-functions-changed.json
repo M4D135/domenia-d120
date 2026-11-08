@@ -1,0 +1,12 @@
+[
+  "Get-AdccDefaultSettings",
+  "Load-AdccSettings",
+  "Get-AdccBootThemePalette",
+  "Set-AdccItemsSource",
+  "Export-CurrentResults",
+  "Update-TaskUi",
+  "Clear-AdccGlobalSearch",
+  "Update-AdccAccountUi",
+  "Get-MainXaml",
+  "Get-AdccStandardLoginXaml"
+]

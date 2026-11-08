@@ -1,0 +1,22 @@
+{
+  "id": "TRV-123",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Execution/PhysicalWorkBudget.cs:12 — « public const int ReadLimit = 12, ExplicitLimit = 13, WriteLimit = 14 » : les lectures s'arrêtent à 12 workers physiques, l'action explicite dispose d'une place réservée en plus (13), l'écriture de deux (14) — limites appliquées dans Acquire selon la classe (:39-42)",
+    "src/Domenia.Core/Execution/PhysicalWorkBudget.cs:42 — refus en clair : « Limite physique atteinte : des appels restent actifs ou en nettoyage. Aucun nouveau travail envoyé. » ; :47 — « Budget physique du fournisseur atteint pour les lectures de fond. Aucun nouveau travail envoyé. »",
+    "src/Domenia.Bridge/BridgeAdmission.cs:10 — « QueueLimit = 32, ReservedForeground = 2 » : la file contient 32 entrées au plus et deux places restent réservées au premier plan (:287-288, le fond est bloqué à OrdinaryLimit − ReservedForeground et le réseau fond à NetworkLimit − ReservedForeground tant que non vieillies)",
+    "src/Domenia.Bridge/BridgeAdmission.cs:70 — refus de file pleine en clair : « File d'attente pleine (32 lectures) ; aucun envoi ni nouvelle tentative automatique. » (code operation.queueFull)",
+    "src/Domenia.Bridge/BridgeAdmission.cs:64-68 — une écriture n'est jamais mise en attente silencieusement : non éligible à l'attente (BridgeScheduling.Eligible, src/Domenia.Bridge/BridgeScheduling.cs:88-90, lectures fermées déclarées seules éligibles), elle démarre ou est refusée — « Moteur saturé ; cette demande n'est pas mise en attente. Recommencez explicitement après libération. »",
+    "tests/Domenia.Tests/BridgeSchedulingTests.cs:35-46 — « Exactly_32_reads_wait_and_the_33rd_is_refused_without_reserving_an_id » : « exactement 32 lectures attendent sans worker » et « refus explicite de file pleine » (operation.queueFull)",
+    "tests/Domenia.Tests/BridgeSchedulingTests.cs:218-229 — « Writes_get_one_immediate_reserved_place_and_are_never_queued_even_with_read_metadata » : « écriture saturée refusée immédiatement », « écriture locale jamais en file »",
+    "tests/Domenia.Tests/PhysicalWorkBudgetTests.cs:124-137 — « Physical_budget_combines_routes_and_preserves_the_12_13_14_reserved_limits » : 12 places de lecture prises, « pas de quatorzième explicite », « écriture réservée admise », « chaque travail physique compté une fois »",
+    "tests/Domenia.Tests/BridgeAdmissionTests.cs:26-41 — refus au-delà de NetworkLimit avec « demande refusée jamais exécutée plus tard » puis admission après libération"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [
+    "TRV-122 (classes consommées par l'admission, src/Domenia.Bridge/BridgeAdmission.cs:283-291)",
+    "TRV-121 (liste fermée des lectures éligibles à l'attente, src/Domenia.Bridge/BridgeScheduling.cs:31-68)"
+  ],
+  "risque": "lecture"
+}

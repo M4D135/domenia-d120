@@ -1,0 +1,29 @@
+{
+  "id": "PAR-011",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:24 — WriterReserveBytes = 32 Mio ; lignes 104-113 — CheckWriterSpace : needed = 32 Mio + 4 × (lot entrant + octets en attente et retenus), mesure AvailableFreeSpace du volume de la base, StorageSpaceException « Espace libre insuffisant : … Aucun envoi local. »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:54-55,89,104 — le contrôle est fait avant l'envoi, pendant le lot (budget) et de nouveau au commit ; src/Domenia.Store/Sqlite/SyncBatchFile.cs:171 — même règle 32 Mio + 4 × lot pour le fichier de lot",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:61-81 — StorageSpaceException (IOException) : le lot n'est pas écrit, il est gardé en mémoire (health.Held) avec son empreinte et sa base d'origine, et ligne 68 l'écrivain est suspendu",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:124-126 — WriteReserve 33 554 432, SuspendReserve 536 870 912, WarnReserve 2 147 483 648 ; lignes 167-194 — Space() : seuils relevés de 4 × la file (172-174), états unknown/« Non mesuré » (177), critical/« Critique » (184), suspend/« Insuffisant » (186), low/« À surveiller » (188), ok/« Suffisant » (189), BlocksCollections (194)",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:180,190-193 — une mesure de plus de 30 minutes est signalée comme ancienne avec la route « Mesurer »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:125-133 — ActualWriterSpace : les octets réellement en file (WaitingBytes + lots retenus) sont fusionnés dans la lecture d'espace, donc les seuils affichés montent avec la file",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Settings.cs:108 — la mesure « Mesurer » prend l'espace libre du volume de la base et son horodatage",
+    "web/js/pages/parametres/donnees.js:95-96,207-211 — état de l'espace (libellé et phrase) dans la carte Fiabilité et carte « Espace disque » avec les trois seuils (« Écritures refusées sous », « Collectes suspendues sous », « Alerte sous ») ; ligne 97,199 — bouton « Mesurer » (data-act=\"measure\", src/Domenia.Bridge/Operations/SettingsOperations.cs:364)",
+    "web/js/pages/parametres.js:217-219 — quand space.blocksCollections, avis sous le bandeau « Espace disque … » avec la route vers le diagnostic ; web/js/shell/help-catalog.js:789 — LblStorageSpace documenté",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:473-474 — la ligne des limites redit les deux seuils « relevés de quatre fois la file en attente »",
+    "src/Domenia.Core/Writes/Storage/StorageWrites.cs:115 — scénario « Disque presque plein » (lowSpace) : « Moins de 512 Mo libres sur le volume de la base : les nouvelles collectes sont suspendues. » ; tests/Domenia.Tests/SettingsCompletionTests.cs:325 — ScenarioOf reconnaît lowSpace ; lignes 461-464 — joué par le circuit, blocksCollections vrai",
+    "src/Domenia.Ad/Screens/AdSettingsReader.cs:11-13 — en mode annuaire MeasureAsync/LocalStoreAsync lisent la vraie base SQLite (Domenia.Store) : la mesure d'espace n'est plus de la seule simulation",
+    "src/Domenia.Core/Screens/Sync/SyncCoverage.cs:362-397 — même règle avec 4 × la file pour l'écran Base autonome, y compris la mention de mesure de plus de 30 min (382-385) ; tests/Domenia.Tests/SyncRulesTests.cs:512 — « Mesure ancienne » testée",
+    "tests/Domenia.Tests/NativeStorageWriterTests.cs:13-33 — manque d'espace réel sur la base SQLite : suspension, lot retenu, reprise vérifiée ; ligne 95-100 — « Free space is checked again at commit and failure rolls back the collected rows »"
+  ],
+  "manque": "La suspension des nouvelles collectes n'est pas appliquée avec la règle « 512 Mio plus quatre fois la file ». (1) La seule admission qui bloque vraiment une collecte est src/Domenia.Core/Screens/Accueil/RefreshRules.cs:30-33,61-72 : seuils fixes 32 Mio et 512 Mio, sans relevé de quatre fois la file, mesurés sur le volume du dossier de données (src/Domenia.App/AccueilHostFiles.cs:19-26, AppPaths.UserData) et non sur le volume de la base. (2) La règle qui calcule bien 4 × la file pour les collectes, src/Domenia.Core/Screens/Sync/SyncCoverage.cs:362-397, est appelée sans mesure (src/Domenia.Ad/Screens/AdSyncReader.cs:35 et src/Domenia.Simulation/Screens/Sync/SimulatedSyncReader.cs:91,281 passent freeBytes null, measuredAt null, queuedBytes 0) : son Refusal ne peut jamais venir de l'espace. (3) StorageSpaceView.BlocksCollections (src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:194) n'est lu que par l'avis de l'écran (web/js/pages/parametres.js:217) et ne bloque aucune opération. En outre le garde-fou nommé « StorageInsufficientSpace » n'existe pas comme code : le refus est une IOException sans code (src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:23,113) ; « annoncé une fois » n'est pas non plus honoré, l'avis est redessiné à chaque rafraîchissement sans dédoublonnage (web/js/pages/parametres.js:202-224, aucun notify/announceOnce pour la suspension) ; enfin aucun test ne couvre les états et seuils de LocalStoreRules.Space (seule la variante Sync est testée, tests/Domenia.Tests/SyncRulesTests.cs:512) et il n'y a pas de scénario e2e « Disque presque plein » (tests/e2e/parametres ne contient ni lowSpace ni scénario d'espace, contrairement à ecrivain-suspendu.json).",
+  "effort": "M",
+  "depend": [
+    "Domenia.Store (mesure d'espace du volume de la base et file de l'écrivain, src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:104-133)",
+    "Admission des collectes (src/Domenia.Core/Screens/Accueil/RefreshRules.cs et les releveurs de parc) pour consommer la règle à 4 × la file",
+    "Base autonome (src/Domenia.Core/Screens/Sync/SyncCoverage.cs:362-397, alimenté en freeBytes/queuedBytes par src/Domenia.Ad/Screens/AdSyncReader.cs:35)",
+    "PAR-010 (route « Reprendre les sauvegardes » depuis l'avis de suspension)"
+  ],
+  "risque": "ecriture-locale"
+}

@@ -1,0 +1,53 @@
+{
+  "Description": "Byte comparison after final runtime codegate to the initial candidate. Prior results retained only for identical modules; this is not a new execution receipt.",
+  "Files": [
+    {
+      "Path": "dev/wad/modules/Domenia-Storage.UI.ps1",
+      "InitialCandidateSha256": "8b2b17dea87ef125f994721b1a5c81c278a89f4b2e07bc0e312927d81b26c5b7",
+      "CurrentSha256": "8b2b17dea87ef125f994721b1a5c81c278a89f4b2e07bc0e312927d81b26c5b7",
+      "Identical": true
+    },
+    {
+      "Path": "dev/wad/modules/Domenia-Storage.Worker.ps1",
+      "InitialCandidateSha256": "b7e33e175eb3a09d0b8f2b5ff0636cc76ba57ebf91e87a84c39e299b6651e1e3",
+      "CurrentSha256": "b7e33e175eb3a09d0b8f2b5ff0636cc76ba57ebf91e87a84c39e299b6651e1e3",
+      "Identical": true
+    },
+    {
+      "Path": "dev/wad/modules/Domenia-HealthRules.Model.ps1",
+      "InitialCandidateSha256": "5fa143f19cad15212e3de6973d6555afaaf87dd2e16358c00125149e3ef548f0",
+      "CurrentSha256": "5fa143f19cad15212e3de6973d6555afaaf87dd2e16358c00125149e3ef548f0",
+      "Identical": true
+    },
+    {
+      "Path": "dev/wad/modules/Domenia-HealthRules.UI.ps1",
+      "InitialCandidateSha256": "80bdc08ede616c7502479d7858602d0f7ea95ae916f2e856150e31c4c5071445",
+      "CurrentSha256": "80bdc08ede616c7502479d7858602d0f7ea95ae916f2e856150e31c4c5071445",
+      "Identical": true
+    },
+    {
+      "Path": "dev/wad/modules/Domenia-Park.Model.ps1",
+      "InitialCandidateSha256": "72e7c81ecb521551936d7bd0e4a57a911a08b3606432a998bdb2edaca0a563e8",
+      "CurrentSha256": "72e7c81ecb521551936d7bd0e4a57a911a08b3606432a998bdb2edaca0a563e8",
+      "Identical": true
+    },
+    {
+      "Path": "dev/wad/modules/Domenia-Park.UI.ps1",
+      "InitialCandidateSha256": "215fa7d2a6dd26d1a2dac708bb0822fe7d4fab05a8d81a63c29616cc581c307c",
+      "CurrentSha256": "215fa7d2a6dd26d1a2dac708bb0822fe7d4fab05a8d81a63c29616cc581c307c",
+      "Identical": true
+    },
+    {
+      "Path": "dev/wad/modules/Domenia-Engine.Worker.ps1",
+      "InitialCandidateSha256": "5f65fa08ce671c8f328ae6041c7f51d8804f969b4c87fd657b2878d8a2a5ea3c",
+      "CurrentSha256": "5f65fa08ce671c8f328ae6041c7f51d8804f969b4c87fd657b2878d8a2a5ea3c",
+      "Identical": true
+    },
+    {
+      "Path": "dev/wad/modules/Domenia-Live.Model.ps1",
+      "InitialCandidateSha256": "c929db49dc4df6c259ea4a45bc5341bdb2ac615b6d941b0e02b73104a2233734",
+      "CurrentSha256": "c929db49dc4df6c259ea4a45bc5341bdb2ac615b6d941b0e02b73104a2233734",
+      "Identical": true
+    }
+  ]
+}

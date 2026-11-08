@@ -1,0 +1,15 @@
+{
+  "id": "TRV-034",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:88-105 — chaque composant du manifeste est haché (SHA-256 incrémental) et comparé ; écart de taille ou d'empreinte lève « Composant modifié ou versions mélangées : … » (ligne 102)",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:152-177 — InspectTree refuse tout composant (DLL native, module JS, ressource WebView) absent du manifeste (lignes 173-175) ; les outils optionnels sont épinglés (ligne 169)",
+    "repo/v2/src/Domenia.App/PackageIntegrity.cs:179-186 — Hold conserve les poignées de fichiers épinglées pendant toute la durée de vie de l'application",
+    "repo/v2/tests/Domenia.Tests/PackageIntegrityTests.cs:49-52 — fichier falsifié refusé (message contient « SHA-256 ») ; fichier hors manifeste refusé (« hors manifeste »)",
+    "repo/v2/src/Domenia.Core/Screens/Requetes/QueryEngine.cs:9,25 — le moteur de requêtes est une classe C# compilée du projet (Domenia.Core.Queries), pas une DLL épinglée distincte"
+  ],
+  "manque": "Rien ne correspond à la compilation de types à l'exécution : aucun CodeDom/CSharpCodeProvider/Roslyn n'apparaît dans src (rg vide) — les types sont compilés à la construction, il n'y a donc pas de « compilation des types C# (Live, Identity) en un seul appel du compilateur » ni de types différés après authentification (Domenia 2 utilise WinForms + WebView2, pas WPF : pas de types d'arbre WPF). Les bibliothèques nommées n'existent pas : ni M4D.Admin.Common.Query.dll ni Domenia.Native.dll dans le dépôt (find vide) ; le moteur de requêtes est du code source interne. Aucun jeton DOMENIA_LIBRARY_HASH / DOMENIA_LIBRARY_VERSION / DOMENIA_MODULE_TYPES. Le refus « si une autre version est déjà chargée dans le processus » n'est pas implémenté : le manifeste attrape les versions mélangées au niveau fichier (PackageIntegrity.cs:102) mais il n'existe aucun contrôle de version d'assemblage déjà chargée en mémoire.",
+  "effort": "L",
+  "depend": ["TRV-035 (provenance et empreinte de la bibliothèque commune à épingler)"],
+  "risque": "lecture"
+}

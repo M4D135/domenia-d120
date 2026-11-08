@@ -1,0 +1,340 @@
+﻿{
+    "Scope":  "Focused native WPF geometry; synthetic off-screen viewport, no real DPI qualification",
+    "NativeWindowsPowerShell51":  true,
+    "PowerShell":  "5.1.26100.6584",
+    "Passed":  5,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "960x516 results",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "960x516 OU tree",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Tiny results controls remain reachable on explicit expansion",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "1024x768 results",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "1024x768 OU tree",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ],
+    "Geometry":  [
+                     {
+                         "Name":  "TvDirectory",
+                         "Type":  "TreeView",
+                         "Height":  91,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "BtnUxHelpToggle",
+                         "Type":  "Button",
+                         "Height":  40,
+                         "ParentName":  "UxHeaderTools",
+                         "MinHeight":  40
+                     },
+                     {
+                         "Name":  "LogPanel",
+                         "Type":  "Border",
+                         "Height":  42,
+                         "ParentName":  "UxMainLayout",
+                         "MinHeight":  42
+                     },
+                     {
+                         "Name":  "UxReadOnlyHost",
+                         "Type":  "WrapPanel",
+                         "Height":  44,
+                         "ParentName":  "UxHeaderTools",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "RootScroll",
+                         "Type":  "ScrollViewer",
+                         "Height":  442,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "BtnAccessRecovery",
+                         "Type":  "Button",
+                         "Height":  40,
+                         "ParentName":  "UxHeaderTools",
+                         "MinHeight":  40
+                     },
+                     {
+                         "Name":  "BtnUxNavAccounts",
+                         "Type":  "Button",
+                         "Height":  44,
+                         "ParentName":  "UxNavBottom",
+                         "MinHeight":  44
+                     },
+                     {
+                         "Name":  "BtnUxNavRelations",
+                         "Type":  "Button",
+                         "Height":  44,
+                         "ParentName":  "UxNavigation",
+                         "MinHeight":  44
+                     },
+                     {
+                         "Name":  "UxContentGrid",
+                         "Type":  "Grid",
+                         "Height":  266,
+                         "ParentName":  "UxMainLayout",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "BtnUxNavComputer",
+                         "Type":  "Button",
+                         "Height":  44,
+                         "ParentName":  "UxNavigation",
+                         "MinHeight":  44
+                     },
+                     {
+                         "Name":  "UxLogHeader",
+                         "Type":  "Grid",
+                         "Height":  38,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxPageSubRow",
+                         "Type":  "StackPanel",
+                         "Height":  44,
+                         "ParentName":  "UxPageTitleStack",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxSearchCard",
+                         "Type":  "Border",
+                         "Height":  262,
+                         "ParentName":  "SearchBrowserLayout",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxActivityStrip",
+                         "Type":  "Grid",
+                         "Height":  44,
+                         "ParentName":  "UxPageHeaderBar",
+                         "MinHeight":  44
+                     },
+                     {
+                         "Name":  "BtnUxNavSearch",
+                         "Type":  "Button",
+                         "Height":  44,
+                         "ParentName":  "UxNavigation",
+                         "MinHeight":  44
+                     },
+                     {
+                         "Name":  "BtnThemeToggle",
+                         "Type":  "Button",
+                         "Height":  40,
+                         "ParentName":  "UxHeaderTools",
+                         "MinHeight":  40
+                     },
+                     {
+                         "Name":  "UxPageHeader",
+                         "Type":  "Grid",
+                         "Height":  44,
+                         "ParentName":  "UxMainLayout",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "SearchOuSplitter",
+                         "Type":  "GridSplitter",
+                         "Height":  262,
+                         "ParentName":  "SearchBrowserLayout",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxNavBottom",
+                         "Type":  "StackPanel",
+                         "Height":  151,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "BtnSuiteActivity",
+                         "Type":  "Button",
+                         "Height":  40,
+                         "ParentName":  "UxHeaderTools",
+                         "MinHeight":  40
+                     },
+                     {
+                         "Name":  "DgObjects",
+                         "Type":  "DataGrid",
+                         "Height":  141,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxMainLayout",
+                         "Type":  "Grid",
+                         "Height":  446,
+                         "ParentName":  "UxShellGrid",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxSidebar",
+                         "Type":  "Border",
+                         "Height":  450,
+                         "ParentName":  "UxShellGrid",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "SearchBrowserLayout",
+                         "Type":  "Grid",
+                         "Height":  262,
+                         "ParentName":  "WsSearch",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxResultsCard",
+                         "Type":  "Border",
+                         "Height":  170,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "TxtGlobalSearch",
+                         "Type":  "TextBox",
+                         "Height":  42,
+                         "ParentName":  "UxSearchBox",
+                         "MinHeight":  42
+                     },
+                     {
+                         "Name":  "BtnGlobalSearch",
+                         "Type":  "Button",
+                         "Height":  42,
+                         "ParentName":  "",
+                         "MinHeight":  36
+                     },
+                     {
+                         "Name":  "BtnUxNavObject",
+                         "Type":  "Button",
+                         "Height":  44,
+                         "ParentName":  "UxNavigation",
+                         "MinHeight":  44
+                     },
+                     {
+                         "Name":  "UxPageHeaderBar",
+                         "Type":  "Grid",
+                         "Height":  44,
+                         "ParentName":  "UxPageHeader",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxPageTitleStack",
+                         "Type":  "StackPanel",
+                         "Height":  44,
+                         "ParentName":  "UxPageHeaderBar",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxShellGrid",
+                         "Type":  "Grid",
+                         "Height":  450,
+                         "ParentName":  "RootScroll",
+                         "MinHeight":  450
+                     },
+                     {
+                         "Name":  "UxHeaderTools",
+                         "Type":  "StackPanel",
+                         "Height":  44,
+                         "ParentName":  "UxHeader",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "SearchOuPanel",
+                         "Type":  "Border",
+                         "Height":  262,
+                         "ParentName":  "SearchBrowserLayout",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "TxtOuFilter",
+                         "Type":  "TextBox",
+                         "Height":  43,
+                         "ParentName":  "",
+                         "MinHeight":  32
+                     },
+                     {
+                         "Name":  "UxPageTitleRow",
+                         "Type":  "Grid",
+                         "Height":  44,
+                         "ParentName":  "UxPageTitleStack",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxSearchFilterCard",
+                         "Type":  "Border",
+                         "Height":  88,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxSearchBox",
+                         "Type":  "Grid",
+                         "Height":  42,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "BtnUxNavTools",
+                         "Type":  "Button",
+                         "Height":  44,
+                         "ParentName":  "UxNavBottom",
+                         "MinHeight":  44
+                     },
+                     {
+                         "Name":  "WorkspaceTabs",
+                         "Type":  "TabControl",
+                         "Height":  266,
+                         "ParentName":  "UxContentGrid",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "UxHeader",
+                         "Type":  "Grid",
+                         "Height":  82,
+                         "ParentName":  "UxMainLayout",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Name":  "BtnUxNavHome",
+                         "Type":  "Button",
+                         "Height":  44,
+                         "ParentName":  "UxNavigation",
+                         "MinHeight":  44
+                     },
+                     {
+                         "Name":  "UxNavigation",
+                         "Type":  "StackPanel",
+                         "Height":  240,
+                         "ParentName":  "",
+                         "MinHeight":  0
+                     },
+                     {
+                         "Short":  true,
+                         "Compact":  true,
+                         "LogCollapsed":  false,
+                         "LogHeld":  true,
+                         "Available":  {
+                                           "Width":  936,
+                                           "Height":  450
+                                       }
+                     }
+                 ]
+}

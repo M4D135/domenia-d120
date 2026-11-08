@@ -1,0 +1,19 @@
+{
+  "id": "TRV-161",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheSheet.cs:767-774 — WriteReason : sur données en cache (context.Preview), l'édition et toutes les actions d'écriture sont refusées avec le motif « Aperçu de la base locale : les écritures attendent la lecture de l'annuaire. » ; la consultation reste possible (même fichier:236, Editor construit malgré le refus)",
+    "repo/v2/web/js/pages/fiche/general.js:72-74 — bouton « Modifier » désactivé avec le motif dans l'info-bulle (data-tip=edit.reason) ; même motif sur les actions d'écriture de groups.js:97-98, members.js:82-83, account.js:27",
+    "repo/v2/src/Domenia.Bridge/Operations/FicheOperations.cs:213-221 — consultation : la fiche relue en direct (session.LastRead) est marquée « live » ; à défaut, repli sur la base locale (reader.PreviewAsync) marquée « cache », sans accès réseau",
+    "repo/v2/src/Domenia.Core/Screens/Fiche/FicheCallSheet.cs:143-162 — Origine et fraîcheur (Get-DomeniaCallSheetOrigin repris) : live / cache moins de FreshMinutes=15 min (ligne 113) / expiré avec motif « relisez la fiche depuis l'annuaire » ; affiché dans l'info-bulle de la puce d'origine (repo/v2/web/js/pages/fiche/header.js:73-81)",
+    "repo/v2/web/js/shell/help.js:150-161 — catalogue fermé des motifs d'une commande grise : stale « Données en cache : une relecture est nécessaire avant de modifier. », offline « Hors ligne : seules les données déjà lues sont consultables. », busy/pending « à vérifier » ; refus des motifs hors catalogue et des détails en texte libre (lignes 186-192)",
+    "repo/v2/src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:678 — chaque périmètre en cache porte l'usage autorisé : « Consultation historique. Aucune modification sans relecture AD. »",
+    "repo/v2/src/Domenia.Core/Writes/WriteCircuit.cs:96,277,289-294 — fraîcheur recalculée à chaque phase : refus write.stale si la session a changé depuis la lecture, avant le reçu puis pendant les préconditions ; repo/v2/src/Domenia.Core/Writes/WriteErrors.cs:13 — plan de plus de 5 min refusé avec « Préparez de nouveau l'écriture pour relire l'objet »",
+    "repo/v2/src/Domenia.Bridge/Operations/OperationsOperations.cs:415-419 — écritures bloquées tant qu'il reste des « opérations à vérifier » ; repo/v2/src/Domenia.Bridge/Operations/WriteOperations.cs:55 — write.execute « jamais rejoué » (pas de nouvelle tentative automatique)",
+    "repo/v2/tests/Domenia.Tests/WriteCircuitTests.cs:143,161,170,448-452 — refus stale (session changée, brouillon périmé, précheck Stale) testés ; repo/v2/tests/web/shell/help.test.mjs:6-12 — catalogue des motifs testé ; repo/v2/tests/Domenia.Tests/FicheTests.cs:208 — aperçu local marqué preview"
+  ],
+  "manque": "Pas d'unité de politique unique : Get-DomeniaSelectionCachePolicy / Get-DomeniaCacheReadPolicy / Get-DomeniaRecordFreshness (D1) n'ont pas d'équivalent nommé — la politique est répartie entre FicheSheet.WriteReason (preview), FicheCallSheets.Origin (15 min) et les refus du WriteCircuit, sans décision centralisée distinguant consultation / copie / modification. Le motif exact « Consultation historique hors ligne » n'existe nulle part (la variante existe pour les périmètres en cache, LocalStoreRules.cs:678, et « offline » du catalogue help.js:159 n'est appelé par aucun écran trouvé : les motifs affichés sur la fiche viennent du serveur et portent d'autres textes). Aucun test ne vérifie côté réel l'interdiction d'éditer une fiche issue du cache (le refus preview n'est exercé que dans le mock web/js/mock-fiche.js:62,90,105 ; FicheTests.cs:208 vérifie seulement le marquage preview).",
+  "effort": "M",
+  "depend": ["TRV-160 (clé et validation d'entrée de cache par GUID/lecteur/USN)", "TRV-158 (cache négatif : « pas de nouvelle tentative automatique » côté rafraîchissements)"],
+  "risque": "lecture"
+}

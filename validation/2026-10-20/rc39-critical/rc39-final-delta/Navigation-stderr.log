@@ -1,0 +1,7 @@
+At C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaNavigation.ps1:741 char:97
++ ... e=($failed -eq 0 -and $passed -gt 0 -and -not $Filter);Filter=$Filter ...
++                                                            ~~~~~~
+Duplicate keys 'Filter' are not allowed in hash literals.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : DuplicateKeyInHashLiteral
+ 

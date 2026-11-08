@@ -1,0 +1,21 @@
+{
+  "id": "TRV-229",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accounts/AccountsBatch.cs:7 — aperçu exact collectif des comptes, cité TRV-229 / New-DomeniaCollectivePreview : cibles exactes, exclusions motivées, nombre saisi dès 2 cibles",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/AccountsBatch.cs:16 — limite 20 000 cibles ; :19 — 12 lignes visibles avant « … et N autres » ; :22 — 100 noms nommés au-delà de la limite puis comptage",
+    "repo/v2/web/js/pages/comptes/batch.js:4 — cibles décochables (nouvel aperçu scellé) et copie CSV de l'aperçu ; :184 — bouton Copier en CSV",
+    "repo/v2/src/Domenia.Bridge/Operations/AccountsOperations.cs:188 — la confirmation collective est scellée et le nombre saisi est revérifié par le moteur",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/AccountsBatchSeals.cs:222 — aperçu collectif inconnu refusé ; :227 — aperçu expiré refusé, rien n'est préparé",
+    "repo/v2/src/Domenia.Core/Screens/Search/SearchSurvey.cs:37 — SurveyPlan : cibles exactes, exclusions motivées, nombre à saisir, PlanId à usage unique valable dix minutes ; :100 — plafond relevé 500 ; :103 — saisie du nombre au-delà de 100 ; :106 — diagnostic réseau limité à 50 postes",
+    "repo/v2/src/Domenia.Core/Screens/Search/SearchService.cs:536 — plan du relevé construit par le moteur depuis la liste elle-même (cibles + exclusions) ; :557 — nombre à saisir exigé au-delà de 100 ; :864, :872, :882 — exclusions motivées du diagnostic réseau (pas un poste, au-delà de 50, sans identifiant connu)",
+    "repo/v2/web/js/pages/rechercher/actions.js:224 — saisie du nombre exigée au-delà de 100 postes pour le relevé ; :374 — bouton chiffré « Diagnostiquer N postes » pour le diagnostic réseau",
+    "repo/v2/src/Domenia.Bridge/Operations/SearchOperations.cs:264 — search.netdiag : diagnostic groupé d'une liste (ping puis ports 445/135/5985/5986), 50 postes au plus, aucun compte envoyé",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/OperationRequirements.cs:49 — BatchNetworkDiag déclaré Lecture distante ; :95 — ParkSweep déclaré Lecture distante ; :265 — effet inconnu jamais traité comme une lecture",
+    "repo/v2/tests/Domenia.Tests/SearchOperationsTests.cs:287 — test : nombre à saisir exigé ; :288 — test : nombre saisi faux = refus, rien n'est lancé"
+  ],
+  "manque": "Côté Postes (le « reste » du lot) les deux écrans existent désormais mais sans les conventions de l'énoncé : le diagnostic réseau d'une liste (action distante) n'exige pas la saisie du nombre dès 2 cibles (simple bouton chiffré, repo/v2/web/js/pages/rechercher/actions.js:374) ; le relevé du parc affiche toutes les cibles (jusqu'à 500) au lieu de 12 lignes visibles + liste complète en détail (repo/v2/web/js/pages/rechercher/actions.js:220 vs AccountsBatch.cs:19) ; pas de convention « 100 noms au-delà de la limite puis comptage » côté Postes (les exclusions au-delà de 50 sont comptées sans noms, SearchService.cs:872) ; la limite du relevé est 500 par défaut (SearchSurvey.cs:100), pas 20 000 comme l'énoncé.",
+  "effort": "M",
+  "depend": ["TRV-227"],
+  "risque": "reseau"
+}

@@ -1,0 +1,227 @@
+{
+    "Fixture":  "example.local, 226 comptes postes fictifs (223 actifs, 3 désactivés)",
+    "Session":  1,
+    "Rendering":  "Real WPF layout, off-screen RenderTargetBitmap",
+    "Checks":  [
+                   {
+                       "Name":  "Recalcul : les dates AD, ping et WMI restent inchangées ; seule la date de vue avance",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Fraîcheur : AD récente, ping récent et inventaire WMI plus ancien sont distincts sur 223 postes actifs",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil : les trois horloges sont présentées par le formateur réel",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil : les widgets du parc sont réellement dessinés depuis les données fictives",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetIndexScope entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetRefreshPostes entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetRefreshBoth entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetRefreshStop entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil 1080p : BtnFleetDashboardRefresh entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Accueil : actions disponibles pour lʼOU choisie, arrêt inactif au repos",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Sélecteur OU : trois résultats fictifs et choix disponible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Sélecteur OU : capture réelle et fermeture sans modification du périmètre",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Opérateur initial renseigné",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Atelier ouvert dans Outils",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Tous les postes recensés : 226, actifs et désactivés",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Première page : 200 lignes et page suivante active",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Atelier : au moins 6 lignes entièrement visibles à 1920×1080",
+                       "Passed":  false
+                   },
+                   {
+                       "Name":  "Atelier : au moins 2 lignes entièrement visibles à 1280×720",
+                       "Passed":  false
+                   },
+                   {
+                       "Name":  "Catalogue local : champ disque sélectionné et décrit",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Modèles de requêtes : filtre local et détail du modèle sélectionné",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Le détail de l’alerte garde tous les GUID sélectionnés",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Le segment sélectionné est explicite",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Condition ajoutée : Prêt. Exécuter applique ces conditions aux données locales du périmètre courant.",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Condition numérique : le moteur trouve les disques sous 20 %",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Les réglages de collecte appartiennent à un extenseur",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Requête nommée enregistrée dans la bibliothèque fictive en mémoire",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "La requête crée un widget de tableau de bord",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "La sonde enregistrée affiche vraiment cinq postes correspondants",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Le filtre appliqué à Recherche garde les mêmes identités",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : la requête enregistrée figure dans le catalogue partagé",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : résultats locaux Match calculés sur les données fictives",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : la requête enregistrée figure dans le catalogue partagé",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : résultats locaux Unknown calculés sur les données fictives",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Comptes désactivés : le modèle Tous les postes recensés est disponible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Les trois postes désactivés restent consultables",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche ordinaire : aucun ancien filtre local, périmètre global et aide cohérente",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : les lignes de démonstration sont liées",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : 7 résultats réellement présents",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche 1080p avec OU longue : BtnSearchRefreshBase entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche 1080p avec OU longue : BtnSearchRefreshPostes entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche 1080p avec OU longue : BtnSearchRefreshBoth entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche 1080p avec OU longue : BtnSearchRefreshStop entièrement visible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche avec OU longue : au moins 80 pixels de hauteur dʼarbre réellement visibles",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : les actions gardent lʼOU explicite et ses sous-OU, indépendamment des sept résultats globaux",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : les trois actions sont disponibles sur lʼOU longue",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "En-tête du poste rempli par les règles réelles",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Aperçu local de la même requête sur le poste sélectionné",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Widget de requête partagé sur le tableau du poste",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : 200 objets liés à la grille",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : détails du stockage dépliés et lisibles",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : détail lisible et hauteur bornée",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : la première ligne reste visible dans le tableau",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : au moins 6 lignes entièrement visibles à 1920×1080",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : au moins 2 lignes entièrement visibles à 1280×720",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Le panneau existant État du moteur est ouvert",
+                       "Passed":  true
+                   }
+               ]
+}

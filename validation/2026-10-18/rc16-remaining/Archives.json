@@ -1,0 +1,23 @@
+{
+  "Build": "2026.10.18-DOMENIA-1.0-RC1.17.16-D120",
+  "VerifiedAtUtc": "2026-10-18T07:22:20.990790+00:00",
+  "Archives": {
+    "PROD": {
+      "SHA256": "fdfd170c74823f318731e581fec7504dd47a0363933d10aa5fc0366361e95f2a",
+      "SourceFilesCompared": 172,
+      "ZipFiles": 173,
+      "MatchesSource": true,
+      "ManifestMatchesSource": true
+    },
+    "DEV": {
+      "SHA256": "1c0c97ce8f51c5ebfff005277c6a26d72824efc46d360727358b6df920662f64",
+      "SourceFilesCompared": 642,
+      "ZipFiles": 643,
+      "MatchesSource": true,
+      "ManifestMatchesSource": true
+    }
+  },
+  "IdenticalRuntimeFiles": 172,
+  "WindowsExecuted": false,
+  "Publishable": false
+}

@@ -1,0 +1,723 @@
+{
+    "Suite":  "DomeniaLiveSearchView",
+    "Passed":  false,
+    "Failed":  1,
+    "Cases":  16,
+    "Assertions":  113,
+    "PowerShell":  "5.1.26100.6584",
+    "SessionId":  1,
+    "Sta":  "STA",
+    "SyntheticOnly":  true,
+    "RealDispatcher":  true,
+    "LoaderScope":  "-File launcher then \u0026 application script (same as Domenia-Start)",
+    "LoadedFunctions":  [
+                            {
+                                "Name":  "Initialize-DomeniaLive",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Begin-DomeniaLiveSearch",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Update-DomeniaLiveFilter",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Add-DomeniaLiveRow",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Invoke-DomeniaLiveTick",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "New-DomeniaTimer",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Engine.UI.ps1"
+                            },
+                            {
+                                "Name":  "Invoke-DomeniaTimerTick",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Engine.UI.ps1"
+                            },
+                            {
+                                "Name":  "Test-DomeniaSearchQueryRow",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Query.UI.ps1"
+                            },
+                            {
+                                "Name":  "Get-DomeniaBoardSelectHandler",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Widgets.UI.ps1"
+                            },
+                            {
+                                "Name":  "Show-DomeniaFleetWidgetDetails",
+                                "File":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical\\dev\\wad\\modules\\Domenia-Query.UI.ps1"
+                            }
+                        ],
+    "Hashes":  [
+                   {
+                       "Path":  "Domenia-Modules.ps1",
+                       "Sha256":  "FC989685E068C44E00F5117A735A6376EB8887AF52DD7CA6680367A998BB4BE7"
+                   },
+                   {
+                       "Path":  "Domenia-Core.ps1",
+                       "Sha256":  "D0F72C209121A26CBFF14EAE9B35F371AEC1F534B0AF81CAD77CCFE468D61874"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Live.UI.ps1",
+                       "Sha256":  "A2534F775AAE0372F7025BCFA9B90B1040E98536A0DD3EDF50ED01C19E1EC02F"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Query.UI.ps1",
+                       "Sha256":  "47B4B2BC877FE5DC09347B2632A099DB575F91768C7F15E35EBFD79FA0C69DA0"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Widgets.UI.ps1",
+                       "Sha256":  "081D75C3556316CDEB4D4C6FC5329D528A82DD83871BCB630ACE1C92B7529AA0"
+                   }
+               ],
+    "Results":  [
+                    {
+                        "Name":  "Real loader keeps application functions private to the script",
+                        "Passed":  true,
+                        "Milliseconds":  18,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Progressive arrivals without query survive three timer ticks",
+                        "Passed":  true,
+                        "Milliseconds":  1564,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Real ApplySearch intersects native matching GUIDs and object types",
+                        "Passed":  true,
+                        "Milliseconds":  1591,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "GUID normalization and later arrivals use the active predicate",
+                        "Passed":  true,
+                        "Milliseconds":  136,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Reapply recomputes GUID selection and explicit refresh preserves it",
+                        "Passed":  true,
+                        "Milliseconds":  179,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Active selection with empty or missing map fails closed",
+                        "Passed":  true,
+                        "Milliseconds":  169,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Disabled grid defers ApplySearch and ClearSearch until the next real tick",
+                        "Passed":  true,
+                        "Milliseconds":  1146,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Real ClearSearch restores rows then local text and presence filters work",
+                        "Passed":  true,
+                        "Milliseconds":  99,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "UX-03 A filter hiding every loaded row says how many and clears without any request",
+                        "Passed":  true,
+                        "Milliseconds":  86,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "DS-15 / FI-16 : la ligne porte la cle de presence et son age, le filtre lit la cle et non le libelle",
+                        "Passed":  true,
+                        "Milliseconds":  224,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Five thousand machines plus other object types remain complete and filterable",
+                        "Passed":  true,
+                        "Milliseconds":  31590,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "A fresh global search ignores the OU presence and honours the filter of the list",
+                        "Passed":  true,
+                        "Milliseconds":  386,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Point 23: a renamed or moved object keeps one row under its GUID",
+                        "Passed":  true,
+                        "Milliseconds":  153,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "MO-07 A continuation keeps the loaded rows and adds only the next ones",
+                        "Passed":  true,
+                        "Milliseconds":  648,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Late local preview survives pending SQL and failure but is discarded after final success",
+                        "Passed":  false,
+                        "Milliseconds":  129,
+                        "Error":  "System.Management.Automation.CommandNotFoundException: The term \u0027Get-DomeniaEffectiveWorkerResult\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.\r\n   at System.Management.Automation.ExceptionHandlingOps.CheckActionPreference(FunctionContext funcContext, Exception exception)\r\n   at System.Management.Automation.Interpreter.ActionCallInstruction`2.Run(InterpretedFrame frame)\r\n   at System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)\r\n   at System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)"
+                    },
+                    {
+                        "Name":  "Explicit Fleet chrome button opens the script-local workshop; chart click stays inert",
+                        "Passed":  true,
+                        "Milliseconds":  252,
+                        "Error":  ""
+                    }
+                ],
+    "Snapshots":  [
+                      {
+                          "Stage":  "wait-initial-three-arrivals",
+                          "Rows":  3,
+                          "Visible":  3,
+                          "Queued":  0,
+                          "TimerRuns":  3,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  3,
+                          "Counter":  "Chargement… · 3 / 3 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:30:30.8187766Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA",
+                                               "PC-BETA",
+                                               "USER-GAMMA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "no-query-three-arrivals",
+                          "Rows":  3,
+                          "Visible":  3,
+                          "Queued":  0,
+                          "TimerRuns":  3,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  3,
+                          "Counter":  "Chargement… · 3 / 3 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:30:30.8187766Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA",
+                                               "PC-BETA",
+                                               "USER-GAMMA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "applied-query",
+                          "Rows":  3,
+                          "Visible":  1,
+                          "Queued":  0,
+                          "TimerRuns":  3,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  3,
+                          "Counter":  "Chargement… · 1 / 3 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  false,
+                          "LastFilterUtc":  "2026-10-20T20:30:32.9983221Z",
+                          "VisibleNames":  [
+                                               "PC-BETA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "wait-filtered-incremental-arrivals",
+                          "Rows":  5,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  5,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  5,
+                          "Counter":  "Chargement… · 2 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:30:32.9983221Z",
+                          "VisibleNames":  [
+                                               "PC-BETA",
+                                               "PC-DELTA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "filtered-incremental-arrivals",
+                          "Rows":  5,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  5,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  5,
+                          "Counter":  "Chargement… · 2 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:30:32.9983221Z",
+                          "VisibleNames":  [
+                                               "PC-BETA",
+                                               "PC-DELTA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "wait-excluded-row-refresh",
+                          "Rows":  5,
+                          "Visible":  1,
+                          "Queued":  0,
+                          "TimerRuns":  6,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  6,
+                          "Counter":  "Chargement… · 1 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:30:33.2285640Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "wait-enabled-grid-pending-apply",
+                          "Rows":  5,
+                          "Visible":  1,
+                          "Queued":  0,
+                          "TimerRuns":  11,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  11,
+                          "Counter":  "Chargement… · 1 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  false,
+                          "LastFilterUtc":  "2026-10-20T20:30:33.9935197Z",
+                          "VisibleNames":  [
+                                               "PC-BETA-REFRESHED"
+                                           ]
+                      },
+                      {
+                          "Stage":  "wait-enabled-grid-pending-clear",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  16,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  16,
+                          "Counter":  "Chargement… · 5 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  false,
+                          "LastFilterUtc":  "2026-10-20T20:30:34.4357915Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA",
+                                               "PC-BETA-REFRESHED",
+                                               "USER-GAMMA",
+                                               "PC-DELTA",
+                                               "GROUP-DELTA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "disabled-grid-apply-and-clear",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  16,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  16,
+                          "Counter":  "Chargement… · 5 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  false,
+                          "LastFilterUtc":  "2026-10-20T20:30:34.4357915Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA",
+                                               "PC-BETA-REFRESHED",
+                                               "USER-GAMMA",
+                                               "PC-DELTA",
+                                               "GROUP-DELTA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "all-filters-cleared",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  16,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  16,
+                          "Counter":  "Chargement… · 5 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  false,
+                          "LastFilterUtc":  "2026-10-20T20:30:34.6066140Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA",
+                                               "PC-BETA-REFRESHED",
+                                               "USER-GAMMA",
+                                               "PC-DELTA",
+                                               "GROUP-DELTA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "filtered-empty-state-cleared",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  16,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  16,
+                          "Counter":  "Chargement… · 5 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  false,
+                          "LastFilterUtc":  "2026-10-20T20:30:34.6743549Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA",
+                                               "PC-BETA-REFRESHED",
+                                               "USER-GAMMA",
+                                               "PC-DELTA",
+                                               "GROUP-DELTA"
+                                           ]
+                      },
+                      {
+                          "Stage":  "5000-machines-plus-user-and-group",
+                          "Rows":  5002,
+                          "Visible":  5002,
+                          "Queued":  0,
+                          "TimerRuns":  404,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  404,
+                          "Counter":  "Chargement… · 5002 / 5002 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:30:34.8952815Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA",
+                                               "PC-BETA-REFRESHED",
+                                               "USER-GAMMA",
+                                               "PC-DELTA",
+                                               "GROUP-DELTA",
+                                               "SCALE-00001",
+                                               "SCALE-00002",
+                                               "SCALE-00003"
+                                           ]
+                      },
+                      {
+                          "Stage":  "2500-of-5000-machine-query",
+                          "Rows":  5002,
+                          "Visible":  2500,
+                          "Queued":  0,
+                          "TimerRuns":  407,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  407,
+                          "Counter":  "Chargement… · 2500 / 5002 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  false,
+                          "LastFilterUtc":  "2026-10-20T20:31:07.1508255Z",
+                          "VisibleNames":  [
+                                               "PC-ALPHA",
+                                               "PC-BETA-REFRESHED",
+                                               "PC-DELTA",
+                                               "SCALE-00001",
+                                               "SCALE-00002",
+                                               "SCALE-00003",
+                                               "SCALE-00004",
+                                               "SCALE-00005"
+                                           ]
+                      },
+                      {
+                          "Stage":  "wait-fresh-global-search",
+                          "Rows":  2,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  409,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  409,
+                          "Counter":  "Chargement… · 2 / 2 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:31:07.5329480Z",
+                          "VisibleNames":  [
+                                               "GLOBAL-ALPHA",
+                                               "GLOBAL-USER"
+                                           ]
+                      },
+                      {
+                          "Stage":  "fresh-global-search",
+                          "Rows":  2,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  409,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  409,
+                          "Counter":  "Chargement… · 2 / 2 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  false,
+                          "LastFilterUtc":  "2026-10-20T20:31:07.9212285Z",
+                          "VisibleNames":  [
+                                               "GLOBAL-ALPHA",
+                                               "GLOBAL-USER"
+                                           ]
+                      },
+                      {
+                          "Stage":  "wait-renamed-row",
+                          "Rows":  2,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  410,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  410,
+                          "Counter":  "Chargement… · 2 / 2 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:31:07.9212285Z",
+                          "VisibleNames":  [
+                                               "GLOBAL-ALPHA-2",
+                                               "GLOBAL-USER"
+                                           ]
+                      },
+                      {
+                          "Stage":  "renamed-row",
+                          "Rows":  2,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  410,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  410,
+                          "Counter":  "Chargement… · 2 / 2 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:31:07.9212285Z",
+                          "VisibleNames":  [
+                                               "GLOBAL-ALPHA-2",
+                                               "GLOBAL-USER"
+                                           ]
+                      },
+                      {
+                          "Stage":  "wait-continuation-first-page",
+                          "Rows":  3,
+                          "Visible":  3,
+                          "Queued":  0,
+                          "TimerRuns":  412,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  412,
+                          "Counter":  "Limite atteinte · 3 / 3 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:31:08.1952821Z",
+                          "VisibleNames":  [
+                                               "PC-PAGE1-1",
+                                               "PC-PAGE1-2",
+                                               "PC-PAGE1-3"
+                                           ]
+                      },
+                      {
+                          "Stage":  "wait-continuation-second-page",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  414,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  414,
+                          "Counter":  "Limite atteinte · 5 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:31:08.1952821Z",
+                          "VisibleNames":  [
+                                               "PC-PAGE1-1",
+                                               "PC-PAGE1-2",
+                                               "PC-PAGE1-3",
+                                               "PC-PAGE2-1",
+                                               "PC-PAGE2-2"
+                                           ]
+                      },
+                      {
+                          "Stage":  "continuation-two-pages",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  414,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  414,
+                          "Counter":  "Limite atteinte · 5 / 5 lignes visibles · filtre de la liste",
+                          "FilterPending":  false,
+                          "RefreshNeeded":  true,
+                          "LastFilterUtc":  "2026-10-20T20:31:08.1952821Z",
+                          "VisibleNames":  [
+                                               "PC-PAGE1-1",
+                                               "PC-PAGE1-2",
+                                               "PC-PAGE1-3",
+                                               "PC-PAGE2-1",
+                                               "PC-PAGE2-2"
+                                           ]
+                      }
+                  ],
+    "Waits":  [
+                  {
+                      "Stage":  "initial-three-arrivals",
+                      "Completed":  true,
+                      "Milliseconds":  834,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  3,
+                      "TimerTicks":  3
+                  },
+                  {
+                      "Stage":  "filtered-incremental-arrivals",
+                      "Completed":  true,
+                      "Milliseconds":  127,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  1,
+                      "TimerTicks":  2
+                  },
+                  {
+                      "Stage":  "excluded-row-refresh",
+                      "Completed":  true,
+                      "Milliseconds":  82,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  1,
+                      "TimerTicks":  1
+                  },
+                  {
+                      "Stage":  "enabled-grid-pending-apply",
+                      "Completed":  true,
+                      "Milliseconds":  490,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  1,
+                      "TimerTicks":  5
+                  },
+                  {
+                      "Stage":  "enabled-grid-pending-clear",
+                      "Completed":  true,
+                      "Milliseconds":  544,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  1,
+                      "TimerTicks":  5
+                  },
+                  {
+                      "Stage":  "fresh-global-search",
+                      "Completed":  true,
+                      "Milliseconds":  238,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  1,
+                      "TimerTicks":  2
+                  },
+                  {
+                      "Stage":  "renamed-row",
+                      "Completed":  true,
+                      "Milliseconds":  121,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  1,
+                      "TimerTicks":  1
+                  },
+                  {
+                      "Stage":  "continuation-first-page",
+                      "Completed":  true,
+                      "Milliseconds":  213,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  1,
+                      "TimerTicks":  2
+                  },
+                  {
+                      "Stage":  "continuation-second-page",
+                      "Completed":  true,
+                      "Milliseconds":  279,
+                      "GuardMilliseconds":  5000,
+                      "MinimumTicks":  1,
+                      "TimerTicks":  2
+                  }
+              ],
+    "Logs":  [
+                 {
+                     "Level":  "",
+                     "Text":  "Filtre de la liste effacé : la liste montre de nouveau toutes les lignes déjà chargées. Aucune nouvelle lecture."
+                 },
+                 {
+                     "Level":  "INFO",
+                     "Text":  "3 chargé(s) · liste limitée à 3 : affinez ou chargez la suite"
+                 },
+                 {
+                     "Level":  "INFO",
+                     "Text":  "Chargement progressif : premier affichage=121 ms ; AD=3 ; total=236 ms ; complet=True."
+                 },
+                 {
+                     "Level":  "INFO",
+                     "Text":  "5 chargé(s) · liste limitée à 5 : affinez ou chargez la suite"
+                 },
+                 {
+                     "Level":  "INFO",
+                     "Text":  "Chargement progressif : premier affichage=121 ms ; AD=5 ; total=602 ms ; complet=True."
+                 }
+             ]
+}

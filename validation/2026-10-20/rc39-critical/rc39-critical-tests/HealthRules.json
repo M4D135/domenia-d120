@@ -1,0 +1,126 @@
+{
+    "Suite":  "HealthRules",
+    "Passed":  true,
+    "Total":  23,
+    "Failed":  0,
+    "WpfExecuted":  false,
+    "NetworkUsed":  false,
+    "Health5000DurationMs":  1437,
+    "Checks":  [
+                   {
+                       "Name":  "All changed PowerShell modules parse",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Policy bounds reject inversions, nonnumbers and oversized custom rules",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "AD enabled, disabled and unknown counts and GUID selections agree",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "A new WMI observation never refreshes an expired ping",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Ping error is unknown, a real timeout is without response, timestamps mandatory",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Ping and WMI widgets are catalog entries with exact GUID drilldown (point 72)",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Duplicate and outside-scope observations do not inflate a widget",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Wrong GUID or excluded scope never contaminates the canonical health projection",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "A recent probe is retained without making missing ping or inventory current",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Empty or unknown-only perimeter has no synthetic 100 score",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Incomplete coverage is explicit and not counted healthy",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Disabling a rule removes its score penalty and its detail targets",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Configurable activity uses AD date and not ping state",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Password threshold is captured in the SQL query plan",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Custom alert supports add, disable and remove without stale score membership",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "High custom disk thresholds retain coherent chart buckets",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Machine card with absent or malformed UAC is unknown",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Computer with missing checks has no zero or one-hundred health gauge",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Disabling every computer check never manufactures a perfect score",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "5000 machine perimeter keeps every AD state and exact GUID drilldown",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Programme 45 Health evidence names value source and real collection date",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Programme 46 Missing health measure stays unknown and directs explicit collection",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Programme 48 Motivated dated exception masks issue without erasing its evidence",
+                       "Passed":  true,
+                       "Error":  ""
+                   }
+               ]
+}

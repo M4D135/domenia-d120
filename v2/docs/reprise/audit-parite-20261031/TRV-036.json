@@ -1,0 +1,18 @@
+{
+  "id": "TRV-036",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.App/StartupWindow.cs:57 — la fenêtre de démarrage natif est seulement montrée (ShowWindow window,5 puis UpdateWindow) lors du lancement explicite ; aucun appel SetForegroundWindow ou SwitchToThisWindow n'existe dans repo/v2/src (aucune occurrence hors de cette simple ShowWindow)",
+    "repo/v2/src/Domenia.App/Secrets/NativeInitialLoginDialog.cs:99-100 — la fenêtre de connexion s'active à Shown (« LoginWindowStyle.Bound(this); Activate(); » puis focus sur le champ principal) ; repo/v2/src/Domenia.App/Secrets/NativeSecretDialog.cs:42-43 — même motif : form.Shown += form.Activate() avant ShowDialog(owner)",
+    "repo/v2/src/Domenia.App/MainForm.cs:118-125 — RevealInitialInterface : l'activation au passage de la connexion à la fenêtre principale est exécutée une seule fois, gardée par waitingForInitialInterface (« if (!waitingForInitialInterface || IsDisposed …) return; … waitingForInitialInterface = false; … Activate(); »)",
+    "repo/v2/src/Domenia.App/MainForm.cs:91-92 — Activated/Deactivate se contentent de publier l'état (windowActive) vers la page ; aucun rappel d'activation forcé après une opération : les seuls Activate() restants sont des gestes explicites (repo/v2/src/Domenia.App/Poste/PosteHostServices.cs:110 ouverture de la fenêtre de secret, repo/v2/src/Domenia.App/MainForm.Demonstration.cs:42 réinitialisation de démonstration)",
+    "repo/v2/src/Domenia.App/MainForm.cs:60,122 — la fenêtre principale n'est pas dans la barre des tâches pendant l'attente de connexion puis y revient (ShowInTaskbar géré, signal laissé au système) ; seul TopMost du dépôt : repo/v2/src/Domenia.App/Poste/SecretWindowForm.cs:50 — TopMost = true sur la fenêtre de secret hors barre des tâches (lignes 9 et 49), pas sur la fenêtre applicative"
+  ],
+  "manque": "La décision de premier plan n'est jamais journalisée et ses garde-fous d1 sont absents. 1) Aucune ligne de journal ne trace une demande d'activation ni son résultat (aucun TechnicalLog.Info près des Activate() de MainForm.cs:124, NativeInitialLoginDialog.cs:99, NativeSecretDialog.cs:42 ; MainForm.Activity.cs:10-23 ne fait que poster l'état à la page, avec une seule ligne Warning en cas d'échec de remise) : pas d'équivalent de Write-DomeniaActivationLog ni de Get-DomeniaActivationDecision. 2) Aucun compteur de tentatives persisté (aucune occurrence de compteur d'activation dans Domenia.App) : le garde-fou « un compteur illisible vaut une tentative déjà faite » n'a pas d'objet. 3) Aucune veille de changement d'utilisateur (aucune occurrence de SystemEvents ou SessionSwitch dans repo/v2/src) : pas d'équivalent de Register-DomeniaUserSwitchWatch ni de Test-DomeniaUserSwitchedAway. 4) Le refus de Windows n'est pas traité comme définitif : WinForms Activate() ne teste aucun retour (MainForm.cs:124) et aucune mémoire de refus n'existe. 5) Aucun test n'asservit ce comportement : aucune occurrence de TopMost, SetForegroundWindow, RevealInitialInterface ou activation de fenêtre dans repo/v2/tests. Écart à trancher : SecretWindowForm.cs:50 met la fenêtre de secrets en Topmost, ce qui contredit littéralement le garde-fou « la fenêtre ne passe jamais en Topmost » si on l'applique à toute fenêtre ; à faire confirmer comme choix délibéré (fenêtre de secret hors barre des tâches).",
+  "effort": "M",
+  "depend": [
+    "sujet « Journal technique » (TechnicalLog, repo/v2/src/Domenia.App/TechnicalLog.cs) pour tracer chaque décision d'activation",
+    "TRV-038 (-NoAutoConnect et fenêtres de connexion initiale, repo/v2/src/Domenia.Core/Startup/InitialLogin.cs:19, sont les moments explicites à journaliser)"
+  ],
+  "risque": "ecriture-locale"
+}

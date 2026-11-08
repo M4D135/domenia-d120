@@ -1,0 +1,40 @@
+{
+  "Date": "2026-10-18",
+  "PsStatic": {
+    "Passed": true,
+    "Files": 339
+  },
+  "PreloadAudit": {
+    "Passed": 254,
+    "Failed": 0
+  },
+  "WorkerContracts": {
+    "Count": 97,
+    "ChangesRequired": []
+  },
+  "ValidationMatrixUnitTests": {
+    "Passed": 17,
+    "Failed": 0
+  },
+  "ValidationMatrix": {
+    "Lab": 1,
+    "Target": 0,
+    "Synthetic": 35,
+    "Uncovered": 5,
+    "ReportsNotReread": []
+  },
+  "LicenseInventory": {
+    "CheckPassed": true,
+    "Publishable": false
+  },
+  "DocSync": {
+    "CheckPassed": true,
+    "Problems": 0
+  },
+  "SparkDraft": "Seuls les imports manquants retenus du premier brouillon ; propositions affaiblissant les assertions rejetees. Correctifs relus et verifies sous Windows. Relecture finale Spark : aucun defaut concret repere.",
+  "GuiJourneyRulesWindows51": {
+    "Passed": 8,
+    "Failed": 0,
+    "Complete": true
+  }
+}

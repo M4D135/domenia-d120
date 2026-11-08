@@ -1,0 +1,17 @@
+{
+  "id": "ACC-003",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:159 — en mode annuaire, sans IDirectoryRefreshPreparation l'actualisation refuse toute relecture AD (refresh.backupUnavailable, ligne 162)",
+    "src/Domenia.Core/Screens/Accueil/AccueilRefresh.cs:471 — l'étape « backup » appelle PrepareDirectoryRefreshAsync puis enregistre « Sauvegarde locale vérifiée · SHA-256 » (ligne 472)",
+    "src/Domenia.Ad/AdDirectorySource.cs:162 — CanPrepareDirectoryRefresh exige IPreparedDirectoryCache ; PrepareDirectoryRefreshAsync (ligne 164) refuse sans sauvegarde vérifiée",
+    "src/Domenia.Store/Sqlite/SqliteDirectoryCache.cs:79 — PrepareAsync retourne le reçu Database.PrepareReadAsync avec SHA-256",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Operations.BackupProof.cs:33 — VerifyOrRetainBackup compare le SHA-256 réel de la sauvegarde (ligne 40 pour la preuve)",
+    "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:99 — test : un prérequis annuaire échoué/partiel conserve la preuve de sauvegarde et bloque les collectes suivantes",
+    "tests/Domenia.Tests/AccueilTests.cs:478 — test : code du refus en mode annuaire refresh.backupUnavailable"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "ecriture-locale"
+}

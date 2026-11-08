@@ -1,0 +1,18 @@
+{
+  "id": "TRV-081",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.App/TechnicalLog.cs:13 — Timer de vidange toutes les 500 ms ; lignes 26-27 — Flush() sur ApplicationExit et ProcessExit (« file en mémoire écrite toutes les 500 ms et à la fermeture »)",
+    "src/Domenia.Store/Logging/RotatingTechnicalJournal.cs:10 — MaximumBytes = 5 Mo ; lignes 81-85 — à saturation, File.Move(path, path + \".1\", overwrite: true) : rotation avec une seule génération .1 ; ligne 9 — file en mémoire bornée (MaximumPending 2048)",
+    "src/Domenia.Core/Platform/TechnicalJournalRecord.cs:27-28 — CR, LF, TAB (et \\u2028/\\u2029/contrôles) échappés : une valeur d’annuaire contenant un saut de ligne ne peut forger un enregistrement ; ligne 32 — une ligne physique par enregistrement",
+    "src/Domenia.App/TechnicalLog.cs:10-12 — primaire sous AppPaths.UserData (src/Domenia.App/AppPaths.cs:67 LocalApplicationData) puis secours Path.GetTempPath()\\Domenia\\logs ; src/Domenia.Store/Logging/RotatingTechnicalJournal.cs:46 — essai primaire puis secours, état « fallback » et problème explicite (ligne 56)",
+    "web/js/shell/journal-health.js:19-25 — pastille visible dans la barre haute quand state unavailable/fallback ou dropped > 0 ; web/js/app.js:741 — installJournalHealth monté dans la coque ; src/Domenia.App/TechnicalJournalOperations.cs:12-16 — opération shell.journal.status qui alimente la pastille",
+    "src/Domenia.Store/Logging/RotatingTechnicalJournal.cs:28 — lignes perdues comptées (dropped++) ; lignes 43-44 — reçu « N ligne(s) perdue(s) » écrit dans le journal",
+    "src/Domenia.Core/Screens/Settings/TechnicalLogTail.cs:19 — vue technique à 5 000 enregistrements au plus depuis la fin ; lignes 57-63 — lignes de continuation (pile) gardées avec leur enregistrement (MaxContinuation 40, ligne 22) ; web/js/pages/parametres/journaux.js:70 — pastille « Fin du fichier seulement » avec la borne 2 Mio / 5 000 entrées",
+    "tests/Domenia.Tests/TechnicalJournalTests.cs:12-23 — forge d’enregistrement et secrets refusés ; lignes 27-46 — rotation à 5 Mo avec génération .1 et vidange idempotente ; lignes 49-62 — repli de secours annoncé avec chemin lu ; lignes 65-85 — pertes comptées, repris après indisponibilité"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

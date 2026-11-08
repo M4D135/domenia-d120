@@ -1,0 +1,51 @@
+{
+  "Build": "RC1.17.22",
+  "Scope": "Personal lab, targeted checks only",
+  "FullAcceptance": false,
+  "Publishable": false,
+  "RuntimeFix": "Workspace TabControl template realizes containers through an ItemsPresenter, exposing selected page to UI Automation.",
+  "PassedNativeSteps": 28,
+  "ValidCaptures": 5,
+  "GuiRulesPassed": 8,
+  "StartupCheckOnlyPassed": true,
+  "NativeEnvironment": {
+    "Computer": "FILPRO-W11B",
+    "Domain": "cnamts.local",
+    "Session": 1,
+    "Screen": "1920x1440",
+    "WorkingArea": "1920x1392",
+    "PowerShell": "5.1.26100.6584",
+    "OS": "Microsoft Windows NT 10.0.26200.0"
+  },
+  "Target": "Preview",
+  "HumanRecord": "NonReleve",
+  "Archives": [
+    {
+      "File": "Domenia_PROD.zip",
+      "SHA256": "A8DDD1DD5FC363B33EF8FD8C66ECC856AAE6EEFB0A4EFFA054D5E31467179B77"
+    },
+    {
+      "File": "Domenia_DEV.zip",
+      "SHA256": "DD9A59F311CDB8813A39C80280A51EACB2FB91445D20A0B34739DE2199EA43BD"
+    }
+  ],
+  "SourceXamlSha256": "ee0b0ae345a5a5d8f34ca0a6e3e51398495d5f8323e0b3c0a577e353c5e5da9b",
+  "Cleanup": {
+    "Status": "completed",
+    "DateUtc": "2026-10-18T13:01:29.4056993Z",
+    "DeletedVM": "DOMENIA-RC21-FINAL",
+    "DeletedUUID": "d978ecc6-96ba-4e16-92e1-ed0b6746484e",
+    "ADServerPreservedRunning": true,
+    "OtherVMsPreserved": 7,
+    "Proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json",
+    "QualificationEvidencePushedCommit": "930061d"
+  },
+  "NativeScrollRegression": {
+    "Passed": 7,
+    "Failed": 0,
+    "Target": "Preview",
+    "Runtime": "RC21 sources with the exact template fix before RC22 version stamping",
+    "Observed": "Vertical scroll 0 to 100 percent, then back to 0"
+  },
+  "FinalPackScrollObservation": "Three preview rows fit in the grid; wheel input sent without scrollable content. No additional movement proof."
+}

@@ -1,0 +1,91 @@
+{
+    "Build":  "RC1.11.0-D120-interface-c4",
+    "Suite":  "Demande dans la page D083 (contrat C4)",
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell":  true,
+    "Wpf":  true,
+    "MockedNetwork":  true,
+    "LiveAD":  false,
+    "Expected":  15,
+    "Passed":  15,
+    "Failed":  0,
+    "Skipped":  0,
+    "Complete":  true,
+    "Tests":  [
+                  {
+                      "Name":  "Sans fenetre principale : la confirmation historique repond, la suite part une fois",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L07 sans fenetre principale : la saisie exacte passe par la confirmation historique",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L07 regle : la confirmation saisie exige le texte exact, la reponse sure jamais",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Demande dans la page : aucune fenetre creee, rien ne part avant la reponse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Le choix sur a le focus : Entree sur une demande non lue ne confirme pas",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Confirmer execute la suite une seule fois",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Annuler et Echap prennent la reponse sure",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Une nouvelle demande retire la precedente avec sa reponse sure",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session changee avant la reponse : rien n est execute",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Une demande en attente ne retient que les ecritures de sa cible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Afficher la demande ne deplace pas la page (D082)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L07 avant/apres en clair, details techniques replies, aucune fenetre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L07 details de l estimation visibles en Expert seulement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L07 saisie exacte : confirmation inactive puis une seule execution",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Choix identiques refuses par la regle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

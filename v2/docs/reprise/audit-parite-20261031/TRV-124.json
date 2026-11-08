@@ -1,0 +1,20 @@
+{
+  "id": "TRV-124",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Platform/QueueTiming.cs:20 — « public static QueueTiming Default { get; } = new(30, 120, 25) » : BackgroundAgingSeconds 30 par défaut, politique immuable par session (:3, chargée depuis la configuration :22-28)",
+    "src/Domenia.Bridge/BridgeAdmission.cs:291 — le vieillissement ne vaut que pour le fond sans autre fond en cours : « entry.Priority == OperationPriority.Background && background == 0 && clock.GetUtcNow() - entry.ScheduledAt >= timing.Aging »",
+    "src/Domenia.Bridge/BridgeAdmission.cs:184 — la lecture vieillie passe devant toutes (:184, « Aged(e) ? -1 : (int)e.Priority ») ; :189 — « Capacity(candidate, Aged(candidate)) » et :287-288 — aged franchit la réserve premier plan (ReservedForeground = 2, :10) : elle « peut prendre une place réservée »",
+    "src/Domenia.Bridge/BridgeAdmission.cs:309-311 — dépassement d'une seule lecture du budget fournisseur/site : « var extra = aged && target.Recovery == 0 && group.Recovery == 0 ? 1 : 0 ; providerRunning[…] >= budget.Concurrent + extra || group.Running >= budget.PerGroup + extra ⇒ providerBusy » ; src/Domenia.Core/Execution/PhysicalWorkBudget.cs:45-47 — même dépassement borné à +1 de la limite de route quand « background == 0 » ; la limite physique globale (12/13/14, :12/:42) n'est jamais franchie",
+    "src/Domenia.Bridge/BridgeAdmission.cs:303-308 — garde-fous : source en pause ou en reprise progressive refusée avant tout extra (« Lectures de fond suspendues ou en reprise progressive pour cette source. », PausedUntil/Recovery testés avant :309) et compte rejeté refusé (« Compte rejeté pour cette source ; changement de compte ou reconnexion requis avant un nouvel envoi. », CredentialBlocked posé à :370)",
+    "tests/Domenia.Tests/BridgeSchedulingTests.cs:122-133 — « Background_reserves_two_network_places_and_aging_can_use_one_after_30_seconds » : « le fond respecte les places réservées avant 30 secondes » puis admission vieillie ; :140-152 — « An_aged_background_precedes_newer_foreground_only_when_no_background_is_running »",
+    "tests/Domenia.Tests/BridgeSchedulingTests.cs:238-250 — « Provider_background_budget_is_enforced_and_aging_adds_at_most_one_read » (la seconde lecture vieillie reste en attente) ; :269-274 — « aging ne franchit jamais la pause de 60 secondes » ; tests/Domenia.Tests/PhysicalWorkBudgetTests.cs:171-173 — « une lecture vieillie active »"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [
+    "TRV-122 (classe Background et Aged, src/Domenia.Bridge/BridgeAdmission.cs:291)",
+    "TRV-123 (places réservées que le vieillissement peut prendre, src/Domenia.Bridge/BridgeAdmission.cs:287-288)"
+  ],
+  "risque": "lecture"
+}

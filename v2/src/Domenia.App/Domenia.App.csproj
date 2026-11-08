@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Domenia</AssemblyName>
+    <RootNamespace>Domenia.App</RootNamespace>
+    <SelfContained>true</SelfContained>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Branding/Domenia.ico</ApplicationIcon>
+    <!-- LibraryImport (local join state, netapi32 and kernel32) needs unsafe blocks in the generated stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The WebView2 package also references its WPF control; the host only uses WinForms, so the WindowsBase version notice is harmless. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Domenia.Core/Domenia.Core.csproj" />
+    <ProjectReference Include="../Domenia.Bridge/Domenia.Bridge.csproj" />
+    <ProjectReference Include="../Domenia.Store/Domenia.Store.csproj" />
+    <ProjectReference Include="../Domenia.Ad/Domenia.Ad.csproj" />
+    <ProjectReference Include="../Domenia.Inventory/Domenia.Inventory.csproj" />
+    <ProjectReference Include="../Domenia.Engine/Domenia.Engine.csproj" />
+    <ProjectReference Include="../Domenia.Simulation/Domenia.Simulation.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Branding/Domenia.ico" LogicalName="Domenia.Brand.Icon" />
+    <EmbeddedResource Include="../../web/assets/brand/domenia.png" LogicalName="Domenia.Brand.Mark" />
+    <EmbeddedResource Include="Socle/webview2-156.0.4314.42.files.json" LogicalName="Domenia.Socle.WebView2" />
+    <Content Include="../../web/**/*" LinkBase="web" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DomeniaRequirePackageManifest)' == 'true'">
+    <AssemblyMetadata Include="DomeniaPackageManifest" Value="required" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DomeniaWadLayout)' == 'true'">
+    <AssemblyMetadata Include="DomeniaWadLayout" Value="true" />
+  </ItemGroup>
+  <!-- Use the SDK's native apphost: no wrapper process or runtime extraction. Only publish uses this layout. -->
+  <Target Name="DomeniaCreateWadAppHost" AfterTargets="_CreateAppHostForPublish" Condition="'$(DomeniaWadLayout)' == 'true'">
+    <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)"
+                   AppHostDestinationPath="$(AppHostForPublishIntermediatePath)"
+                   AppBinaryName="wad/$(AssemblyName)$(TargetExt)"
+                   IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')"
+                   WindowsGraphicalUserInterface="true"
+                   DotNetSearchLocations="$(AppHostDotNetSearch)"
+                   AppRelativeDotNet="$(AppHostRelativeDotNet)" />
+  </Target>
+</Project>

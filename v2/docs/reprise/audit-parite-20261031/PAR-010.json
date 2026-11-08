@@ -1,0 +1,29 @@
+{
+  "id": "PAR-010",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:61-68 — sur IOException/UnauthorizedAccessException : health.Failures++ et health.Suspended |= ex is StorageSpaceException || health.Failures >= 3, avec le motif dans health.Fault",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:36,52 — tant que l'écrivain est suspendu, un nouvel enregistrement est refusé (« Enregistrements locaux suspendus ; utilisez la reprise explicite après contrôle du disque et des données en attente. ») : aucune reprise automatique en boucle",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.cs:70-81 — le lot en échec est conservé en mémoire (health.Held) avec son empreinte et sa base d'origine ; la file mémoire pleine suspend aussi et le dit",
+    "src/Domenia.Core/Screens/Settings/LocalStoreRules.cs:263-268 — vue de l'écrivain suspendu : « En mémoire uniquement : enregistrement suspendu après des échecs (motif). Reprise : « Reprendre les sauvegardes ». », canResume = !writer.Active, resumeReason = « Attendez la fin de l'enregistrement actif. »",
+    "web/js/pages/parametres.js:118,201-224 — avis sous le bandeau (slot .pr-alert du bandeau d'état, au-dessus des sections) « Enregistrement local suspendu » avec le bouton « Reprendre les sauvegardes » (data-alert-act=\"writer-resume\") ; ligne 440-442 le clic passe par le circuit (plan settings.storage.writerResume.plan)",
+    "web/js/pages/parametres/donnees.js:94,588 — bouton « Reprendre les sauvegardes » de la carte (data-act=\"writer-resume\"), désactivé avec sa raison quand writer.canResume est faux, routé vers settings.storage.writerResume.plan",
+    "src/Domenia.Core/Writes/Storage/StorageWrites.cs:490-509 — WriterResumeDraft : refusé « rien à reprendre » quand l'écrivain n'est pas suspendu, refusé settings.storeUnavailable quand store.Writer.Active (« Un enregistrement est encore actif : attendez sa fin. »), garde-fous « Aucune reprise automatique en boucle » et « Aucune écriture dans l'annuaire », réversibilité « Sans perte : rien n'est effacé de la mémoire »",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.Resume.cs:18-51 — le plan dit combien de lots seront rejoués et combien restent en mémoire pour examen, avec vérification d'empreinte de la file et de la base ; ligne 71 refusé si l'écrivain est actif ou qu'un lot attend ; lignes 121-126 réarmement (Suspended = false, Failures = 0) seulement après le reçu relu ; lignes 130-136 une reprise qui échoue re-suspend l'écrivain",
+    "src/Domenia.Bridge/Operations/SettingsOperations.cs:503-505 — opération settings.storage.writerResume.plan branchée sur IStorageWriterResumeExecutor",
+    "src/Domenia.Ad/Writes/AdStorageWriterResumeExecutor.cs:8-19 — en mode annuaire l'exécuteur n'écrit que dans le dépôt local (RunLocalMaintenanceAsync → Store.ApplyWriterResumeAsync) : aucune écriture annuaire",
+    "src/Domenia.Ad/Screens/AdSettingsReader.cs:11-13 — LocalStoreAsync / MeasureAsync / CheckIntegrityAsync lisent la vraie base SQLite de Domenia.Store : la suspension et sa reprise ne sont plus de la seule simulation",
+    "tests/Domenia.Tests/NativeStorageWriterTests.cs:13-33 — manque d'espace réel (FreeSpaceProbe = 1) : suspension immédiate, lot retenu, reprise par le circuit, reçu relu et preuve durable après redémarrage ; ligne 63 « trois échecs suspendent » (3 échecs réels) ; ligne 134 « pas encore trois échecs »",
+    "tests/Domenia.Tests/SettingsCompletionTests.cs:403-421 — « Suspended writer is resumed once through the circuit » : plan, reçu vérifié, écrivain réarmé, ce qui était en mémoire enregistré, puis « plus rien à reprendre » ; ligne 320 refusé tant qu'un enregistrement est actif",
+    "tests/e2e/parametres/ecrivain-suspendu.json:52-68 — scénario « Enregistrement suspendu » : avis attendu dans [data-slot=\"alert\"], clic sur [data-alert-act=\"writer-resume\"], plan « Reprendre les sauvegardes locales » puis reçu",
+    "web/js/shell/gui-policy.js:8,30 — BtnGuardStoreResume est mappé sur '[data-act=\"writer-resume\"]' plafonné à '.pr-page' ; web/js/pages/parametres/common.js:163-167 — button() émet bien data-act ; web/js/pages/parametres.js:300 — la politique est appliquée sur main",
+    "web/js/shell/help-catalog.js:523 — BtnGuardStoreResume documenté : « Relance l'enregistrement des lots restés en mémoire après un échec du stockage local. Aucune écriture dans l'annuaire. »"
+  ],
+  "manque": "Un seul écart, précis : la copie de l'avis du bouton n'est pas atteinte par la politique de l'administrateur. web/js/pages/parametres.js:213 rend « Reprendre les sauvegardes » avec data-alert-act=\"writer-resume\", alors que le contrôle BtnGuardStoreResume cible '[data-act=\"writer-resume\"]' dans '.pr-page' (web/js/shell/gui-policy.js:8,30, appliqué sur main par web/js/pages/parametres.js:300) : avec BtnGuardStoreResume = Hidden ou Disabled, le bouton de la carte (web/js/pages/parametres/donnees.js:94) est masqué ou désactivé mais celui de l'avis reste visible et cliquable. Le reste du « reste » est caduc : la base SQLite de Domenia 2 est branchée en mode annuaire (src/Domenia.Ad/Screens/AdSettingsReader.cs:11-13, src/Domenia.Ad/Writes/AdStorageWriterResumeExecutor.cs:8-19) et le scénario est couvert hors simulation (tests/Domenia.Tests/NativeStorageWriterTests.cs:13-33) ; settings.storeUnavailable n'existe plus que comme code d'erreur de l'écriture (src/Domenia.Core/Writes/Storage/StorageWrites.cs:122).",
+  "effort": "S",
+  "depend": [
+    "GuiElementPolicy / PAR-044 (web/js/shell/gui-policy.js : la même politique doit couvrir l'instance de l'avis)",
+    "Domenia.Store (écrivain et reprise de la base SQLite, src/Domenia.Store/Sqlite/DomeniaDatabase.Writer.Resume.cs)"
+  ],
+  "risque": "ecriture-locale"
+}

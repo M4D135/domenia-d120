@@ -1,0 +1,18 @@
+{
+  "id": "TRV-181",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Store/Sqlite/schema-11.sql:55 — table domenia_observations avec PRIMARY KEY(object_guid, family) : le rattachement est par GUID, le dn n'est qu'une colonne informative",
+    "repo/v2/src/Domenia.Core/Dashboard/DashboardCalculator.cs:191-205 — widgets : dictionnaire des observations indexé ComputerGuid, jointure uniquement sur computer.ObjectGuid des postes actifs (non désactivés) de l'OU ; une observation sans poste actif correspondant n'est jamais retenue",
+    "repo/v2/src/Domenia.Ad/Screens/AdPosteReader.cs:8 — « GUID-bound observations » ; :48 et :114-118 — poste sélectionné et liste locale joints par ComputerGuid == ObjectGuid",
+    "repo/v2/src/Domenia.Store/Sqlite/DomeniaDatabase.FleetRows.cs:120-122 — observation dont ComputerGuid ne correspond pas à l'identité de la ligne : écartée, comptée (RejectedObservations)",
+    "repo/v2/src/Domenia.Ad/Screens/AdSyncReader.cs:60 et repo/v2/src/Domenia.Store/Sqlite/DomeniaDatabase.Index.Legacy.cs:9 — objets historiques sans GUID : absents des totaux et résultats tant que non relus dans l'annuaire, aucun GUID inventé",
+    "repo/v2/src/Domenia.Ad/Writes/AdSyncStoreExecutor.cs:49 — refus de relevé tant que des objets historiques sans GUID subsistent",
+    "repo/v2/tests/Domenia.Tests/DashboardCalculatorTests.cs:72-89 — widgets construits à partir d'observations rattachées aux GUID des postes ; un poste sans observation compte « non vérifié »",
+    "repo/v2/tests/Domenia.Tests/FleetRowsScaleTests.cs:41,120 — computerGuid imposé et compteur de relevés écartés préservé à la migration"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": [],
+  "risque": "lecture"
+}

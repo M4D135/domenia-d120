@@ -1,0 +1,1675 @@
+{
+  "schema": 1,
+  "product": "Domenia",
+  "version": "1.0",
+  "internalBuild": "RC1.17.4",
+  "qualificationScope": "Documentation only: DOCX/PDF layout, content framing and retained image provenance",
+  "windowsQualification": "NOT_RUN_PC_POWERED_OFF",
+  "status": "pass",
+  "generatedUtc": "2026-10-13T12:16:24.492288+00:00",
+  "buildSources": [
+    {
+      "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build_guide.js",
+      "bytes": 30084,
+      "sha256": "d8cd5c34180142f44271e258225b9f0431f4590100f7331a648a28f4baee777c"
+    }
+  ],
+  "rendering": {
+    "docxGenerator": "guides/build_guide.js, bundled Node.js; --no-pdf",
+    "pdfConverter": "Canonical documents skill render_docx.py, bundled Python and LibreOffice; PDF emitted directly from the DOCX",
+    "dpi": 110,
+    "visualInspection": "Every final page reviewed individually at original PNG resolution. Unchanged pages after focused repairs may be matched by SHA-256; changed pages must be opened again."
+  },
+  "sourceScreenshots": {
+    "captureRuntimeBuild": "RC1.17.3",
+    "newCapturesForCurrentBuild": false,
+    "retentionPolicy": "Only unchanged controls retained; general Search and Fleet views plus old Base freshness/progress figures removed and explained with native document tables. The Search query selector is framed to exclude the old OU panel.",
+    "removedFigureIds": [
+      "recherche",
+      "accueil",
+      "base-details",
+      "base-progression"
+    ],
+    "provenance": "validation/2026-10-13/query-navigation/r5/capture-provenance.json",
+    "provenanceSha256": "1705e4f1b675c6b547ce2443777249c8065beedcbf37ab08b3288896eff3f4d1",
+    "checks": {
+      "path": "validation/2026-10-13/query-navigation/r5/capture-checks.json",
+      "sha256": "9fef71978669c6ac97da103d76dc95154be43b91fe771f65c63f1dfb9b35549b",
+      "passed": 37
+    },
+    "sourceManifestSha256": "ceb9cbe8740930b21528937d4915148c3735c17ecab0b3862d909900206ab063",
+    "rendering": "Native WPF RenderTargetBitmap; off-screen host, no image upscaling",
+    "fixture": "example.local, synthetic directory and observations, no AD access",
+    "toolTipsEnabled": false,
+    "deliveredNativeImages": 28,
+    "minimumWidth": 1920,
+    "minimumHeight": 1080,
+    "images": [
+      {
+        "file": "guides/images/selecteur-ou.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "09036f1255bb65eaf3bba09097f699a5a00601352b69097348dffd04401fa599"
+      },
+      {
+        "file": "guides/images/atelier-requetes.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "005075eae8340a42b2be6ce567a88906f54f630436e1d338849dc48df1d13b34"
+      },
+      {
+        "file": "guides/images/atelier-catalogue.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "e658011036062aadfa6258691f1f2d4b4f2c21a641a965ff69511b4bf384c5e8"
+      },
+      {
+        "file": "guides/images/atelier-modeles.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "fa1c4299c22ea562f93c405f771c7cb468f7dc807b6c5ba4049e9763931564a3"
+      },
+      {
+        "file": "guides/images/alerte-selection.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "e1c35814c7c3d7048c3c675054b331cb283edbe7a8f1500b20183ca3b9ed4062"
+      },
+      {
+        "file": "guides/images/atelier-condition.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "d854e1c672963ec34f18a1e25a9dfb5ecfb4547c0b958236ae4f1e05076b41a7"
+      },
+      {
+        "file": "guides/images/atelier-collecte.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "ecac2b6c77b1c629ad45b6d5ea7e5c13d573747fa7abade0083b93aa03367baa"
+      },
+      {
+        "file": "guides/images/atelier-fiche-locale.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "14919288e57044134fe85199db3618824860d0c0c6c8b3db70d5b71beb840307"
+      },
+      {
+        "file": "guides/images/atelier-bibliotheque.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "3346e1abc7cc5e096e0116d0e99cde299da6aa56569e60071a366cb7f08147d9"
+      },
+      {
+        "file": "guides/images/accueil-sonde-requete.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "39f698cdd2b4fb888d0df72c59d8ffb71910df7519bde92061e361aa54dfec4b"
+      },
+      {
+        "file": "guides/images/recherche-requete.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "1cb179e88e04fd47058a7a18d26786a32224290d9a8df3ba3385b44fb5ba284e"
+      },
+      {
+        "file": "guides/images/recherche-requetes.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "1c6d46cd61701d935cef29c608b5e32559d227555244e248c666dc679f8a7cf1"
+      },
+      {
+        "file": "guides/images/recherche-inconnus.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "3f7951fc6b0f5a3c5d0eb114bc24ad30fd626e8c2270e868daa67696331825df"
+      },
+      {
+        "file": "guides/images/atelier-desactives.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "4d5a9fb85498810c45aa0da22d4c5d9761d15d8b257b0682efafba2c81ee05c4"
+      },
+      {
+        "file": "guides/images/recherche-actions.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "83b4c0fccc00728cc2bd1e949d9485c64b0587a688725c3709dc3e31766ba6a7"
+      },
+      {
+        "file": "guides/images/fiche-poste.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "3615429c1cd4d0b7c4766c24615281ed02ed8c596408a373d1cb4420e1f00f37"
+      },
+      {
+        "file": "guides/images/actions-poste.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "a6f3413b8eda5041482ac5eff50150addeb10a82cead021c9227afe19c141406"
+      },
+      {
+        "file": "guides/images/tableau-poste.png",
+        "width": 1920,
+        "height": 1840,
+        "sha256": "39e95f7b492f494848b4ab999a4c6c7ed8d39bb4162d2fca419883fdb3085df8"
+      },
+      {
+        "file": "guides/images/personnaliser.png",
+        "width": 1920,
+        "height": 1100,
+        "sha256": "f14b9e8ff038034c0ab21b0c3d8177547f586b13dc681959935b862f701e8884"
+      },
+      {
+        "file": "guides/images/atelier-poste.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "60c8f604303136d43b7ec9fe50e1f72d61350ff6cb6d15e4e24281a661add7c6"
+      },
+      {
+        "file": "guides/images/poste-sonde-requete.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "8667169e03e2a301aee99465d2e04eff69433b3d897813422285f1c6a8e4be5d"
+      },
+      {
+        "file": "guides/images/editeur-widget.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "289f51ffacae9f08ea8e1765a7a9ee875962723ecdbda2cd98e177bc1bef9ac2"
+      },
+      {
+        "file": "guides/images/logiciels.png",
+        "width": 1920,
+        "height": 1560,
+        "sha256": "47e76eb33892dbcfe28341ad30a8ca3a556d5523030acf9231593c33786bd37a"
+      },
+      {
+        "file": "guides/images/base-autonome.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "0cb032bafa4ab4917ffabf639857b5e74ed8ce02015864901b556583c4a8840a"
+      },
+      {
+        "file": "guides/images/base-mise-a-jour.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "bbf5dcabe47366e0a4f0b4fb10707d3689946416f0ff346b277acb4f58c8de1e"
+      },
+      {
+        "file": "guides/images/base-stockage.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "10ba2ec6e3c54d927a645c8fa587dca7f7272162375fc46092a64ed36bf28110"
+      },
+      {
+        "file": "guides/images/etat-moteur.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "9746505bb3fc918f457ace0709584f504130e7cf00c893a54c22a36293c0ecb0"
+      },
+      {
+        "file": "guides/images/connexion.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "9c573914c9d8b985679cd286cdc8ca7321878c012390dcb63fd3aecbfd8c5d45"
+      }
+    ]
+  },
+  "limitations": [
+    "No Windows execution or new UI capture was performed for RC1.17.4: the PC was powered off and the user chose to perform Windows tests. The documentation was finalized using applicable existing images and native tables.",
+    "The separate capture plan and harness are preserved for a future Windows execution. This document rendering PASS does not qualify RC1.17.4 software on Windows.",
+    "UI captures use fictitious example.local objects and observations; they do not establish a real Active Directory or remote collection validation.",
+    "Figures use native WPF RenderTargetBitmap captures. Document crop metadata frames a region while preserving the complete original PNG bytes in the DOCX.",
+    "Viewport diagnostic captures remain validation evidence and are not inserted in the guides.",
+    "The engine health screenshot contains explicit demonstration timings, not a measured production performance claim.",
+    "Synthetic WPF rendering and routed keyboard events do not establish a human mouse-driven walkthrough; that validation is reported separately."
+  ],
+  "documents": [
+    {
+      "role": "technicien",
+      "pages": 28,
+      "figures": 29,
+      "distinctScreenshotSources": 28,
+      "distinctScreenshotHashes": 28,
+      "visualReviewComplete": true,
+      "reviewers": [
+        {
+          "reviewer": "query_docs",
+          "status": "pass",
+          "pages": [
+            1,
+            28
+          ],
+          "method": "Each page opened at original PNG resolution; exact SHA-256 verified against final delivery page. See retained source receipt.",
+          "pageHashes": {
+            "1": "19afe4fb60d751d02420948b3717a7da6bb02089985a71b0d25b8b70251232a0",
+            "2": "a6dcf22dd979ded343c826770bf27d18f6d3b0810cd241c44284848f2ad6200a",
+            "3": "d93c25b2a52698e1bf28efd4c7f8698bc67a4187917bfa0b6bb74d93a4383de7",
+            "4": "d4077f0c06b7963c192d1197a893fac8a0ee05bb435fe6af6d983d2c98960b96",
+            "5": "63da6c1627d2c80c48f6fc2274a2adc3b86a8552a248cb41539f54e8f5ebc02d",
+            "6": "9b8aeec5ede73d5f93e0bf8236979ddaa6df8c3b83ba58df433ee3d7da44481e",
+            "7": "af8d8c081a77628602e924a4446db63b0aefe0925ca355177aec4595a9bb8bac",
+            "8": "8c53cea6fde7d91ed6cf1d83cbd674b5944ddacd6a2ec62645635889d8cdff38",
+            "9": "79b67f9d358eff216deb480c7dec47d26ed52f46e60a04f372645dbbb737ab88",
+            "10": "a0b61003393570f0bfd9b92f59c9164711f4fd14d00aebec017692f4432e15fb",
+            "11": "63626b833ef6fe5c5bea3f0874174679770bbaba2ae0ae84b7f145b6bb9924d4",
+            "12": "893d3216856aef73e4935e53799cf66fc26c74c40d5b2a843661d608aad65f9c",
+            "13": "b410038e6d5c2098064a2ed3898e6d4bf71b36dd6140d31a1c643513b18f060b",
+            "14": "2cbab77fe4ccddbf1582d76085e0455e50719124ae83f71d07e84295cd0cc5d5",
+            "15": "853b8cbf705f036ceab5975a9a5c5e0d03e18ffbaf9163c1041665dfecd46111",
+            "16": "90e04276e27efef880806482f7d5644305e7bfa230d21e2a7688773ed7015e7c",
+            "17": "4911a1159de5e267243402259abc4955c75b333fd8445bebb6fb0f951732bc99",
+            "18": "78f8bbf5054ac2d252f53e89acc9b7c277f1c5b6e758a60026b5e86659031e8a",
+            "19": "55158d673078736b24a90f367707830f0fd2ad9e4dd0f40114848ab6d2ad1744",
+            "20": "72e0aa4775aec5e43f5680d9e803e8ec70cad7d9b58f97b22febbb0e631d4cdb",
+            "21": "52dc4ece95c273e5da2f78aece29486570392e880d1037332137f9712fe4bf35",
+            "22": "8aafce783f6726362be1b942ed10b606cfd27e1e152fbee5bc9b8aa562e86591",
+            "23": "fd15dfb8cf8c35855879c3dbf05a3c4caeefb01f2df2f2a07989b685cc99068f",
+            "24": "4dbd6017f62d35f4e439204b8a2f792bb0c53cb0ee573d8ceabc72dbcecfed93",
+            "25": "dfbd178e3095905b3bf9ed12657f378e62bbf28ba2745dd69d80099a48ae29e1",
+            "26": "2709984fb7bd728bdb1b167cf94d93e6af030db2c85968815050e373f65e5d34",
+            "27": "a0f0a2d647552457dd7c6faf0598f6ae917f1f28b17b499eb1e5b0582df2ab25",
+            "28": "8a29c940a57032429295538fed027510c80c1036d49cd699eb82a372857d5874"
+          },
+          "receipt": {
+            "path": "validation/2026-10-13/ou-refresh/documentation-reviews/domenia-ou-tech-qa-query-docs.json",
+            "sha256": "bac0c5374bb534e76a5d21f0d81b70ea0409177e777bc8b790e0db8b58f84172"
+          }
+        }
+      ],
+      "structuralChecks": {
+        "docxZipValid": true,
+        "pdfPagesConfirmed": true,
+        "replacementGlyphCount": 0,
+        "emptyPages": 0,
+        "tocLinks": 10,
+        "originalPngHashesPreserved": 28,
+        "docxDrawingCountIncludingCover": 30
+      },
+      "sources": [
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/technicien.md",
+          "bytes": 56916,
+          "sha256": "7d26aa99bccebd94ba66afeb631c69197ee500f2c1c4710fec2e87f0f550ced9"
+        },
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/technicien.json",
+          "bytes": 5870,
+          "sha256": "ce2d098fc0d4942bf03887057df1e0beef64c13bb5d242614f9105c56fae476e"
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/DOC/Domenia-1.0-Guide-technicien.docx",
+          "bytes": 4873413,
+          "sha256": "843980a521c111bdc08be9fa02b5bdac8cdeac4f7c51286a1049d3eb5389aaa6"
+        },
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/DOC/Domenia-1.0-Guide-technicien.pdf",
+          "bytes": 4727270,
+          "sha256": "997d389e967353d3fc0c7cd476d7ddeb2cbce0e9446c603ec159e0de0af29453"
+        }
+      ],
+      "figureInventory": [
+        {
+          "number": 1,
+          "id": "connexion",
+          "file": "images/connexion.png",
+          "crop": {
+            "x": 743,
+            "y": 334,
+            "w": 434,
+            "h": 411
+          },
+          "widthCm": 10,
+          "sourceSha256": "9c573914c9d8b985679cd286cdc8ca7321878c012390dcb63fd3aecbfd8c5d45"
+        },
+        {
+          "number": 2,
+          "id": "recherche-requetes",
+          "file": "images/recherche-requetes.png",
+          "crop": {
+            "x": 516,
+            "y": 296,
+            "w": 1380,
+            "h": 72
+          },
+          "widthCm": 16,
+          "sourceSha256": "1c6d46cd61701d935cef29c608b5e32559d227555244e248c666dc679f8a7cf1"
+        },
+        {
+          "number": 3,
+          "id": "recherche-inconnus",
+          "file": "images/recherche-inconnus.png",
+          "crop": {
+            "x": 516,
+            "y": 388,
+            "w": 950,
+            "h": 38
+          },
+          "widthCm": 16,
+          "sourceSha256": "3f7951fc6b0f5a3c5d0eb114bc24ad30fd626e8c2270e868daa67696331825df"
+        },
+        {
+          "number": 4,
+          "id": "fiche-poste",
+          "file": "images/fiche-poste.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "3615429c1cd4d0b7c4766c24615281ed02ed8c596408a373d1cb4420e1f00f37"
+        },
+        {
+          "number": 5,
+          "id": "actions-poste",
+          "file": "images/actions-poste.png",
+          "crop": {
+            "x": 238,
+            "y": 240,
+            "w": 837,
+            "h": 82
+          },
+          "widthCm": 16,
+          "sourceSha256": "a6f3413b8eda5041482ac5eff50150addeb10a82cead021c9227afe19c141406"
+        },
+        {
+          "number": 6,
+          "id": "actions-poste-avancees",
+          "file": "images/actions-poste.png",
+          "crop": {
+            "x": 1073,
+            "y": 276,
+            "w": 637,
+            "h": 45
+          },
+          "widthCm": 14,
+          "sourceSha256": "a6f3413b8eda5041482ac5eff50150addeb10a82cead021c9227afe19c141406"
+        },
+        {
+          "number": 7,
+          "id": "tableau-poste",
+          "file": "images/tableau-poste.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "39e95f7b492f494848b4ab999a4c6c7ed8d39bb4162d2fca419883fdb3085df8"
+        },
+        {
+          "number": 8,
+          "id": "recherche-actions",
+          "file": "images/recherche-actions.png",
+          "crop": {
+            "x": 520,
+            "y": 534,
+            "w": 694,
+            "h": 36
+          },
+          "widthCm": 16,
+          "sourceSha256": "83b4c0fccc00728cc2bd1e949d9485c64b0587a688725c3709dc3e31766ba6a7"
+        },
+        {
+          "number": 9,
+          "id": "selecteur-ou",
+          "file": "images/selecteur-ou.png",
+          "crop": {
+            "x": 1248,
+            "y": 16,
+            "w": 656,
+            "h": 1012
+          },
+          "widthCm": 10,
+          "sourceSha256": "09036f1255bb65eaf3bba09097f699a5a00601352b69097348dffd04401fa599"
+        },
+        {
+          "number": 10,
+          "id": "atelier-fiche-locale",
+          "file": "images/atelier-fiche-locale.png",
+          "crop": {
+            "x": 277,
+            "y": 635,
+            "w": 900,
+            "h": 125
+          },
+          "widthCm": 16,
+          "sourceSha256": "14919288e57044134fe85199db3618824860d0c0c6c8b3db70d5b71beb840307"
+        },
+        {
+          "number": 11,
+          "id": "alerte-selection",
+          "file": "images/alerte-selection.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "e1c35814c7c3d7048c3c675054b331cb283edbe7a8f1500b20183ca3b9ed4062"
+        },
+        {
+          "number": 12,
+          "id": "atelier-requetes",
+          "file": "images/atelier-requetes.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "005075eae8340a42b2be6ce567a88906f54f630436e1d338849dc48df1d13b34"
+        },
+        {
+          "number": 13,
+          "id": "atelier-desactives",
+          "file": "images/atelier-desactives.png",
+          "crop": {
+            "x": 279,
+            "y": 464,
+            "w": 390,
+            "h": 107
+          },
+          "widthCm": 13,
+          "sourceSha256": "4d5a9fb85498810c45aa0da22d4c5d9761d15d8b257b0682efafba2c81ee05c4"
+        },
+        {
+          "number": 14,
+          "id": "atelier-modeles",
+          "file": "images/atelier-modeles.png",
+          "crop": {
+            "x": 264,
+            "y": 354,
+            "w": 1595,
+            "h": 578
+          },
+          "widthCm": 16,
+          "sourceSha256": "fa1c4299c22ea562f93c405f771c7cb468f7dc807b6c5ba4049e9763931564a3"
+        },
+        {
+          "number": 15,
+          "id": "atelier-catalogue",
+          "file": "images/atelier-catalogue.png",
+          "crop": {
+            "x": 264,
+            "y": 354,
+            "w": 1595,
+            "h": 578
+          },
+          "widthCm": 16,
+          "sourceSha256": "e658011036062aadfa6258691f1f2d4b4f2c21a641a965ff69511b4bf384c5e8"
+        },
+        {
+          "number": 16,
+          "id": "atelier-condition",
+          "file": "images/atelier-condition.png",
+          "crop": {
+            "x": 278,
+            "y": 473,
+            "w": 777,
+            "h": 52
+          },
+          "widthCm": 16,
+          "sourceSha256": "d854e1c672963ec34f18a1e25a9dfb5ecfb4547c0b958236ae4f1e05076b41a7"
+        },
+        {
+          "number": 17,
+          "id": "atelier-bibliotheque",
+          "file": "images/atelier-bibliotheque.png",
+          "crop": {
+            "x": 277,
+            "y": 410,
+            "w": 870,
+            "h": 169
+          },
+          "widthCm": 16,
+          "sourceSha256": "3346e1abc7cc5e096e0116d0e99cde299da6aa56569e60071a366cb7f08147d9"
+        },
+        {
+          "number": 18,
+          "id": "accueil-sonde-requete",
+          "file": "images/accueil-sonde-requete.png",
+          "crop": {
+            "x": 218,
+            "y": 941,
+            "w": 369,
+            "h": 159
+          },
+          "widthCm": 12,
+          "sourceSha256": "39f698cdd2b4fb888d0df72c59d8ffb71910df7519bde92061e361aa54dfec4b"
+        },
+        {
+          "number": 19,
+          "id": "recherche-requete",
+          "file": "images/recherche-requete.png",
+          "crop": {
+            "x": 516,
+            "y": 388,
+            "w": 748,
+            "h": 38
+          },
+          "widthCm": 16,
+          "sourceSha256": "1cb179e88e04fd47058a7a18d26786a32224290d9a8df3ba3385b44fb5ba284e"
+        },
+        {
+          "number": 20,
+          "id": "atelier-poste",
+          "file": "images/atelier-poste.png",
+          "crop": {
+            "x": 278,
+            "y": 656,
+            "w": 837,
+            "h": 250
+          },
+          "widthCm": 16,
+          "sourceSha256": "60c8f604303136d43b7ec9fe50e1f72d61350ff6cb6d15e4e24281a661add7c6"
+        },
+        {
+          "number": 21,
+          "id": "poste-sonde-requete",
+          "file": "images/poste-sonde-requete.png",
+          "crop": {
+            "x": 240,
+            "y": 802,
+            "w": 360,
+            "h": 160
+          },
+          "widthCm": 12,
+          "sourceSha256": "8667169e03e2a301aee99465d2e04eff69433b3d897813422285f1c6a8e4be5d"
+        },
+        {
+          "number": 22,
+          "id": "atelier-collecte",
+          "file": "images/atelier-collecte.png",
+          "crop": {
+            "x": 280,
+            "y": 910,
+            "w": 624,
+            "h": 73
+          },
+          "widthCm": 16,
+          "sourceSha256": "ecac2b6c77b1c629ad45b6d5ea7e5c13d573747fa7abade0083b93aa03367baa"
+        },
+        {
+          "number": 23,
+          "id": "base-commandes",
+          "file": "images/base-mise-a-jour.png",
+          "crop": {
+            "x": 248,
+            "y": 204,
+            "w": 815,
+            "h": 187
+          },
+          "widthCm": 16,
+          "sourceSha256": "bbf5dcabe47366e0a4f0b4fb10707d3689946416f0ff346b277acb4f58c8de1e"
+        },
+        {
+          "number": 24,
+          "id": "base-autonome",
+          "file": "images/base-autonome.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "0cb032bafa4ab4917ffabf639857b5e74ed8ce02015864901b556583c4a8840a"
+        },
+        {
+          "number": 25,
+          "id": "base-stockage",
+          "file": "images/base-stockage.png",
+          "crop": {
+            "x": 250,
+            "y": 270,
+            "w": 1110,
+            "h": 605
+          },
+          "widthCm": 16,
+          "sourceSha256": "10ba2ec6e3c54d927a645c8fa587dca7f7272162375fc46092a64ed36bf28110"
+        },
+        {
+          "number": 26,
+          "id": "editeur-widget",
+          "file": "images/editeur-widget.png",
+          "crop": {
+            "x": 1108,
+            "y": 16,
+            "w": 796,
+            "h": 620
+          },
+          "widthCm": 16,
+          "sourceSha256": "289f51ffacae9f08ea8e1765a7a9ee875962723ecdbda2cd98e177bc1bef9ac2"
+        },
+        {
+          "number": 27,
+          "id": "personnaliser",
+          "file": "images/personnaliser.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "f14b9e8ff038034c0ab21b0c3d8177547f586b13dc681959935b862f701e8884"
+        },
+        {
+          "number": 28,
+          "id": "logiciels",
+          "file": "images/logiciels.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "47e76eb33892dbcfe28341ad30a8ca3a556d5523030acf9231593c33786bd37a"
+        },
+        {
+          "number": 29,
+          "id": "etat-moteur",
+          "file": "images/etat-moteur.png",
+          "crop": {
+            "x": 16,
+            "y": 64,
+            "w": 620,
+            "h": 300
+          },
+          "widthCm": 16,
+          "sourceSha256": "9746505bb3fc918f457ace0709584f504130e7cf00c893a54c22a36293c0ecb0"
+        }
+      ],
+      "renderedPages": [
+        {
+          "page": 1,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-1.png",
+          "sha256": "19afe4fb60d751d02420948b3717a7da6bb02089985a71b0d25b8b70251232a0"
+        },
+        {
+          "page": 2,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-2.png",
+          "sha256": "a6dcf22dd979ded343c826770bf27d18f6d3b0810cd241c44284848f2ad6200a"
+        },
+        {
+          "page": 3,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-3.png",
+          "sha256": "d93c25b2a52698e1bf28efd4c7f8698bc67a4187917bfa0b6bb74d93a4383de7"
+        },
+        {
+          "page": 4,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-4.png",
+          "sha256": "d4077f0c06b7963c192d1197a893fac8a0ee05bb435fe6af6d983d2c98960b96"
+        },
+        {
+          "page": 5,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-5.png",
+          "sha256": "63da6c1627d2c80c48f6fc2274a2adc3b86a8552a248cb41539f54e8f5ebc02d"
+        },
+        {
+          "page": 6,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-6.png",
+          "sha256": "9b8aeec5ede73d5f93e0bf8236979ddaa6df8c3b83ba58df433ee3d7da44481e"
+        },
+        {
+          "page": 7,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-7.png",
+          "sha256": "af8d8c081a77628602e924a4446db63b0aefe0925ca355177aec4595a9bb8bac"
+        },
+        {
+          "page": 8,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-8.png",
+          "sha256": "8c53cea6fde7d91ed6cf1d83cbd674b5944ddacd6a2ec62645635889d8cdff38"
+        },
+        {
+          "page": 9,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-9.png",
+          "sha256": "79b67f9d358eff216deb480c7dec47d26ed52f46e60a04f372645dbbb737ab88"
+        },
+        {
+          "page": 10,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-10.png",
+          "sha256": "a0b61003393570f0bfd9b92f59c9164711f4fd14d00aebec017692f4432e15fb"
+        },
+        {
+          "page": 11,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-11.png",
+          "sha256": "63626b833ef6fe5c5bea3f0874174679770bbaba2ae0ae84b7f145b6bb9924d4"
+        },
+        {
+          "page": 12,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-12.png",
+          "sha256": "893d3216856aef73e4935e53799cf66fc26c74c40d5b2a843661d608aad65f9c"
+        },
+        {
+          "page": 13,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-13.png",
+          "sha256": "b410038e6d5c2098064a2ed3898e6d4bf71b36dd6140d31a1c643513b18f060b"
+        },
+        {
+          "page": 14,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-14.png",
+          "sha256": "2cbab77fe4ccddbf1582d76085e0455e50719124ae83f71d07e84295cd0cc5d5"
+        },
+        {
+          "page": 15,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-15.png",
+          "sha256": "853b8cbf705f036ceab5975a9a5c5e0d03e18ffbaf9163c1041665dfecd46111"
+        },
+        {
+          "page": 16,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-16.png",
+          "sha256": "90e04276e27efef880806482f7d5644305e7bfa230d21e2a7688773ed7015e7c"
+        },
+        {
+          "page": 17,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-17.png",
+          "sha256": "4911a1159de5e267243402259abc4955c75b333fd8445bebb6fb0f951732bc99"
+        },
+        {
+          "page": 18,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-18.png",
+          "sha256": "78f8bbf5054ac2d252f53e89acc9b7c277f1c5b6e758a60026b5e86659031e8a"
+        },
+        {
+          "page": 19,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-19.png",
+          "sha256": "55158d673078736b24a90f367707830f0fd2ad9e4dd0f40114848ab6d2ad1744"
+        },
+        {
+          "page": 20,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-20.png",
+          "sha256": "72e0aa4775aec5e43f5680d9e803e8ec70cad7d9b58f97b22febbb0e631d4cdb"
+        },
+        {
+          "page": 21,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-21.png",
+          "sha256": "52dc4ece95c273e5da2f78aece29486570392e880d1037332137f9712fe4bf35"
+        },
+        {
+          "page": 22,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-22.png",
+          "sha256": "8aafce783f6726362be1b942ed10b606cfd27e1e152fbee5bc9b8aa562e86591"
+        },
+        {
+          "page": 23,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-23.png",
+          "sha256": "fd15dfb8cf8c35855879c3dbf05a3c4caeefb01f2df2f2a07989b685cc99068f"
+        },
+        {
+          "page": 24,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-24.png",
+          "sha256": "4dbd6017f62d35f4e439204b8a2f792bb0c53cb0ee573d8ceabc72dbcecfed93"
+        },
+        {
+          "page": 25,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-25.png",
+          "sha256": "dfbd178e3095905b3bf9ed12657f378e62bbf28ba2745dd69d80099a48ae29e1"
+        },
+        {
+          "page": 26,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-26.png",
+          "sha256": "2709984fb7bd728bdb1b167cf94d93e6af030db2c85968815050e373f65e5d34"
+        },
+        {
+          "page": 27,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-27.png",
+          "sha256": "a0f0a2d647552457dd7c6faf0598f6ae917f1f28b17b499eb1e5b0582df2ab25"
+        },
+        {
+          "page": 28,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-ou-refresh-final/page-28.png",
+          "sha256": "8a29c940a57032429295538fed027510c80c1036d49cd699eb82a372857d5874"
+        }
+      ]
+    },
+    {
+      "role": "administrateur",
+      "pages": 69,
+      "figures": 29,
+      "distinctScreenshotSources": 28,
+      "distinctScreenshotHashes": 28,
+      "visualReviewComplete": true,
+      "reviewers": [
+        {
+          "reviewer": "engine_audit",
+          "status": "pass",
+          "pages": [
+            1,
+            17
+          ],
+          "method": "Each page opened at original PNG resolution; exact SHA-256 verified against final delivery page. See retained source receipt.",
+          "pageHashes": {
+            "1": "ef7f5e5489e5178a7a0bd25a54c18b103bd0a6e596ea2caf8a4f929b57eb2ffd",
+            "2": "2876b070f0e4cdb753741f1d5acc721acd9623d9d3503c03604a472990696c4f",
+            "3": "df16f7d882078ce475aae6b430be52c2d9fdd5bbba25d7539b351b815590087b",
+            "4": "ce8646f0a129e1ee46331cca96577fde64cafd95dc5802f5a7f55c104f98c9d5",
+            "5": "8d648dad71085acb922fbf5392ecbc271915a8920a819db3d8f1e2419c007196",
+            "6": "e89e8d9f3e934e45eca3419b1b293f237d8964f94aa7acbeefd119b427d85be1",
+            "7": "5e513f3ecc3fde498c238214851ac4a276a51a30058b8d95bf58c81213beb262",
+            "8": "7e997625063046a2ff6c02054e37cdf7bae49b0206cf2effeb0395cd5d5e7459",
+            "9": "0dd8b50f2ae9bb95ca5be85ec50ca6f928b2b067549ea8b5ca2a5a61e3707b8a",
+            "10": "60a9fb15b01177ab3de32d752ce3d34688b731f5c7fef4c43269ecf3d143c90e",
+            "11": "8da990e79e9d3d923b7fad2391602d50cea2283f540a9cd0d07e133c9a3176f8",
+            "12": "884038a32d7b8ecb87873bfaccc5f908faf6687c26b987d6638851c38efd3ac4",
+            "13": "dee8a7ebc88b7faa1de35858a130edfa7245f89a230dcd41092789ae58975ca2",
+            "14": "c134795b386bffeebec0fd052520e161c052e275e1d3a2905de844f727940e46",
+            "15": "63eba56461dd312be620979686a15ccc1ef67bb60ee17cdffe72826f41d12c71",
+            "16": "d4a8eb204a082f36a4866f8dbe7c969922a238ed35f371b9041f2882ebaeed0d",
+            "17": "bdcd65552218123e20d1147136cbcc9d9f0e235925c31787d2cd2330a45f89ee"
+          },
+          "receipt": {
+            "path": "validation/2026-10-13/ou-refresh/documentation-reviews/domenia-ou-admin-front-qa-engine.json",
+            "sha256": "9006a46dd0ed009666d279353429dc6923dbaf398bd9cc9c004bcac0c4c690d5"
+          }
+        },
+        {
+          "reviewer": "classic_packaging",
+          "status": "pass",
+          "pages": [
+            18,
+            34
+          ],
+          "method": "Each page opened at original PNG resolution; exact SHA-256 verified against final delivery page. See retained source receipt.",
+          "pageHashes": {
+            "18": "263c4718b89da08e676687e498d333834c34e131e77d536871e468bb0d063642",
+            "19": "d587e6e11e1dea35d7fa65ac8588306ab4deb8a12388ed7a8b1e1bb377340e3a",
+            "20": "182fad48ae5d355cb73a66e8851d1aab062e325851c272da1e16ef883d8a2d25",
+            "21": "cc6a7d8b93c6fb20be3b9b0887f460b0b823b1106e4cb2fe77b3498b2ba657c7",
+            "22": "f8b312e8aeb93bdbe98790ab99daaeaf12165118b5d66eb5203ba48dcb1d89f2",
+            "23": "87bbfc2c7ba169d3f38b6534c2c51f2ad8af818f932fe3f6734e31ad1037a0f9",
+            "24": "2cd0df8ccffbea1ed343056b91ba40e8a6624d3595ae80f6613614b77e649424",
+            "25": "415a1b29b79988477ee6a656d6d580990c70d36e55496509193ed9ff2ea7e669",
+            "26": "55e82628e17978ee98f6ead072942171d8cb488c2cdef94484f8e5fdf13ea10f",
+            "27": "11c15ae2127931e79f4114308a8ce293ca5c2e9eaf979621c9044b626000be83",
+            "28": "654b514b6ef37c3464068d54302a9e70e8fe653e5b940e309c1de6391e189e25",
+            "29": "dbe0397e7ea746b2126289f392d2a291da8bc4d6594cc1f8b9745444ebde6ec7",
+            "30": "3a0b9fe4e74a0e69c9b29c9c38d6bdfbcbc5a9aa2109f0624462ffb90ee396e7",
+            "31": "ccf75359480161f26232ee75ce8d9e2524f92280b765de3072a8a3030ce58539",
+            "32": "e783d196651401712c33bec14fe6b852c495b4213791a6ec3916a34af8509004",
+            "33": "0badd5919d5a0355cbc230c4f91997eaaaa1245ffebf12a2084a378ec0bc58dc",
+            "34": "600a54836dfddc23ac5257cb2cf050b516fe0780f7856feccca2f2bc964f5bec"
+          },
+          "receipt": {
+            "path": "validation/2026-10-13/ou-refresh/documentation-reviews/domenia-ou-admin-qa-classic.json",
+            "sha256": "0830770e9c6aaff30ec8ae753970e44381176053879e8eef999d970b988167ae"
+          }
+        },
+        {
+          "reviewer": "root",
+          "status": "pass",
+          "pages": [
+            35,
+            52
+          ],
+          "method": "Each page opened at original PNG resolution; exact SHA-256 verified against final delivery page. See retained source receipt.",
+          "pageHashes": {
+            "35": "14ef9bc31a9a6c55d9f6ccaf8536c7fbedff2138b05b7dc7770074ca2fd79848",
+            "36": "90d8cd0dd8ee12223200ad1a7a88a65f5f1afc4d0c1beefc95070fc69a2390ba",
+            "37": "c5a67d929a49ad55f9948ed2764acfb87eadc50dae91baa09537e05dcd472eab",
+            "38": "e84f2376d969490fe48bdf03ae8372cd4b43280c1b48f8775ee913978c83e37e",
+            "39": "4e99532760636a416d6d231c9e995b0558c03b6b38c4ef2301e52d5599d268e6",
+            "40": "d96e4dfa4e2f7e16c55427ac44b7a5492213c66777b617739ba42c73a48abb61",
+            "41": "6dca8bde42aba76630d3dda9f209251f8fbd84bdd29cfa94c90f57d3d3dbdc78",
+            "42": "373690aa46a99f32b7e043e7f13ae67bc0e3026a848af18af4b6f517063c3b4e",
+            "43": "ce996df87d46a92bc313e86953ad2b77c7cf773754067c86cabc50702dd1c47a",
+            "44": "f12d02f76a2add2929751d47556f91a49fe2ac0938a120d6c6ef2ea54de2a641",
+            "45": "f93458a95ece96ebbc1579f99c0c1853765141319159a1f0a0a32a36f46328b8",
+            "46": "3e204fa2e2805492db7b9237536f854036f460e79c43eeee14603e1b9e06114f",
+            "47": "ea654ebd67c1885a49b2e8a0c407e3514e6f13a60a37d9bf4cf9eb71900123cd",
+            "48": "f483503099998bcb76981f2d02b84f4ce5ddc3ca7d34ff7e2d1af700ba8547d7",
+            "49": "e6cc1d42444807beec8f01def1c23b671df28251bf463764f45223720c5103ac",
+            "50": "b3bb5fbfd5059b34056c4215148c4097e6eee9c7dbe71f7ac54d6aff1ab55e32",
+            "51": "5a7b7529a4efb2fa3b408e1a6fc1ed63125086f86f006f64f32544e61c71feef",
+            "52": "ede453b1618e3a35384fea313743866a436fa3f6dda4e75eef040d8aacad86bd"
+          },
+          "receipt": {
+            "path": "validation/2026-10-13/ou-refresh/documentation-reviews/domenia-ou-admin-qa-root.json",
+            "sha256": "4c48d872cf09ec2d5f1e7c2ca93a3a2387ebbbd7bdd429bfa560fb24d340c081"
+          }
+        },
+        {
+          "reviewer": "engine_audit",
+          "status": "pass",
+          "pages": [
+            53,
+            69
+          ],
+          "method": "Each page opened at original PNG resolution; exact SHA-256 verified against final delivery page. See retained source receipt.",
+          "pageHashes": {
+            "53": "2369a4776e71ab09cc62bf129ea5bff7c80a534a51bec17e906c661d7b73e2cc",
+            "54": "71e334bf6e31ccf43ff7b616e3ce435325f9997bca53269edba189dcf1b1aaf0",
+            "55": "9a77183f715a067eaefdc4d0a8c5219080037dca7c828ef6a968749bf35d079e",
+            "56": "c731f59326c7fe9e691a648b4d27e50a2432834638a7b59d5d13d22f51188ff8",
+            "57": "3148e3ca1e8fbde3ce43bee89c63310476d1c0b485da66b218c1ad6b81c0c6d8",
+            "58": "989dfad70efe283b2091f69647691408c1b5d77812ca150fabf383dea7675e58",
+            "59": "a899fb6e83ac5addcc57638b429560c4a48f24c0366af5bff21e91761a27f38c",
+            "60": "3546c888fd553d096a78e9021284d5c08189becc2c026700e277e2bf7b68ecc6",
+            "61": "b4ec8e0abb0c35c4e20be8f856c000eaa660a6c91f289e5500161076dcd7dfd5",
+            "62": "3e5aca5eea693b487f2f38afb2ef9ea02144e9c5a77d37ea3202fb53e8028d13",
+            "63": "6a65f6cd54136fa8affe201a060df8f0ec0f26cbd2f3d4651e4f6e87f692d84c",
+            "64": "2cbdc72ceb703fe6371b7af008c6a4b407055e30aeef3dcec1cbdee495bc8ff6",
+            "65": "918c94c9afcf872dda13b5b9f4eb2cb2abefae6c3adc90052ffd6b8c5a5fa12e",
+            "66": "f65017a69fa4f43ee9ab52c702de8e3b953e51b4c21a2b74efb0090d6d1f6ab2",
+            "67": "9486e0383b44d8724cbda922f2f7ceaeffabc491bde28eb543ce4cce31e48ba2",
+            "68": "1f5d3666db7bf8b101c16117581c2063e24092b363266b2409ef3a252778c8cc",
+            "69": "559f26b8b442fdd8998dff1861e9cc7d45338b704a0eb94bce9ea4514e4ef6dc"
+          },
+          "receipt": {
+            "path": "validation/2026-10-13/ou-refresh/documentation-reviews/domenia-ou-admin-qa-engine.json",
+            "sha256": "b364e2ecbfb0af9d84493944268752dfbce75e6c3ef7dc0311407c1db25f003d"
+          }
+        }
+      ],
+      "structuralChecks": {
+        "docxZipValid": true,
+        "pdfPagesConfirmed": true,
+        "replacementGlyphCount": 0,
+        "emptyPages": 0,
+        "tocLinks": 23,
+        "originalPngHashesPreserved": 28,
+        "docxDrawingCountIncludingCover": 30
+      },
+      "sources": [
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/administrateur.md",
+          "bytes": 165244,
+          "sha256": "e8e25314504d9a3890b8a0f9d843c7b785d7f19ebdd67d7ba8d3c0f1126de463"
+        },
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/administrateur.json",
+          "bytes": 5969,
+          "sha256": "e89ec137b342b64d1243ebc188d6e1e9ce7ec6d1ed91d56f6867fe560b89e013"
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/DOC/Domenia-1.0-Guide-administrateur.docx",
+          "bytes": 4933534,
+          "sha256": "9d24ababab7d3beae66a047e362beaf488bb5cf7289475c805aea6a366b6b376"
+        },
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/DOC/Domenia-1.0-Guide-administrateur.pdf",
+          "bytes": 5665279,
+          "sha256": "ac370d35250a3776b5f21cd36f0ea4efa9406244d08d0f24e3323a73f1da422b"
+        }
+      ],
+      "figureInventory": [
+        {
+          "number": 1,
+          "id": "recherche-actions",
+          "file": "images/recherche-actions.png",
+          "crop": {
+            "x": 520,
+            "y": 534,
+            "w": 694,
+            "h": 36
+          },
+          "widthCm": 16,
+          "sourceSha256": "83b4c0fccc00728cc2bd1e949d9485c64b0587a688725c3709dc3e31766ba6a7"
+        },
+        {
+          "number": 2,
+          "id": "recherche-requetes",
+          "file": "images/recherche-requetes.png",
+          "crop": {
+            "x": 516,
+            "y": 296,
+            "w": 1380,
+            "h": 72
+          },
+          "widthCm": 16,
+          "sourceSha256": "1c6d46cd61701d935cef29c608b5e32559d227555244e248c666dc679f8a7cf1"
+        },
+        {
+          "number": 3,
+          "id": "recherche-inconnus",
+          "file": "images/recherche-inconnus.png",
+          "crop": {
+            "x": 516,
+            "y": 388,
+            "w": 950,
+            "h": 38
+          },
+          "widthCm": 16,
+          "sourceSha256": "3f7951fc6b0f5a3c5d0eb114bc24ad30fd626e8c2270e868daa67696331825df"
+        },
+        {
+          "number": 4,
+          "id": "fiche-poste",
+          "file": "images/fiche-poste.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "3615429c1cd4d0b7c4766c24615281ed02ed8c596408a373d1cb4420e1f00f37"
+        },
+        {
+          "number": 5,
+          "id": "actions-poste",
+          "file": "images/actions-poste.png",
+          "crop": {
+            "x": 238,
+            "y": 240,
+            "w": 837,
+            "h": 82
+          },
+          "widthCm": 16,
+          "sourceSha256": "a6f3413b8eda5041482ac5eff50150addeb10a82cead021c9227afe19c141406"
+        },
+        {
+          "number": 6,
+          "id": "actions-poste-avancees",
+          "file": "images/actions-poste.png",
+          "crop": {
+            "x": 1073,
+            "y": 276,
+            "w": 637,
+            "h": 45
+          },
+          "widthCm": 14,
+          "sourceSha256": "a6f3413b8eda5041482ac5eff50150addeb10a82cead021c9227afe19c141406"
+        },
+        {
+          "number": 7,
+          "id": "tableau-poste",
+          "file": "images/tableau-poste.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "39e95f7b492f494848b4ab999a4c6c7ed8d39bb4162d2fca419883fdb3085df8"
+        },
+        {
+          "number": 8,
+          "id": "selecteur-ou",
+          "file": "images/selecteur-ou.png",
+          "crop": {
+            "x": 1248,
+            "y": 16,
+            "w": 656,
+            "h": 1012
+          },
+          "widthCm": 10,
+          "sourceSha256": "09036f1255bb65eaf3bba09097f699a5a00601352b69097348dffd04401fa599"
+        },
+        {
+          "number": 9,
+          "id": "alerte-selection",
+          "file": "images/alerte-selection.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "e1c35814c7c3d7048c3c675054b331cb283edbe7a8f1500b20183ca3b9ed4062"
+        },
+        {
+          "number": 10,
+          "id": "atelier-fiche-locale",
+          "file": "images/atelier-fiche-locale.png",
+          "crop": {
+            "x": 277,
+            "y": 635,
+            "w": 900,
+            "h": 125
+          },
+          "widthCm": 16,
+          "sourceSha256": "14919288e57044134fe85199db3618824860d0c0c6c8b3db70d5b71beb840307"
+        },
+        {
+          "number": 11,
+          "id": "atelier-requetes",
+          "file": "images/atelier-requetes.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "005075eae8340a42b2be6ce567a88906f54f630436e1d338849dc48df1d13b34"
+        },
+        {
+          "number": 12,
+          "id": "atelier-desactives",
+          "file": "images/atelier-desactives.png",
+          "crop": {
+            "x": 279,
+            "y": 464,
+            "w": 390,
+            "h": 107
+          },
+          "widthCm": 13,
+          "sourceSha256": "4d5a9fb85498810c45aa0da22d4c5d9761d15d8b257b0682efafba2c81ee05c4"
+        },
+        {
+          "number": 13,
+          "id": "atelier-modeles",
+          "file": "images/atelier-modeles.png",
+          "crop": {
+            "x": 264,
+            "y": 354,
+            "w": 1595,
+            "h": 578
+          },
+          "widthCm": 16,
+          "sourceSha256": "fa1c4299c22ea562f93c405f771c7cb468f7dc807b6c5ba4049e9763931564a3"
+        },
+        {
+          "number": 14,
+          "id": "atelier-catalogue",
+          "file": "images/atelier-catalogue.png",
+          "crop": {
+            "x": 264,
+            "y": 354,
+            "w": 1595,
+            "h": 578
+          },
+          "widthCm": 16,
+          "sourceSha256": "e658011036062aadfa6258691f1f2d4b4f2c21a641a965ff69511b4bf384c5e8"
+        },
+        {
+          "number": 15,
+          "id": "atelier-condition",
+          "file": "images/atelier-condition.png",
+          "crop": {
+            "x": 278,
+            "y": 473,
+            "w": 777,
+            "h": 52
+          },
+          "widthCm": 16,
+          "sourceSha256": "d854e1c672963ec34f18a1e25a9dfb5ecfb4547c0b958236ae4f1e05076b41a7"
+        },
+        {
+          "number": 16,
+          "id": "atelier-bibliotheque",
+          "file": "images/atelier-bibliotheque.png",
+          "crop": {
+            "x": 277,
+            "y": 410,
+            "w": 870,
+            "h": 169
+          },
+          "widthCm": 16,
+          "sourceSha256": "3346e1abc7cc5e096e0116d0e99cde299da6aa56569e60071a366cb7f08147d9"
+        },
+        {
+          "number": 17,
+          "id": "accueil-sonde-requete",
+          "file": "images/accueil-sonde-requete.png",
+          "crop": {
+            "x": 218,
+            "y": 941,
+            "w": 369,
+            "h": 159
+          },
+          "widthCm": 12,
+          "sourceSha256": "39f698cdd2b4fb888d0df72c59d8ffb71910df7519bde92061e361aa54dfec4b"
+        },
+        {
+          "number": 18,
+          "id": "recherche-requete",
+          "file": "images/recherche-requete.png",
+          "crop": {
+            "x": 516,
+            "y": 388,
+            "w": 748,
+            "h": 38
+          },
+          "widthCm": 16,
+          "sourceSha256": "1cb179e88e04fd47058a7a18d26786a32224290d9a8df3ba3385b44fb5ba284e"
+        },
+        {
+          "number": 19,
+          "id": "atelier-poste",
+          "file": "images/atelier-poste.png",
+          "crop": {
+            "x": 278,
+            "y": 656,
+            "w": 837,
+            "h": 250
+          },
+          "widthCm": 16,
+          "sourceSha256": "60c8f604303136d43b7ec9fe50e1f72d61350ff6cb6d15e4e24281a661add7c6"
+        },
+        {
+          "number": 20,
+          "id": "poste-sonde-requete",
+          "file": "images/poste-sonde-requete.png",
+          "crop": {
+            "x": 240,
+            "y": 802,
+            "w": 360,
+            "h": 160
+          },
+          "widthCm": 12,
+          "sourceSha256": "8667169e03e2a301aee99465d2e04eff69433b3d897813422285f1c6a8e4be5d"
+        },
+        {
+          "number": 21,
+          "id": "atelier-collecte",
+          "file": "images/atelier-collecte.png",
+          "crop": {
+            "x": 280,
+            "y": 910,
+            "w": 624,
+            "h": 73
+          },
+          "widthCm": 16,
+          "sourceSha256": "ecac2b6c77b1c629ad45b6d5ea7e5c13d573747fa7abade0083b93aa03367baa"
+        },
+        {
+          "number": 22,
+          "id": "personnaliser",
+          "file": "images/personnaliser.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "f14b9e8ff038034c0ab21b0c3d8177547f586b13dc681959935b862f701e8884"
+        },
+        {
+          "number": 23,
+          "id": "editeur-widget",
+          "file": "images/editeur-widget.png",
+          "crop": {
+            "x": 1108,
+            "y": 16,
+            "w": 796,
+            "h": 620
+          },
+          "widthCm": 16,
+          "sourceSha256": "289f51ffacae9f08ea8e1765a7a9ee875962723ecdbda2cd98e177bc1bef9ac2"
+        },
+        {
+          "number": 24,
+          "id": "logiciels",
+          "file": "images/logiciels.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "47e76eb33892dbcfe28341ad30a8ca3a556d5523030acf9231593c33786bd37a"
+        },
+        {
+          "number": 25,
+          "id": "connexion",
+          "file": "images/connexion.png",
+          "crop": {
+            "x": 743,
+            "y": 334,
+            "w": 434,
+            "h": 411
+          },
+          "widthCm": 10,
+          "sourceSha256": "9c573914c9d8b985679cd286cdc8ca7321878c012390dcb63fd3aecbfd8c5d45"
+        },
+        {
+          "number": 26,
+          "id": "base-commandes",
+          "file": "images/base-mise-a-jour.png",
+          "crop": {
+            "x": 248,
+            "y": 204,
+            "w": 815,
+            "h": 187
+          },
+          "widthCm": 16,
+          "sourceSha256": "bbf5dcabe47366e0a4f0b4fb10707d3689946416f0ff346b277acb4f58c8de1e"
+        },
+        {
+          "number": 27,
+          "id": "base-autonome",
+          "file": "images/base-autonome.png",
+          "crop": null,
+          "widthCm": 16,
+          "sourceSha256": "0cb032bafa4ab4917ffabf639857b5e74ed8ce02015864901b556583c4a8840a"
+        },
+        {
+          "number": 28,
+          "id": "base-stockage",
+          "file": "images/base-stockage.png",
+          "crop": {
+            "x": 250,
+            "y": 270,
+            "w": 1110,
+            "h": 605
+          },
+          "widthCm": 16,
+          "sourceSha256": "10ba2ec6e3c54d927a645c8fa587dca7f7272162375fc46092a64ed36bf28110"
+        },
+        {
+          "number": 29,
+          "id": "etat-moteur",
+          "file": "images/etat-moteur.png",
+          "crop": {
+            "x": 16,
+            "y": 64,
+            "w": 620,
+            "h": 300
+          },
+          "widthCm": 16,
+          "sourceSha256": "9746505bb3fc918f457ace0709584f504130e7cf00c893a54c22a36293c0ecb0"
+        }
+      ],
+      "renderedPages": [
+        {
+          "page": 1,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-1.png",
+          "sha256": "ef7f5e5489e5178a7a0bd25a54c18b103bd0a6e596ea2caf8a4f929b57eb2ffd"
+        },
+        {
+          "page": 2,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-2.png",
+          "sha256": "2876b070f0e4cdb753741f1d5acc721acd9623d9d3503c03604a472990696c4f"
+        },
+        {
+          "page": 3,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-3.png",
+          "sha256": "df16f7d882078ce475aae6b430be52c2d9fdd5bbba25d7539b351b815590087b"
+        },
+        {
+          "page": 4,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-4.png",
+          "sha256": "ce8646f0a129e1ee46331cca96577fde64cafd95dc5802f5a7f55c104f98c9d5"
+        },
+        {
+          "page": 5,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-5.png",
+          "sha256": "8d648dad71085acb922fbf5392ecbc271915a8920a819db3d8f1e2419c007196"
+        },
+        {
+          "page": 6,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-6.png",
+          "sha256": "e89e8d9f3e934e45eca3419b1b293f237d8964f94aa7acbeefd119b427d85be1"
+        },
+        {
+          "page": 7,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-7.png",
+          "sha256": "5e513f3ecc3fde498c238214851ac4a276a51a30058b8d95bf58c81213beb262"
+        },
+        {
+          "page": 8,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-8.png",
+          "sha256": "7e997625063046a2ff6c02054e37cdf7bae49b0206cf2effeb0395cd5d5e7459"
+        },
+        {
+          "page": 9,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-9.png",
+          "sha256": "0dd8b50f2ae9bb95ca5be85ec50ca6f928b2b067549ea8b5ca2a5a61e3707b8a"
+        },
+        {
+          "page": 10,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-10.png",
+          "sha256": "60a9fb15b01177ab3de32d752ce3d34688b731f5c7fef4c43269ecf3d143c90e"
+        },
+        {
+          "page": 11,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-11.png",
+          "sha256": "8da990e79e9d3d923b7fad2391602d50cea2283f540a9cd0d07e133c9a3176f8"
+        },
+        {
+          "page": 12,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-12.png",
+          "sha256": "884038a32d7b8ecb87873bfaccc5f908faf6687c26b987d6638851c38efd3ac4"
+        },
+        {
+          "page": 13,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-13.png",
+          "sha256": "dee8a7ebc88b7faa1de35858a130edfa7245f89a230dcd41092789ae58975ca2"
+        },
+        {
+          "page": 14,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-14.png",
+          "sha256": "c134795b386bffeebec0fd052520e161c052e275e1d3a2905de844f727940e46"
+        },
+        {
+          "page": 15,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-15.png",
+          "sha256": "63eba56461dd312be620979686a15ccc1ef67bb60ee17cdffe72826f41d12c71"
+        },
+        {
+          "page": 16,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-16.png",
+          "sha256": "d4a8eb204a082f36a4866f8dbe7c969922a238ed35f371b9041f2882ebaeed0d"
+        },
+        {
+          "page": 17,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-17.png",
+          "sha256": "bdcd65552218123e20d1147136cbcc9d9f0e235925c31787d2cd2330a45f89ee"
+        },
+        {
+          "page": 18,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-18.png",
+          "sha256": "263c4718b89da08e676687e498d333834c34e131e77d536871e468bb0d063642"
+        },
+        {
+          "page": 19,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-19.png",
+          "sha256": "d587e6e11e1dea35d7fa65ac8588306ab4deb8a12388ed7a8b1e1bb377340e3a"
+        },
+        {
+          "page": 20,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-20.png",
+          "sha256": "182fad48ae5d355cb73a66e8851d1aab062e325851c272da1e16ef883d8a2d25"
+        },
+        {
+          "page": 21,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-21.png",
+          "sha256": "cc6a7d8b93c6fb20be3b9b0887f460b0b823b1106e4cb2fe77b3498b2ba657c7"
+        },
+        {
+          "page": 22,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-22.png",
+          "sha256": "f8b312e8aeb93bdbe98790ab99daaeaf12165118b5d66eb5203ba48dcb1d89f2"
+        },
+        {
+          "page": 23,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-23.png",
+          "sha256": "87bbfc2c7ba169d3f38b6534c2c51f2ad8af818f932fe3f6734e31ad1037a0f9"
+        },
+        {
+          "page": 24,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-24.png",
+          "sha256": "2cd0df8ccffbea1ed343056b91ba40e8a6624d3595ae80f6613614b77e649424"
+        },
+        {
+          "page": 25,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-25.png",
+          "sha256": "415a1b29b79988477ee6a656d6d580990c70d36e55496509193ed9ff2ea7e669"
+        },
+        {
+          "page": 26,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-26.png",
+          "sha256": "55e82628e17978ee98f6ead072942171d8cb488c2cdef94484f8e5fdf13ea10f"
+        },
+        {
+          "page": 27,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-27.png",
+          "sha256": "11c15ae2127931e79f4114308a8ce293ca5c2e9eaf979621c9044b626000be83"
+        },
+        {
+          "page": 28,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-28.png",
+          "sha256": "654b514b6ef37c3464068d54302a9e70e8fe653e5b940e309c1de6391e189e25"
+        },
+        {
+          "page": 29,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-29.png",
+          "sha256": "dbe0397e7ea746b2126289f392d2a291da8bc4d6594cc1f8b9745444ebde6ec7"
+        },
+        {
+          "page": 30,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-30.png",
+          "sha256": "3a0b9fe4e74a0e69c9b29c9c38d6bdfbcbc5a9aa2109f0624462ffb90ee396e7"
+        },
+        {
+          "page": 31,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-31.png",
+          "sha256": "ccf75359480161f26232ee75ce8d9e2524f92280b765de3072a8a3030ce58539"
+        },
+        {
+          "page": 32,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-32.png",
+          "sha256": "e783d196651401712c33bec14fe6b852c495b4213791a6ec3916a34af8509004"
+        },
+        {
+          "page": 33,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-33.png",
+          "sha256": "0badd5919d5a0355cbc230c4f91997eaaaa1245ffebf12a2084a378ec0bc58dc"
+        },
+        {
+          "page": 34,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-34.png",
+          "sha256": "600a54836dfddc23ac5257cb2cf050b516fe0780f7856feccca2f2bc964f5bec"
+        },
+        {
+          "page": 35,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-35.png",
+          "sha256": "14ef9bc31a9a6c55d9f6ccaf8536c7fbedff2138b05b7dc7770074ca2fd79848"
+        },
+        {
+          "page": 36,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-36.png",
+          "sha256": "90d8cd0dd8ee12223200ad1a7a88a65f5f1afc4d0c1beefc95070fc69a2390ba"
+        },
+        {
+          "page": 37,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-37.png",
+          "sha256": "c5a67d929a49ad55f9948ed2764acfb87eadc50dae91baa09537e05dcd472eab"
+        },
+        {
+          "page": 38,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-38.png",
+          "sha256": "e84f2376d969490fe48bdf03ae8372cd4b43280c1b48f8775ee913978c83e37e"
+        },
+        {
+          "page": 39,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-39.png",
+          "sha256": "4e99532760636a416d6d231c9e995b0558c03b6b38c4ef2301e52d5599d268e6"
+        },
+        {
+          "page": 40,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-40.png",
+          "sha256": "d96e4dfa4e2f7e16c55427ac44b7a5492213c66777b617739ba42c73a48abb61"
+        },
+        {
+          "page": 41,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-41.png",
+          "sha256": "6dca8bde42aba76630d3dda9f209251f8fbd84bdd29cfa94c90f57d3d3dbdc78"
+        },
+        {
+          "page": 42,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-42.png",
+          "sha256": "373690aa46a99f32b7e043e7f13ae67bc0e3026a848af18af4b6f517063c3b4e"
+        },
+        {
+          "page": 43,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-43.png",
+          "sha256": "ce996df87d46a92bc313e86953ad2b77c7cf773754067c86cabc50702dd1c47a"
+        },
+        {
+          "page": 44,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-44.png",
+          "sha256": "f12d02f76a2add2929751d47556f91a49fe2ac0938a120d6c6ef2ea54de2a641"
+        },
+        {
+          "page": 45,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-45.png",
+          "sha256": "f93458a95ece96ebbc1579f99c0c1853765141319159a1f0a0a32a36f46328b8"
+        },
+        {
+          "page": 46,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-46.png",
+          "sha256": "3e204fa2e2805492db7b9237536f854036f460e79c43eeee14603e1b9e06114f"
+        },
+        {
+          "page": 47,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-47.png",
+          "sha256": "ea654ebd67c1885a49b2e8a0c407e3514e6f13a60a37d9bf4cf9eb71900123cd"
+        },
+        {
+          "page": 48,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-48.png",
+          "sha256": "f483503099998bcb76981f2d02b84f4ce5ddc3ca7d34ff7e2d1af700ba8547d7"
+        },
+        {
+          "page": 49,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-49.png",
+          "sha256": "e6cc1d42444807beec8f01def1c23b671df28251bf463764f45223720c5103ac"
+        },
+        {
+          "page": 50,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-50.png",
+          "sha256": "b3bb5fbfd5059b34056c4215148c4097e6eee9c7dbe71f7ac54d6aff1ab55e32"
+        },
+        {
+          "page": 51,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-51.png",
+          "sha256": "5a7b7529a4efb2fa3b408e1a6fc1ed63125086f86f006f64f32544e61c71feef"
+        },
+        {
+          "page": 52,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-52.png",
+          "sha256": "ede453b1618e3a35384fea313743866a436fa3f6dda4e75eef040d8aacad86bd"
+        },
+        {
+          "page": 53,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-53.png",
+          "sha256": "2369a4776e71ab09cc62bf129ea5bff7c80a534a51bec17e906c661d7b73e2cc"
+        },
+        {
+          "page": 54,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-54.png",
+          "sha256": "71e334bf6e31ccf43ff7b616e3ce435325f9997bca53269edba189dcf1b1aaf0"
+        },
+        {
+          "page": 55,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-55.png",
+          "sha256": "9a77183f715a067eaefdc4d0a8c5219080037dca7c828ef6a968749bf35d079e"
+        },
+        {
+          "page": 56,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-56.png",
+          "sha256": "c731f59326c7fe9e691a648b4d27e50a2432834638a7b59d5d13d22f51188ff8"
+        },
+        {
+          "page": 57,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-57.png",
+          "sha256": "3148e3ca1e8fbde3ce43bee89c63310476d1c0b485da66b218c1ad6b81c0c6d8"
+        },
+        {
+          "page": 58,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-58.png",
+          "sha256": "989dfad70efe283b2091f69647691408c1b5d77812ca150fabf383dea7675e58"
+        },
+        {
+          "page": 59,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-59.png",
+          "sha256": "a899fb6e83ac5addcc57638b429560c4a48f24c0366af5bff21e91761a27f38c"
+        },
+        {
+          "page": 60,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-60.png",
+          "sha256": "3546c888fd553d096a78e9021284d5c08189becc2c026700e277e2bf7b68ecc6"
+        },
+        {
+          "page": 61,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-61.png",
+          "sha256": "b4ec8e0abb0c35c4e20be8f856c000eaa660a6c91f289e5500161076dcd7dfd5"
+        },
+        {
+          "page": 62,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-62.png",
+          "sha256": "3e5aca5eea693b487f2f38afb2ef9ea02144e9c5a77d37ea3202fb53e8028d13"
+        },
+        {
+          "page": 63,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-63.png",
+          "sha256": "6a65f6cd54136fa8affe201a060df8f0ec0f26cbd2f3d4651e4f6e87f692d84c"
+        },
+        {
+          "page": 64,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-64.png",
+          "sha256": "2cbdc72ceb703fe6371b7af008c6a4b407055e30aeef3dcec1cbdee495bc8ff6"
+        },
+        {
+          "page": 65,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-65.png",
+          "sha256": "918c94c9afcf872dda13b5b9f4eb2cb2abefae6c3adc90052ffd6b8c5a5fa12e"
+        },
+        {
+          "page": 66,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-66.png",
+          "sha256": "f65017a69fa4f43ee9ab52c702de8e3b953e51b4c21a2b74efb0090d6d1f6ab2"
+        },
+        {
+          "page": 67,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-67.png",
+          "sha256": "9486e0383b44d8724cbda922f2f7ceaeffabc491bde28eb543ce4cce31e48ba2"
+        },
+        {
+          "page": 68,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-68.png",
+          "sha256": "1f5d3666db7bf8b101c16117581c2063e24092b363266b2409ef3a252778c8cc"
+        },
+        {
+          "page": 69,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh-delivery/page-69.png",
+          "sha256": "559f26b8b442fdd8998dff1861e9cc7d45338b704a0eb94bce9ea4514e4ef6dc"
+        }
+      ]
+    }
+  ],
+  "completedUtc": "2026-10-13T12:16:25.509798+00:00",
+  "totalPagesVisuallyReviewed": 97,
+  "visualReviewResult": "All 97 final pages reviewed; no blocking layout defect, missing glyph, overlap, clipped text or stray tooltip remains.",
+  "nonBlockingNotes": [
+    "Existing screenshots remain explicitly fictitious examples; no new image has been manufactured or presented as a current Windows run."
+  ],
+  "softwareValidationStatus": {
+    "path": "validation/2026-10-13/ou-refresh/r1/blocked-status.json",
+    "sha256": "d1e5bf620f474c173826a6f157af314050bfa26c9a5c92d6ecdaf964173ee35a",
+    "status": "NOT_RUN_PC_POWERED_OFF"
+  }
+}

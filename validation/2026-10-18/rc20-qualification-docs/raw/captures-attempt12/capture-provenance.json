@@ -1,0 +1,242 @@
+{
+    "UTC":  "2026-10-18T10:18:26.2170888Z",
+    "PowerShell":  "5.1.26100.6584",
+    "Session":  1,
+    "SourceManifestSHA256":  "26E8264719535A8E87A7FCA5B09C106168EDF4150E14AE815E905C5606BB6811",
+    "SourceRuntimeManifestSHA256":  "94C361C5B5FE05FA07B083B14F5C34FBDD4079F43D01791C4373C4165DEF41D0",
+    "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.20-D120",
+    "Rendering":  "Native WPF RenderTargetBitmap; off-screen host, no image upscaling",
+    "Fixture":  "example.local, synthetic directory and observations, no AD access",
+    "FreshnessFixture":  "AD 35 minutes old; ping 10 to 20 minutes old; WMI inventory 2 to 3 days old; local recalculation preserves measurement dates",
+    "ToolTipsEnabled":  false,
+    "Images":  [
+                   {
+                       "File":  "accueil.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "C3E3A866BC4906AAE436850163C0CA7C61947401BC1C3E6B6C77A51B7F579472"
+                   },
+                   {
+                       "File":  "actualisation-ou.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "EBE697AB1C9648C8D8FA90CB0FD31735DC81BD1A23E2D9E261E8D6C8C9E2CA48"
+                   },
+                   {
+                       "File":  "selecteur-ou.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "881D719C54900BC1CEEE29884A10942D9D712B59EFA41B8E0986ED328E6C55EB"
+                   },
+                   {
+                       "File":  "atelier-requetes.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "792452D0D73D8BAF0F603197185F209037CCD5089FD2AA496AC55FC3CA23568D"
+                   },
+                   {
+                       "File":  "atelier-viewport-1920x1080.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "853555A1A5CE077D64E2060969927C5B772F3DDC5AF5B8B21CBE86A2AD705F21"
+                   },
+                   {
+                       "File":  "atelier-viewport-1280x720.png",
+                       "Width":  1280,
+                       "Height":  720,
+                       "SHA256":  "4A36E49A2C74B4D1A5BA1798A0606605A1C351636BDFE2FB858025B2F5FC2493"
+                   },
+                   {
+                       "File":  "atelier-catalogue.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "BD3DAC59214357B9775356EA993BFB81DBD71D42F5869022AC8C38DF0D423758"
+                   },
+                   {
+                       "File":  "atelier-modeles.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "EADBABFB607E9988A3CE3B2ECFD3F48A48BC7E39472AF93D919FFA54332B192E"
+                   },
+                   {
+                       "File":  "alerte-selection.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "49D375ABB5F82CA55246257D1195CF26005BB4E50613AEE3D45C57C143EAD31A"
+                   },
+                   {
+                       "File":  "atelier-condition.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "BCBD3C66B830241EF707CCBE6080B032F410D22330C9BF3767093E409DF8A3D0"
+                   },
+                   {
+                       "File":  "atelier-collecte.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "5006D9F3DC85F8BCDC700FE5E25AE1EBB7A49EA327B3B2C40ECE59391CEA9943"
+                   },
+                   {
+                       "File":  "atelier-fiche-locale.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "7F5A507AC3FB9181C4489829FDF011D14BDE099E9C9FD4C5A97D8EE50341A65B"
+                   },
+                   {
+                       "File":  "atelier-bibliotheque.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "5420E7ED130BE07EB8CA32B1F1F04589AEEB10ECBC88802C72452542BFE41547"
+                   },
+                   {
+                       "File":  "accueil-sonde-requete.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "461728C7639539EEC16261913F950C3903E8B988A696694BC326AD9C2352C290"
+                   },
+                   {
+                       "File":  "recherche-requete.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "22F5741FA4BDD13ACE64FF4C7A1E98C0690F59E05816DA0072176A312A084C88"
+                   },
+                   {
+                       "File":  "recherche-requetes.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "E48E5C9B23D553FAA411AF946CF59C205BEE07540EC7986A7B727AA05A2B919B"
+                   },
+                   {
+                       "File":  "recherche-inconnus.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "4329B1EC8CD324E9181C4F3B6A9BF1CDDA4D1FC9DC6D0B8590BDDB810C811E73"
+                   },
+                   {
+                       "File":  "atelier-desactives.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "FAB9CF20B9B4A3B397401109E41E2B95160D3D1D77F377DCF87CE9CF41E2E073"
+                   },
+                   {
+                       "File":  "recherche.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "AAC9467A26E4A06020DC412F185415AF91CD4ECACF32D83554BD3BD136999657"
+                   },
+                   {
+                       "File":  "recherche-actions.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "AAC9467A26E4A06020DC412F185415AF91CD4ECACF32D83554BD3BD136999657"
+                   },
+                   {
+                       "File":  "recherche-actualisation-ou.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "D821BCB72CB4F16C9570D4CD1AFA92AD48166E69D0128BA3CB275C91499D46A7"
+                   },
+                   {
+                       "File":  "fiche-poste.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "32C4C475E713A349C0EB7FD17668CED890675187AC8E18531EAD6BE06539DD2A"
+                   },
+                   {
+                       "File":  "actions-poste.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "444ED520F92EEAB04E4A9FDF4BBFA99D22C26C9277E70EE6CE4B98840AA86F99"
+                   },
+                   {
+                       "File":  "tableau-poste.png",
+                       "Width":  1920,
+                       "Height":  1840,
+                       "SHA256":  "84C92E7221E2B257632652A758BDF6C6C9460FAE06C7D972E07EE778467CC9EE"
+                   },
+                   {
+                       "File":  "personnaliser.png",
+                       "Width":  1920,
+                       "Height":  1100,
+                       "SHA256":  "38869D69BC061F928DAFC74FEE8823CEA1BD46CEB971AEBE0F54F6507E51F190"
+                   },
+                   {
+                       "File":  "atelier-poste.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "1CA7B8895B3E4337DA64A0DFB62B3146C920D1EC1E3C25888C3E28C9A97333A5"
+                   },
+                   {
+                       "File":  "poste-sonde-requete.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "14272ECEBF7A8A887F5C2386B737BF63A08AD5C2FAF15A920A2219DA6CC2777A"
+                   },
+                   {
+                       "File":  "editeur-widget.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "9C4ACB97B6D75A1CCEF0050697AD4B9E2D2927836D982540B76DC21EA26996A1"
+                   },
+                   {
+                       "File":  "logiciels.png",
+                       "Width":  1920,
+                       "Height":  1560,
+                       "SHA256":  "F9C4DCEC4318E77334E3CD639B48ABC7911095BFAAE7343E305B324D991949B1"
+                   },
+                   {
+                       "File":  "base-autonome.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "C7C015A52002629D3C7B4A725FFEE76DC2193231ADA859371F2E8A318CBAC86D"
+                   },
+                   {
+                       "File":  "base-details.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "5B52F15EA3CBF7F63EC33914FA6F83F220B485F0C637D4416A5D3C6A182DC524"
+                   },
+                   {
+                       "File":  "base-mise-a-jour.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "4AC0260078B2A178901E0415157C4441DD869510D2CE26C2EBFE021594DBAEAB"
+                   },
+                   {
+                       "File":  "base-progression.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "ADEF19610ADF1971D28267B3379460A398692EAAE1365F42FB375AEFBE61DCEC"
+                   },
+                   {
+                       "File":  "base-stockage.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "BB4598EEDC34FC903C49750A4A5D355E66B35F2E364D66B96258F55FC041CBAF"
+                   },
+                   {
+                       "File":  "zoom-clair.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "20695C466151109AE6E8FD12EC2C59FFF04BC45632767C825A79EE674BD2F582"
+                   },
+                   {
+                       "File":  "zoom-sombre.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "AAC3248F35F7ABB7C19D3101C71698B6F8757D33ED7E0F668E75343D42E8EEEC"
+                   },
+                   {
+                       "File":  "etat-moteur.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "EAB6A091305138791FF7E0E0D5914F272631015E58FD0B0CE7EFC36AC58202F4"
+                   },
+                   {
+                       "File":  "connexion.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "1CEABDE726832CB8EC9613DC0E35EB76F4A3F0AD6AA417336F8F459E530B2E4B"
+                   }
+               ]
+}

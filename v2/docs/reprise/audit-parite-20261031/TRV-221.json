@@ -1,0 +1,19 @@
+{
+  "id": "TRV-221",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:517 — CorrectConnectionAsync (accounts.connection.correct, CPT-008) : correction en place du mot de passe de connexion, identité comparée, sans reconnexion",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:534 — refus si identité différente de la session (identityMismatch, rien n'est remplacé)",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:549 — la pause de ce compte seul est levée (faults.Remove(sessionKey)) ; :547 la pause reste si une autre copie du secret refusé subsiste",
+    "repo/v2/src/Domenia.Core/Screens/Accounts/Access/AccountAccess.cs:551 — les lectures en file de portée annuaire sont retirées (partiront avec le compte validé)",
+    "repo/v2/src/Domenia.Ad/AdDirectorySource.cs:122 — AdoptConnection refusé pendant une écriture (writeLeases != 0) : l'écriture garde son compte jusqu'au bout",
+    "repo/v2/src/Domenia.Ad/AdDirectorySource.cs:128 — une correction exige le même SID que la session ; :149 epoch++ invalide les résultats partis avec l'ancienne connexion",
+    "repo/v2/src/Domenia.Ad/Screens/AdAccountsAccessReader.cs:94 — OtherRefusedCopy détecté via SecureCredentialCopies.Contains sur la copie détenue du secret refusé",
+    "repo/v2/tests/Domenia.Tests/AdAccountsAccessTests.cs:94 — test : la correction consomme le même secret vérifié sans seconde authentification ; :181 — test : signale une copie subsistante de l'ancien secret",
+    "repo/v2/tests/Domenia.Tests/AccountsAccessTests.cs:196 — test : correction refusée en simulation (aucun mot de passe en session)"
+  ],
+  "manque": "Le décompte des lectures parties avec l'ancien mot de passe n'existe pas : ConnectionSecretSwap est construit avec StoppedReads toujours à 0 (repo/v2/src/Domenia.Ad/Screens/AdAccountsAccessReader.cs:95), le message « lectures parties arrêtées » ne peut jamais s'afficher (AccountAccess.cs:557). Aucune référence faible (32 max) aux identifiants validés : aucun WeakReference dans repo/v2/src ; MaxTargetSecretAccounts=32 (CredentialRules.cs:20) borne les comptes temporaires de cible, pas des références faibles. Les défauts levés ne sont pas conservés pour le diagnostic des verrouillages : Fault ne garde que portée et horodatage (AccountAccess.cs:1530), aucune trace de l'exception d'origine.",
+  "effort": "M",
+  "depend": ["CPT-008"],
+  "risque": "lecture"
+}

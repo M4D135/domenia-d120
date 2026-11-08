@@ -1,0 +1,39 @@
+{
+    "Build":  "RC1.17.39",
+    "Stage":  "VisualCompact",
+    "Passed":  true,
+    "StartedUtc":  "2026-10-20T22:00:27.8679395Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-20T22:00:33.1465619Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T22:00:46.5774963Z",
+                      "Text":  "Authenticated main window visible"
+                  },
+                  {
+                      "Utc":  "2026-10-20T22:00:57.2449677Z",
+                      "Text":  "Final native pack reopened existing profile; home/search/dashboard visible; normal close"
+                  }
+              ],
+    "AppId":  7440,
+    "XamlSha256":  "CBA3BC59F75E1A0D55E9C9A94DC0349120798CD9CF40DA35017E398093D88D00",
+    "CoreSha256":  "1C6913CACD820669B750FDE2E09E1E4C4A09F936B327B8225DD38BE295037F74",
+    "ReleaseSha256":  "D89D91A696AEB0A3CA314BF5B286228FE318C8D2EE3974962B2BA4FCC619EC4C",
+    "TreeItems":  2,
+    "EmptyStateScrollable":  true,
+    "EmptyActionVisible":  true,
+    "CaptureFiles":  [
+                         "Final-Dashboard.png",
+                         "Final-Home.png",
+                         "Final-Search.png"
+                     ],
+    "PixelCaptureAvailable":  true,
+    "LogErrors":  [
+
+                  ],
+    "FinishedUtc":  "2026-10-20T22:00:57.2713546Z"
+}

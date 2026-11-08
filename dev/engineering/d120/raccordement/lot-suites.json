@@ -1,0 +1,74 @@
+{
+  "Lot": "suites",
+  "Points": ["SUITES-HISTORIQUES", "D004", "D005", "D006", "D007", "D008"],
+  "Modules": [],
+  "TypeFiles": [],
+  "Operations": [],
+  "OperationsModified": [],
+  "SelfTestRequiredFunctions": [],
+  "SelfTestChecks": [],
+  "HelpEntries": [],
+  "Features": [],
+  "StartRequired": [],
+  "CoreFunctionsModified": [],
+  "WiringTests": [
+    "wad/tests/Test-DomeniaWiringSuites.ps1",
+    "wad/tests/Test-DomeniaRegressions.ps1",
+    "wad/tests/Test-DomeniaGeometry.ps1",
+    "wad/tests/Test-DomeniaFaults.ps1",
+    "wad/tests/rules/Races.Tests.ps1"
+  ],
+  "TestFixtures": [
+    "wad/tests/fixtures/Domenia-AdFixtures.ps1"
+  ],
+  "SuitesResynchronized": [
+    "wad/tests/Test-DomeniaAccounts.ps1",
+    "wad/tests/Test-DomeniaRelease.ps1",
+    "wad/tests/Test-DomeniaRemote.ps1",
+    "wad/tests/Test-DomeniaLastUser.ps1",
+    "wad/tests/Test-DomeniaStartupLogin.ps1",
+    "wad/tests/Test-DomeniaStreaming.ps1",
+    "wad/tests/Test-Domenia.ps1",
+    "wad/tests/Test-DomeniaModules.ps1"
+  ],
+  "ArchivedFiles": [
+    {"From": "tools/audit_acl_hotfix.py", "To": "wad/docs/history/legacy-audits/audit_acl_hotfix.py"},
+    {"From": "tools/audit_activity_layout.py", "To": "wad/docs/history/legacy-audits/audit_activity_layout.py"},
+    {"From": "tools/audit_candidate.py", "To": "wad/docs/history/legacy-audits/audit_candidate.py"},
+    {"From": "tools/audit_integrated.py", "To": "wad/docs/history/legacy-audits/audit_integrated.py"},
+    {"From": "tools/audit_module_hotfix.py", "To": "wad/docs/history/legacy-audits/audit_module_hotfix.py"},
+    {"From": "tools/audit_relations_alignment.py", "To": "wad/docs/history/legacy-audits/audit_relations_alignment.py"},
+    {"From": "tools/audit_release.py", "To": "wad/docs/history/legacy-audits/audit_release.py"},
+    {"From": "tools/audit_search_presence.py", "To": "wad/docs/history/legacy-audits/audit_search_presence.py"},
+    {"From": "tools/audit_selection.py", "To": "wad/docs/history/legacy-audits/audit_selection.py"},
+    {"From": "tools/audit_stable_ui.py", "To": "wad/docs/history/legacy-audits/audit_stable_ui.py"},
+    {"From": "tools/audit_startup_login.py", "To": "wad/docs/history/legacy-audits/audit_startup_login.py"}
+  ],
+  "ArchivedTestCases": [
+    {"Suite": "wad/tests/Test-DomeniaRemote.ps1", "Case": "PsExec: compte poste explicite prioritaire, mot de passe preserve", "ReplacedBy": ["PsExec: compte explicite refuse, aucun mot de passe en ligne de commande", "Depot distant refuse sans consentement explicite"]},
+    {"Suite": "wad/tests/Test-DomeniaRemote.ps1", "Case": "schtasks: meme compte poste et tableau arguments conserve", "ReplacedBy": ["Planificateur: identifiants en argument refuses", "Planificateur: seules les taches propres a l operation"]}
+  ],
+  "RenamedTestCases": [
+    {"Suite": "Test-DomeniaStartupLogin", "From": "Remplacer une operation en conservant 57 entrees est refuse", "To": "Remplacer une operation en conservant le nombre d entrees est refuse", "BaselineStatus": "PASS"},
+    {"Suite": "Test-DomeniaModules", "From": "22 modules verifies, sans scanner les scripts supplementaires", "To": "Modules du plan ferme verifies, sans scanner les scripts supplementaires", "BaselineStatus": "NOT_RUN"},
+    {"Suite": "Test-DomeniaModules", "From": "255 fonctions disponibles dans la portee appelante", "To": "Fonctions du plan ferme disponibles dans la portee appelante", "BaselineStatus": "NOT_RUN"},
+    {"Suite": "Test-DomeniaRelease", "From": "Registre de 48 operations ferme", "To": "Registre ferme conforme au contrat DEV", "BaselineStatus": "FAIL"},
+    {"Suite": "Test-DomeniaStreaming", "From": "Registre fermé de 48 opérations", "To": "Registre fermé conforme au contrat DEV", "BaselineStatus": "FAIL"},
+    {"Suite": "Test-Domenia", "From": "Registre ferme : 47 corps et rejet d un corps modifie", "To": "Registre ferme : corps du contrat DEV et rejet d un corps modifie", "BaselineStatus": "FAIL"}
+  ],
+  "ExpectedFailuresUntilOtherLots": [
+    {"Suite": "Test-DomeniaRelease", "Case": "Rejet global du canal AD renvoie au login principal", "Classification": "REAL_DEFECT", "Owner": "acces"},
+    {"Suite": "Test-DomeniaRelease", "Case": "Refus de dechiffrement LAPS reconnu", "Classification": "REAL_DEFECT (durcissement)", "Owner": "acces"},
+    {"Suite": "Test-DomeniaGeometry", "Case": "<configurations etroites> : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons", "Classification": "REAL_DEFECT probable (lecture du XAML, non execute)", "Owner": "interface"},
+    {"Suite": "Test-Domenia", "Case": "CSV : formules, separateurs, textes et nombres", "Classification": "NON_DETERMINE (instrumente)", "Owner": "suites"}
+  ],
+  "CrossLaneRequests": [
+    {"To": "acces", "Request": "Request-DomeniaAccessRecovery (wad/modules/Domenia-Access.UI.ps1) : apres le calcul de $kind, classer 'Canal Active Directory suspendu' en LogonFailure (if(-not $kind -and [string]$ErrorValue -match '(?i)Canal Active Directory suspendu'){$kind='LogonFailure'}). Sans cela la reconnexion guidee n'est jamais proposee (textes reels : Get-WorkerContext, Live.UI 'Identifiants AD refuses lors de la validation du compte console'). Preuve : Test-DomeniaRelease 'Rejet global du canal AD renvoie au login principal'."},
+    {"To": "acces", "Request": "Get-DomeniaStructuredError (wad/modules/Domenia-Guard.Model.ps1) : reconnaitre 'droit de d[eé]chiffrement' comme AccessDenied (prevu par carte-access site D052). Preuve : Test-DomeniaRelease 'Refus de dechiffrement LAPS reconnu' (assertion conservee telle quelle)."},
+    {"To": "interface", "Request": "Get-MainXaml (D082 dimensions reservees / D090) : LblLiveState, LblSuiteResultCount et LblBranchCount ont TextWrapping='Wrap' sans hauteur reservee au-dessus de DgObjects ; quand la recherche met a jour ces textes (Live.UI l.196, 661, 667), la grille et ses boutons descendent aux largeurs etroites. Reserver la hauteur (NoWrap + TextTrimming ou Height fixe). Preuve : Test-DomeniaGeometry '... : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons'."},
+    {"To": "interface", "Request": "Fenetre principale MinHeight=640 (Get-MainXaml) : plus haute que la zone de travail a 1366x768 125 %, 1920x1080 175 % et 200 % (576, 589, 516 unites WPF) ; le bas de la fenetre sort de l ecran. Envisager MinHeight <= 480 avec le defilement deja present (RootScroll / UxShellGrid MinHeight 600) ou un bornage multi-ecrans (Get-DomeniaBoundedWindowRect, D090). Constate dans le rapport Observations de Test-DomeniaGeometry ; les champs essentiels sont testes en plus."},
+    {"To": "integrateur", "Request": "Archiver comme les audits de tools/ les audits Python historiques hors de mon perimetre de fichiers : wad/tests/audit_accounts.py (attend encore le WaitOne synchrone R1.4 dans le coeur), audit_lastuser.py, audit_remote.py, audit_streaming.py. Aucun n'est lance par build_packages.py. Motifs dans wad/docs/history/ARCHIVE-SUITES-RC1.11.md section 4."},
+    {"To": "integrateur", "Request": "Comparaison avec la ligne de base : compare_runs.py voit les cas renommes (RenamedTestCases) comme retires puis ajoutes ; un seul etait reussi (StartupLogin 'conservant 57 entrees'), meme assertion sous un nom exact. Aucun fichier runtime n'est modifie par ce lot : pas de manifeste a regenerer pour lui."}
+  ],
+  "Notes": "Lot sans code runtime : aucune fonction du coeur, aucun module, aucune operation, aucune empreinte modifiee. Rien n'a ete execute (decision 'finis tous les points de modifs avant les tests') : seuls validate_powershell_static.py, le controle BOM/LF/guillemets, Test-NativeParser -RequireWindows51 et Test-DomeniaPs51Compat ont tourne (VM CNAMTS-W11-01, dossier w-suites). Les suites remises a niveau chargent le plan ferme reel (Domenia-Modules.ps1) : un module retire du plan les fait echouer (DOMENIA_MODULE_EXPORT), et les fonctions que les autres lots ajouteront dans les modules (Get-DomeniaOperationCredentialNeeds, Request-DomeniaInlineConfirmation...) y sont disponibles. Test-DomeniaRelease construit l'etat des acces par le vrai Initialize-DomeniaAccess (fenetre factice) : un champ ajoute par le lot acces (baux) suivra sans retouche. Une doublure Request-DomeniaInlineConfirmation (contrat C4, reponse immediate) y est deja declaree. Aucun nombre d'operations, de modules ou de fonctions n'est ecrit en dur : comptes tires de tools/operation-contracts.json (lu en deux temps pour 5.1) ou du plan lu par AST. Si le lot relations exige RawAccount dans Complete-DomeniaComputerUserProbeUi (carte-relations site 8), la fixture du cas Test-DomeniaLastUser 'Succes courant : lien enregistre et marqueur libere' devra etre completee dans ce fichier (decision ecrite requise par la carte). Classement des 63 echecs de la ligne de base : wad/docs/history/ARCHIVE-SUITES-RC1.11.md."
+}

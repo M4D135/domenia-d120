@@ -1,0 +1,81 @@
+{
+  "status": "LOCAL_CHECKS_PASSED_WINDOWS_NOT_RUN",
+  "build": "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
+  "tests": [
+    {
+      "name": "Progress-aware read deadline rules",
+      "cases": 26,
+      "failed": 0,
+      "report": "search-timeout-ps7.json",
+      "reportSha256": "28573a5e8dc318b9187ccda861c2761eaa6899cbdd76c3245b41e21ab39ff339",
+      "assertions": 87
+    },
+    {
+      "name": "Actual worker, caller assignments, live preparation and inert runspace dispatch",
+      "cases": 23,
+      "failed": 0,
+      "report": "search-progress-wiring-ps7.json",
+      "reportSha256": "e69b48c1623d24acf6394c76fad3efe4d8b1a5d60d65c7ffc54205489deae598",
+      "assertions": 39
+    },
+    {
+      "name": "Existing OU scope and search generation regressions",
+      "cases": 42,
+      "failed": 0,
+      "report": "search-scope-ps7.json",
+      "reportSha256": "0150d1847b77e16caa0c938a4b1a443874049e330c3c3fbdee4d8e7fd52126a5"
+    }
+  ],
+  "totalCases": 91,
+  "PowerShellVersion": "7.4.20",
+  "staticChecks": "local-checks.json",
+  "sourceHashes": [
+    {
+      "path": "dev/wad/Domenia-Core.ps1",
+      "sha256": "aaa1383c7839aebc4ffc12296783a25910ca4f7fd608c51e6b7775200feaceb5"
+    },
+    {
+      "path": "dev/wad/Domenia-Modules.ps1",
+      "sha256": "6c987e4d8135a0437aee7cae29db970b33eda067724246917ab6413a3ba6e4d9"
+    },
+    {
+      "path": "dev/wad/modules/Domenia-Engine.Model.ps1",
+      "sha256": "6dfca009627d30294d0e80a8bf45de0e8e7a11c9b99069d1b9d3f7c9b9a01276"
+    },
+    {
+      "path": "dev/wad/modules/Domenia-Engine.UI.ps1",
+      "sha256": "bc7f3951d8eb8df79635fda7df26e2f33b9c19b1d667914de44ef2fbe2b38c2c"
+    },
+    {
+      "path": "dev/wad/modules/Domenia-Live.UI.ps1",
+      "sha256": "c2e2f4ecd514b3f0ddf9289b78e75266bb1458e1bf180d8be8dd4bdaeb61d772"
+    },
+    {
+      "path": "dev/wad/tests/Test-DomeniaSearchTimeout.ps1",
+      "sha256": "5ee3cf100abc3c9f8da99cef6a34cc1ff0bb9fd1d1988da4fd725ca0b3a9e06e"
+    },
+    {
+      "path": "dev/wad/tests/Test-DomeniaSearchProgressWiring.ps1",
+      "sha256": "28514bce44ec1069e1eb8f1c0b8a644844dce648d7d3ac43eaabc39018b53221"
+    },
+    {
+      "path": "dev/wad/tests/Test-DomeniaSearchScope.ps1",
+      "sha256": "1250f5649828d473120d50eb77776b5c33aa2dea23f9685ac1223b7f67c76a55"
+    }
+  ],
+  "windowsExecuted": false,
+  "wpfExecuted": false,
+  "realAdExecuted": false,
+  "interactiveGuiExecuted": false,
+  "formalPublishable": false,
+  "formalWindowsQualification": "NOT_EVALUATED",
+  "deliveryDecision": "User accepts delivery with local checks and will run Windows tests. No new Windows qualification is claimed.",
+  "review": "REVIEW.md",
+  "documentationProof": "documentation-qa.json",
+  "limits": [
+    "5000 synthetic objects exercise the actual worker/converter, not live network speed or domain completeness.",
+    "The actual cause of directory latency on the user domain remains unknown.",
+    "Provider or domain-controller limits may end a search before the application inactivity/total budget.",
+    "No new runtime screenshots or Windows/LDAP/WPF execution."
+  ]
+}

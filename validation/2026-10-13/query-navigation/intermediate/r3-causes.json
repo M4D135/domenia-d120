@@ -1,0 +1,162 @@
+{
+  "Kind": "Intermediate qualification and causal record; NOT final PASS",
+  "CandidateDEV_SHA256": "28253e378e5bcd67a29251a6cc0e7f958d079503ee2b90bd6632d1cf4ef5ed50",
+  "CandidatePROD_SHA256": "b368f33dd439d78bf4993476367259c718e5d731c0d8fd0dde82af6121fdb5de",
+  "Data": "Synthetic offline Windows PS5.1/WPF; no real AD access",
+  "Campaign": {
+    "Quick27": {
+      "Passed": 25,
+      "Failed": 2
+    },
+    "Additional12": {
+      "Passed": 10,
+      "Failed": 2
+    },
+    "AllOffline23": {
+      "Passed": 21,
+      "Failed": 2
+    },
+    "WiringRecherche": {
+      "Passed": 44,
+      "Failed": 0
+    },
+    "Timeouts": 0,
+    "RuntimeFilesChanged": 0,
+    "PRODCheckOnly": "PASS"
+  },
+  "Failures": [
+    {
+      "Suite": "Test-DomeniaUxStateSafety",
+      "R3": "30/31; five complete Search rows at 1080p",
+      "Causes": [
+        "Actual Search vertical budget, then a fractional LayoutTransform/Auto-scrollbar feedback loop at zoom150 was exposed after the row check passed.",
+        "A diagnostic export chose Math.Max Int32 for negative infinity; fixed to explicit double, and empty visible bounds export as zero.",
+        "Compact HWND fixture had not initialized the actual sidebar/help layout."
+      ],
+      "CorrectionOwners": [
+        "classic_packaging",
+        "query_docs"
+      ],
+      "FinalQualification": "Pending immutable R4 campaign"
+    },
+    {
+      "Suite": "Test-DomeniaWiringInterface",
+      "R3": "19/20",
+      "Causes": [
+        "Fixture omitted Initialize-DomeniaUiZoom and its ScrollChanged path; expected outer-window geometry instead of actual responsive viewport."
+      ],
+      "Diagnostic": "20/20 after true initialization; original visibility assertions unchanged"
+    },
+    {
+      "Suite": "Test-DomeniaWiringCache",
+      "R3": "156/157",
+      "Causes": [
+        "Detached WPF host is not IsLoaded; ScrollIntoView selected the last row without scrolling."
+      ],
+      "Diagnostic": "Actual grid ScrollViewer.ScrollToEnd gave offset1999; first row unrealized and last row realized; virtualization100/500/2000 plus negative control300 passed."
+    },
+    {
+      "Suite": "Test-DomeniaGeometry",
+      "R3": "34/42",
+      "Causes": [
+        "Fixture saved requested dimensions after Window.Show desktop coercion and omitted the actual zoom initialization.",
+        "Latest corrected fixture still proved zero Search rows at client944x477; compact runtime controls required a smaller arrangement."
+      ],
+      "Diagnostic": "The corrected fixture proved a real narrow-width layout defect. At client944x477, UX314dd achieves122px; at the middle800 step of516→800→516 (client944x761), normal options returned, restored OU290 was correct, but filter275px plus result bar191px left a36px grid. It is not a failure at the first516. UX5e4d keeps query options compact when width<1100 and height<940; final targeted and immutable qualification pending. Diagnostic17 subsequently passed all42 cases on UX5e4d, including the complete516→800→516 cycle; immutable R4 qualification still pending.",
+      "DiagnosticEvidence": "/tmp/query-navigation-r4-diagnostic16/proof/geometry-controls.json",
+      "SuccessfulDiagnosticEvidence": "/tmp/query-navigation-r4-diagnostic17/proof/Test-DomeniaGeometry.json"
+    },
+    {
+      "Suite": "Test-DomeniaInterface",
+      "R3": "Stopped before report",
+      "Causes": [
+        "Preview still wired removed BtnSearchAllDomain.",
+        "AST allowlist missed real NewOuParent/DateKeys/LandingView helpers.",
+        "Desktop fixture1600x960 yields RootScroll925, below real940px short-screen threshold; expanded-journal/help scenario now uses1600x1080 and explicitly asserts adequate viewport."
+      ],
+      "Diagnostic": "50/50 Windows PS5.1; Preview SHA36d657d39d21b543a6942a1f12d42bae65edccb4e58f57db676662e338e60d6b"
+    },
+    {
+      "Suite": "Test-DomeniaRelease",
+      "R3": "48/49; SP-09",
+      "Causes": [
+        "Expected pinned binary count was four; current publisher contract has six."
+      ],
+      "Correction": "Compare exact unique paths and actual staged binary hashes against publisher contract, not a stale hardcoded count."
+    }
+  ],
+  "OriginalEvidence": "/tmp/query-navigation-r3/proof",
+  "EvidenceHashes": {
+    "Test-DomeniaGeometry.json": "8eb04778595bca72655ece6d20aee53cb46c723517b63b670d582993b1903500",
+    "Test-DomeniaRegressions.json": "22c253104d70d812b94441d452ff0ab7c8e5656ef0899cfc4b1ee1e6cc832b2e",
+    "Test-DomeniaParkDetection.json": "7235ebc690f0bc21412b0d6f298a7e8f6be64c5ac175ef88ed441d0eb33b9a93",
+    "Test-DomeniaInterfaceTelemetry.json": "b9be666f2e9eab84375ccb1275b0541bd2854038dc952cdeb2f08504405d37fe",
+    "Test-DomeniaPreload.json": "23894700ae65cd3f5af937f37dedf571ee0bfc82f21a8f034966cede3a0e487b",
+    "Test-DomeniaStartupLogin.json": "76c244cb24933d198fd60bf4d3e9e49c9ae7c546b47d82482125fabb8f48affb",
+    "Test-DomeniaRelationsAlignment.json": "9deb04df18355f7e9cc27df9b8b57403ab47f5e7da53ea371d014c864fd18f23",
+    "_all-offline-ui.json": "556a2338e6d2022bc7963f9d27834d41d4160699408f38ccebde533865421000",
+    "Test-DomeniaLastUser.json": "654bb4efd43236d2bc071973ddf023012a43e9c8c0d851cf672016251629be55",
+    "Test-DomeniaWiringAcces.json": "0d8e2bd7e07a3215c18461e3f4628a609c9ca6d14a13b4dcd331020e6a3b9004",
+    "Test-DomeniaSelection.json": "c15cb40872181e4f9775c9f92e47921743c11a8fa91799f947bfaf4c02e2dd55",
+    "GuideCaptures-process.json": "550680e14b79343cee111a7daae766f0538b10d00a6d4c01f55b14d22338a6b7",
+    "PRODArchiveCheck-process.json": "c38d7cdc23da8ba7d896019db01c97389a83faef56fe461c217bb6bd06425ac9",
+    "Test-DomeniaEngineLoad.json": "da99d496b5fe453b5f7e1fbbdc67bdbe6b0211bb5b7b551311c082f9f8532acb",
+    "Test-DomeniaWiringInterface.json": "373d216f69ced1bcaf71fcc663d23708a1ec3149b50e5ac2f704ce8696f05d3f",
+    "Test-DomeniaBoardRefresh.json": "6480574ffa78367085b8130da80d4f795ed7f49cb811a72f64f2c651769c4dac",
+    "Test-DomeniaEmbeddedUi.json": "979b7c622d82c22fb51451cebf0549f443b71c8be8e155fc5565b8c4e517fc16",
+    "Test-DomeniaLogin.json": "2ba762d7764d7557efd56f7e0d81193ba6b0f046ca5174d694e222de8eb78c28",
+    "Test-DomeniaWiringInline.json": "3dc1c358f2a1faad17d79395612f9544810bb15a747510718007f84bf6582244",
+    "Test-DomeniaWiringSuites.json": "c7b6ffe9654943357a259942b54c250ac987a2542f08190a1f5d6119168b74bd",
+    "Test-DomeniaActivityLayout.json": "49c269730465c298b00d5346457d395e8e277aa78dfc7002982876f202b03b20",
+    "Test-DomeniaRules.json": "54aa5b49fd2343c497b453ef6f384776e2c6efa206dad2d2e324e7c2e20a5dd2",
+    "Test-DomeniaFaults.json": "5444acfd612a32855ed1dcacf5c2d01d3ab6f6dcca39b79838656a48b7065bbb",
+    "ExtendedRunner-process.json": "c94cd3e60d53b1d42ec32c74df494406bb97ad99fb6324a13db5a2f12264427a",
+    "runtime-source.json": "b87a284424da94ce86ef4a0bd04c0172a3fa7faedd8ebba72e3f1b36da6891ed",
+    "text-encodings.json": "6a2142deded7ccd7dff17225f654c13de021d9df35d89b16e3a38049bd8416c8",
+    "AllOfflineRunner-process.json": "265c8a71952d851088bd0169ded54096d8e1f10c87ab16e0a0cacfdc474d4e67",
+    "Test-DomeniaCompactUi.json": "e7eb82397b818d0a456adc15cddaf98809a2d90698df0d41d3a28b185132fb21",
+    "Test-DomeniaStreaming.json": "a68646ce3ed29789462a082e16d36da8054b7744e6267971a8e5a7ede91ca59c",
+    "Test-DomeniaLoginForeground.json": "031f7b2f480fb9ed1a88d1dd4dad50346751d4000088c564475e3491f78cade0",
+    "Test-DomeniaRemote.json": "c00ae6c60fb0ba0247972181798b832dfd888606c2e119d01a4568d9134055ac",
+    "Test-DomeniaWiringRelations.json": "3e5766d08f2cb58a4638aa7d38c5e934e1806ce6c70aaa92f1a6530cbc5ebf1d",
+    "Test-DomeniaQueryTemplates.json": "a70b9a7c38a0c0d83bc1f02a383dac1e1412adb3ed9339d1b5d8b5f6fa49c099",
+    "package.json": "892dca430d63c753ce282c7d9c2806509339b78c35833067780e6d6c0620e960",
+    "_additional-ui.json": "b0ae8c9ca68f2f4632fca64600c022d328c5dbad97155e2d57d80c8071a8b278",
+    "Test-DomeniaWiringCache.json": "5ab83d85aa5e8a631e256092bf5601c694c6a03a2f2c9077a1ef94e0090aded4",
+    "Ps51Compat.json": "d5a943543e03166d7755f90b3dc452788097c896bbc11bb4a9812f2fa33f1d6d",
+    "Test-DomeniaStableUi.json": "2cf6593368044e155808664ebd49633abf75305d517282ccd7e66359414f339c",
+    "NativeParser.json": "a9546bcd819c4ede4f4c8740e98103c16412787c8db250749b1845f044058744",
+    "Test-DomeniaModules.json": "8a6e3d9364c47e123c07bb2cb6e1ed2e09c2d8981f83109d780c1fad8e4f7d22",
+    "Test-DomeniaWiringRecherche-process.json": "ce5d2d553496e752c88df4f56b2ad52005a7680a7bb2a836d54a079bb70c8407",
+    "Test-DomeniaUxRefinements.json": "a40d8705bb72b360c60553516fa93e6ac9fe37f7abaafae4a4669d9dd8343e5b",
+    "Test-DomeniaSearchQueries.json": "4a6d18e0ea8a669f5cef205e6d3aa0b73109be6e884504d794354bd4730851f9",
+    "Test-DomeniaWiringRecherche.json": "c320ddd4bf9dda32c1fc2215c491dac74ada54febf7b3a8d1027ffa3626f2540",
+    "Test-DomeniaSearchScope.json": "b1b47a2e43e284f83814e84dd8f62a4d5689a76e05021fbab55bda5a7d2b1875",
+    "additional-runtime-source.json": "b87a284424da94ce86ef4a0bd04c0172a3fa7faedd8ebba72e3f1b36da6891ed",
+    "PROD-CheckOnly-process.json": "0986765f5f2639d24c3c2f238d2a5a27c4e22468ffc5254ae90a9a9dcbc4ef8d",
+    "Test-DomeniaScale.json": "46bdc08cb657159d9092ee34a25013974e8dac0581010364fce6a75ec9ab3027",
+    "Test-Domenia.json": "143130fa3957bbdad4257a437e0ed574f057ce36278c8eb2aca5e0b063202956",
+    "AdditionalRunner-process.json": "b542874de13159e20f9dac80ca8239bf1d88b9817abe93100eb944b747b88c09",
+    "Test-DomeniaAccounts.json": "8ee7f8eb2659e989b693413bf0dfc406bea5d35edf26853fed7858f73835f81d",
+    "Test-DomeniaWiringEcritures.json": "70ed608d2a46410dd6a7660118888786597402bd8b833e72a1fa8635aa432fb1",
+    "Test-DomeniaSupport.json": "1120fa79b9d120b1e3a23d734deafa48888b436042a3b184c6cd33a4367da605",
+    "Test-DomeniaCandidate.json": "87d76526f81914c4d1a21abaf1ab91c535d445e25f506943c1f350d783ed0b17",
+    "all-offline-runtime-source.json": "b87a284424da94ce86ef4a0bd04c0172a3fa7faedd8ebba72e3f1b36da6891ed",
+    "Test-DomeniaLiveSearchView.json": "a20a3338f56cd8ddc168002d0e6370dc4ef9e64ab839f506bdf054ed7b61593f",
+    "_quick-ui.json": "14c20e140e78641785dea7617520686917b6ec02bb20305fcdaec106ed0ba25c",
+    "Test-DomeniaEngineResilience.json": "089bdba549f5d6dc1d89e3a1452b06c2c4896ee3a11a9921f2787ab77ac06a44",
+    "Test-DomeniaSelectionIdentity.json": "3839acc7d343d6ccf32b3875d7ada740e66bd925e1338e5cb239aee10a9e83aa",
+    "Test-DomeniaExperience.json": "f362e71fce131619f5e54848261cf9b7ad0c25c0cfa897dd49470baedbb1cf5a",
+    "Test-DomeniaTheme.json": "8455e8673d6ae1ad636160d844425b41297cc78409af2397950d9b3694682ef1",
+    "Test-DomeniaBoards.json": "253794e74736c77198f6a3b10cccf8a626b074e294e10a49e4613c1db4549bbe",
+    "Test-DomeniaUxStateSafety.json": "006f631caa8f4751d681a99a76a419f737ca53b229eb958b444c42a483374cdd",
+    "Test-DomeniaAcl.json": "44cb513ed61c7a8cee46a64114ff8109702cf12547ef365715f0c45c0c357010",
+    "Test-DomeniaWiringMoteur.json": "0daa04c0b72aabf623ebc516719f976acb8eb79963e665f39da4aef1d995e1d7",
+    "Test-DomeniaRelease.json": "92cbf736c4d7ef3e3900d27e4433078c5aff5a68bd16ef2fb02c768b75777cac",
+    "Test-DomeniaInstaller.json": "bbd52a882250dd8565f350dc178cabc5708a819c4492af2af7104168af8b95bd",
+    "Test-DomeniaQueryTargets.json": "11aaf208b64a2873a6de4cc3c76d6326041dca2f7bc523f9c4224e381de4bdb3",
+    "Test-DomeniaSearchPresence.json": "9db163a0426c9c38bfecf2daf3ef6b68cd7d75a7752fabd3b89a273d2d10c3ee",
+    "ProdFactory.json": "1baecd1ebb072205b13019015adfa4c7afa90d8e277f0aad4ebc44c0c2e66dd3",
+    "run-complete.json": "77585872e21a449fe6eb75e270afda90b5da00425db0a6f2c7be32cd63e17322"
+  }
+}

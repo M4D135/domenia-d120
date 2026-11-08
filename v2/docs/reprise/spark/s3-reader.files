@@ -1,0 +1,4 @@
+v2/src/Domenia.Ad/Ldap/AdContracts.cs
+v2/src/Domenia.Core/Directory/DirectoryModels.cs
+v2/src/Domenia.Core/Directory/AdValues.cs
+v2/src/Domenia.Core/Directory/DistinguishedName.cs

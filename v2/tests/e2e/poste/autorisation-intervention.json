@@ -1,0 +1,64 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : accorder puis retirer l’autorisation d’intervention",
+  "description": "Accorde pour 5 minutes l’autorisation d’intervention sur PC-PAR-0001, vérifie le décompte de l’en-tête et la tuile « Exécuter un programme », puis retire l’autorisation.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=intervenir",
+  "steps": [
+    {
+      "do": "expect",
+      "contains": "Autorisation requise",
+      "within": ".ps-actions",
+      "title": "Sans autorisation, l’exécution d’un programme est verrouillée"
+    },
+    {
+      "do": "click",
+      "text": "Autoriser une intervention",
+      "within": ".ps-consent-card"
+    },
+    {
+      "do": "expect",
+      "selector": ".k-dlg",
+      "title": "La confirmation s’ouvre"
+    },
+    {
+      "do": "click",
+      "text": "Autoriser",
+      "within": ".k-dlg-foot"
+    },
+    {
+      "do": "wait",
+      "contains": "Intervention autorisée",
+      "within": ".ps-hero",
+      "title": "Le décompte apparaît dans l’en-tête"
+    },
+    {
+      "do": "expect",
+      "contains": "Autorisé",
+      "within": ".ps-actions",
+      "title": "La tuile « Exécuter un programme » est déverrouillée"
+    },
+    {
+      "do": "shot",
+      "name": "intervention-autorisee",
+      "selector": ".ps-consent-card"
+    },
+    {
+      "do": "click",
+      "text": "Retirer maintenant",
+      "within": ".ps-consent-card"
+    },
+    {
+      "do": "wait",
+      "contains": "Autorisation d’intervention retirée.",
+      "within": ".toasts"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

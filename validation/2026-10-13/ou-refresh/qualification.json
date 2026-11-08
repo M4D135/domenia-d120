@@ -1,0 +1,63 @@
+{
+  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.4-D120",
+  "Status": "LOCAL_CHECKS_PASSED_WINDOWS_NOT_RUN",
+  "BaseCommit": "e9536c24c8e2eb0789ccb64b1f4d225603960691",
+  "DEV_SHA256": "9e8e0d85d7be7cc2bda1c43bbfd9c8a41c655395ef0010e5196378b504bc8c3d",
+  "PROD_SHA256": "8ca88099a10c8c5f02cf2d7bb99be131a1ff9b70002cc1737dabd2dc1a7888be",
+  "WindowsExecuted": false,
+  "LiveADExecuted": false,
+  "InteractiveGuiExecuted": false,
+  "Reason": "Windows relay unavailable; user confirms the PC is powered off. Mac locked.",
+  "UserDecision": "User will perform Windows tests and accepts delivery without this campaign (2026-10-13).",
+  "LocalTests": [
+    {
+      "Name": "OuRefresh",
+      "CasesPassed": 43,
+      "Failed": 0,
+      "PowerShell": "7.4.20",
+      "Evidence": "ou-refresh-ps7-nonqualifying.json"
+    },
+    {
+      "Name": "Freshness",
+      "CasesPassed": 16,
+      "Assertions": 33,
+      "Failed": 0,
+      "StorageExecuted": false,
+      "Evidence": "freshness-ps7-nonqualifying.json"
+    },
+    {
+      "Name": "IndexActions",
+      "AssertionsPassed": 19,
+      "Failed": 0,
+      "Evidence": "index-actions-ps7-nonqualifying.json"
+    },
+    {
+      "Name": "UxRefinements freshness case",
+      "AssertionsPassed": 6,
+      "Failed": 0,
+      "Scope": "Extracted pure rule case; not whole WPF suite"
+    },
+    {
+      "Name": "Python release guard",
+      "TestsPassed": 50,
+      "Failed": 0
+    }
+  ],
+  "StaticChecks": [
+    "PowerShell lexical checks",
+    "Closed loader exports",
+    "UI wording ratchet",
+    "71 worker contracts",
+    "Release identity and six pinned binaries",
+    "Preload guard",
+    "git diff --check"
+  ],
+  "RuntimeFilesIdentical": 94,
+  "FormalWindowsQualification": "NOT_EVALUATED",
+  "FormalPublishable": false,
+  "Limits": [
+    "No new Windows PowerShell 5.1, WPF, SQLite or real AD execution.",
+    "Earlier RC1.17.3 Windows evidence does not qualify RC1.17.4.",
+    "Ping date is the recorded observation that includes ping, not a precise ICMP packet timestamp."
+  ]
+}

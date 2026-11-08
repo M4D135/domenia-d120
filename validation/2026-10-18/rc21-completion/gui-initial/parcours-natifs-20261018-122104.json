@@ -1,0 +1,314 @@
+{
+    "Kind":  "DomeniaGuiJourneyQualification",
+    "Qualifying":  false,
+    "Target":  "Preview",
+    "Verdict":  {
+                    "Status":  "Échec",
+                    "Qualified":  false,
+                    "Text":  "Au moins une étape simulée ou une capture a échoué."
+                },
+    "Journeys":  {
+                     "Defined":  [
+                                     "navigation",
+                                     "defilement",
+                                     "fenetres",
+                                     "operations"
+                                 ],
+                     "Selected":  [
+                                      "navigation",
+                                      "defilement",
+                                      "fenetres",
+                                      "operations"
+                                  ],
+                     "NotRun":  [
+
+                                ]
+                 },
+    "Environment":  {
+                        "Computer":  "FILPRO-W11B",
+                        "Domain":  "cnamts.local",
+                        "Session":  1,
+                        "Screen":  "1920x1440",
+                        "WorkingArea":  "1920x1392",
+                        "PowerShell":  "5.1.26100.6584",
+                        "OS":  "Microsoft Windows NT 10.0.26200.0"
+                    },
+    "SimulatedEvents":  {
+                            "Note":  "Événements envoyés par ce programme (UI Automation et SendInput) : ils ne valent pas un parcours humain.",
+                            "Passed":  11,
+                            "Failed":  17,
+                            "Steps":  [
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  1385
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  2,
+                                              "Action":  "Cliquer sur BtnUxNavSearch",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Échec",
+                                              "Observed":  "Contrôle introuvable : BtnUxNavSearch",
+                                              "DurationMs":  8278
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  3,
+                                              "Action":  "Vérifier TxtGlobalSearch",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  4,
+                                              "Action":  "Placer le focus sur TxtGlobalSearch",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  5,
+                                              "Action":  "Saisir « pc-01 »",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  6,
+                                              "Action":  "Touches : Enter",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  7,
+                                              "Action":  "Capture recherche (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  8,
+                                              "Action":  "Touches : Tab, Tab, Shift+Tab",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  9,
+                                              "Action":  "Cliquer sur BtnUxNavHome",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "navigation",
+                                              "Step":  10,
+                                              "Action":  "Capture accueil (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  410
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  2,
+                                              "Action":  "Cliquer sur BtnUxNavSearch",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Échec",
+                                              "Observed":  "Contrôle introuvable : BtnUxNavSearch",
+                                              "DurationMs":  8333
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  3,
+                                              "Action":  "Vérifier DgObjects",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  4,
+                                              "Action":  "Molette sur DgObjects : -6 cran(s)",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  5,
+                                              "Action":  "Touches : Ctrl+Home",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  6,
+                                              "Action":  "Molette sur DgObjects : 3 cran(s)",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  7,
+                                              "Action":  "Capture grille (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Minimize",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Minimize",
+                                              "DurationMs":  898
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  2,
+                                              "Action":  "Fenêtre : Restore",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Restore",
+                                              "DurationMs":  1337
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  3,
+                                              "Action":  "Fenêtre : Maximize",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Maximize",
+                                              "DurationMs":  766
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  4,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  1087
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  5,
+                                              "Action":  "Vérifier BtnUxNavHome",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Échec",
+                                              "Observed":  "Contrôle introuvable : BtnUxNavHome",
+                                              "DurationMs":  8202
+                                          },
+                                          {
+                                              "Journey":  "fenetres",
+                                              "Step":  6,
+                                              "Action":  "Capture apres-fenetres (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  414
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  2,
+                                              "Action":  "Activer BtnSuiteActivity",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Motif UI Automation activé",
+                                              "DurationMs":  955
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  3,
+                                              "Action":  "Capture operations (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Capture 1920×1080, aucune infobulle",
+                                              "DurationMs":  1077
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  4,
+                                              "Action":  "Touches : Escape",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Touches : Escape",
+                                              "DurationMs":  389
+                                          },
+                                          {
+                                              "Journey":  "operations",
+                                              "Step":  5,
+                                              "Action":  "Vérifier BtnSuiteActivity",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Contrôle présent, IsEnabled=True",
+                                              "DurationMs":  65
+                                          }
+                                      ]
+                        },
+    "Captures":  [
+                     {
+                         "Journey":  "operations",
+                         "Name":  "operations",
+                         "Path":  "C:\\Windows\\Temp\\Domenia-RC21-Completion\\gui-native\\captures\\operations-operations.png",
+                         "Width":  1920,
+                         "Height":  1080,
+                         "Tooltips":  0,
+                         "Sha256":  "8077CBD7D9F83A6248D6A671F4BCCA852F57FEA2A345F02BD173A5F672F7B75C",
+                         "Valid":  true,
+                         "Reasons":  [
+
+                                     ]
+                     }
+                 ],
+    "HumanJourney":  {
+                         "Status":  "NonRelevé",
+                         "Note":  "Aucun relevé humain fourni (-HumanRecord) : le parcours à la main reste à faire."
+                     }
+}

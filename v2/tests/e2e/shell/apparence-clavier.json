@@ -1,0 +1,27 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : choix des animations au clavier sans perte du focus",
+  "description": "Dans Paramètres > Apparence, choisit les animations aux flèches puis vérifie que le contrôle et l’entrée Démonstration ne sont plus dans Aide et interface ; thèmes et contraste y restent disponibles.",
+  "modes": ["simulation"],
+  "start": "parametres?section=apparence",
+  "steps": [
+    {"do": "click", "selector": "[data-seg=\"motion\"] [data-value=\"full\"]", "title": "Animations riches"},
+    {"do": "press", "key": "ArrowRight", "title": "Choix suivant au clavier"},
+    {"do": "expect", "selector": "[data-seg=\"motion\"] [data-value=\"reduced\"]", "attribute": "aria-checked", "equals": "true", "title": "Animations réduites choisies"},
+    {"do": "expect", "selector": "[data-seg=\"motion\"] [data-value=\"reduced\"]:focus", "title": "Le focus reste sur le choix"},
+    {"do": "expect", "selector": "[data-seg=\"motion\"] [tabindex=\"0\"]", "count": 1, "title": "Un seul arrêt de tabulation dans le groupe"},
+    {"do": "press", "key": "Home", "title": "Premier choix"},
+    {"do": "expect", "selector": "[data-seg=\"motion\"] [data-value=\"full\"]:focus", "title": "Riches a le focus"},
+    {"do": "expect", "selector": "[data-seg=\"motion\"] [data-value=\"full\"]", "attribute": "aria-checked", "equals": "true"},
+    {"do": "go", "route": "shell?onglet=apparence", "title": "Les autres contrôles d’apparence restent dans Aide"},
+    {"do": "wait", "selector": "[data-group=\"theme\"]"},
+    {"do": "expect", "selector": "[data-group=\"motion\"]", "absent": true, "title": "Animations uniquement dans Paramètres"},
+    {"do": "expect", "contains": "Démonstration", "within": ".sh-tabs-host [role=\"tablist\"]", "absent": true, "title": "Pas de seconde entrée Démonstration"},
+    {"do": "expect", "selector": ".sh-contrast-row[data-passed=\"false\"]", "absent": true, "title": "Toutes les paires de couleurs du thème sont conformes"},
+    {"do": "go", "route": "shell?onglet=apercu", "title": "Revenir au tableau de l’interface"},
+    {"do": "wait", "selector": ".sh-widget[data-key=\"interface.health\"] [data-w-action=\"appearance\"]"},
+    {"do": "click", "selector": ".sh-widget[data-key=\"interface.health\"] [data-w-action=\"appearance\"]", "title": "Ouvrir les réglages d’apparence depuis la carte Santé"},
+    {"do": "wait", "selector": ".main[data-page=\"parametres\"] [data-seg=\"motion\"]", "title": "Les réglages d’apparence mènent aux animations dans Paramètres"},
+    {"do": "journal", "contains": "[ERREUR]", "absent": true}
+  ]
+}

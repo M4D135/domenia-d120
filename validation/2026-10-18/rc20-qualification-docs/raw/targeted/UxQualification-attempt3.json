@@ -1,0 +1,93 @@
+{
+    "Suite":  "Test-DomeniaUxQualification",
+    "Runtime":  "5.1.26100.6584",
+    "Executed":  "2026-10-18T12:06:31.1890950+02:00",
+    "Passed":  14,
+    "Failed":  1,
+    "WpfExecuted":  true,
+    "NoADAccess":  true,
+    "NoNetwork":  true,
+    "HumanQualificationRemaining":  [
+                                        "Lecteur d ecran (Narrateur ou NVDA) sur les pages principales, la palette et le panneau des operations",
+                                        "Changement reel de DPI : fenetre deplacee entre deux ecrans de mises a l echelle differentes, puis changement de mise a l echelle a chaud",
+                                        "Parcours au clavier complet par un operateur (ordre de tabulation, focus visible sur chaque page)",
+                                        "Session RDP reelle 1024x768 et 1280x720"
+                                    ],
+    "Tests":  [
+                  {
+                      "Name":  "P111 : une seule action principale par carte, onglet ou extenseur (paires independantes listees)",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P111 : options avancees repliees par defaut",
+                      "Passed":  false,
+                      "Detail":  "Extenseurs ouverts : Actualiser lʼOU, Actions, filtres et vues"
+                  },
+                  {
+                      "Name":  "P112 : couleurs par ressources, aucune couleur fixe nouvelle dans la page et les vues",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P112 : echelle typographique fermee et boutons derives du style de base",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P115 : focus visible, ordre de tabulation naturel, arbre au clavier sans intercepteur",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P116 : chaque controle interactif affiche a un nom accessible (XAML ou catalogue d aide)",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P116 : chaque etat se lit par un symbole et un mot distincts, jamais par la seule couleur",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P119 : un seul etat vide pour la liste, avec son titre, son texte et sa prochaine action",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P114 : Window.DpiChanged passe par le recalage teste ci-dessous (seulement en processus DPI par ecran)",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P116 : les vues annoncent leurs changements (zones polies : Send-DomeniaUxLiveChange)",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P119 : rien interroge, lecture en cours, aucun resultat, filtre local, refus",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P119 avec UX-03 : une copie filtree de la liste dit combien de lignes le filtre masque",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P114 : zoom de 80 a 150 % sans perte de saisie, de curseur ni de focus",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P114 : recalage sur changement de DPI : zoom garde, saisie, curseur et focus intacts",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P113 : panneau des operations et palette tiennent dans une fenetre RDP courte (1024x768 a 150 %)",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ]
+}

@@ -1,0 +1,1066 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.8-RELATIONS",
+  "Passed": 210,
+  "Failed": 0,
+  "Environment": "Linux / Python / SQLite / PE inspection",
+  "CoreFunctions": 577,
+  "RuntimeFunctions": 812,
+  "PinnedOperations": 55,
+  "HelpEntries": 463,
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false,
+  "NativePEExecuted": false,
+  "Checks": [
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Core.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Start.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Modules.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Access.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Accounts.Async.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Continuity.Model.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Continuity.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Dossier.Model.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Dossier.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Experience.Model.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Experience.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Guard.Model.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Guard.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Live.Model.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Receipts.Worker.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Reconcile.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Relations.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Sessions.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Storage.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Storage.Worker.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Support.Model.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-Support.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Lexical balance (not native parser): Domenia-UX.UI.ps1",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Main XAML is XML",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Static resources all declared",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: BtnLoadLaps",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: BtnLoadBitLocker",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: TvDirectory",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: DgObjects",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: DgSessions",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: DgGuardReceipts",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: BtnAccessRecovery",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: BtnUxSidebarToggle",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: BtnUxHelpToggle",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Control retained: ChkSubtree",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Module XML: Domenia-Support.xaml",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Window XML: Domenia-Core.ps1 #1",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Window XML: Domenia-Core.ps1 #5",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Window XML: Domenia-Core.ps1 #29",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Window XML: Domenia-Core.ps1 #36",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Window XML: Domenia-Core.ps1 #61",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Window XML: Domenia-Core.ps1 #62",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Window XML: Domenia-Access.UI.ps1 #0",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "Interactive main elements have static help",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "New help catalog entries exist",
+      "Passed": true,
+      "Group": "XML"
+    },
+    {
+      "Name": "55 closed operations with exact contracts",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Whole registry pin matches reviewed names and hashes",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Actual initialization uses registry validation, not stale count",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Pinned operation: SelectedPresence",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: SelectedPresence",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: PresenceScan",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: PresenceScan",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: CmdletHelp",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: CmdletHelp",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: TreeChildren",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: TreeChildren",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: GlobalSearch",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: GlobalSearch",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: PermissionAnalysis",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: PermissionAnalysis",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: SelfCheck",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: SelfCheck",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ReadBitLocker",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ReadBitLocker",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ReadLaps",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ReadLaps",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ComputerInventory",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ComputerInventory",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: DomainOverview",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: DomainOverview",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: BatchNetworkDiag",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: BatchNetworkDiag",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: SoftwareInventory",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: SoftwareInventory",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WmiNamespaces",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WmiNamespaces",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WmiClasses",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WmiClasses",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WmiQuery",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WmiQuery",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: UserComputerProbe",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: UserComputerProbe",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: LogonHarvest",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: LogonHarvest",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ParkSweep",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ParkSweep",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: IndexBuild",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: IndexBuild",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ComputerDiagnostics",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ComputerDiagnostics",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ComputerLastUser",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ComputerLastUser",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: CmdletInventory",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: CmdletInventory",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: RimotteRun",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: RimotteRun",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ComputerPing",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ComputerPing",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ComputerGpUpdate",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ComputerGpUpdate",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ComputerRestart",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ComputerRestart",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: PruneLinks",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: PruneLinks",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: OpenLinkedObject",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: OpenLinkedObject",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: EngineSelfTest",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: EngineSelfTest",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: OpenAdObject",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: OpenAdObject",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteAttributes",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteAttributes",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteAccountDisabled",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteAccountDisabled",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteUnlock",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteUnlock",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteResetPassword",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteResetPassword",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteAccountOptions",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteAccountOptions",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteExpiration",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteExpiration",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteExpirePassword",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteExpirePassword",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteMoveObject",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteMoveObject",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteObjectGroup",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteObjectGroup",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteGroupMember",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteGroupMember",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteRenameComputer",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteRenameComputer",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteCreateOu",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteCreateOu",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: WriteDeleteObject",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: WriteDeleteObject",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: StartupWarmCache",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: StartupWarmCache",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: LiveConsole",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: LiveConsole",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: LiveCache",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: LiveCache",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: LiveDirectoryCheck",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: LiveDirectoryCheck",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: SessionsList",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: SessionsList",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: RemoteCredentialCheck",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: RemoteCredentialCheck",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ReceiptStore",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ReceiptStore",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: LocalStore",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: LocalStore",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: ScopeReconcile",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: ScopeReconcile",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: DocumentStore",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: DocumentStore",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Pinned operation: LiveSelectedPing",
+      "Passed": true,
+      "Group": "integrity"
+    },
+    {
+      "Name": "Worker lexical balance: LiveSelectedPing",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "Common worker lexical balance",
+      "Passed": true,
+      "Group": "lexical"
+    },
+    {
+      "Name": "No duplicate core functions",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "No overriding duplicate module functions",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Account validation no Dispatcher WaitOne",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Old credential call delegates to async",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Index render queues persistence",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Link save is a delta queue",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Targeted link compare-and-swap",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Storage transaction and rollback",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "PsExec never emits secret argument",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Task API replaces schtasks CLI",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Only own task mutations",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Private staging ACL and native Windows path",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Legacy lockoutTime not sufficient",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Direct membership query is server-side",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Member ranges parsed",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Case-only changes preserved",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Incoming result cannot wipe dirty form",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Navigation checks draft",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Receipt before mutation wrapper",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "No uncertainty cleared by loading a form",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "AD writes gated by durable receipts",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Secrets scopes independent",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Temporary credentials expire and are never serialized",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Windows sessions separate from console guess",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "No disconnect API in sessions reader",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "No password copied into reports",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Active database excludes network",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Legacy database path kept",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Legacy settings lower priority",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "DB schema future version refused",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Migration backup before schema write",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Shared lifecycle lock bootstrap/installer",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Interrupted install denies startup",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Normal startup verifies runtime hashes",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "PROD has no test/demo startup dependency",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "Updater preserves existing configuration",
+      "Passed": true,
+      "Group": "source"
+    },
+    {
+      "Name": "SQLite exact schema executes",
+      "Passed": true,
+      "Group": "SQLite"
+    },
+    {
+      "Name": "SQLite schema retains legacy and new versions",
+      "Passed": true,
+      "Group": "SQLite"
+    },
+    {
+      "Name": "Reopening schema keeps existing links",
+      "Passed": true,
+      "Group": "SQLite"
+    },
+    {
+      "Name": "Rollback preserves previous association",
+      "Passed": true,
+      "Group": "SQLite"
+    },
+    {
+      "Name": "Second writer is rejected while locked",
+      "Passed": true,
+      "Group": "SQLite"
+    },
+    {
+      "Name": "Coherent SQLite backup includes data",
+      "Passed": true,
+      "Group": "SQLite"
+    },
+    {
+      "Name": "SQLite backup quick_check",
+      "Passed": true,
+      "Group": "SQLite"
+    },
+    {
+      "Name": "Actual native x64 Windows PE",
+      "Passed": true,
+      "Group": "PE"
+    },
+    {
+      "Name": "No managed CLR bootstrap",
+      "Passed": true,
+      "Group": "PE"
+    },
+    {
+      "Name": "GUI subsystem",
+      "Passed": true,
+      "Group": "PE"
+    },
+    {
+      "Name": "AsInvoker not forced admin",
+      "Passed": true,
+      "Group": "PE"
+    },
+    {
+      "Name": "PE product name Domenia",
+      "Passed": true,
+      "Group": "PE"
+    },
+    {
+      "Name": "Launcher holds lifecycle lock",
+      "Passed": true,
+      "Group": "source"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+ "id": "TRV-101",
+ "verdict": "partiel",
+ "preuves": [
+  "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:94 — plan de collecte : confirmation exigée quand « gesture != \"add\" || missing.Count > 200 || probe?.Definition.Slow == true || kind is \"directory\" or \"bitlocker\" » — l'ajout direct ≤ 200 postes collecte sans confirmation, actualisation/reprise au-delà confirment",
+  "src/Domenia.Core/Screens/Accueil/AccueilService.Widgets.cs:63-77 — le compte porte sur les postes restant à lire (missing = sans mesure récente ; targets filtrés à missing l.72) ; plafond appliqué : « widget.ceiling » avec la raison (« La collecte demanderait N postes : plafond M. Choisissez une OU plus précise ou adaptez le plafond des widgets »)",
+  "src/Domenia.Core/Screens/Settings/CollectionSettings.cs:132 — réglage « Plafond des widgets » (WidgetMax) : 0 par défaut = aucun plafond, presets [0, 500, 1000, 2000, 5000] ; l.416 — « La confirmation au-delà de 200 postes reste active, même sans plafond des widgets » ; l.362 « Sans plafond »",
+  "web/js/pages/accueil/widget-collections.js:79-95 — flux réel : accueil.widget.plan puis dialogue « Collecter · titre » avec volume (« N postes à lire · M déjà frais »), détail et périmètre, bouton « Lancer la collecte », puis accueil.widget.run avec planId + confirmed ; lignes 8 et 14 — phase affichée dans la barre (« Confirmation · N postes à lire », « Collecte · done/total · fresh déjà frais »)",
+  "tests/Domenia.Tests/AccueilDurablePipelineTests.cs:427 — « ajout explicite de moins de 200 postes sans seconde confirmation » ; l.462-467 — « commande Actualiser demande une confirmation » ; l.523 — « volume réel inconnu : confirmation AD obligatoire » ; tests/web/accueil-widget-collections.test.mjs:91 — confirmationRequired côté interface"
+ ],
+ "manque": "Le garde-fou « limite 1 à 2 000 » du plafond n'est pas appliqué tel que décrit : le réglage WidgetMax accepte 0 à 100 000 postes (CollectionSettings.cs:132, borne max 100000) au lieu d'être borné à 2 000 — les presets incluent 2 000 mais la saisie monte beaucoup plus haut ; le seul 2000 du code (AccueilService.cs:23 MaxTargets) borne l'affichage d'une liste de postes, pas le budget widget. Le seuil de 200 est codé en dur (AccueilService.Widgets.cs:94) sans réglage assorti, conforme à la description mais non vérifié contre une évolution du plafond.",
+ "effort": "S",
+ "depend": ["réglages de collecte (CollectionSettingsRules)"],
+ "risque": "lecture"
+}

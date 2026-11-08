@@ -1,0 +1,18 @@
+{
+  "Suite": "LinkIdentity",
+  "Platform": "Unix 6.17.0.1026",
+  "PowerShell": "7.4.6",
+  "Cases": [
+    {
+      "Name": "RC14 Point 9 : identite des associations annoncee en inconnu, jamais comme une association fiable",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "Total": 1,
+  "Passed": 1,
+  "Failed": 0,
+  "Assertions": 22,
+  "NoNetwork": true,
+  "Scope": "Real core functions extracted by AST over in-memory links; no Active Directory, CIM, SQLite or real-user data."
+}

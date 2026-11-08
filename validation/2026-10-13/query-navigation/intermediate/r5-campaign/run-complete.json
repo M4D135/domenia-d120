@@ -1,0 +1,54 @@
+{
+    "UTC":  "2026-10-13T01:01:27.2375792Z",
+    "Processes":  [
+                      {
+                          "Name":  "GuideCaptures",
+                          "StartUTC":  "2026-10-13T00:31:39.5268930Z",
+                          "EndUTC":  "2026-10-13T00:32:41.1143817Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  65687
+                      },
+                      {
+                          "Name":  "PRODArchiveCheck",
+                          "StartUTC":  "2026-10-13T00:32:41.1185494Z",
+                          "EndUTC":  "2026-10-13T00:32:55.2216199Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  16726
+                      },
+                      {
+                          "Name":  "Test-DomeniaWiringRecherche",
+                          "StartUTC":  "2026-10-13T00:32:55.2216199Z",
+                          "EndUTC":  "2026-10-13T00:33:41.7684745Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  45916
+                      },
+                      {
+                          "Name":  "ExtendedRunner",
+                          "StartUTC":  "2026-10-13T00:33:41.7741647Z",
+                          "EndUTC":  "2026-10-13T00:40:42.9507122Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  423171
+                      },
+                      {
+                          "Name":  "AdditionalRunner",
+                          "StartUTC":  "2026-10-13T00:40:42.9507122Z",
+                          "EndUTC":  "2026-10-13T00:49:49.9585321Z",
+                          "ExitCode":  0,
+                          "TimedOut":  false,
+                          "Milliseconds":  512529
+                      },
+                      {
+                          "Name":  "AllOfflineRunner",
+                          "StartUTC":  "2026-10-13T00:49:49.9633386Z",
+                          "EndUTC":  "2026-10-13T01:01:27.2375792Z",
+                          "ExitCode":  1,
+                          "TimedOut":  false,
+                          "Milliseconds":  720773
+                      }
+                  ],
+    "AllProcessesPassed":  false
+}

@@ -1,0 +1,211 @@
+{
+  "SchemaVersion": 1,
+  "Reviewer": "engine_audit",
+  "ReviewedUTC": "2026-10-13T12:09:02.635768+00:00",
+  "Document": "Guide administrateur Domenia 1.0",
+  "Status": "PASS",
+  "Scope": "Visual layout review only; no runtime or Windows qualification. No document modified.",
+  "PagesReviewed": 17,
+  "PageRange": [
+    53,
+    69
+  ],
+  "OriginalResolution": true,
+  "Checks": [
+    "Typography and legibility",
+    "Tables and cell overflow",
+    "Margins and footer collisions",
+    "Figure captions and clipping",
+    "Page numbering"
+  ],
+  "Findings": [],
+  "Pages": [
+    {
+      "Page": 53,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-53.png",
+      "SHA256": "2369a4776e71ab09cc62bf129ea5bff7c80a534a51bec17e906c661d7b73e2cc",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Deux tableaux de configuration : cellules et retours à la ligne contenus ; titres, avertissement et pied de page lisibles.",
+      "Findings": []
+    },
+    {
+      "Page": 54,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-54.png",
+      "SHA256": "71e334bf6e31ccf43ff7b616e3ce435325f9997bca53269edba189dcf1b1aaf0",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Tableaux de fonctionnalités et recherche lisibles ; aucune cellule tronquée ni collision avec le pied de page.",
+      "Findings": []
+    },
+    {
+      "Page": 55,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-55.png",
+      "SHA256": "9a77183f715a067eaefdc4d0a8c5219080037dca7c828ef6a968749bf35d079e",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Suite du tableau et section Moteur et cache : clés longues repliées dans les cellules, bordures régulières.",
+      "Findings": []
+    },
+    {
+      "Page": 56,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-56.png",
+      "SHA256": "c731f59326c7fe9e691a648b4d27e50a2432834638a7b59d5d13d22f51188ff8",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Tableaux sécurité et postes distants : hiérarchie et colonnes lisibles, aucune troncature.",
+      "Findings": []
+    },
+    {
+      "Page": 57,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-57.png",
+      "SHA256": "3148e3ca1e8fbde3ce43bee89c63310476d1c0b485da66b218c1ad6b81c0c6d8",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Tableau index, clés sans effet et préférences : lignes longues correctement contenues.",
+      "Findings": []
+    },
+    {
+      "Page": 58,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-58.png",
+      "SHA256": "989dfad70efe283b2091f69647691408c1b5d77812ca150fabf383dea7675e58",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Préférences, emplacement et règles de stockage : tableaux et listes restent dans les marges.",
+      "Findings": []
+    },
+    {
+      "Page": 59,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-59.png",
+      "SHA256": "a899fb6e83ac5addcc57638b429560c4a48f24c0366af5bff21e91761a27f38c",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Deux figures de Base autonome, tableau des onglets et légendes correctement placés ; aucun recouvrement.",
+      "Findings": []
+    },
+    {
+      "Page": 60,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-60.png",
+      "SHA256": "3546c888fd553d096a78e9021284d5c08189becc2c026700e277e2bf7b68ecc6",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Descriptions de fraîcheur, tableau des repères et phases : aucune ligne hors cellule ni coupure de bas de page.",
+      "Findings": []
+    },
+    {
+      "Page": 61,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-61.png",
+      "SHA256": "b4ec8e0abb0c35c4e20be8f856c000eaa660a6c91f289e5500161076dcd7dfd5",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Tableau des limites et procédure de sauvegarde lisibles ; numérotation et espacements cohérents.",
+      "Findings": []
+    },
+    {
+      "Page": 62,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-62.png",
+      "SHA256": "3e5aca5eea693b487f2f38afb2ef9ea02144e9c5a77d37ea3202fb53e8028d13",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Procédure de restauration, code et maintenance : retours à la ligne contenus, aucune troncature.",
+      "Findings": []
+    },
+    {
+      "Page": 63,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-63.png",
+      "SHA256": "6a65f6cd54136fa8affe201a060df8f0ec0f26cbd2f3d4651e4f6e87f692d84c",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Figure Stockage, légende et tableau sécurité : lisibles, marges conservées ; paragraphe continué à la page suivante.",
+      "Findings": []
+    },
+    {
+      "Page": 64,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-64.png",
+      "SHA256": "2cbdc72ceb703fe6371b7af008c6a4b407055e30aeef3dcec1cbdee495bc8ff6",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Suite de sécurité, journaux et santé du moteur : tableau et listes sans collision.",
+      "Findings": []
+    },
+    {
+      "Page": 65,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-65.png",
+      "SHA256": "918c94c9afcf872dda13b5b9f4eb2cb2abefae6c3adc90052ffd6b8c5a5fa12e",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Figure Opérations et légende lisibles ; commandes de contrôle et diagnostic intégralement visibles.",
+      "Findings": []
+    },
+    {
+      "Page": 66,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-66.png",
+      "SHA256": "f65017a69fa4f43ee9ab52c702de8e3b953e51b4c21a2b74efb0090d6d1f6ab2",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Procédure incident, qualification et tableau des suites : aucune cellule débordante.",
+      "Findings": []
+    },
+    {
+      "Page": 67,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-67.png",
+      "SHA256": "9486e0383b44d8724cbda922f2f7ceaeffabc491bde28eb543ce4cce31e48ba2",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Parcours Windows et sources : hiérarchie claire, tableau correctement contenu.",
+      "Findings": []
+    },
+    {
+      "Page": 68,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-68.png",
+      "SHA256": "1f5d3666db7bf8b101c16117581c2063e24092b363266b2409ef3a252778c8cc",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Maintenance, tableau documentaire et début du glossaire : en-têtes et texte lisibles.",
+      "Findings": []
+    },
+    {
+      "Page": 69,
+      "File": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ou-refresh/page-69.png",
+      "SHA256": "559f26b8b442fdd8998dff1861e9cc7d45338b704a0eb94bce9ea4514e4ef6dc",
+      "Width": 910,
+      "Height": 1287,
+      "Inspection": "view_image original",
+      "Status": "PASS",
+      "Observation": "Glossaire final : toutes les lignes contenues, pied de page 69 sur 69 correct.",
+      "Findings": []
+    }
+  ]
+}

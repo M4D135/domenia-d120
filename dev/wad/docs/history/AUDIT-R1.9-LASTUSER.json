@@ -1,0 +1,142 @@
+{
+  "Build": "2026.09.30-R1.9-OUSEARCH",
+  "Environment": "Linux/Python; source assertions only",
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveDirectoryExecuted": false,
+  "CoreSha256": "8591DC7B37CEA296ACF886D804D69EC097A3A907D0E2DEDAD950803FFDE267AE",
+  "Passed": 26,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "Coalescence fondee sur le registre de taches avant le cache",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Force ne remplace pas le probe actif",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Jobs annules, remplaces et anciennes sessions exclus",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Callback termine en attente conserve",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Le drapeau orphelin est efface avant une nouvelle sonde",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Arret libere le marqueur avant BeginStop",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Nettoyage protege le nouvel identifiant et la machine",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Detachement nettoie avant de retirer le CallbackState",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Double clic meme DN ne purge plus la selection",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Nouvelle selection continue d annuler les anciens probes",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Erreurs obsoletes rejetees meme marqueur vide",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Succes verifies et gardes machine conserves",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "File de progression partagee",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Progression drainaige borne et session controlee",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Progression consultee pendant le travail",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Motif annulation et temps persistants",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Etapes emises avant appels bloquants",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Timeout explicite console, registre CIM et profils",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Lecture LogonUI CIM conditionnelle et read-only",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Code de retour registre verifie avant candidat",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Finalisation session CIM conservee",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Champ utilisateur jamais vide sans association",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Empreinte du worker exact",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Tests natifs extraient les vraies definitions sans lancer ADCC",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Fixtures anonymes, pas de poste du parc",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Deux suites natives avant premiere copie",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    }
+  ]
+}

@@ -1,0 +1,536 @@
+[
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Window",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TitleBar",
+        "Name":  "Rechercher · Aucune sélection — Domenia",
+        "Type":  "ControlType.TitleBar",
+        "Enabled":  true
+    },
+    {
+        "Id":  "SystemMenuBar",
+        "Name":  "System Menu Bar",
+        "Type":  "ControlType.MenuBar",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Item 1",
+        "Name":  "System",
+        "Type":  "ControlType.MenuItem",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Minimize",
+        "Name":  "Minimize",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Maximize",
+        "Name":  "Maximize",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Close",
+        "Name":  "Close",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "RootScroll",
+        "Name":  "",
+        "Type":  "ControlType.Pane",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxBrandCompact",
+        "Name":  "D",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabApplicationTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxSidebarToggle",
+        "Name":  "Déployer le menu : icônes et libellés.",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabDashboard",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavBack",
+        "Name":  "Précédent",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavForward",
+        "Name":  "Suivant",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblUxPageTitle",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUxDomain",
+        "Name":  "Connecté à cnamts.local",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ChkReadOnlyMode",
+        "Name":  "Protection des modifications",
+        "Type":  "ControlType.CheckBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WorkspaceTabs",
+        "Name":  "Choisissez une rubrique dans la barre latérale",
+        "Type":  "ControlType.Tab",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnTreeRefresh",
+        "Name":  "Actualiser l’arbre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnOuMenu",
+        "Name":  "Options de lʼarbre des OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtOuFilter",
+        "Name":  "Filtrer les OU",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxOuRefreshExpander",
+        "Name":  "Afficher les commandes de mise à jour de lʼOU",
+        "Type":  "ControlType.Group",
+        "Enabled":  true
+    },
+    {
+        "Id":  "HeaderSite",
+        "Name":  "Actualiser lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxSearchOuRefreshTitle",
+        "Name":  "Données de lʼOU",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchOuRefreshScope",
+        "Name":  "Périmètre des données de l’OU",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchRefreshBase",
+        "Name":  "Mettre à jour la base locale de l’OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnSearchRefreshPostes",
+        "Name":  "Actualiser les postes de l’OU par ping et WMI",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnSearchRefreshBoth",
+        "Name":  "Mettre à jour la base locale puis les postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblSearchOuRefreshStatus",
+        "Name":  "Progression de l’actualisation de l’OU",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblTreeStatus",
+        "Name":  "Erreur : Exception calling \"EndInvoke\" with \"1\" argument(s): \"[DOMENIA:Unknown;0;0x80131501] Base appartenant a un autre contexte.\"",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TvDirectory",
+        "Name":  "Arbre des OU et conteneurs",
+        "Type":  "ControlType.Tree",
+        "Enabled":  true
+    },
+    {
+        "Id":  "Expander",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "SearchOuSplitter",
+        "Name":  "Largeur de l’arbre des OU",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchCardCount",
+        "Name":  "Lignes affichées",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Copier le chemin LDAP de lʼOU affichée",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "CmbWorkViewScope",
+        "Name":  "Périmètre des requêtes",
+        "Type":  "ControlType.ComboBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchScope",
+        "Name":  "Dans cette OU : Tout le domaine · Enfants directs",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchHint",
+        "Name":  "Lecture de la saisie",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "CmbGlobalType",
+        "Name":  "Type d’objet",
+        "Type":  "ControlType.ComboBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "CmbPresenceFilter",
+        "Name":  "Présence réseau",
+        "Type":  "ControlType.ComboBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblGlobalLimitUnit",
+        "Name":  "Unité de la limite",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtGlobalLimit",
+        "Name":  "Lignes max",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtSearchQueryFilter",
+        "Name":  "Rechercher dans les requêtes",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ChkSearchQueryFavorites",
+        "Name":  "Requêtes favorites",
+        "Type":  "ControlType.CheckBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "CmbWorkView",
+        "Name":  "Requête à exécuter",
+        "Type":  "ControlType.ComboBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnWorkView",
+        "Name":  "Exécuter la requête",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnSearchQueryFavorite",
+        "Name":  "Épingler la requête",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnSearchQueryWorkshop",
+        "Name":  "Modifier dans lʼatelier",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchQueryDetails",
+        "Name":  "Choisissez une requête ; la sélection seule ne lance rien. DC=cnamts,DC=local · niveau direct. Lecture des requêtes personnelles dans la base locale en cours. Les modèles livrés sʼajoutent à lʼouverture de la liste, après une préparation locale.",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchQuery",
+        "Name":  "Aucune requête appliquée aux résultats.",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnQueryClearSearch",
+        "Name":  "Effacer la requête appliquée",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalClear",
+        "Name":  "Effacer la recherche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchResultMenu",
+        "Name":  "Autres actions de la liste",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchMore",
+        "Name":  "Charger la suite",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblBranchCount",
+        "Name":  "Aucune branche chargee",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxResultToolsExpander",
+        "Name":  "Afficher les actions, filtres et vues de la liste",
+        "Type":  "ControlType.Group",
+        "Enabled":  true
+    },
+    {
+        "Id":  "HeaderSite",
+        "Name":  "Actions, filtres et vues",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "DgObjects",
+        "Name":  "Résultats : sélection et ouverture explicite",
+        "Type":  "ControlType.DataGrid",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_ColumnHeadersPresenter",
+        "Name":  "",
+        "Type":  "ControlType.Header",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_LeftHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_LeftHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PART_RightHeaderGripper",
+        "Name":  "",
+        "Type":  "ControlType.Thumb",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchEmptyTitle",
+        "Name":  "État de la liste de résultats",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblSearchEmptyText",
+        "Name":  "Explication de la liste vide",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSearchEmptyNext",
+        "Name":  "Prochaine action proposée",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUiLogLast",
+        "Name":  "Dernier message du journal",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUiLogErrorBadge",
+        "Name":  "8 erreurs",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxLogToggle",
+        "Name":  "Déplier le journal",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LstSearchBarScope",
+        "Name":  "Où chercher",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ItmSearchBarScopeOu",
+        "Name":  "Dans lʼOU choisie",
+        "Type":  "ControlType.ListItem",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblSearchBarScopeOu",
+        "Name":  "OU de la recherche",
+        "Type":  "ControlType.Text",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LstSearchBarType",
+        "Name":  "Type cherché",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCommandPalette",
+        "Name":  "Palette de commandes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnAccessRecovery",
+        "Name":  "Accès",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSuiteActivity",
+        "Name":  "Opérations",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnThemeToggle",
+        "Name":  "Passer au thème sombre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxHelpToggle",
+        "Name":  "Afficher lʼaide",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomOut",
+        "Name":  "Réduire le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomReset",
+        "Name":  "Réinitialiser le zoom à 100 %",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomIn",
+        "Name":  "Agrandir le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    }
+]

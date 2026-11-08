@@ -1,0 +1,16 @@
+{
+  "id": "TRV-164",
+  "verdict": "partiel",
+  "preuves": [
+    "repo/v2/web/js/shell/pickers.js:55-93 — distinctOuLabels : groupe par nom de feuille (insensible à la casse), qualifie par le parent le plus proche « Postes (Lyon) », élargit d’un parent à la fois (depth 1..64), puis chemin complet si l’égalité persiste jusqu’au domaine ; commentaire « Display only »",
+    "repo/v2/web/js/shell/pickers.js:40-47 — ouPathNames / ouDisplayPath : noms de la feuille vers le haut, DC exclus, « Postes › Paris » (Get-DomeniaOuPathNames)",
+    "repo/v2/web/js/shell/pickers.js:90 — repli sur le chemin complet quand les libellés restent identiques",
+    "repo/v2/web/js/shell/pickers.js:158-161 — usage : chips de favoris, l’attribut data-ou-fav-pick garde le dn exact ; le libellé n’est que d’affichage (garde-fou respecté)",
+    "repo/v2/tests/web/shell/pickers.test.mjs:9-16 — test « Postes (Lyon) » / « Postes (Paris) », élargissement « Postes (Lyon / Site) », nom unique intact, doublon sans casse compté une fois",
+    "repo/v2/src/Domenia.Core/Screens/Shell/ShellInterface.cs:26,168 — MaxFavourites = 20 : les favoris, seule entrée de distinctOuLabels (pickers.js:158), sont bornés à 20 DN"
+  ],
+  "manque": "La borne explicite « 500 DN max » de la description n’est implémentée nulle part : distinctOuLabels (pickers.js:55) n’applique aucune limite d’entrée ; la borne n’est que de fait, par les appelants actuels (favoris ≤ 20 via ShellInterface.cs:26, recherche OU ≤ 100 via OU_SEARCH_LIMIT, pickers.js:16).",
+  "effort": "S",
+  "depend": ["TRV-165 (découpe des DN côté web : dnParts/partValue, pickers.js:23-31)"],
+  "risque": "lecture"
+}

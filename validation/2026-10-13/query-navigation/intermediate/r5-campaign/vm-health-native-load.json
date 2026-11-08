@@ -1,0 +1,119 @@
+{
+    "Kind":  "ReadOnlyVmDiagnostics",
+    "UTC":  "2026-10-13T00:59:22.0114426Z",
+    "NoSecurityChanges":  true,
+    "NoADAccess":  true,
+    "OS":  {
+               "LastBoot":  "\/Date(1791828037506)\/",
+               "Version":  "10.0.26200",
+               "Caption":  "Microsoft Windows 11 Enterprise Evaluation",
+               "TotalVisibleMemoryKB":  3126148,
+               "FreeVirtualMemoryKB":  1844600,
+               "FreePhysicalMemoryKB":  1410204,
+               "TotalVirtualMemoryKB":  3650436
+           },
+    "Memory":  {
+                   "CommitLimit":  3738046464,
+                   "PercentCommittedBytesInUse":  54,
+                   "CommittedBytes":  2049040384,
+                   "AvailableMB":  1210,
+                   "PagesPerSec":  0
+               },
+    "PageFiles":  [
+                      {
+                          "Name":  "C:\\pagefile.sys",
+                          "AllocatedBaseSize":  512,
+                          "CurrentUsage":  17,
+                          "PeakUsage":  19
+                      }
+                  ],
+    "ProcessMemory":  [
+                          {
+                              "ProcessId":  2884,
+                              "ParentProcessId":  856,
+                              "Name":  "MsMpEng.exe",
+                              "SessionId":  0,
+                              "WorkingSetSize":  231534592,
+                              "PageFileUsage":  275276,
+                              "PeakPageFileUsage":  297328
+                          },
+                          {
+                              "ProcessId":  4632,
+                              "ParentProcessId":  5108,
+                              "Name":  "powershell.exe",
+                              "SessionId":  0,
+                              "WorkingSetSize":  58408960,
+                              "PageFileUsage":  48532,
+                              "PeakPageFileUsage":  49052
+                          },
+                          {
+                              "ProcessId":  4564,
+                              "ParentProcessId":  4632,
+                              "Name":  "powershell.exe",
+                              "SessionId":  0,
+                              "WorkingSetSize":  124137472,
+                              "PageFileUsage":  112884,
+                              "PeakPageFileUsage":  128880
+                          },
+                          {
+                              "ProcessId":  4752,
+                              "ParentProcessId":  4564,
+                              "Name":  "powershell.exe",
+                              "SessionId":  0,
+                              "WorkingSetSize":  121823232,
+                              "PageFileUsage":  102896,
+                              "PeakPageFileUsage":  115484
+                          },
+                          {
+                              "ProcessId":  4288,
+                              "ParentProcessId":  4752,
+                              "Name":  "powershell.exe",
+                              "SessionId":  0,
+                              "WorkingSetSize":  96399360,
+                              "PageFileUsage":  74896,
+                              "PeakPageFileUsage":  120188
+                          },
+                          {
+                              "ProcessId":  1972,
+                              "ParentProcessId":  2628,
+                              "Name":  "powershell.exe",
+                              "SessionId":  0,
+                              "WorkingSetSize":  58761216,
+                              "PageFileUsage":  49284,
+                              "PeakPageFileUsage":  49428
+                          },
+                          {
+                              "ProcessId":  4936,
+                              "ParentProcessId":  1972,
+                              "Name":  "powershell.exe",
+                              "SessionId":  0,
+                              "WorkingSetSize":  77172736,
+                              "PageFileUsage":  60504,
+                              "PeakPageFileUsage":  60816
+                          },
+                          {
+                              "ProcessId":  1092,
+                              "ParentProcessId":  4288,
+                              "Name":  "powershell.exe",
+                              "SessionId":  0,
+                              "WorkingSetSize":  174985216,
+                              "PageFileUsage":  150332,
+                              "PeakPageFileUsage":  150332
+                          }
+                      ],
+    "Files":  [
+                  {
+                      "File":  "Domenia.Native.dll",
+                      "SHA256":  "AA610389684A1415E0CEFEF0FC33FE0CE961B57B921C1A6319CAE06F2ECA1AAD",
+                      "Length":  20992
+                  },
+                  {
+                      "File":  "M4D.Admin.Common.Query.dll",
+                      "SHA256":  "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+                      "Length":  17408
+                  }
+              ],
+    "RelevantApplicationEvents":  [
+
+                                  ]
+}

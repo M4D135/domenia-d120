@@ -1,0 +1,16 @@
+{
+ "id": "TRV-099",
+ "verdict": "partiel",
+ "preuves": [
+  "src/Domenia.Core/Screens/Poste/PosteSession.cs:78 — EnsureSession(key, now) lie les autorisations du poste à « compte|domaine|époque » ; src/Domenia.Bridge/Operations/PosteOperations.cs:526-533 — BindSessionAsync : au changement de session « Autorisations du poste effacées : changement de session (autre compte ou autre domaine) » et arrêt des collectes ; banc tests/Domenia.Tests/PosteRulesTests.cs:335 « autre compte : changement de session »",
+  "src/Domenia.Ad/Screens/AdPosteReader.TaskFallback.cs:22 et src/Domenia.Core/Screens/Poste/PostePersonalProbes.cs:90 — le consentement d'intervention/lecture de repli est rattaché à login|domaine|époque et retiré quand l'époque change : aucun consentement ne survit à une autre session",
+  "src/Domenia.Ad/AdDirectorySource.cs:84,123,480-496 — toute admission/départ de lecture ou d'écriture vérifie l'époque attendue : « Session modifiée avant le départ de la lecture », « aucune relecture AD lancée » ; src/Domenia.Ad/AdWorkstationReadAccess.cs:22-37 — plan d'une époque périmée refusé, « aucun envoi »",
+  "web/js/app.js:382-389 — closeForSessionChange : panneaux et demandes en attente fermés « sans rien exécuter », écran relu pour la nouvelle session ; web/js/pages/fiche.js:58 — l'état de fiche (draft: null) est recréé au remontage par le routeur, donc le brouillon ne survit pas au changement de session",
+  "src/Domenia.Bridge/Operations/OperationsOperations.cs:60-64 — « operations.receipts » : reçus d'écriture « ceux à vérifier d'abord » pour l'écran Opérations ; src/Domenia.Bridge/Operations/WriteOperations.cs:71 — « write.receipts.verify » (relecture réseau d'un reçu) ; src/Domenia.Core/Writes/WriteCircuit.cs:397-414 — Settled : « Écritures de nouveau admises : plus aucun reçu à vérifier »",
+  "src/Domenia.Core/Writes/WriteCircuit.cs:376-395 — fail closed : un reçu incertain refuse toute écriture (write.targetPending / write.receiptsPending) « until a conclusive re-read or a manual review settles it, never by time nor by a restart » ; bancs tests/Domenia.Tests/WriteCircuitTests.cs (receiptsPending/targetPending)"
+ ],
+ "manque": "La relecture automatique des reçus au changement d'époque de session n'existe pas : les reçus ne sont relus que sur demande explicite (write.receipts.verify, écran Opérations) — rg « epoch/reçu » ne montre aucun rappel déclenché par la montée d'époque côté WriteCircuit. Le garde-fou « un job de reçus sorti sans rappel ne bloque pas les écritures pour le reste de la session » n'a pas d'équivalent mesurable : en v2 le blocage vient du reçu incertain lui-même et ne se lève jamais de lui-même (WriteCircuit.cs:380 « never by time nor by a restart »), ce qui protège l'intégrité mais laisse les écritures bloquées tant que l'opérateur n'a pas vérifié, sans signal de reprise automatique quand un travail de reçus s'arrête sans rappeler.",
+ "effort": "M",
+ "depend": ["sujet ReceiptStore / circuit d'écriture (WriteCircuit, write.receipts.verify)"],
+ "risque": "ecriture-locale"
+}

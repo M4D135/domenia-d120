@@ -1,0 +1,17 @@
+[
+    {
+        "Test":  "LocalPreview",
+        "ExitCode":  0,
+        "FixtureSha256":  "0461544B48D51EC116DA398F9869206DA4F225D98FEEAC85A25CB96BEE5B8ECC"
+    },
+    {
+        "Test":  "LiveSearchView",
+        "ExitCode":  0,
+        "FixtureSha256":  "70934F06D0A18F2C24F2D77CBDC7D89FE1B6BC116D5EB83D2F72EBA15302DCC1"
+    },
+    {
+        "Test":  "WiringCache",
+        "ExitCode":  1,
+        "FixtureSha256":  "60178228813C808A406520F386C56EF92057113511B8035910DA3D30F8E3A0F3"
+    }
+]

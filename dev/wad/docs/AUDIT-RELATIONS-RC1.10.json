@@ -1,0 +1,150 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.10-RELATIONS",
+  "Checks": [
+    {
+      "Name": "Lexical Domenia-Core.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical Domenia-Modules.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical Domenia-Relations.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "XAML parse",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No duplicate application control names",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control TabLinksAssociate",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control TabRelationDetect",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control TabRelationSearch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control TxtRelationComputerSearch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control BtnRelationComputerSearch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control DgRelationComputerSearch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control RelationConfirmPanel",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control BtnRelationConfirmApply",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Control BtnRelationConfirmCancel",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "BtnRelationSelectUser hidden compatibility only",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "BtnLinkSelected hidden compatibility only",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Function Start-DomeniaRelationComputerSearch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Function Confirm-DomeniaRelationAssociation",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Function Complete-DomeniaRelationAssociationVerify",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Function Fail-DomeniaRelationAssociationVerify",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Relations no Show-DomeniaObjectPicker",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Relations no Show-DomeniaInlinePicker",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Relations no Confirm-Action",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Relations no Show-InfoBox",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Relations no Show-ErrorBox",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Add-SelectedLink navigates to integrated tab",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Manual search reuses pinned directory worker",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Association verification before save",
+      "Passed": true,
+      "Detail": ""
+    }
+  ],
+  "Passed": 28,
+  "Failed": 0,
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false
+}

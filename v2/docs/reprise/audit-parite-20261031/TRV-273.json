@@ -1,0 +1,24 @@
+{
+  "id": "TRV-273",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Ad/Writes/AdStoragePurgeExecutor.cs:18 — la purge s'exécute dans « source.RunLocalMaintenanceAsync(token => Store.ApplyStoragePurgeAsync(plan, token), …) »",
+    "src/Domenia.Ad/Writes/AdStorageRetentionExecutor.cs:18 — la conservation passe par le même RunLocalMaintenanceAsync",
+    "src/Domenia.Ad/AdDirectorySource.Maintenance.cs:43 — sous maintenance, les vues sont vidées : « localLoaded = false; state = null; fleet = CachedFleet.Empty(\"session\") » (tableau de bord et parc)",
+    "src/Domenia.Ad/AdDirectorySource.Maintenance.cs:61 — après la transaction, relecture bornée à 15 s, uniquement locale : « objects.ReadKnownAsync » / « LocalStore.ReadAsync » puis « cache.ReadFleetAsync » (lignes 62-64) ; aucune sonde réseau n'est appelée",
+    "src/Domenia.Ad/AdDirectorySource.Maintenance.cs:71 — les vues sont remplacées par ce qui a été relu de la base (« fleet = readings; », puis state avec Observations = readings.Observations)",
+    "src/Domenia.Ad/AdDirectorySource.Maintenance.cs:54 — ValidateReservedSource : un flux engagé avant la purge est refusé si la génération a changé (« Session modifiée pendant la maintenance ; publication refusée. ») ; commentaire ligne 60 : un échec de relecture laisse le cache invalidé",
+    "src/Domenia.Ad/AdDirectorySource.cs:58 — pendant la maintenance aucune écriture de vue n'est acceptée : « Maintenance locale en cours ; préparez un nouveau plan après sa fin. »",
+    "src/Domenia.Ad/AdDirectorySource.cs:351 — LoadLocalAsync rejette une lecture locale périmée (« if (epoch != generation) { return; } ») et ne relit que LocalStore (lignes 346-348)",
+    "src/Domenia.Bridge/Operations/SyncOperations.cs:74 — la vue de recherche est une OperationClass.LocalRead (« synchro.index.search ») qui relit le magasin à chaque page, jamais une sonde réseau",
+    "tests/Domenia.Tests/AdLocalMaintenanceTests.cs:24 — « Local_maintenance_replaces_loaded_objects_and_rejects_old_collection_publication » : ligne 38 ancienne collecte refusée, ligne 40 « aucune donnée supprimée réintroduite » (garde-fou « aucun ancien flux ne peut repeupler un cache purgé »)",
+    "tests/Domenia.Tests/AdLocalMaintenanceTests.cs:43 — « Readers_wait_for_local_maintenance_and_stale_writers_cannot_overtake_it » : la publication retardée est invalidée, cache.Writes reste à 0",
+    "tests/Domenia.Tests/AdLocalMaintenanceTests.cs:66 — « Failed_maintenance_keeps_old_cache_invalid_and_releases_every_publication_lock » : après échec l'ancienne projection n'est pas réutilisée",
+    "tests/Domenia.Tests/NativeStoragePurgeTests.cs:96 — après purge des observations : « Check.Equal(0, setup.Source.FleetDetails.Observations.Workstations.Length, \"cache source remplacé\") »",
+    "tests/Domenia.Tests/NativeStorageRetentionTests.cs:85 — après conservation : « Check.Equal(MeasureState.NotRead, setup.Source.FleetDetails.Observations.Workstations.Single().Presence.State, \"cache chargé remplacé\") »"
+  ],
+  "manque": "Rien de constaté : l'invalidation et la relecture depuis la base sont faites sous maintenance pour la purge comme pour la conservation, la relecture est strictement locale et le garde-fou anti-repeuplement est testé. La vue de recherche n'a pas de cache à invalider (lecture directe du magasin, SyncOperations.cs:74) ; la purge de l'index est vérifiée au niveau base dans NativeStoragePurgeTests.cs:53.",
+  "effort": "S",
+  "depend": ["TRV-271"],
+  "risque": "lecture"
+}

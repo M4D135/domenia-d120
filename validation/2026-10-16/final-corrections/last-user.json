@@ -1,0 +1,116 @@
+{
+    "Build":  "2026.09.21-R1.3-LASTUSER",
+    "Mode":  "NativePowerShellWithMocks",
+    "PowerShell":  "5.1.26100.6584",
+    "RunAt":  "2026-10-16T12:39:07.3451186+02:00",
+    "NoRemoteAccess":  true,
+    "Passed":  21,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Double demande automatique : un seul worker",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rafraichir pendant la detection : pas de redemarrage meme avec Force",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Drapeau actif orphelin : relance automatique autorisee",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Une tache annulee ne bloque pas une nouvelle detection",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ancienne session de connexion exclue du registre actif",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Resultat termine mais callback en attente : ne pas relancer",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Annulation reelle : marqueur libere avant le retour BeginStop",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Annulation puis relance sur la meme machine",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Nettoyage tardif ancien worker : nouveau marqueur conserve",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Double clic meme DN : aucune purge de selection",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Nouvelle machine : purge de selection toujours effectuee",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Evenement de grille programme : aucune nouvelle lecture",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Progression drainee une seule fois et trace persistante",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Progression ancienne machine : ne touche pas la fiche courante",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Erreur tardive apres annulation : pas de modification UI",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Erreur courante : marqueur libere et champ association rafraichi",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Succes tardif pour un autre poste : aucun lien ecrit",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Succes courant : lien enregistre et marqueur libere",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cache recent : aucune sonde automatique supplementaire",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rafraichissement explicite : le cache ne bloque pas la sonde",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Progression : meme file partagee entre payload et callback",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  }
+              ]
+}

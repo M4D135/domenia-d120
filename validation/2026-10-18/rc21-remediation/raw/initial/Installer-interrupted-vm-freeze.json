@@ -1,0 +1,18 @@
+{
+    "Current":  "P144 choix explicite -LocalData Supprimer : le dossier installe disparait entierement",
+    "StartedUtc":  "2026-10-18T10:53:01.9705546Z",
+    "Completed":  [
+                      {
+                          "Name":  "D114 version complete preparee, activation, preferences et donnees conservees, retour verifie",
+                          "Status":  "Failed",
+                          "Detail":  "Processus de test hors delai : C:\\Users\\ADMINI~2\\AppData\\Local\\Temp\\Domenia-install-test-87827b3403794932829a0c0aa9550440\\8a73b98f9ecd4be0aaa2a71d9e610fb7\\invoke-7349dfda.ps1.4990cd81b84d4eff980b364f6d84e07c at Run-Script, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 57\r\nat Install, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 96\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 167\r\nat Case, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 22\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 166\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\Run-Installer.ps1: line 2",
+                          "DurationSeconds":  223.025
+                      },
+                      {
+                          "Name":  "D114 interruption au milieu des copies bloque le lancement, restauration complete disponible",
+                          "Status":  "Failed",
+                          "Detail":  "WARNING: Aucun rapport de qualification Windows li� au ZIP de cette livraison (aucun rapport fourni \r\n(-QualificationReport).) Installation non qualifiante : la version pr�par�e sera seulement contr�l�e par Domenia-Start \r\n-CheckOnly.\nConserv� : wad/Domenia.config.json\nConserv� : wad/Domenia.login-mode.cfg\nConserv� : wad/Domenia.theme.cfg\nConserv� : wad/Domenia.ui-profile.cfg\nVersion active : 2026.10.18-DOMENIA-1.0-RC1.17.21-D120-previous-test ; version pr�par�e : 2026.10.18-DOMENIA-1.0-RC1.17.21-D120.\nBase locale : m�me sch�ma de donn�es (11) ; aucune migration.\nFichiers � installer : 2\n  wad/Domenia-Core.ps1\n  wad/package-manifest.json\nRuntime 2026.10.18-DOMENIA-1.0-RC1.17.21-D120 : 172 fichiers v�rifi�s en 5381 ms (plafond 250) ; 130 modules charg�s et fonctions disponibles. Aucun acc�s AD.\n at Assert, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 12\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 190\r\nat Case, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 22\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaInstaller.ps1: line 189\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\Run-Installer.ps1: line 2",
+                          "DurationSeconds":  57.117
+                      }
+                  ]
+}

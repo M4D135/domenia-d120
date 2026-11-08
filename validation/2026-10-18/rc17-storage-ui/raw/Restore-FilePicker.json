@@ -1,0 +1,762 @@
+[
+    {
+        "Id":  "",
+        "Name":  "Outils · Aucune sélection — Domenia",
+        "Type":  "ControlType.Window"
+    },
+    {
+        "Id":  "",
+        "Name":  "Choisir la sauvegarde SQLite à restaurer",
+        "Type":  "ControlType.Window"
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "FolderBandModuleInner",
+        "Name":  "Command Module",
+        "Type":  "ControlType.ToolBar"
+    },
+    {
+        "Id":  "HelpButton",
+        "Name":  "\u0026Help",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "PreviewButton",
+        "Name":  "Preview pane",
+        "Type":  "ControlType.CheckBox"
+    },
+    {
+        "Id":  "ViewControl",
+        "Name":  "Details",
+        "Type":  "ControlType.SplitButton"
+    },
+    {
+        "Id":  "SplitMenuButton",
+        "Name":  "View Slider",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "{7DDC1264-7E4D-4F74-BBC0-D191987C8D0F}",
+        "Name":  "Organize",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "{E44616AD-6DF1-4B94-85A4-E465AE8A19DB}",
+        "Name":  "New folder",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "ProperTreeHost",
+        "Name":  "Control Host",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "100",
+        "Name":  "Namespace Tree Control",
+        "Type":  "ControlType.Tree"
+    },
+    {
+        "Id":  "Vertical ScrollBar",
+        "Name":  "Vertical Scroll Bar",
+        "Type":  "ControlType.ScrollBar"
+    },
+    {
+        "Id":  "SmallDecrement",
+        "Name":  "Back by small amount",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "Thumb",
+        "Name":  "Thumb",
+        "Type":  "ControlType.Thumb"
+    },
+    {
+        "Id":  "LargeIncrement",
+        "Name":  "Forward by large amount",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "SmallIncrement",
+        "Name":  "Forward by small amount",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "Home",
+        "Type":  "ControlType.TreeItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Gallery",
+        "Type":  "ControlType.TreeItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "OneDrive",
+        "Type":  "ControlType.TreeItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Desktop",
+        "Type":  "ControlType.TreeItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Downloads",
+        "Type":  "ControlType.TreeItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Documents",
+        "Type":  "ControlType.TreeItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Pictures",
+        "Type":  "ControlType.TreeItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Music",
+        "Type":  "ControlType.TreeItem"
+    },
+    {
+        "Id":  "listview",
+        "Name":  "Shell Folder View",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "",
+        "Name":  "Items View",
+        "Type":  "ControlType.List"
+    },
+    {
+        "Id":  "",
+        "Name":  "Header",
+        "Type":  "ControlType.Header"
+    },
+    {
+        "Id":  "System.ItemNameDisplay",
+        "Name":  "Name",
+        "Type":  "ControlType.SplitButton"
+    },
+    {
+        "Id":  "DropDown",
+        "Name":  "Filter dropdown",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "System.DateModified",
+        "Name":  "Date modified",
+        "Type":  "ControlType.SplitButton"
+    },
+    {
+        "Id":  "DropDown",
+        "Name":  "Filter dropdown",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "System.ItemTypeText",
+        "Name":  "Type",
+        "Type":  "ControlType.SplitButton"
+    },
+    {
+        "Id":  "DropDown",
+        "Name":  "Filter dropdown",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "System.Size",
+        "Name":  "Size",
+        "Type":  "ControlType.SplitButton"
+    },
+    {
+        "Id":  "DropDown",
+        "Name":  "Filter dropdown",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "0",
+        "Name":  "Domenia-20261018-105342-076-506a972d",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "System.ItemNameDisplay",
+        "Name":  "Name",
+        "Type":  "ControlType.Edit"
+    },
+    {
+        "Id":  "System.DateModified",
+        "Name":  "Date modified",
+        "Type":  "ControlType.Edit"
+    },
+    {
+        "Id":  "System.ItemTypeText",
+        "Name":  "Type",
+        "Type":  "ControlType.Edit"
+    },
+    {
+        "Id":  "System.Size",
+        "Name":  "Size",
+        "Type":  "ControlType.Edit"
+    },
+    {
+        "Id":  "1090",
+        "Name":  "File name:",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "1148",
+        "Name":  "File name:",
+        "Type":  "ControlType.ComboBox"
+    },
+    {
+        "Id":  "1148",
+        "Name":  "File name:",
+        "Type":  "ControlType.Edit"
+    },
+    {
+        "Id":  "DropDown",
+        "Name":  "Drop Down Button",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "1136",
+        "Name":  "Files of type:",
+        "Type":  "ControlType.ComboBox"
+    },
+    {
+        "Id":  "DropDown",
+        "Name":  "Drop Down Button",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "1",
+        "Name":  "Open",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "2",
+        "Name":  "Cancel",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "40965",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "",
+        "Name":  "Navigation buttons",
+        "Type":  "ControlType.ToolBar"
+    },
+    {
+        "Id":  "Item 256",
+        "Name":  "Back (Alt + Left Arrow)",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "Item 257",
+        "Name":  "Forward (Alt + Right Arrow)",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "Item 258",
+        "Name":  "Recent locations",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "Up band",
+        "Type":  "ControlType.ToolBar"
+    },
+    {
+        "Id":  "Item 256",
+        "Name":  "Up to \"1b07cf361b376deb3ad643b2dddef90f\" (Alt + Up Arrow)",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "Loading",
+        "Type":  "ControlType.ProgressBar"
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "1001",
+        "Name":  "Address: C:\\DomeniaLab\\d120-rc11717-live\\storage-ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups",
+        "Type":  "ControlType.ToolBar"
+    },
+    {
+        "Id":  "Item 1280",
+        "Name":  "All locations",
+        "Type":  "ControlType.SplitButton"
+    },
+    {
+        "Id":  "Item 1289",
+        "Name":  "‎1b07cf361b376deb3ad643b2dddef90f",
+        "Type":  "ControlType.SplitButton"
+    },
+    {
+        "Id":  "Item 1290",
+        "Name":  "‎Backups",
+        "Type":  "ControlType.MenuItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Address band",
+        "Type":  "ControlType.ToolBar"
+    },
+    {
+        "Id":  "Item 202",
+        "Name":  "Previous Locations",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "Item 102",
+        "Name":  "Refresh \"Backups\" (F5)",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "SearchEditBox",
+        "Name":  "Search Box",
+        "Type":  "ControlType.Edit"
+    },
+    {
+        "Id":  "SearchBoxSearchButton",
+        "Name":  "Search",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "TitleBar",
+        "Name":  "Choisir la sauvegarde SQLite à restaurer",
+        "Type":  "ControlType.TitleBar"
+    },
+    {
+        "Id":  "SystemMenuBar",
+        "Name":  "System Menu Bar",
+        "Type":  "ControlType.MenuBar"
+    },
+    {
+        "Id":  "Item 1",
+        "Name":  "System",
+        "Type":  "ControlType.MenuItem"
+    },
+    {
+        "Id":  "Close",
+        "Name":  "Close",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "TitleBar",
+        "Name":  "Outils · Aucune sélection — Domenia",
+        "Type":  "ControlType.TitleBar"
+    },
+    {
+        "Id":  "SystemMenuBar",
+        "Name":  "System Menu Bar",
+        "Type":  "ControlType.MenuBar"
+    },
+    {
+        "Id":  "Item 1",
+        "Name":  "System",
+        "Type":  "ControlType.MenuItem"
+    },
+    {
+        "Id":  "Minimize",
+        "Name":  "Minimize",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "Restore",
+        "Name":  "Restore",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "Close",
+        "Name":  "Close",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "RootScroll",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "",
+        "Name":  "Domenia",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "",
+        "Name":  "Votre console d’assistance",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "TabAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "UxNavLabelAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "TabApplicationTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "UxNavLabelTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "LstUiProfile",
+        "Name":  "Niveau de détail",
+        "Type":  "ControlType.List"
+    },
+    {
+        "Id":  "LstUiProfileTech",
+        "Name":  "Profil Essentiel",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Essentiel",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "LstUiProfileExpert",
+        "Name":  "Profil Expert",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Expert",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnUxNavAccount",
+        "Name":  "Compte connecté",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "LblUxNavAccount",
+        "Name":  "CNAMTS\\Administrateur",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "LblUxNavDomain",
+        "Name":  "cnamts.local",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnUxSidebarToggle",
+        "Name":  "Réduire le menu : conserver uniquement les icônes.",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Type":  "ControlType.Pane"
+    },
+    {
+        "Id":  "TabDashboard",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "UxNavLabelHome",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "WsSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "UxNavLabelSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "WsObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "UxNavLabelObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "WsComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "UxNavLabelComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "TabRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "UxNavLabelRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnNavBack",
+        "Name":  "Précédent",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "BtnNavForward",
+        "Name":  "Suivant",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "LblUxPageTitle",
+        "Name":  "Outils",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "LblUxDomain",
+        "Name":  "Connecté à cnamts.local",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "ChkReadOnlyMode",
+        "Name":  "Protection des modifications",
+        "Type":  "ControlType.CheckBox"
+    },
+    {
+        "Id":  "",
+        "Name":  "Lecture seule",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "WorkspaceTabs",
+        "Name":  "Choisissez une rubrique dans la barre latérale",
+        "Type":  "ControlType.Tab"
+    },
+    {
+        "Id":  "",
+        "Name":  "Journal de session",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "LblUiLogLast",
+        "Name":  "Dernier message du journal",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "LblUiLogErrorBadge",
+        "Name":  "12 erreurs",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnUxLogToggle",
+        "Name":  "Déplier le journal",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "˄",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "LstSearchBarScope",
+        "Name":  "Où chercher",
+        "Type":  "ControlType.List"
+    },
+    {
+        "Id":  "",
+        "Name":  "Partout : tout le domaine",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Partout",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "ItmSearchBarScopeOu",
+        "Name":  "Dans lʼOU choisie",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "LblSearchBarScopeOu",
+        "Name":  "OU de la recherche",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "LstSearchBarType",
+        "Name":  "Type cherché",
+        "Type":  "ControlType.List"
+    },
+    {
+        "Id":  "",
+        "Name":  "Tout",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Tout",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "",
+        "Name":  "Personnes",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Personnes",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "",
+        "Name":  "Postes",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Postes",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "",
+        "Name":  "Groupes",
+        "Type":  "ControlType.ListItem"
+    },
+    {
+        "Id":  "",
+        "Name":  "Groupes",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "TxtGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Edit"
+    },
+    {
+        "Id":  "BtnCommandPalette",
+        "Name":  "Palette de commandes",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "Ctrl K",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnAccessRecovery",
+        "Name":  "Accès",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "BtnSuiteActivity",
+        "Name":  "Opérations",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "BtnThemeToggle",
+        "Name":  "Passer au thème sombre",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "BtnUxHelpToggle",
+        "Name":  "Afficher lʼaide",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "?",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "",
+        "Name":  "Zoom",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnUiZoomOut",
+        "Name":  "Réduire le zoom",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "−",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnUiZoomReset",
+        "Name":  "Réinitialiser le zoom à 100 %",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "100 %",
+        "Type":  "ControlType.Text"
+    },
+    {
+        "Id":  "BtnUiZoomIn",
+        "Name":  "Agrandir le zoom",
+        "Type":  "ControlType.Button"
+    },
+    {
+        "Id":  "",
+        "Name":  "+",
+        "Type":  "ControlType.Text"
+    }
+]

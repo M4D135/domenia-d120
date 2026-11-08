@@ -1,0 +1,15 @@
+{
+  "id": "TRV-120",
+  "verdict": "partiel",
+  "preuves": [
+    "src/Domenia.Store/Sqlite/schema-11.sql:18-21 — la table user_machine_links a computer_key TEXT PRIMARY KEY (index implicite poste→ligne) et « CREATE INDEX IF NOT EXISTS ix_links_user ON user_machine_links(user_login COLLATE NOCASE) » : le côté utilisateur→liens est bien indexé au niveau SQL, entretenu par le moteur sans reconstruction de table",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.RelationWrites.cs:73 — suppression ciblée « DELETE FROM user_machine_links WHERE computer_key=?1 » ; :247-249 — écriture ligne par ligne « UPDATE user_machine_links SET … WHERE computer_key=?1 » ou « INSERT INTO user_machine_links(computer_key,…) », aucun DELETE/INSERT de table entière : la maintenance est bien incrémentale",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Deletions.cs:40 — « foreach (var key in links.Keys) { db.Execute(\"DELETE FROM user_machine_links WHERE computer_key=?1;\", key); } » : le retrait suit aussi la clé poste",
+    "src/Domenia.Store/Sqlite/DomeniaDatabase.Index.cs:32-34 — SearchIndexAsync charge toute la table « db.Query(\"SELECT computer_guid,computer,user_login FROM user_machine_links;\") » puis « links.FirstOrDefault(l => … computer_guid … || … computer …) » par ligne d’index : parcours linéaire O(lignes×liens), aucun index poste→liens exploité par guid ou nom de poste (aucun index sur computer_guid, computer ou user_guid dans schema-11.sql)",
+    "src/Domenia.Simulation/Screens/Sync/SimulatedSyncState.cs:121-124 — les dictionnaires poste→liens et utilisateur→liens (« Dictionary<string, SortedSet<string>> LinksByComputer … LinksByUser ») n’existent que dans la simulation, pas dans le chemin de production"
+  ],
+  "manque": "L’index poste→liens n’existe pas côté production : user_machine_links n’a aucun index sur computer_guid, computer ni user_guid (src/Domenia.Store/Sqlite/schema-11.sql:18-21, seul ix_links_user sur user_login), et la recherche d’association par poste charge toute la table puis balaye la liste en mémoire par ligne (src/Domenia.Store/Sqlite/DomeniaDatabase.Index.cs:32-34) — l’exact opposé de « sans reconstruire » la lecture. Les index mémoire poste→liens / utilisateur→liens de D1 (Update-DomeniaRelationLinkIndex / Rebuild-UserMachineLinkIndex) n’ont d’équivalent que dans la simulation (src/Domenia.Simulation/Screens/Sync/SimulatedSyncState.cs:121-124). Aucun test ne vérifie la maintenance incrémentale des index de liens (aucun test n’affirme qu’après INSERT/UPDATE/DELETE d’un lien, la lookup poste ou utilisateur reste juste sans reconstruction — les tests SqliteRelation* testent les écritures et les sauvegardes, pas les index de lecture).",
+  "effort": "S",
+  "depend": [],
+  "risque": "ecriture-locale"
+}

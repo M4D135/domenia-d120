@@ -1,0 +1,18 @@
+{
+  "id": "TRV-038",
+  "verdict": "fait",
+  "preuves": [
+    "repo/v2/src/Domenia.Core/Startup/LaunchArguments.cs:14 — la classe est explicitement annotée « TRV-038: bounded launch arguments, with the original PowerShell spellings accepted as aliases » ; lignes 30-33 : --server/-server, --base/--search-base/-searchbase, --default-limit/-defaultlimit, --no-auto-connect/-noautoconnect ; ligne 37 : option répétée refusée ; lignes 44,48,52-53 : serveur DNS sans port ni identifiant, DN OU/domaine, entier 1 à 20 000",
+    "repo/v2/tests/Domenia.Tests/LaunchArgumentsTests.cs:23 — « noms D1 » : -Server, -SearchBase, -DefaultLimit, -NoAutoConnect acceptés, borne exacte 20000 ; lignes 27-42 : entrées invalides refusées sans fuite de l'argument brut et sans option partiellement appliquée ; lignes 44-60 : la base de lancement ne s'applique qu'à la session, la préférence d'OU enregistrée n'est pas réécrite",
+    "repo/v2/src/Domenia.App/Composition.cs:61 — le serveur de lancement est surchargé dans la source d'annuaire : AdConnectionFactory.Create(new AdConnectionOptions(launch?.Server, decision.JoinedDomain)) ; repo/v2/src/Domenia.Ad/Ldap/AdContracts.cs:90-95 — « the connection is opened (and bound) on the first call, never in the constructor » : les paramètres eux-mêmes ne connectent rien",
+    "repo/v2/src/Domenia.Core/Session/WorkingScope.cs:60 — la base de recherche en vigueur vient de c.Launch.BaseDn ; repo/v2/src/Domenia.Bridge/Operations/SearchOperations.cs:58,269 — la limite par défaut des recherches est context.Launch.DefaultLimit ?? SearchLimits.DefaultLimit",
+    "repo/v2/src/Domenia.Core/Startup/InitialLogin.cs:19 — ShouldOffer refuse le choix initial de connexion quand launch.NoAutoConnect ; repo/v2/tests/Domenia.Tests/LoginPresentationTests.cs:170-174 — « l'option évite aussi le choix initial » vérifié pour --no-auto-connect et -NoAutoConnect ; repo/v2/src/Domenia.App/Program.cs:130 — journalise « aucune connexion automatique » à l'annulation",
+    "repo/v2/src/Domenia.App/StartupPreflight.cs:18-28 — -DomeniaSelfTest et l'alias historique -MegADSelfTest, avec -DomeniaSelfTestResultPath/-MegADSelfTestResultPath en alias de --selftest-output ; ligne 41 (Program.cs) : refus sans aucun accès AD ; repo/v2/tests/Domenia.Tests/StartupPreflightTests.cs:35-44 — alias accepté, destinations relatives ou réseau refusées, fichier neuf exigé"
+  ],
+  "manque": "Rien pour l'acceptation et l'effet des paramètres. Une nuance sur le mot « surchargent » : les clés de configuration que l'énoncé dit surchargées n'existent plus ou ne sont pas lues dans Domenia 2 — aucune clé Conf.Server ni Conf.SearchBase au catalogue de repo/v2/src/Domenia.Core/Screens/Settings/ConfigurationReport.cs (sections 65-79), et Browser.DefaultLimit (ligne 165) reste un réglage « planifié » que personne ne lit ; -DefaultLimit s'applique donc directement à la constante SearchLimits.DefaultLimit (SearchOperations.cs:58) au lieu d'écraser une valeur de fichier. La parité est respectée dans l'effet pour l'opérateur, mais le contrôle « paramètre bat configuration » n'est testable qu'une fois Browser.DefaultLimit réellement lu par la recherche.",
+  "effort": "S",
+  "depend": [
+    "PAR-045/rapport de configuration (lire Browser.DefaultLimit, repo/v2/src/Domenia.Core/Screens/Settings/ConfigurationReport.cs:165, pour que la surcharge de configuration soit effective et testable)"
+  ],
+  "risque": "lecture"
+}

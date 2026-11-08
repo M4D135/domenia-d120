@@ -1,0 +1,29 @@
+{
+  "Build": "2026.09.21-R1.1-THEME",
+  "Base": "2026.09.21-R1-RELIABILITY",
+  "ModifiedFunctions": [
+    "Get-LoginXamlLegacy",
+    "Load-AdccSettings",
+    "Get-AdccStoredTheme",
+    "Convert-AdccXamlToBootTheme",
+    "Save-AdccTheme",
+    "Apply-AdccTheme",
+    "Toggle-AdccTheme",
+    "Load-XamlWindow",
+    "New-AdccStartupWindow",
+    "Complete-AdccFastLoginSuccess",
+    "Update-AdccFastLoginAttempt",
+    "Start-AdccFastLoginAttempt",
+    "Get-AdccStandardLoginXaml",
+    "Get-AdccDebugLoginXaml",
+    "Show-LoginWindow",
+    "Invoke-AdccSelfTest"
+  ],
+  "AddedFunctions": [
+    "Get-AdccBootStatusColor",
+    "Get-AdccBootThemePalette",
+    "Get-AdccBootThemeResources",
+    "Get-AdccStartupXaml"
+  ],
+  "RemovedFunctions": []
+}

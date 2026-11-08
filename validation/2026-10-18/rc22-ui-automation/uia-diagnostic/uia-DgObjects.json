@@ -1,0 +1,940 @@
+[
+    {
+        "Id":  "TitleBar",
+        "Name":  "Rechercher · Aucune sélection — Domenia",
+        "Class":  "",
+        "Type":  "ControlType.TitleBar",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "SystemMenuBar",
+        "Name":  "System Menu Bar",
+        "Class":  "",
+        "Type":  "ControlType.MenuBar",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "Item 1",
+        "Name":  "System",
+        "Class":  "",
+        "Type":  "ControlType.MenuItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "Minimize",
+        "Name":  "Minimize",
+        "Class":  "",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "Maximize",
+        "Name":  "Maximize",
+        "Class":  "",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "Close",
+        "Name":  "Close",
+        "Class":  "",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "RootScroll",
+        "Name":  "",
+        "Class":  "ScrollViewer",
+        "Type":  "ControlType.Pane",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Domenia",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Votre console d’assistance",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "UxBrandCompact",
+        "Name":  "D",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "TabAccounts",
+        "Name":  "Comptes",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "UxNavLabelAccounts",
+        "Name":  "Comptes",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "TabApplicationTools",
+        "Name":  "Outils",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "UxNavLabelTools",
+        "Name":  "Outils",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LstUiProfile",
+        "Name":  "Niveau de détail",
+        "Class":  "ListBox",
+        "Type":  "ControlType.List",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LstUiProfileTech",
+        "Name":  "Profil Essentiel",
+        "Class":  "ListBoxItem",
+        "Type":  "ControlType.ListItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Essentiel",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LstUiProfileExpert",
+        "Name":  "Profil Expert",
+        "Class":  "ListBoxItem",
+        "Type":  "ControlType.ListItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Expert",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnUxNavAccount",
+        "Name":  "Compte connecté",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblUxNavAccount",
+        "Name":  "Aucun compte connecté",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblUxNavDomain",
+        "Name":  "example.invalid",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "DOMENIA 1.0 · RC1.17.21",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Les actions restent sous votre contrôle.",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LblUxAboutCompatibility",
+        "Name":  "Compatibilité de ce poste",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnUxSidebarToggle",
+        "Name":  "Réduire le menu : conserver uniquement les icônes.",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Class":  "ScrollViewer",
+        "Type":  "ControlType.Pane",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "TabDashboard",
+        "Name":  "Accueil",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "UxNavLabelHome",
+        "Name":  "Accueil",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "WsSearch",
+        "Name":  "Rechercher",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "UxNavLabelSearch",
+        "Name":  "Rechercher",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "WsObject",
+        "Name":  "Fiche",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "UxNavLabelObject",
+        "Name":  "Fiche",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "WsComputer",
+        "Name":  "Poste",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "UxNavLabelComputer",
+        "Name":  "Poste",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "TabRelations",
+        "Name":  "Utilisateurs et postes",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "UxNavLabelRelations",
+        "Name":  "Utilisateurs et postes",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "TabSupport",
+        "Name":  "Atelier support",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "VerticalScrollBar",
+        "Name":  "",
+        "Class":  "ScrollBar",
+        "Type":  "ControlType.ScrollBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "HorizontalScrollBar",
+        "Name":  "",
+        "Class":  "ScrollBar",
+        "Type":  "ControlType.ScrollBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnNavBack",
+        "Name":  "Précédent",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnNavForward",
+        "Name":  "Suivant",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblUxPageTitle",
+        "Name":  "Rechercher",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblUxDomain",
+        "Name":  "Connecté à example.invalid",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblUxSubject",
+        "Name":  "",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnUxSubjectClear",
+        "Name":  "Désélectionner",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnPendingOperations",
+        "Name":  "Opérations à vérifier",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LblStatus",
+        "Name":  "",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LblPrivilegeTop",
+        "Name":  "",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnReadOnlyResume",
+        "Name":  "Repasser en lecture seule",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LblTaskElapsed",
+        "Name":  "",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "PbTop",
+        "Name":  "Indicateur d’activité",
+        "Class":  "ProgressBar",
+        "Type":  "ControlType.ProgressBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnCancelTask",
+        "Name":  "Annuler la lecture",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Annuler",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnAccountsHeader",
+        "Name":  "Identités de connexion",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "ChkReadOnlyMode",
+        "Name":  "Protection des modifications",
+        "Class":  "CheckBox",
+        "Type":  "ControlType.CheckBox",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Lecture seule",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "WorkspaceTabs",
+        "Name":  "Choisissez une rubrique dans la barre latérale",
+        "Class":  "TabControl",
+        "Type":  "ControlType.Tab",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Aide contextuelle",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnUxHelpClose",
+        "Name":  "Réduire le panneau d’aide",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "",
+        "Class":  "ScrollViewer",
+        "Type":  "ControlType.Pane",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Journal de session",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblUiLogLast",
+        "Name":  "Dernier message du journal",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LblUiLogErrorBadge",
+        "Name":  "1 erreur",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Journal indisponible",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "ChkUiLogFollow",
+        "Name":  "Suivre",
+        "Class":  "CheckBox",
+        "Type":  "ControlType.CheckBox",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Suivre",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnRuntimeHealth",
+        "Name":  "État du moteur",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnCopyUiLog",
+        "Name":  "Copier",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Copier",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "ChkUiLogCopyMask",
+        "Name":  "Masquer les noms à la copie",
+        "Class":  "CheckBox",
+        "Type":  "ControlType.CheckBox",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Masquer les noms",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnClearUiLog",
+        "Name":  "Effacer",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Effacer",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnUxLogToggle",
+        "Name":  "Replier le journal",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "˅",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "TxtUiLog",
+        "Name":  "Journal de session",
+        "Class":  "TextBox",
+        "Type":  "ControlType.Edit",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LstUiLogReadable",
+        "Name":  "Journal de session lisible",
+        "Class":  "ListBox",
+        "Type":  "ControlType.List",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Dans le journal",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "TxtSuiteLogFind",
+        "Name":  "Rechercher dans le journal",
+        "Class":  "TextBox",
+        "Type":  "ControlType.Edit",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "VerticalScrollBar",
+        "Name":  "",
+        "Class":  "ScrollBar",
+        "Type":  "ControlType.ScrollBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "HorizontalScrollBar",
+        "Name":  "",
+        "Class":  "ScrollBar",
+        "Type":  "ControlType.ScrollBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnSuiteLogNext",
+        "Name":  "Occurrence suivante",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Suivant",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "ChkUiLogErrorsOnly",
+        "Name":  "Erreurs seulement",
+        "Class":  "CheckBox",
+        "Type":  "ControlType.CheckBox",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Erreurs seulement",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "ChkSuiteLogWrap",
+        "Name":  "Retour à la ligne du journal",
+        "Class":  "CheckBox",
+        "Type":  "ControlType.CheckBox",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "CmbSuiteLogSize",
+        "Name":  "Taille du texte du journal",
+        "Class":  "ComboBox",
+        "Type":  "ControlType.ComboBox",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Lignes des résultats",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "CmbSuiteDensity",
+        "Name":  "Densité des résultats",
+        "Class":  "ComboBox",
+        "Type":  "ControlType.ComboBox",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblSuiteLogFind",
+        "Name":  "",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LogGridSplitter",
+        "Name":  "Hauteur du journal",
+        "Class":  "GridSplitter",
+        "Type":  "ControlType.Thumb",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnGlobalSearch",
+        "Name":  "Rechercher",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Rechercher",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LstSearchBarScope",
+        "Name":  "Où chercher",
+        "Class":  "ListBox",
+        "Type":  "ControlType.List",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Partout : tout le domaine",
+        "Class":  "ListBoxItem",
+        "Type":  "ControlType.ListItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Partout",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "ItmSearchBarScopeOu",
+        "Name":  "Dans lʼOU choisie",
+        "Class":  "ListBoxItem",
+        "Type":  "ControlType.ListItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblSearchBarScopeOu",
+        "Name":  "OU de la recherche",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LstSearchBarType",
+        "Name":  "Type cherché",
+        "Class":  "ListBox",
+        "Type":  "ControlType.List",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Tout",
+        "Class":  "ListBoxItem",
+        "Type":  "ControlType.ListItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Tout",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Personnes",
+        "Class":  "ListBoxItem",
+        "Type":  "ControlType.ListItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Personnes",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Postes",
+        "Class":  "ListBoxItem",
+        "Type":  "ControlType.ListItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Postes",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Groupes",
+        "Class":  "ListBoxItem",
+        "Type":  "ControlType.ListItem",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Groupes",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "TxtGlobalSearch",
+        "Name":  "Rechercher",
+        "Class":  "TextBox",
+        "Type":  "ControlType.Edit",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "VerticalScrollBar",
+        "Name":  "",
+        "Class":  "ScrollBar",
+        "Type":  "ControlType.ScrollBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "HorizontalScrollBar",
+        "Name":  "",
+        "Class":  "ScrollBar",
+        "Type":  "ControlType.ScrollBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnGlobalSearchClear",
+        "Name":  "Vider la recherche",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnCommandPalette",
+        "Name":  "Palette de commandes",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "Ctrl K",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblSearchSuggestTitle",
+        "Name":  "Recherches et fiches récentes",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LstSearchSuggest",
+        "Name":  "Suggestions",
+        "Class":  "ListBox",
+        "Type":  "ControlType.List",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LblSearchSuggestHint",
+        "Name":  "Entrée lance la recherche dans lʼannuaire ; les suggestions viennent de la mémoire et de la base locales.",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnAccessRecovery",
+        "Name":  "Accès",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblAccessRecoveryCount",
+        "Name":  "0",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnSuiteActivity",
+        "Name":  "Opérations",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "LblSuiteActivityCount",
+        "Name":  "0",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "LblSuiteBatchProgress",
+        "Name":  "",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "BtnThemeToggle",
+        "Name":  "Passer au thème sombre",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnUxHelpToggle",
+        "Name":  "Afficher lʼaide",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "?",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "VerticalScrollBar",
+        "Name":  "",
+        "Class":  "ScrollBar",
+        "Type":  "ControlType.ScrollBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "HorizontalScrollBar",
+        "Name":  "",
+        "Class":  "ScrollBar",
+        "Type":  "ControlType.ScrollBar",
+        "Offscreen":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Zoom",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnUiZoomOut",
+        "Name":  "Réduire le zoom",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "−",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnUiZoomReset",
+        "Name":  "Réinitialiser le zoom à 100 %",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "100 %",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "BtnUiZoomIn",
+        "Name":  "Agrandir le zoom",
+        "Class":  "Button",
+        "Type":  "ControlType.Button",
+        "Offscreen":  false
+    },
+    {
+        "Id":  "",
+        "Name":  "+",
+        "Class":  "TextBlock",
+        "Type":  "ControlType.Text",
+        "Offscreen":  false
+    }
+]

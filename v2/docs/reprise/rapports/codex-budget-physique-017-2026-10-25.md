@@ -1,0 +1,17 @@
+# Budget physique commun — lot 017
+
+État : code relu statiquement ; sept tests écrits, aucun exécuté. Compilation Windows à effectuer par le coordinateur. Aucun build ou test sur Mac.
+
+`PhysicalWorkBudget` appartient au Core et compte les travaux admis à leurs points feuilles, y compris ceux dont l’appelant a cessé d’attendre. Contrat D1 conservé : douze pour les lectures, une treizième place pour une action explicite et une quatorzième pour une écriture. L’acquisition est immédiate ; un refus `operation.physicalBusy` ne crée ni tâche, ni file, ni rejeu. Les baux ne contiennent ni requête ni credential.
+
+La classe provient du dispatcher, avec un contexte AsyncLocal serveur propagé vers les tâches. Une écriture imbriquée ne peut être déclassée par un scope de lecture. Les limites fournisseur du fond sont Directory 4, Cim 3, Wts 2, Storage 1, Network 4, Other 2 ; explicite et sélection peuvent les dépasser conformément à TRV-127, en restant sous leur limite physique totale et les plafonds locaux existants. Une demande de fond ayant vieilli peut prendre une seule place fournisseur supplémentaire lorsqu’aucun fond physique n’est actif. Le backoff, les priorités et la file de 32 restent sous la responsabilité de BridgeAdmission.
+
+Raccordements du lot : LDAP Bind et SendRequest, y compris mutations qualifiées Write avant envoi ; déchiffrement DPAPI-NG ; résolution SRV native ; WTS ; journaux Windows des relations et verrouillages ; enfant CIM/WinRM. Le parent d’orchestration WMI ne prend pas de second bail. L’enfant garde le sien jusqu’à sortie OS vérifiée, puis effacement du secret parent et fermeture de ses handles. Le coordinateur raccorde également `Store/Shell/ShellLocalFiles.WithTimeoutAsync` pour les lectures SMB.
+
+Les delegates détachés sont lancés avec `CancellationToken.None`, puis vérifient le jeton dans le worker propriétaire. Leur `finally` rend le bail après le retour réel et le nettoyage. Le délai de `WaitAsync` ne dispose pas ce bail. Une faute tardive reste observée. LDAP demeure attendu jusqu’à fin de l’appel natif ; un refus d’admission avant SendRequest reste hors du mapping d’une mutation à issue inconnue.
+
+Sept tests écrits : mélange des routes et réserves 12/13/14 ; budget fournisseur de fond et accès du premier plan ; exception de vieillissement unique ; propagation/restauration du contexte ; attente annulée avec travail et credential toujours détenus ; vrai enfant CIM compté une fois et sortie Windows avant restitution ; refus sans envoi/rejeu et scope Write non déclassé. Les tests ne contactent ni AD ni réseau.
+
+Le compteur est commun aux feuilles raccordées dans ce lot. Il ne constitue pas une preuve que toutes les API asynchrones, tâches distantes et autres parcours locaux de l’application y sont déjà branchés. Les fichiers SharedPark, les écritures et préférences Store hors du raccord SMB, ainsi que les orchestration AdDirectorySource/Sync détenues par les autres acteurs n’ont pas été modifiés. Les anciennes bornes WMI/WTS/événements/DNS restent en place.
+
+Sources du lot : Core/Execution/PhysicalWorkBudget.cs ; Bridge/BridgeDispatcher.cs ; Ad/Ldap/AdConnection.cs et LapsDecryptor.cs, Ad/Screens/AdAuditDns.cs ; Inventory/NativeReadProcess.cs, NativeReadClient.cs, CimSession.Isolation.cs, WindowsSessionsReader.cs, WindowsRelationEventsReader.cs, WindowsLockoutReader.cs ; Tests/PhysicalWorkBudgetTests.cs ; Store/Shell/ShellLocalFiles.cs (coordinateur).

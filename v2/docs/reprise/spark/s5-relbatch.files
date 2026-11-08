@@ -1,0 +1,7 @@
+v2/src/Domenia.Core/Screens/Accounts/AccountsBatchSeals.cs
+v2/web/js/pages/comptes/batch.js
+v2/src/Domenia.Bridge/Operations/RelationsOperations.cs
+v2/src/Domenia.Core/Writes/Relations/RelationChange.cs
+v2/src/Domenia.Core/Screens/Relations/IRelationsReader.cs
+/private/var/folders/xc/v6v5dly119l9sy64nyj2460m0000gn/T/opencode/spark/relations-savebatches.js.txt
+/private/var/folders/xc/v6v5dly119l9sy64nyj2460m0000gn/T/opencode/spark/accounts-batch-ops.cs.txt

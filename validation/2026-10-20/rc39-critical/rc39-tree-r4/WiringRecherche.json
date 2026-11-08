@@ -1,0 +1,310 @@
+{
+    "Kind":  "Wiring",
+    "Lot":  "recherche",
+    "Points":  [
+                   "D012",
+                   "D031",
+                   "D032",
+                   "D033",
+                   "D034",
+                   "D035",
+                   "D036",
+                   "D037",
+                   "D038",
+                   "D039",
+                   "D040",
+                   "CO-20",
+                   "CO-21",
+                   "DS-07",
+                   "FI-21",
+                   "FO-04",
+                   "PF-14",
+                   "SE-13",
+                   "UI-16",
+                   "UX-25",
+                   "UX-33",
+                   "UX-26",
+                   "CO-35",
+                   "SP-05",
+                   "SP-15"
+               ],
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell51":  true,
+    "Wpf":  true,
+    "LiveAD":  false,
+    "LiveCIM":  false,
+    "LivePing":  false,
+    "Passed":  47,
+    "Failed":  6,
+    "Complete":  false,
+    "Filter":  "",
+    "Subset":  false,
+    "Limitation":  "Raccordement prouve par les vraies fonctions et de vrais controles WPF, reseau double. Ne prouve pas un acces a un domaine reel.",
+    "Tests":  [
+                  {
+                      "Name":  "CO-05 / D031 The filter of the list narrows a global list and a new search starts without it",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D031 Revalidation of a global list keeps the whole domain and asks the rest policy",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D031 Revalidation of an OU list keeps its own perimeter",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D031 An inherited perimeter is refused before any request",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D031 Same input, same logical perimeter from every page",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D032 Upper-bar text does not cancel a pending OU restoration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D032 OU text change still cancels a pending OU restoration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D032 Clicking an OU after a user search browses the OU without the user name",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D033 Explicit token refines the global search only",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D033 Unknown prefix stays a plain, explained text",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D033 Features.SearchSyntax off keeps the former filters",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D033 Typing updates the hint without any request",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D034 Exact account first, then whole name; administration account identifiable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D035 Several words each match, no implicit leading wildcard",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D035 Runtime escaping equals the rule escaping for every byte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CD-13 / CO-34 Interface, worker and rule escape identically, consecutive asterisks merged",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-34 Upper bar refuses asterisks only, nothing is sent; a doubled asterisk is merged",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-33 ADsPath of the interface and of the workers escape a slash once",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D036 Pasted SID and GUID become exact searches, nothing opens automatically",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D036 Address is explained but keeps the prefix search",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D036 A pasted DN is not cut at its commas",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D037 Repli sans filtre connu : liste limitee annoncee, la suite relit avec la limite suivante et ecarte lʼancien contexte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D037 / UX-33 Repli sans filtre connu : la relecture conserve la requete Annuaire et lʼOU directe",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "MO-07 / UX-33 Charger la suite dʼune requete Annuaire lit seulement la suite dans la meme OU directe",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D037 / UX-33 Une profondeur modifiee interdit de continuer lʼancienne liste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D037 Complete list says so and offers nothing more",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FO-01 Une liste globale vide propose « contient », lu seulement au clic",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "MO-07 Charger la suite lit seulement les lignes suivantes de la meme liste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D038 A work view runs read-only, without account, right or write mode",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D038 An OU view keeps the selected OU",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D038 / FO-04 Pinning an OU opens no window and keeps no account",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D039 OU absent under its read parent: warning in the page, no substitution",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D039 Parent not read in time: a retry is asked, never an absence",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D040 Back restores the remembered list without a new search or a probe, keeping its freshness",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D040 An unsaved draft blocks back and forward",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 A label change never changes the target of the fiche read",
+                      "Status":  "Failed",
+                      "Detail":  "Phase : Failed The term \u0027Submit-DomeniaDirectoryObjectRead\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again. @ at Expect, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 757\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 743"
+                  },
+                  {
+                      "Name":  "D012 A recreated object under the same DN is another selection",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rest policy (C1) and demonstration (C2) gate the live background work",
+                      "Status":  "Failed",
+                      "Detail":  "Le travail autorise nʼa pas ete lance. @ at Expect, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 789\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 778"
+                  },
+                  {
+                      "Name":  "D028 LblLiveState porte le libelle de la regle",
+                      "Status":  "Failed",
+                      "Detail":  "Ecriture non lancee ou non comptee. @ at Expect, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 814\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 794"
+                  },
+                  {
+                      "Name":  "CO-20 Postes sans connexion inclut les jamais connectes, affiches Jamais",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-33 Requete dans lʼOU et profondeur choisies, releve refuse a la racine recursive",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-26 / CO-35 / SP-05 Menu de la liste court et sans ecriture, Reverifier reste dans Rechercher, copie pour un ticket",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SP-15 Clic sans ping quand Verifier au clic est decoche ; Reverifier reste le geste manuel ; choix enregistre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris immediate",
+                      "Status":  "Failed",
+                      "Detail":  "LʼAccueil ne suit pas lʼOU choisie. @ at Expect, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 955\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 944"
+                  },
+                  {
+                      "Name":  "FO-04 Favoris repris une fois de SavedSearches, donnees conservees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-21 Un favori ne remplit plus de champ cache : son terme va au filtre local visible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-16 Conteneurs systeme regroupes, chevron retire apres lecture sans sous-OU, noeud jamais grise",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "DS-07 Filtrer les OU : local, sans lecture ni depliage dʼune branche non lue",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-13 RevalidateListedObjects faux par defaut : aucune lecture AD sans geste",
+                      "Status":  "Failed",
+                      "Detail":  "The term \u0027Request-DomeniaAccessRecovery\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again. @ at Fail-DomeniaObjectChanges, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\modules\\Domenia-Continuity.UI.ps1: line 288\r\nat Complete-DomeniaObjectChanges, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\modules\\Domenia-Continuity.UI.ps1: line 275\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 1073\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 1049"
+                  },
+                  {
+                      "Name":  "FI-21 Relire lʼobjet invalide seulement son GUID et ne relance pas la liste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filtre local memorises",
+                      "Status":  "Failed",
+                      "Detail":  "Liste quittee par le type : type=Machines local= @ at Expect, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 1122\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1: line 1094"
+                  },
+                  {
+                      "Name":  "DS-20 Colonnes choisies : six par defaut, choix enregistre, colonnes poste seulement avec un poste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Main XAML carries the search controls wired by the code",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

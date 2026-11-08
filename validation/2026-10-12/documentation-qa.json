@@ -1,0 +1,702 @@
+{
+  "schema": 1,
+  "product": "Domenia",
+  "version": "1.0",
+  "status": "pass",
+  "generatedUtc": "2026-10-12T19:31:44.334394+00:00",
+  "rendering": {
+    "method": "render_docx.py with bundled LibreOffice; PDF and native page PNGs",
+    "renderer": "/Users/david/.codex/plugins/cache/openai-primary-runtime/documents/26.1011.11113/skills/documents/render_docx.py",
+    "visualInspection": "Each page opened individually at original resolution (100%), not contact-sheet-only."
+  },
+  "sourceScreenshots": {
+    "count": 23,
+    "minimumWidth": 1920,
+    "minimumHeight": 1080,
+    "nativePixels": true,
+    "hashesAndDimensionsVerified": true,
+    "originalsEmbeddedUnmodifiedInBothDocx": true,
+    "documentCrops": "Reversible DrawingML a:srcRect; originals retained.",
+    "captureChecksPassed": 22,
+    "captureChecksTotal": 22,
+    "provenance": {
+      "UTC": "2026-10-12T19:21:26.5984176Z",
+      "PowerShell": "5.1.26100.6584",
+      "Session": 0,
+      "SourceManifestSHA256": "D993B8E8C72956DFDA1AB287F58FCD24389932669AE7FD658295DA55A325948E",
+      "Rendering": "Native WPF RenderTargetBitmap; off-screen host, no image upscaling",
+      "Fixture": "example.local, synthetic directory and observations, no AD access",
+      "ToolTipsEnabled": false,
+      "Images": [
+        {
+          "File": "accueil.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "9BF52438890676EA9E3BBCC2EA23643915FE2F454111D4BEA87A7EC58E735FD5"
+        },
+        {
+          "File": "selecteur-ou.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "A034C7B9830DC8D03FA930B51E0D7CD1A6C51C809684E2B24D56EEC05E6A64D8"
+        },
+        {
+          "File": "atelier-requetes.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "F76C92D5CD8584511D21BA5B99A3CF39B4A33DE7737523F66EF78192E5EDEC46"
+        },
+        {
+          "File": "alerte-selection.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "829736089397A900592672358B994AC38E8627D26F7EDBF6E91B472AA9A6A02F"
+        },
+        {
+          "File": "atelier-condition.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "72762F5081C038BC6684A8E766932585D3918D56B3D88B9C839B62D1009867CD"
+        },
+        {
+          "File": "atelier-collecte.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "49A8FF9656FC6CA742169BBE10B7438E33B8B7D5E26F6564325865E7C023A20E"
+        },
+        {
+          "File": "atelier-fiche-locale.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "B120357CBDE73EBDC9610B12C7DFAF6BDD3711ECAAFDB62FF86B343D48CAC51E"
+        },
+        {
+          "File": "atelier-bibliotheque.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "1A2960DDD3403541F51191E6DAF909DE916C0C0DD511B8A571BF291AA739E831"
+        },
+        {
+          "File": "accueil-sonde-requete.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "D0BB29F8C2FE3824E458B5962FF04ED2799033708120A1DFBAFB4A673C8893BF"
+        },
+        {
+          "File": "recherche-requete.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "6B9C21ABEB624FC773F6FF7346C7F982E7524EFEA714AAEA7F6143A4263DA286"
+        },
+        {
+          "File": "atelier-desactives.png",
+          "Width": 1920,
+          "Height": 1240,
+          "SHA256": "B642703E0DF2E5F720265291EEEEA36623D772B88C5A26D2F4129B5813A1D052"
+        },
+        {
+          "File": "recherche.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "E0DE3562CB7E68B348B418B66F12D40F3E4C8E0033F00F0610F679FD6659A3B9"
+        },
+        {
+          "File": "recherche-actions.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "E0DE3562CB7E68B348B418B66F12D40F3E4C8E0033F00F0610F679FD6659A3B9"
+        },
+        {
+          "File": "fiche-poste.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "BAA3765205D7F06F91BDE4DB5EC046F7105F337743B94636D34E3078469143CE"
+        },
+        {
+          "File": "actions-poste.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "2336A6B182283DF8307646FB3A77150F21C347787013212C8968A9D177AAB582"
+        },
+        {
+          "File": "tableau-poste.png",
+          "Width": 1920,
+          "Height": 1840,
+          "SHA256": "37F64D30719D61F62E6A65C01381F1DEE6A345D3BC59191848A43FF9BD7B3148"
+        },
+        {
+          "File": "personnaliser.png",
+          "Width": 1920,
+          "Height": 1100,
+          "SHA256": "8EAA5FBA7A1917245C5BC632E6861355FC79A8050815EA6E2D480343E8804366"
+        },
+        {
+          "File": "editeur-widget.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "5E7E1512F2B0DA92970D7BDB49821015088A69455A329FBA9D7A6FF07B826797"
+        },
+        {
+          "File": "logiciels.png",
+          "Width": 1920,
+          "Height": 1560,
+          "SHA256": "D834751C6D4E0938AC614BC917F6B94AED02A3567789F8243B1F8E9744099FB1"
+        },
+        {
+          "File": "base-autonome.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "140400367ADC801D25D32465477F2959F5E03BC6D945B878F6898876A7FE484E"
+        },
+        {
+          "File": "base-details.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "95C949EBE4317F18BEB0A39DDB0A0CE41DF313A874E17E9AD21E3D1FBD4E768E"
+        },
+        {
+          "File": "base-progression.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "6794EA26DED328D07F36989A0FC0A341548F933114543FEEC3D18D2E8CC8E8B7"
+        },
+        {
+          "File": "connexion.png",
+          "Width": 1920,
+          "Height": 1080,
+          "SHA256": "9C573914C9D8B985679CD286CDC8CA7321878C012390DCB63FD3AECBFD8C5D45"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Screenshots are native Windows WPF renders in off-screen session 0, not an interactive desktop capture.",
+    "Directory objects and observations are declared synthetic fixtures; no real Active Directory access or production fleet qualification is demonstrated.",
+    "The DOCX pagination was verified using the bundled LibreOffice renderer; Word can repaginate with a different font or printer environment."
+  ],
+  "documents": [
+    {
+      "role": "technicien",
+      "pages": 24,
+      "figures": 25,
+      "distinctScreenshotSources": 23,
+      "visualReviewComplete": true,
+      "reviewers": [
+        {
+          "reviewer": "/root/guides",
+          "pages": [
+            1,
+            24
+          ],
+          "status": "pass"
+        }
+      ],
+      "structuralChecks": {
+        "docxZipValid": true,
+        "pdfPagesConfirmed": true,
+        "replacementGlyphCount": 0,
+        "tocLinks": 10
+      },
+      "artifacts": [
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/Domenia-1.0-Guide-technicien.docx",
+          "bytes": 4441549,
+          "sha256": "39f8b89fe0e6688d36ba75ace13536ed60e81ebf06ea1a26b34d714679f533ed"
+        },
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/Domenia-1.0-Guide-technicien.pdf",
+          "bytes": 4716786,
+          "sha256": "35c5f562146d0a40d502908a64747f55de4a9e24e5951d3586c5d74af740fbfd"
+        }
+      ],
+      "renderedPages": [
+        {
+          "page": 1,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-1.png",
+          "sha256": "032a1d28277e4bf84d283521ef04c59d628519ca67f14f6fae07da903e37f214"
+        },
+        {
+          "page": 2,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-2.png",
+          "sha256": "e7d2b95c1d355e83cdc0de824ec9fdefc1cc1a9494db42dcea100db4ad696b0b"
+        },
+        {
+          "page": 3,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-3.png",
+          "sha256": "f6b0843d3428a19352bd0c41c3515dc80f508d0da37d1d56a8d87e545a629e08"
+        },
+        {
+          "page": 4,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-4.png",
+          "sha256": "b086a578bee32508fb2b43fa83ba1dfe7a02542d10675989001f2bdc5af2bfa9"
+        },
+        {
+          "page": 5,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-5.png",
+          "sha256": "e4f20b3f6b5ef73b82af267effc52771ba81b994d614905e8d0b17360666700d"
+        },
+        {
+          "page": 6,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-6.png",
+          "sha256": "ec0d3af80bd3f09aa8e967ed47b932a752da70f47ca4fb4dccd53b18fb32b910"
+        },
+        {
+          "page": 7,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-7.png",
+          "sha256": "de9485762c9c2192d796aa625f09b1d2eb22b7f41ec5fdbfda7f38a13973f932"
+        },
+        {
+          "page": 8,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-8.png",
+          "sha256": "cb9bd54621fc26f33df15b86d22f5be8ccf033be09c2ca21fce1707168fcc0d0"
+        },
+        {
+          "page": 9,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-9.png",
+          "sha256": "1d1c7e660305714027773ca241c9792af5201c7b76b823cd9e3108eb4e0dc0ac"
+        },
+        {
+          "page": 10,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-10.png",
+          "sha256": "ea9114856a0ffee654acbae929e7823bb5990fe40db35f8a9580cbb97370b99d"
+        },
+        {
+          "page": 11,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-11.png",
+          "sha256": "0ee89abc2f3e9dcd5300f9e5a3f116e80ee1ed9ac3fc9ad53cfeeaf4859910d8"
+        },
+        {
+          "page": 12,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-12.png",
+          "sha256": "901f58223282a9c138098dd2fd41590cad2363a3a381a0eb34e819ffaf6d9109"
+        },
+        {
+          "page": 13,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-13.png",
+          "sha256": "2e50c232c8f50868a8782aca0b723bf1986cd86e7ddb6e607993ace0b03af5e8"
+        },
+        {
+          "page": 14,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-14.png",
+          "sha256": "44b42728031ca8207b7fdc58f785f9d3bc5dafc7ec48255e9d44ee86936e3f18"
+        },
+        {
+          "page": 15,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-15.png",
+          "sha256": "d7631121745b62bd7c16abef76350bf582eb8edd42adeeded08bd7a28d734a18"
+        },
+        {
+          "page": 16,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-16.png",
+          "sha256": "ad90016597df821b3567a3ab6367f366c33c1b4e5ac06988ae7b15ecbf85e73d"
+        },
+        {
+          "page": 17,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-17.png",
+          "sha256": "29ec92e620458b212958d08a89f8a34244ca4c5075d86e8dc004097cf304736f"
+        },
+        {
+          "page": 18,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-18.png",
+          "sha256": "1019375c422a3ca7e0945f2e3e8c098b8de8245759e61200018625a095991476"
+        },
+        {
+          "page": 19,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-19.png",
+          "sha256": "da0c9e01f73ee1a44de80646b1baee039ec9373c34f74f78e1ab5072e3619ae2"
+        },
+        {
+          "page": 20,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-20.png",
+          "sha256": "a65a6e5246730b5f71a8469add9c02113df3252ef55dfc34ce83a03d7270d0b3"
+        },
+        {
+          "page": 21,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-21.png",
+          "sha256": "61f69f2556ea44106c6b2111a14a1ff92fe25eee2d4e88891f5f63771bb66b6e"
+        },
+        {
+          "page": 22,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-22.png",
+          "sha256": "346026ccf71b6e1b6a34fc37c27b100cb40298cfb9ff15b9c9a7c6cfe9fb795b"
+        },
+        {
+          "page": 23,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-23.png",
+          "sha256": "03b6fa96d8f26a5eab99819b761f17fb28a5187a714bd13ae43aceb654fd5fee"
+        },
+        {
+          "page": 24,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-technicien-final/page-24.png",
+          "sha256": "95db19ddcdf80e12de2fa4e9b6981f019efeaf784d1835feb3ef05d5a8d071b2"
+        }
+      ]
+    },
+    {
+      "role": "administrateur",
+      "pages": 63,
+      "figures": 25,
+      "distinctScreenshotSources": 23,
+      "visualReviewComplete": true,
+      "reviewers": [
+        {
+          "reviewer": "/root/guides",
+          "pages": [
+            1,
+            30
+          ],
+          "status": "pass"
+        },
+        {
+          "reviewer": "/root/classic_packaging",
+          "pages": [
+            31,
+            63
+          ],
+          "status": "pass"
+        }
+      ],
+      "structuralChecks": {
+        "docxZipValid": true,
+        "pdfPagesConfirmed": true,
+        "replacementGlyphCount": 0,
+        "tocLinks": 23
+      },
+      "artifacts": [
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/Domenia-1.0-Guide-administrateur.docx",
+          "bytes": 4498778,
+          "sha256": "979c6b31a160e655c7483c0f0274ebd3a8e1c88220b914213a9dbd751983530f"
+        },
+        {
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/Domenia-1.0-Guide-administrateur.pdf",
+          "bytes": 5621924,
+          "sha256": "cbb1d5fc87b7246d7dc574e81ea861003e879d87149fa124d513fe01906aa690"
+        }
+      ],
+      "renderedPages": [
+        {
+          "page": 1,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-1.png",
+          "sha256": "98a70e6bf78345ab27869920b34316ed3a89058841fcdd6cf8492e52625af2d8"
+        },
+        {
+          "page": 2,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-2.png",
+          "sha256": "8fdc84264269157d302092d54bf82afe668bbf858ca965d133320dcee9288d00"
+        },
+        {
+          "page": 3,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-3.png",
+          "sha256": "eaee35e3d641f7cb96ab97e26ac08a100d0e83c28beca1abdf27b55a44dc9956"
+        },
+        {
+          "page": 4,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-4.png",
+          "sha256": "9c96680a3a0b58eb2cf6bcef6d4eed15522e55dc13a183d9c4831af10a954e39"
+        },
+        {
+          "page": 5,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-5.png",
+          "sha256": "90d926d17af9452eccaf87bd8f3b476b2cfa82cd2516b8e74d81ebed65b02645"
+        },
+        {
+          "page": 6,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-6.png",
+          "sha256": "f5e361a3989e3aedacae34ce3e125e91d56a17236592da2fe8022053ecf81d77"
+        },
+        {
+          "page": 7,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-7.png",
+          "sha256": "fdc8014b4bfa5c178af5a0e98dc6b27851f1e19f4dce42920ca36016ad7472b4"
+        },
+        {
+          "page": 8,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-8.png",
+          "sha256": "b8a63a20cfbd90508f6f0a41a59504062caf27420a81ae58fa4d0fd889e3ea98"
+        },
+        {
+          "page": 9,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-9.png",
+          "sha256": "48b468f33b883da7f86073ca59ac48b3ecb3af2c8b23e510dbfe6615888b0d43"
+        },
+        {
+          "page": 10,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-10.png",
+          "sha256": "b1bb1dfce0d47125e9b6d420dab1a7fb1e9344c4ae167f1a72000bdf03a55772"
+        },
+        {
+          "page": 11,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-11.png",
+          "sha256": "1dcefae6035a1608e4894ea74f4682f28069a00e5a37e7c0665fc8b5c91ae4cd"
+        },
+        {
+          "page": 12,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-12.png",
+          "sha256": "16386c61c83e75d018bc93190c123aacf0e2192806011349957f0a764ea108b1"
+        },
+        {
+          "page": 13,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-13.png",
+          "sha256": "6d9bbe09dd28ed8557c2d345e6d8367e97bdfd378c24c7497fb391f69c045855"
+        },
+        {
+          "page": 14,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-14.png",
+          "sha256": "24eb761fd0cd76cbe23621483dcb3bc4e71f1bd63280c109e77bf15ba05df2ad"
+        },
+        {
+          "page": 15,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-15.png",
+          "sha256": "435d716e42c4d9150f8cc4ac236a73d6be687288cd09ff1eff2b30f061fefb3e"
+        },
+        {
+          "page": 16,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-16.png",
+          "sha256": "e3238951d49829555ea4e82f8c8ffa10ae4fa4b0bfcdb448cb568de4e65cb3da"
+        },
+        {
+          "page": 17,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-17.png",
+          "sha256": "3ca986b425ed86fae9c0e3b4ae4868672b04bf64253783bf43caee66b0166e36"
+        },
+        {
+          "page": 18,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-18.png",
+          "sha256": "1afe4982ecc0ce7c87a19fbc527fc5c8f1b9c9b2b1a872c9318799897b507061"
+        },
+        {
+          "page": 19,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-19.png",
+          "sha256": "37b1fa52d7027ebaec7f4692bb91fa69f4ea0eaf4beb27066f94e9c1c2f1efd1"
+        },
+        {
+          "page": 20,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-20.png",
+          "sha256": "a120c1131103359642a5a2a90a52f4c147e2d1db9a20933fe30cdb97dfb53351"
+        },
+        {
+          "page": 21,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-21.png",
+          "sha256": "a6af25843e23311ed3087cafcd18b72e374057d81798325f23ca912ebc719c34"
+        },
+        {
+          "page": 22,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-22.png",
+          "sha256": "2378c72b760bf3256b601a6a911e790b65f75ba38b63f11b8a1dfeb4b0bc9c86"
+        },
+        {
+          "page": 23,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-23.png",
+          "sha256": "11d59d661bb12a6332116d3355bab1fc819839e7178d992aaaf442337f5de659"
+        },
+        {
+          "page": 24,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-24.png",
+          "sha256": "2da963dd95731c42fd949197697efa2b9907743e32cc67737227d181f7cc9bf9"
+        },
+        {
+          "page": 25,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-25.png",
+          "sha256": "be1e85a8e2fcceab8fda0e951f6d27ae7f5c8f4e38ec9ef3ebe1ebed751369df"
+        },
+        {
+          "page": 26,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-26.png",
+          "sha256": "d0bd530ac6fc9aa864f838e2a23f20a1190378ff6fc78092be1db285413c5473"
+        },
+        {
+          "page": 27,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-27.png",
+          "sha256": "1e2de30256e1f6eecc831db4459c41c0c40dd026bef4e68f6d61a122fb6bff7d"
+        },
+        {
+          "page": 28,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-28.png",
+          "sha256": "7f5495efc544249214213ee1a73ac61963cb99b34f87346ac6f7f2ae69c28f1f"
+        },
+        {
+          "page": 29,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-29.png",
+          "sha256": "6fad4d2cb78dd647d27a40ec49c7b3a7ba2cd88c331c6ca9bc56bc17621fe2b9"
+        },
+        {
+          "page": 30,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-30.png",
+          "sha256": "2e9cf98a3ca6dd61607930ec64759640ba10fd50a31b9e0531d2a7dc111fa9a4"
+        },
+        {
+          "page": 31,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-31.png",
+          "sha256": "1c539c365eb02ea80e9c425d9928ed63b3f920c8674833d512c5190947dfa4c8"
+        },
+        {
+          "page": 32,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-32.png",
+          "sha256": "02c9ac4afe594c3c7341596936d85366f3a0c06d1a3287c212e095c104e551ef"
+        },
+        {
+          "page": 33,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-33.png",
+          "sha256": "a8b9336a6d77183a80e1ba28aad9348eda94adc746d3d850d57b8c203ed1acc1"
+        },
+        {
+          "page": 34,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-34.png",
+          "sha256": "7ee817b75ecd573dafb0de7a77f27360fb413ab91d386d101897500ab615d53f"
+        },
+        {
+          "page": 35,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-35.png",
+          "sha256": "306f0a273a3eb3a4373d22ddf4b70183749615efd62b0701ee8fac0b4087d1b6"
+        },
+        {
+          "page": 36,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-36.png",
+          "sha256": "7f68cbed29a5301d6c6ade45e2b0d304eb7e52c18ba8961e954a3faacb4d2cdf"
+        },
+        {
+          "page": 37,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-37.png",
+          "sha256": "cc3dfb1479cad39cf395576ea9df638cb70378a574936a59840b37f7fbe6a192"
+        },
+        {
+          "page": 38,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-38.png",
+          "sha256": "2511a85ca96b99b69c2d0b313bf0701d164104daf73663b4ce0d3084b28289e8"
+        },
+        {
+          "page": 39,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-39.png",
+          "sha256": "fd65dffd2292c527089aefc680c4af70564f02149fbf10f8531e2e8a9d9ad17a"
+        },
+        {
+          "page": 40,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-40.png",
+          "sha256": "fbc9a477362b06467db5a3fb8d50144c60307dfae53088f5791d855911149bb4"
+        },
+        {
+          "page": 41,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-41.png",
+          "sha256": "ec1158a8b6cde2de047a93be85e32643edfdb6d70dc3a457e6e0b132422c0d95"
+        },
+        {
+          "page": 42,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-42.png",
+          "sha256": "2c69ad802ff21fd01ecae653d366197f0f7cd8e1c1c205fa28427cac895b9422"
+        },
+        {
+          "page": 43,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-43.png",
+          "sha256": "2fd3cada287c0f9f0a1cf51cdd5a6ef800b29f0f7bdbd2ca3d248d6d7c387de3"
+        },
+        {
+          "page": 44,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-44.png",
+          "sha256": "dd7fc0e28533d5ea5a2430a2c50c19e8d91a0ba472d71d22d8d6a8baa789f1a8"
+        },
+        {
+          "page": 45,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-45.png",
+          "sha256": "f08e8ff01708e8312289cd6288d6b6a8e41e2f6d05b15af3acf34f27c18cf57f"
+        },
+        {
+          "page": 46,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-46.png",
+          "sha256": "8922bd15fc293ded13fbc6c17a6af607f0a465c2f9ddb1eab8a2d127b921d986"
+        },
+        {
+          "page": 47,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-47.png",
+          "sha256": "5f9a84dd71e4b8e08262d3c1320347da3fdafd2b1b55b204fff2c2f318d30e48"
+        },
+        {
+          "page": 48,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-48.png",
+          "sha256": "226381f15bec4f7c369fc5814a7bd519b03d541060db810cce12d502122d69a6"
+        },
+        {
+          "page": 49,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-49.png",
+          "sha256": "0c253c46e2be6d13efba99bc9742fd1de4ad4135ba2f85ce9769d3aaaca2ea6c"
+        },
+        {
+          "page": 50,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-50.png",
+          "sha256": "a3a9cac68b6dac6c1f9e9c4778100b0ce71aab501523bc75dd67a7c6fb2262c0"
+        },
+        {
+          "page": 51,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-51.png",
+          "sha256": "e9458fb5b7dbe4ebb0fee955e5991426935a7327b570dd1f6f79a1dc3ed2977d"
+        },
+        {
+          "page": 52,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-52.png",
+          "sha256": "98b247e96ba020c155dd1bd35cd65c137d3edbf7576d8730f3a671492e121451"
+        },
+        {
+          "page": 53,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-53.png",
+          "sha256": "2b93e400a4510242c7a87f2510498ecc67c5dae6478ec8b2748ccc982df27130"
+        },
+        {
+          "page": 54,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-54.png",
+          "sha256": "38c39f9e00368318945bd0626dda33038815efad9ba4c8e3f0c63fc03337630e"
+        },
+        {
+          "page": 55,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-55.png",
+          "sha256": "fb33fd7c5d2508dd1891aba67933ed722b5f7f6e248446f0f7911cee1094280c"
+        },
+        {
+          "page": 56,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-56.png",
+          "sha256": "59cceced39bc7c721c9b7a21c1b80d347bfbec70a8009232bdcf42e83dea9ce6"
+        },
+        {
+          "page": 57,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-57.png",
+          "sha256": "6e01a306acf5c98db65355e5cac4cb4e09081f2494038675ca88578f32afff62"
+        },
+        {
+          "page": 58,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-58.png",
+          "sha256": "eb627fae622a16250456165ada102080f62a67f164f5f901a6856846113d3381"
+        },
+        {
+          "page": 59,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-59.png",
+          "sha256": "efd94f4b46fbd099e08e2975c5f4807c7dc701fba71ea51fedb60388d6647e8a"
+        },
+        {
+          "page": 60,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-60.png",
+          "sha256": "85c960ffe363084a307ff2575836bd1567aefd186ac0e9cad5abdcedd5d56bd5"
+        },
+        {
+          "page": 61,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-61.png",
+          "sha256": "3d2ef6c72a40943e4274bcbbb6ae53646685b25b9c512c3c35d8e9cad249d089"
+        },
+        {
+          "page": 62,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-62.png",
+          "sha256": "38a6965de9c9b8b521007274038cef92be15eb542626b61e75a913b129e6060a"
+        },
+        {
+          "page": 63,
+          "path": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit/guides/build/qa-administrateur-final/page-63.png",
+          "sha256": "8e7ad0aba578f05a7bf5cef246688843925328cd7061a320371cf323395dbd20"
+        }
+      ]
+    }
+  ],
+  "completedUtc": "2026-10-12T19:32:27.643422+00:00",
+  "totalPagesVisuallyReviewed": 87,
+  "visualReviewResult": "All 87 final pages inspected at original resolution; no blocking layout defect, missing glyph, overlap, orphan heading, clipped text or stray tooltip.",
+  "nonBlockingNotes": [
+    "Administrator page 32: the long WMI identifier DNSServerSearchOrder wraps to a final r on the next line; the identifier remains complete."
+  ]
+}

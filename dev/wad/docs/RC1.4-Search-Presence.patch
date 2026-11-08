@@ -1,0 +1,1252 @@
+--- RC1.3/wad/Domenia-Core.ps1
++++ RC1.4/wad/Domenia-Core.ps1
+@@ -2237,9 +2237,10 @@
+     param([AllowEmptyString()][string]$State)
+     $dark = ($script:CurrentTheme -eq "Dark")
+     $value = [string]$State
++    if ($value -like "*(cache)") { if($dark){return "#CBD5E1"}else{return "#64748B"} }
+     if ($value -like "En ligne*")   { if ($dark) { return "#34D399" } else { return "#047857" } }
+-    if ($value -like "Hors ligne*") { if ($dark) { return "#F87171" } else { return "#DC2626" } }
+-    if ($value -like "Test*")       { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
++    if ($value -like "Hors ligne*" -or $value -like "Sans réponse au ping*") { if ($dark) { return "#F87171" } else { return "#DC2626" } }
++    if ($value -like "Test*" -or $value -like "Vérification*" -or $value -like "Erreur de ping*")       { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
+     if ($dark) { return "#CBD5E1" }
+     return "#64748B"
+ }
+@@ -2268,9 +2269,10 @@
+     param([AllowEmptyString()][string]$State)
+     $value = ([string]$State).Trim()
+     if ($value -like "En ligne*") { return "En ligne" }
+-    if ($value -like "Hors ligne*") { return "Hors ligne" }
+-    if ($value -like "Test*") { return "Test en cours..." }
+-    return "Inconnu"
++    if ($value -like "Hors ligne*" -or $value -like "Sans réponse au ping*") { return "Sans réponse au ping" }
++    if ($value -like "Test*" -or $value -like "Vérification*") { return "Vérification en cours" }
++    if ($value -like "Erreur de ping*") { return "Erreur de ping" }
++    return "Non vérifié"
+ }
+ 
+ function Get-DomeniaCachedPresenceState {
+@@ -2411,8 +2413,8 @@
+     if (Test-DomeniaLiveSearchActive) { Update-DomeniaLiveFilter; return }
+     try {
+         $rows = @($script:BranchObjects)
+-        if ($script:CurrentPresenceFilter -ne "Tous") {
+-            $rows = @($rows | Where-Object { [string]$_.Presence -eq $script:CurrentPresenceFilter })
++        if ((Get-DomeniaSearchMode) -ne "Global" -and $script:CurrentPresenceFilter -ne "Tous") {
++            $rows = @($rows | Where-Object { Test-DomeniaPresenceMatch ([string]$_.Presence) $script:CurrentPresenceFilter })
+         }
+         [void](Set-DomeniaGridRows -Name "DgObjects" -Rows $rows)
+ 
+@@ -2566,6 +2568,15 @@
+ function Start-DomeniaSelectedMachinePresence {
+     param([string]$Name,[string]$DnsName)
+ 
++    if (Test-DomeniaLiveSearchActive) {
++        $row=Get-DomeniaSelectedGridRow
++        if ($null -ne $row -and $row.Type -eq 'Machine' -and $null -ne $script:SelectedObject -and [string]$row.DN -ieq [string]$script:SelectedObject.DN) {
++            Select-DomeniaLiveResult
++            Set-DomeniaPresenceText -Name 'TxtCompPresence' -State ([string]$row.Presence)
++            Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$row.UPN)
++            return
++        }
++    }
+     $target = if (-not [string]::IsNullOrWhiteSpace($DnsName)) { $DnsName } else { $Name }
+     Set-DomeniaPresenceText -Name "TxtCompPresence" -State "Test en cours..."
+     Update-DomeniaObjectPresence -State "Test en cours..." -Target $target
+@@ -4059,8 +4070,8 @@
+                 <ColumnDefinition Width="Auto"/>
+               </Grid.ColumnDefinitions>
+               <Grid>
+-                <TextBox x:Name="TxtGlobalSearch" ToolTip="Saisissez un nom, un identifiant, une adresse mail ou un nom de poste. Entrée recherche dans l’OU sélectionnée ; vide, elle affiche son contenu limité." Margin="0" MinHeight="42" Padding="12,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Saisissez un nom, un identifiant, une adresse mail ou un nom de poste. Entrée recherche dans l’OU sélectionnée ; vide, elle affiche son contenu limité."/>
+-                <TextBlock Text="Rechercher une personne, un poste…" Margin="13,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" IsHitTestVisible="False" x:Name="UxSearchPlaceholder">
++                <TextBox x:Name="TxtGlobalSearch" ToolTip="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée." Margin="0" MinHeight="42" Padding="12,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée."/>
++                <TextBlock Text="Rechercher dans tout le domaine…" Margin="13,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" IsHitTestVisible="False" x:Name="UxSearchPlaceholder">
+                   <TextBlock.Style>
+                     <Style TargetType="TextBlock">
+                       <Setter Property="Visibility" Value="Collapsed"/>
+@@ -4073,7 +4084,7 @@
+                   </TextBlock.Style>
+                 </TextBlock>
+               </Grid>
+-              <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Recherche dans le périmètre affiché. Sans texte, affiche son contenu dans la limite demandée." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans l’OU sélectionnée" AutomationProperties.HelpText="Recherche dans le périmètre affiché. Sans texte, affiche son contenu dans la limite demandée."/>
++              <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans tout le domaine" AutomationProperties.HelpText="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection."/>
+             </Grid>
+             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+               <Button x:Name="BtnAccessRecovery" Content="Accès" MaxWidth="150" MinHeight="34" Margin="0,0,6,0" ToolTip="Changer de compte après un refus de droits. Les identités temporaires restent en mémoire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résoudre un refus d’accès" AutomationProperties.HelpText="Propose un autre compte pour la ressource en échec, sans relancer les écritures."/><Button x:Name="BtnSuiteActivity" Content="Opérations" Margin="0,0,6,0" MinHeight="34" ToolTip="Ouvre le suivi des lectures, écritures et nettoyages en cours. Aucune opération AD n’est lancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivi des opérations" AutomationProperties.HelpText="Ouvre le suivi des lectures, écritures et nettoyages en cours. Aucune opération AD n’est lancée."/><Button x:Name="BtnCommandPalette" Content="Ctrl + K" Width="78" Height="40" MinWidth="78" Margin="0,0,6,0" ToolTip="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K." VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Palette de commandes" AutomationProperties.HelpText="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K."/>
+@@ -4327,7 +4338,7 @@
+                 </ScrollViewer>
+               </TabItem>
+               <TabItem x:Name="WsSearch" ToolTip="Choisissez une OU à gauche pour filtrer la recherche. Les résultats sont affichés à droite." Header="Rechercher" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans l’annuaire" AutomationProperties.HelpText="Choisissez une OU à gauche pour filtrer la recherche. Les résultats sont affichés à droite.">
+-                <Grid Margin="0" x:Name="SearchBrowserLayout">
++                <Grid Margin="0" x:Name="SearchBrowserLayout" Tag="OU">
+                   <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="276" MinWidth="230" MaxWidth="420" x:Name="UxOuColumn"/>
+                     <ColumnDefinition Width="12"/>
+@@ -4341,13 +4352,13 @@
+                             <ColumnDefinition Width="*"/>
+                             <ColumnDefinition Width="Auto"/>
+                           </Grid.ColumnDefinitions>
+-                          <TextBlock Text="Filtrer par OU" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
++                          <TextBlock Text="Parcourir les OU" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                           <Button Grid.Column="1" x:Name="BtnTreeRefresh" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="6,0,0,0" ToolTip="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser l’arbre" AutomationProperties.HelpText="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés.">
+                             <TextBlock Text="↻" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                           </Button>
+                         </Grid>
+-                        <TextBlock Text="Sélectionnez une branche pour filtrer les résultats." FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,12"/>
+-                        <Button Content="Tout le domaine" Margin="0,0,0,12" x:Name="BtnSearchAllDomain" ToolTip="Retire le filtre OU, inclut toutes les sous-OU et relance la recherche sans effacer le texte saisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout le domaine" AutomationProperties.HelpText="Retire le filtre OU, inclut toutes les sous-OU et relance la recherche sans effacer le texte saisi." MinHeight="36"/>
++                        <TextBlock Text="La barre du haut cherche partout. Cliquez une OU pour consulter son contenu." FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,12"/>
++                        <Button Content="Tout le domaine" Margin="0,0,0,12" x:Name="BtnSearchAllDomain" ToolTip="Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout le domaine" AutomationProperties.HelpText="Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante." MinHeight="36"/>
+                         <Border Background="{DynamicResource BgReadonly}" CornerRadius="10" Padding="12" Margin="0,0,0,12">
+                           <StackPanel>
+                             <TextBlock Text="PÉRIMÈTRE SÉLECTIONNÉ" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,6"/>
+@@ -4355,6 +4366,7 @@
+                             <TextBlock x:Name="LblOuScopePath" Text="Choisissez une OU dans l’arbre." FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+                           </StackPanel>
+                         </Border>
++                        <Button x:Name="BtnSearchInOu" Content="Afficher cette OU" Margin="0,0,0,12" MinHeight="34" ToolTip="Revient à l’OU sélectionnée et réactive ses filtres. Le texte du bandeau n’est pas utilisé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher l’OU sélectionnée" AutomationProperties.HelpText="Retour au contenu de l’OU, sans perdre la recherche du bandeau."/>
+                         <CheckBox x:Name="ChkSubtree" IsChecked="True" ToolTip="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inclure les sous-OU" AutomationProperties.HelpText="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." Content="Inclure les sous-OU" Margin="0,0,0,10"/>
+                         <Expander x:Name="UxOuPathDetails" Header="Voir le chemin LDAP" IsExpanded="False" Margin="0,0,0,4" FontSize="12" Foreground="{DynamicResource MutedColor}" ToolTip="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin complet de l’OU" AutomationProperties.HelpText="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête.">
+                           <StackPanel Margin="0,8,0,2">
+@@ -4364,7 +4376,7 @@
+                         </Expander>
+                       </StackPanel>
+                       <TextBlock x:Name="LblTreeStatus" Text="Arbre pret." Foreground="{DynamicResource MutedColor}" FontSize="11" TextWrapping="NoWrap" Margin="0,10,0,0" DockPanel.Dock="Bottom" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+-                      <TreeView x:Name="TvDirectory" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Développez une branche pour voir ses sous-OU. Sélectionnez-la pour filtrer les résultats à droite, en conservant le texte saisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arbre des OU et conteneurs" AutomationProperties.HelpText="Développez une branche pour voir ses sous-OU. Sélectionnez-la pour filtrer les résultats à droite, en conservant le texte saisi."/>
++                      <TreeView x:Name="TvDirectory" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Développez les sous-OU ou cliquez une branche pour afficher son contenu. Le texte de la recherche globale reste conservé mais ne filtre pas cette navigation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arbre des OU et conteneurs" AutomationProperties.HelpText="Développez les sous-OU ou cliquez une branche pour afficher son contenu. Le texte de la recherche globale reste conservé mais ne filtre pas cette navigation."/>
+                     </DockPanel>
+                   </Border>
+                   <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" Cursor="SizeWE" x:Name="SearchOuSplitter" ToolTip="Faites glisser pour ajuster la largeur de l’arbre et des résultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Largeur de l’arbre des OU" AutomationProperties.HelpText="Faites glisser pour ajuster la largeur de l’arbre et des résultats."/>
+@@ -4375,10 +4387,10 @@
+                     </Grid.RowDefinitions>
+                     <Border Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16">
+                       <StackPanel>
+-                        <TextBlock Text="Affiner la recherche" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
++                        <TextBlock Text="Périmètre des résultats" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                         <TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,12" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" TextTrimming="CharacterEllipsis"/>
+                         <WrapPanel>
+-                          <StackPanel Width="148" Margin="0,0,12,8">
++                          <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+                             <TextBlock Text="Type d’objet" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                             <ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinHeight="36">
+                               <ComboBoxItem Content="Tous"/>
+@@ -4388,13 +4400,14 @@
+                               <ComboBoxItem Content="OU et conteneurs"/>
+                             </ComboBox>
+                           </StackPanel>
+-                          <StackPanel Width="138" Margin="0,0,12,8">
++                          <StackPanel Width="138" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+                             <TextBlock Text="Présence réseau" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+-                            <ComboBox x:Name="CmbPresenceFilter" Margin="0" SelectedIndex="0" ToolTip="N affiche que les postes en ligne, hors ligne, ou tous." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence réseau" AutomationProperties.HelpText="N affiche que les postes en ligne, hors ligne, ou tous." MinHeight="36">
++                            <ComboBox x:Name="CmbPresenceFilter" Margin="0" SelectedIndex="0" ToolTip="Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence réseau" AutomationProperties.HelpText="Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif." MinHeight="36">
+                               <ComboBoxItem Content="Tous"/>
+                               <ComboBoxItem Content="En ligne"/>
+-                              <ComboBoxItem Content="Hors ligne"/>
+-                              <ComboBoxItem Content="Inconnu"/>
++                              <ComboBoxItem Content="Sans réponse au ping"/>
++                              <ComboBoxItem Content="Non vérifié"/>
++                              <ComboBoxItem Content="Erreur de ping"/>
+                             </ComboBox>
+                           </StackPanel>
+                           <StackPanel Width="90" Margin="0,0,12,8">
+@@ -4404,7 +4417,7 @@
+                           <StackPanel Margin="0,0,0,8">
+                             <TextBlock Text="Actions" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
+                             <WrapPanel Margin="0">
+-                              <Button x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Relance la lecture AD avec le texte, le type et le filtre OU actuels." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Relance la lecture AD avec le texte, le type et le filtre OU actuels." Margin="0,0,8,0" MinHeight="36"/>
++                              <Button x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." Margin="0,0,8,0" MinHeight="36"/>
+                               <Button x:Name="BtnGlobalClear" Content="Effacer" Margin="0,0,8,0" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée. Tout le domaine retire le filtre OU." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée. Tout le domaine retire le filtre OU." MinHeight="36"/>
+                               <Button x:Name="BtnExportResults" Content="Exporter CSV" Margin="0" ToolTip="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV." MinHeight="36"/>
+                             </WrapPanel>
+@@ -4434,19 +4447,19 @@
+                           <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="Wrap" MaxWidth="320" FontSize="12"/>
+                           <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold"/>
+                         </DockPanel>
+-                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
++                        <Grid><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+ <TextBlock Text="Dans les résultats" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource MutedColor}"/>
+ <TextBox x:Name="TxtSuiteResultFilter" Grid.Column="1" MaxLength="120" MinHeight="32" ToolTip="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les lignes chargées" AutomationProperties.HelpText="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+ <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+ </Grid><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/><StackPanel Margin="0,10,0,0">
+                             <WrapPanel>
+-                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Vérifier le poste sélectionné" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic sur une seule machine vérifie son compte console en arrière-plan. Charger, filtrer ou faire défiler la liste ne sonde aucun poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
+-                              <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier ce poste" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Vérifie uniquement le poste sélectionné, même si la vérification automatique sur sélection est désactivée. Un seul essai ; aucune sonde en double." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
++                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur à la sélection" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
++                              <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier ce poste" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Relance un ping unique et la lecture utilisateur sur le poste sélectionné. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
+                             </WrapPanel>
+                             <TextBlock x:Name="LblLiveState" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                           </StackPanel></StackPanel><Grid Grid.Row="1">
+                           
+-                          <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic sélectionne la ligne et vérifie le compte console si c’est une machine. Double-clic ou Entrée ouvre la fiche. Aucun scan de la liste. Clic droit : actions." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic sélectionne la ligne et vérifie le compte console si c’est une machine. Double-clic ou Entrée ouvre la fiche. Aucun scan de la liste. Clic droit : actions.">
++                          <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic sélectionne la ligne et lance un ping, avec la lecture utilisateur si activée. Double-clic ou Entrée ouvre la fiche. Aucun scan de la liste. Clic droit : actions." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic sélectionne la ligne et lance un ping, avec la lecture utilisateur si activée. Double-clic ou Entrée ouvre la fiche. Aucun scan de la liste. Clic droit : actions.">
+                             <DataGrid.Columns>
+                               <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="105"/>
+                               <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="260"/>
+@@ -4466,7 +4479,9 @@
+                               <DataGridTextColumn Header="Confiance" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
+                                 <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Indicateur historique de la source du lien ; ce n’est pas une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
+                               </DataGridTextColumn>
+-                              <DataGridTextColumn Header="Presence" Binding="{Binding Presence}" Width="105"/>
++                              <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" Width="175">
++                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Presence}" ToolTip="{Binding PresenceDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
++                              </DataGridTemplateColumn>
+                               <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="120"/>
+                               <DataGridTextColumn Header="OS" Binding="{Binding OS}" Width="180"/>
+                               <DataGridTextColumn Header="Derniere connexion" Binding="{Binding LastLogon}" Width="145"/>
+@@ -6452,13 +6467,39 @@
+     Update-DomeniaSearchScopeUi
+     Update-Dashboard
+     if ($script:SuppressBranchAutoLoad) { return }
++    [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text '')
+     Invoke-DomeniaSearchFilterChanged
+ }
+ 
++function Get-DomeniaSearchMode {
++    # An upper-bar request and OU browsing are separate query contexts.
++    if ([string]$script:SearchMode -eq 'Global') { return 'Global' }
++    return 'OU'
++}
++
++function Get-DomeniaSearchText {
++    param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode))
++    $name = if ($Mode -eq 'Global') { 'TxtGlobalSearch' } else { 'TxtBranchSearch' }
++    $box = Get-DomeniaControl -Name $name
++    if ($null -eq $box) { return '' }
++    return ([string]$box.Text).Trim()
++}
++
++function Set-DomeniaSearchMode {
++    param([ValidateSet('Global','OU')][string]$Mode)
++    $script:SearchMode = $Mode
++    # The ancestor style disables only OU/local filters. Child security locks remain authoritative.
++    $layout = Get-DomeniaControl -Name 'SearchBrowserLayout'
++    if ($null -ne $layout) { $layout.Tag = $Mode }
++}
++
+ function Get-DomeniaSearchScope {
+-    # L'OU est la racine LDAP de la requete, pas un filtre sur une grille tronquee.
++    param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode))
+     $domainDn = ([string]$script:Conn.BaseDn).Trim()
+     if ([string]::IsNullOrWhiteSpace($domainDn)) { throw 'Recherche impossible : aucune base AD de session.' }
++    if ($Mode -eq 'Global') {
++        return [pscustomobject]@{ BaseDn=$domainDn; Scope='Subtree'; IsDomain=$true; Mode='Global' }
++    }
+     $baseDn = ([string]$script:SelectedBranchDn).Trim()
+     if ([string]::IsNullOrWhiteSpace($baseDn)) { $baseDn = $domainDn }
+     $subtree = Get-DomeniaControl -Name 'ChkSubtree'
+@@ -6467,22 +6508,27 @@
+         BaseDn = $baseDn
+         Scope = $(if ($includeChildren) { 'Subtree' } else { 'OneLevel' })
+         IsDomain = [string]::Equals($baseDn,$domainDn,[StringComparison]::OrdinalIgnoreCase)
++        Mode = 'OU'
+     }
+ }
+ 
+ function Update-DomeniaSearchScopeUi {
+     if ([string]::IsNullOrWhiteSpace([string]$script:Conn.BaseDn)) { return }
+-    $scope = Get-DomeniaSearchScope
+-    [void](Set-DomeniaControlText -Name 'TxtBranchDn' -Text ([string]$scope.BaseDn))
+-    $label = if ($scope.IsDomain) { 'Tout le domaine' } else { [string]$scope.BaseDn }
+-    $depth = if ($scope.Scope -eq 'Subtree') { 'Sous-OU incluses' } else { 'Enfants directs uniquement' }
++    $mode = Get-DomeniaSearchMode
++    $ouScope = Get-DomeniaSearchScope -Mode OU
++    [void](Set-DomeniaControlText -Name 'TxtBranchDn' -Text ([string]$ouScope.BaseDn))
++    if ($null -ne (Get-Command Update-DomeniaUxOuScope -CommandType Function -ErrorAction SilentlyContinue)) {
++        Update-DomeniaUxOuScope -Scope $ouScope
++    }
++    Set-DomeniaSearchMode -Mode $mode
+     $summary = Get-DomeniaControl -Name 'LblSearchScope'
+-    if ($null -ne $summary) {
+-        $summary.Text = "Dans : $label  |  $depth"
+-        $summary.ToolTip = "Racine LDAP : $($scope.BaseDn)`r`n$depth"
+-    }
+-    if ($null -ne (Get-Command Update-DomeniaUxOuScope -CommandType Function -ErrorAction SilentlyContinue)) {
+-        Update-DomeniaUxOuScope -Scope $scope
++    if ($null -eq $summary) { return }
++    if ($mode -eq 'Global') {
++        $summary.Text = 'Recherche globale · Domaine entier · Tous les types · Aucun filtre de liste'
++        $summary.ToolTip = 'Racine LDAP : '+[string]$script:Conn.BaseDn+"`r`nL’OU sélectionnée, la présence et le filtre local ne restreignent pas cette recherche. La limite de résultats reste appliquée."
++    } else {
++        $term = Get-DomeniaSearchText -Mode OU
++        if ($term) { $summary.Text += ' · Terme de la recherche enregistrée : '+$term }
+     }
+ }
+ 
+@@ -6512,24 +6558,22 @@
+ 
+ function Test-DomeniaSearchStateCurrent {
+     param($State)
+-    if ($null -eq $State) { return $false }
+-    if ([int]$State.Generation -ne [int]$script:GlobalSearchGeneration) { return $false }
+-    $scope = Get-DomeniaSearchScope
++    if ($null -eq $State -or [int]$State.Generation -ne [int]$script:GlobalSearchGeneration) { return $false }
++    $mode = Get-DomeniaSearchMode
++    if ($null -ne $State.PSObject.Properties['SearchMode'] -and [string]$State.SearchMode -cne $mode) { return $false }
++    $scope = Get-DomeniaSearchScope -Mode $mode
+     if (-not [string]::Equals([string]$State.BaseDn,[string]$scope.BaseDn,[StringComparison]::OrdinalIgnoreCase)) { return $false }
+     if ([string]$State.Scope -ne [string]$scope.Scope) { return $false }
+-    if ([string]$State.TypeFilter -ne [string](Get-GlobalSelectedTypeFilter)) { return $false }
+-    $box = Get-DomeniaControl -Name 'TxtGlobalSearch'
+-    if ($null -ne $box -and ([string]$box.Text).Trim() -ne [string]$State.Search) { return $false }
++    if ([string]$State.TypeFilter -ne [string](Get-GlobalSelectedTypeFilter -Mode $mode)) { return $false }
++    if ((Get-DomeniaSearchText -Mode $mode) -cne [string]$State.Search) { return $false }
+     return $true
+ }
+ 
+ function Invoke-DomeniaSearchFilterChanged {
+     if ($script:RestoringSettings -or $script:SuppressBranchAutoLoad -or -not $script:Conn.Connected) { return }
+     if ([string]::IsNullOrWhiteSpace([string]$script:SelectedBranchDn)) { return }
+-    Invalidate-DomeniaSearchResults
+-    Update-DomeniaSearchScopeUi
+     Select-DomeniaWorkspace -Workspace 'WsSearch'
+-    Invoke-GlobalSearch -AllowEmpty -SilentError
++    Invoke-GlobalSearch -AllowEmpty -SilentError -SearchMode OU
+ }
+ 
+ function Reset-DomeniaSearchScope {
+@@ -6606,6 +6650,8 @@
+ 
+ 
+ function Get-GlobalSelectedTypeFilter {
++    param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode))
++    if ($Mode -eq 'Global') { return (Get-TypeLdapFilter -Type 'Tous') }
+     $label = 'Tous'
+     $control = Get-DomeniaControl -Name 'CmbGlobalType'
+     if ($null -ne $control -and $null -ne $control.SelectedItem) { $label = [string]$control.SelectedItem.Content }
+@@ -9351,9 +9397,9 @@
+ 
+ function Get-BranchQueryData {
+     # Compatibilite des appels internes : les controles visibles font autorite.
+-    $scope = Get-DomeniaSearchScope
+-    $typeFilter = Get-GlobalSelectedTypeFilter
+-    $searchFilter = Get-SearchLdapFilter ([string](Get-DomeniaControl -Name 'TxtGlobalSearch').Text)
++    $scope = Get-DomeniaSearchScope -Mode OU
++    $typeFilter = Get-GlobalSelectedTypeFilter -Mode OU
++    $searchFilter = Get-SearchLdapFilter (Get-DomeniaSearchText -Mode OU)
+     $filter = if ([string]::IsNullOrWhiteSpace($searchFilter)) { $typeFilter } else { "(&$typeFilter$searchFilter)" }
+     $limit = 100
+     try { $limit = [int](Get-DomeniaControl -Name 'TxtGlobalLimit').Text } catch { }
+@@ -9385,7 +9431,7 @@
+ function Load-BranchObjects {
+     # Anciennes actions de branche : un seul moteur et une seule generation.
+     Update-DomeniaSearchScopeUi
+-    Invoke-GlobalSearch -AllowEmpty -SilentError -PreserveSelection
++    Invoke-GlobalSearch -AllowEmpty -SilentError -PreserveSelection -SearchMode (Get-DomeniaSearchMode)
+ }
+ 
+ function Complete-DomeniaGlobalSearchUi {
+@@ -9536,6 +9582,8 @@
+         [void](Set-DomeniaControlText -Name "TxtGlobalSearch" -Text "")
+         $script:BranchObjects = @()
+         $script:BranchCountLabel = "0 resultat"
++        [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text '')
++        Set-DomeniaSearchMode -Mode OU
+         Stop-DomeniaSelectionOpenTimer
+         $script:PendingObjectSelection = $null
+         [void](Set-DomeniaItemsSource -Name "DgObjects" -Rows @())
+@@ -9553,15 +9601,17 @@
+ }
+ 
+ function Invoke-GlobalSearch {
+-    param([switch]$SilentError,[switch]$AllowEmpty,[switch]$PreserveSelection)
+-
++    param([switch]$SilentError,[switch]$AllowEmpty,[switch]$PreserveSelection,
++        [ValidateSet('Global','OU')][string]$SearchMode = 'Global')
++
++    if(Test-DomeniaAccessBusyWrite){Set-Status 'Recherche différée : écriture active ou à vérifier.' 'WARN';return}
+     if(-not (Test-DomeniaDraftNavigation -DN "")){return}
+     try {
+         $searchBox = Get-DomeniaControl -Name "TxtGlobalSearch"
+         if ($null -eq $searchBox) { throw "Champ de recherche introuvable." }
+ 
+-        $textValue = ([string]$searchBox.Text).Trim()
+-        $scope = Get-DomeniaSearchScope
++        $textValue = Get-DomeniaSearchText -Mode $SearchMode
++        $scope = Get-DomeniaSearchScope -Mode $SearchMode
+         $isBrowse = [string]::IsNullOrWhiteSpace($textValue)
+         $minChars = [Math]::Max(1,[int](Get-CfgValue "Browser" "GlobalSearchMinChars" 2))
+         if (-not $isBrowse -and $textValue.Length -lt $minChars -and $textValue -ne "*") {
+@@ -9574,6 +9624,7 @@
+             $selectedGrid = Get-DomeniaControl -Name 'DgObjects'
+             if ($null -ne $selectedGrid -and $null -ne $selectedGrid.SelectedItem) { $preserveDn = [string]$selectedGrid.SelectedItem.DN }
+         }
++        Set-DomeniaSearchMode -Mode $SearchMode
+         Invalidate-DomeniaSearchResults
+         $generation = [int]$script:GlobalSearchGeneration
+         Update-DomeniaSearchScopeUi
+@@ -9610,7 +9661,7 @@
+ 
+         }
+ 
+-        $typeFilter = Get-GlobalSelectedTypeFilter
++        $typeFilter = Get-GlobalSelectedTypeFilter -Mode $SearchMode
+         $prefixFilter = ""
+         $fastFilter = ""
+         $exactFilter = ""
+@@ -9685,6 +9736,10 @@
+             }
+             elseif (-not [string]::IsNullOrWhiteSpace($escapedShort)) {
+                 $prefixFilter = "(&$typeFilter(|(name=$escapedShort*)(sAMAccountName=$escapedShort*)(dNSHostName=$escapedShort*)))"
++                if ($SearchMode -eq 'Global') {
++                    # Include identity and human-name attributes in the first pass, not only as a fallback.
++                    $prefixFilter = "(&$typeFilter(|(name=$escapedRaw*)(displayName=$escapedRaw*)(givenName=$escapedRaw*)(sn=$escapedRaw*)(sAMAccountName=$escapedShort*)(dNSHostName=$escapedShort*)(mail=$escapedRaw*)(userPrincipalName=$escapedRaw*)(anr=$escapedRaw)))"
++                }
+             }
+ 
+             # Passe d'identite exacte conservee comme secours rapide si le
+@@ -9707,7 +9762,7 @@
+ 
+         $serverKey = ([string]$script:Conn.Server).ToLowerInvariant()
+         $baseKey = ([string]$scope.BaseDn).ToLowerInvariant()
+-        $cacheKey = "scoped-v19|$serverKey|$baseKey|$($scope.Scope)|$typeFilter|$textValue|$limit"
++        $cacheKey = "scope-v214|$SearchMode|$serverKey|$baseKey|$($scope.Scope)|$typeFilter|$textValue|$limit"
+         # Cache previews are read in a worker; the WPF thread performs no SQLite query here.
+ 
+         $props = @(
+@@ -9871,6 +9926,7 @@
+             ClientTimeoutSeconds = [Math]::Max(5,[Math]::Min(25,[int](Get-CfgValue "Browser" "SearchClientTimeoutSeconds" 12)))
+         }
+         $callbackState = [pscustomobject]@{
++            SearchMode = $SearchMode
+             BaseDn = [string]$scope.BaseDn
+             Scope = [string]$scope.Scope
+             TypeFilter = $typeFilter
+@@ -9885,7 +9941,7 @@
+ 
+         [void](Begin-DomeniaLiveSearch -State $callbackState -Payload $payload)
+ 
+-        Add-DomeniaUiLog -Area "Recherche" -Level "INFO" -Text "Recherche '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit."
++        Add-DomeniaUiLog -Area "Recherche" -Level "INFO" -Text "Recherche $SearchMode '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit."
+         if ($generation -ne [int]$script:GlobalSearchGeneration) { return }
+         if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
+         [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text 'Recherche en cours...')
+@@ -19342,13 +19398,14 @@
+ 
+     $script:Ctrl["BtnTreeRefresh"].Add_Click({ Load-TreeRoot -ForceRefresh })
+     $script:Ctrl["BtnSearchAllDomain"].Add_Click({ Reset-DomeniaSearchScope })
++    $script:Ctrl["BtnSearchInOu"].Add_Click({ Invoke-DomeniaSearchFilterChanged })
+     $script:Ctrl["ChkSubtree"].Add_Checked({ Invoke-DomeniaSearchFilterChanged })
+     $script:Ctrl["ChkSubtree"].Add_Unchecked({ Invoke-DomeniaSearchFilterChanged })
+     $script:Ctrl["CmbGlobalType"].Add_SelectionChanged({ Invoke-DomeniaSearchFilterChanged })
+     $script:Ctrl["BtnLoadBranch"].Add_Click({ Load-BranchObjects })
+     $script:Ctrl["BtnClearBranch"].Add_Click({ Clear-DomeniaGlobalSearch })
+     $script:Ctrl["BtnGlobalSearch"].Add_Click({
+-        try { Invoke-GlobalSearch }
++        try { Invoke-GlobalSearch -SearchMode Global }
+         catch {
+             Write-AppLog "Clic Recherche : $($_.Exception.ToString())" "ERROR"
+             Set-Status "La recherche n'a pas pu etre lancee : $($_.Exception.Message)" "ERROR"
+@@ -19359,7 +19416,7 @@
+         param($s,$e)
+         if ($e.Key -eq "Enter") {
+             $e.Handled = $true
+-            try { Invoke-GlobalSearch }
++            try { Invoke-GlobalSearch -SearchMode Global }
+             catch {
+                 Write-AppLog "Recherche Entree : $($_.Exception.ToString())" "ERROR"
+                 Set-Status "La recherche n'a pas pu etre lancee : $($_.Exception.Message)" "ERROR"
+@@ -19672,7 +19729,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.3-SELECTION"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.4-SEARCH"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -20841,8 +20898,9 @@
+         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
+         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
+         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
+-        LiveConsole          = "0697568899BC479AA64868526F6A673C8E10CD380872560C31C98849BF780C45"
+-        LiveCache            = "8A6780930C66373148B7BCCA9819336E09CBB0F30EA1EC9C83AFCEBB93217D96"
++        LiveSelectedPing     = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
++        LiveConsole          = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
++        LiveCache            = "F1F7240E83C381B5D92684BECF81C27344AD8FA1425BB0FB485F802DF11185D1"
+         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
+         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
+         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
+@@ -20882,7 +20940,7 @@
+         [switch]$IsWrite
+     )
+     $verifiedHash = Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code
+-    $pooled = ($OperationId -in @('GlobalSearch','LiveConsole','LiveCache','LiveDirectoryCheck')) -and -not $IsWrite
++    $pooled = ($OperationId -in @('GlobalSearch','LiveConsole','LiveSelectedPing','LiveCache','LiveDirectoryCheck')) -and -not $IsWrite
+     if ($pooled) {
+         if ($null -eq $script:LiveWorkerPools) { $script:LiveWorkerPools=@{} }
+         if ($script:LiveWorkerPools.ContainsKey($OperationId)) {
+@@ -21363,7 +21421,7 @@
+             # l'identite et on ne retente pas automatiquement avec une variante.
+             $credentialRejected = ($errorMessage -match "(?i)(nom d.utilisateur ou le mot de passe est incorrect|user name or password is incorrect|logon failure|identifiant ou mot de passe|credentials?.*(invalid|incorrect)|compte.*verrouill|account.*locked)")
+             if ($credentialRejected) {
+-                $nonDirectory = @("LiveConsole","LiveCache","CmdletHelp","CmdletInventory","EngineSelfTest","ComputerDiagnostics","ComputerLastUser","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
++                $nonDirectory = @("LiveConsole","LiveSelectedPing","LiveCache","CmdletHelp","CmdletInventory","EngineSelfTest","ComputerDiagnostics","ComputerLastUser","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
+                 $separate=($job.OperationId -in @('ReadLaps','ReadBitLocker') -or $null -ne (Get-DomeniaRetryCredential ([string]$job.OperationId)))
+                 if($separate -and $null -ne $script:AccessState){$script:AccessState.Faults[(Get-DomeniaAccessScope ([string]$job.OperationId))]=$true}
+                 if (-not $separate -and $nonDirectory -notcontains [string]$job.OperationId) {
+@@ -21460,7 +21518,7 @@
+     $static = $script:WorkerContextStatic
+     $remoteOperations = @("SessionsList","ComputerDiagnostics","ComputerLastUser","LiveConsole","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
+     $machineCredentialOperations = @("SessionsList","ComputerDiagnostics","ComputerInventory","SoftwareInventory","ParkSweep","WmiNamespaces","WmiClasses","WmiQuery","ComputerLastUser","LiveConsole","ComputerGpUpdate","ComputerRestart","UserComputerProbe","RimotteRun")
+-    $nonDirectoryOperations = @("CmdletHelp","CmdletInventory","EngineSelfTest","LiveCache","LocalStore","ReceiptStore","SessionsList","DocumentStore") + $remoteOperations
++    $nonDirectoryOperations = @("CmdletHelp","CmdletInventory","EngineSelfTest","LiveCache","LiveSelectedPing","LocalStore","ReceiptStore","SessionsList","DocumentStore") + $remoteOperations
+     # ComputerLastUser valide les candidats dans LDAP : ce n est pas une
+     # operation exclusivement distante, contrairement au ping/inventaire.
+     $needsDirectoryCredential = ($OperationId -in @('ComputerLastUser','LiveConsole') -or $nonDirectoryOperations -notcontains $OperationId)
+@@ -22220,7 +22278,7 @@
+     Initialize-DomeniaGuard
+     Initialize-DomeniaLive
+     Initialize-DomeniaReconcile
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.3 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.4 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -22428,7 +22486,7 @@
+     if ($null -eq $Payload) { $Payload = [pscustomobject]@{} }
+     $correlation = [guid]::NewGuid().ToString("N")
+     if ($null -eq $Payload.PSObject.Properties["CorrelationId"]) { $Payload | Add-Member -NotePropertyName CorrelationId -NotePropertyValue $correlation }
+-    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("ChkLiveUsers","BtnLiveRecheck","TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
++    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("ChkLiveUsers","BtnLiveRecheck","TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","BtnSearchInOu","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
+     if ($TimeoutSeconds -le 0) { $TimeoutSeconds = [int](Get-CfgValue "Async" "WriteSoftTimeoutSeconds" 90) }
+     $hard = [int](Get-CfgValue "Async" "WriteHardTimeoutSeconds" 300)
+     Write-AppLog "[$correlation] DEBUT $Name sur $([string]$Payload.DN)" "INFO"
+@@ -23350,7 +23408,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1.3"
++$script:DomeniaBuild = "Domenia 1.0 RC1.4"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+--- RC1.3/wad/Domenia-Modules.ps1
++++ RC1.4/wad/Domenia-Modules.ps1
+@@ -107,6 +107,8 @@
+             'ConvertTo-DomeniaLiveObservation',
+             'Get-DomeniaLiveObservationView',
+             'Test-DomeniaLiveIdentity',
++            'Get-DomeniaLivePresenceView',
++            'Test-DomeniaPresenceMatch',
+             'Get-DomeniaLiveProbeCode',
+             'Get-DomeniaLiveCacheCode'
+         ) }
+@@ -132,6 +134,7 @@
+             'Request-DomeniaLiveSelectedProbe',
+             'Request-DomeniaLiveRecheck',
+             'Merge-DomeniaLiveLinkMemory',
++            'Complete-DomeniaLivePresence',
+             'Complete-DomeniaLiveProbe',
+             'Fail-DomeniaLiveProbe',
+             'Complete-DomeniaLiveCache',
+--- RC1.3/wad/modules/Domenia-Access.UI.ps1
++++ RC1.4/wad/modules/Domenia-Access.UI.ps1
+@@ -9,6 +9,7 @@
+ }
+ function Get-DomeniaAccessScope {
+     param([string]$OperationId)
++    if($OperationId -eq 'LiveSelectedPing'){return 'Presence'}
+     if($OperationId -in @('LiveDirectoryCheck','ScopeReconcile')){return 'AD:GlobalSearch'}
+     if($OperationId -in @('ReadLaps','ReadBitLocker')){return $OperationId}
+     if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','BatchNetworkDiag','ParkSweep')){return 'Remote'}
+@@ -17,6 +18,7 @@
+ }
+ function Get-DomeniaRetryCredential {
+     param([string]$OperationId)
++    if($OperationId -eq 'LiveSelectedPing'){return $null}
+     if($null -eq $script:AccessState){return $null}
+     if($script:AccessState.Epoch -ne [long]$script:SessionEpoch -or $script:AccessState.BaseDn -ine [string]$script:Conn.BaseDn){return $null}
+     $scope=Get-DomeniaAccessScope $(if($OperationId -in @('LiveDirectoryCheck','ScopeReconcile')){'GlobalSearch'}else{$OperationId})
+--- RC1.3/wad/modules/Domenia-Continuity.UI.ps1
++++ RC1.4/wad/modules/Domenia-Continuity.UI.ps1
+@@ -122,12 +122,12 @@
+             }finally{$script:SuppressBranchAutoLoad=$old}
+             # Restore the filter under suppression, then queue one fresh search.
+             # Unrelated expanded branches must not delay this content load.
+-            $scope=Get-DomeniaSearchScope
++            $scope=Get-DomeniaSearchScope -Mode OU
+             $s.RestoreSearch=[pscustomobject]@{
+                 DN=$dn;Scope=[string]$scope.Scope;Context=$s.Context;Epoch=[long]$script:SessionEpoch
+                 Generation=[int]$script:GlobalSearchGeneration
+                 Text=([string](Get-DomeniaControl 'TxtGlobalSearch').Text).Trim()
+-                TypeFilter=[string](Get-GlobalSelectedTypeFilter)
++                TypeFilter=[string](Get-GlobalSelectedTypeFilter -Mode OU)
+             }
+         }
+     }
+@@ -137,9 +137,9 @@
+     if($null -eq $script:Continuity -or $null -eq $script:Continuity.RestoreSearch){return}
+     $c=$script:Continuity;$request=$c.RestoreSearch
+     if($script:AsyncEngineClosing -or $request.Epoch -ne [long]$script:SessionEpoch -or $request.Context -cne (Get-DomeniaTreeContextKey) -or $request.Generation -ne [int]$script:GlobalSearchGeneration){$c.RestoreSearch=$null;return}
+-    $scope=Get-DomeniaSearchScope
++    $scope=Get-DomeniaSearchScope -Mode OU
+     $text=([string](Get-DomeniaControl 'TxtGlobalSearch').Text).Trim()
+-    if([string]$scope.BaseDn -ine $request.DN -or [string]$scope.Scope -ne $request.Scope -or $text -cne $request.Text -or [string](Get-GlobalSelectedTypeFilter) -cne $request.TypeFilter){$c.RestoreSearch=$null;return}
++    if([string]$scope.BaseDn -ine $request.DN -or [string]$scope.Scope -ne $request.Scope -or $text -cne $request.Text -or [string](Get-GlobalSelectedTypeFilter -Mode OU) -cne $request.TypeFilter){$c.RestoreSearch=$null;return}
+     if($script:RestoringSettings -or $script:SuppressBranchAutoLoad -or -not $script:Conn.Connected -or (Test-DomeniaAccessBusyWrite)){return}
+     $grid=Get-DomeniaControl 'DgObjects'
+     if($null -eq $grid -or -not $grid.IsEnabled -or $null -eq $script:Live){return}
+@@ -147,7 +147,7 @@
+     # event cannot launch a second search. Keep the current workspace and drafts.
+     $c.RestoreSearch=$null
+     Write-AppLog ('OU restaurée : chargement unique du périmètre '+$request.DN+' ; portée='+$request.Scope+'. Sans sonde des postes.') 'INFO'
+-    Invoke-GlobalSearch -AllowEmpty -SilentError -PreserveSelection
++    Invoke-GlobalSearch -AllowEmpty -SilentError -PreserveSelection -SearchMode OU
+ }
+ function Complete-DomeniaObjectChanges {
+     param($Result,$State)
+--- RC1.3/wad/modules/Domenia-Guard.Model.ps1
++++ RC1.4/wad/modules/Domenia-Guard.Model.ps1
+@@ -58,7 +58,8 @@
+     if($dn -ine $BaseDn -and -not $dn.EndsWith(','+$BaseDn,[StringComparison]::OrdinalIgnoreCase)){return $null}
+     if([string]$Value.Type -notin @('Tous','Utilisateurs','Machines','Groupes','OU et conteneurs')){return $null}
+     $limit=100;[void][int]::TryParse([string]$Value.Limit,[ref]$limit);$limit=[Math]::Max(1,[Math]::Min(500,$limit))
+-    return [pscustomobject]@{Name=$name;DN=$dn;Query=$query;Type=[string]$Value.Type;Limit=$limit;Subtree=(ConvertTo-SuiteFlag $Value.Subtree -Default $true)}
++    $mode=if([string]$Value.SearchMode -eq 'Global'){'Global'}else{'OU'}
++    return [pscustomobject]@{SearchMode=$mode;Name=$name;DN=$dn;Query=$query;Type=[string]$Value.Type;Limit=$limit;Subtree=(ConvertTo-SuiteFlag $Value.Subtree -Default $true)}
+ }
+ function Get-DomeniaPercentile {
+     param([double[]]$Samples,[double]$Percent=95)
+--- RC1.3/wad/modules/Domenia-Guard.UI.ps1
++++ RC1.4/wad/modules/Domenia-Guard.UI.ps1
+@@ -116,7 +116,7 @@
+     $scope=Get-DomeniaSearchScope
+     $form=Show-DomeniaFormDialog -Title 'Memoriser une recherche' -Message 'Enregistre ce perimetre et les filtres, pas les resultats ni les identifiants.' -Fields @(@{Name='Name';Label='Nom de la recherche';Value='Ma recherche'}) -AcceptText 'Enregistrer'
+     if($null -eq $form){return}
+-    $item=[pscustomobject]@{Name=[string]$form.Name;DN=$scope.BaseDn;Subtree=($scope.Scope -eq 'Subtree');Query=[string](Get-DomeniaControl 'TxtGlobalSearch').Text;Type=[string](Get-DomeniaControl 'CmbGlobalType').SelectedItem.Content;Limit=[string](Get-DomeniaControl 'TxtGlobalLimit').Text}
++    $item=[pscustomobject]@{SearchMode=(Get-DomeniaSearchMode);Name=[string]$form.Name;DN=$scope.BaseDn;Subtree=($scope.Scope -eq 'Subtree');Query=(Get-DomeniaSearchText);Type=$(if((Get-DomeniaSearchMode) -eq 'Global'){'Tous'}else{[string](Get-DomeniaControl 'CmbGlobalType').SelectedItem.Content});Limit=[string](Get-DomeniaControl 'TxtGlobalLimit').Text}
+     $valid=ConvertTo-DomeniaSavedSearch $item ([string]$script:Conn.BaseDn)
+     if($null -eq $valid){Show-InfoBox 'Nom ou perimetre invalide.';return}
+     $all=@(Get-DomeniaSetting 'SavedSearches' @()|Where-Object{[string]$_.Name -ine $valid.Name -or [string]$_.DN -ine $valid.DN})
+@@ -131,14 +131,18 @@
+     $oldRestore=$script:RestoringSettings;$oldSuppress=$script:SuppressBranchAutoLoad
+     $script:RestoringSettings=$true;$script:SuppressBranchAutoLoad=$true
+     try {
+-    $script:SelectedBranchDn=[string]$v.DN
+-    (Get-DomeniaControl 'TxtGlobalSearch').Text=[string]$v.Query
+-    (Get-DomeniaControl 'ChkSubtree').IsChecked=[bool]$v.Subtree
++    $mode=if([string]$v.SearchMode -eq 'Global'){'Global'}else{'OU'}
++    if($mode -eq 'OU'){$script:SelectedBranchDn=[string]$v.DN}
++    $field=if($mode -eq 'Global'){'TxtGlobalSearch'}else{'TxtBranchSearch'}
++    (Get-DomeniaControl $field).Text=[string]$v.Query
+     (Get-DomeniaControl 'TxtGlobalLimit').Text=[string]$v.Limit
+-    $combo=Get-DomeniaControl 'CmbGlobalType';foreach($item in $combo.Items){if([string]$item.Content -eq $v.Type){$combo.SelectedItem=$item;break}}
++    if($mode -eq 'OU'){
++        (Get-DomeniaControl 'ChkSubtree').IsChecked=[bool]$v.Subtree
++        $combo=Get-DomeniaControl 'CmbGlobalType';foreach($item in $combo.Items){if([string]$item.Content -eq $v.Type){$combo.SelectedItem=$item;break}}
++    }
+     } finally {$script:RestoringSettings=$oldRestore;$script:SuppressBranchAutoLoad=$oldSuppress}
+     Update-DomeniaSearchScopeUi;Select-DomeniaWorkspace -Workspace 'WsSearch'
+-    Invoke-GlobalSearch
++    Invoke-GlobalSearch -SearchMode $mode
+ }
+ function Open-DomeniaSuiteTool {
+     param([ValidateSet('Pesto','FilPro')][string]$Name)
+--- RC1.3/wad/modules/Domenia-Live.Model.ps1
++++ RC1.4/wad/modules/Domenia-Live.Model.ps1
+@@ -25,7 +25,7 @@
+     if($null -ne $rowType){return [Activator]::CreateInstance($rowType)}
+     # In a restricted desktop, lack of runtime compilation must not prevent searching.
+     $values=[ordered]@{}
+-    foreach($name in @('Type','Name','Login','UPN','Mail','Description','Changed','DN','State','OS','LastLogon','Guid','Association','LinkSource','LinkConfidence','Presence','SessionDisplay','SessionState','SessionSource','SessionChecked','SessionObserved','SessionDetail','DirectoryState','DirectoryChecked')){$values[$name]=''}
++    foreach($name in @('Type','Name','Login','UPN','Mail','Description','Changed','DN','State','OS','LastLogon','Guid','Association','LinkSource','LinkConfidence','Presence','PresenceDetail','SessionDisplay','SessionState','SessionSource','SessionChecked','SessionObserved','SessionDetail','DirectoryState','DirectoryChecked')){$values[$name]=''}
+     return [pscustomobject]$values
+ }
+ function ConvertTo-DomeniaLiveSnapshot {
+@@ -47,26 +47,43 @@
+ }
+ function ConvertTo-DomeniaLiveObservation {
+     param($Result,$Previous,[string]$NowUtc=([datetime]::UtcNow.ToString('o')))
++    if($null -ne $Previous -and $Previous.Guid -and $Result.Guid -and [string]$Previous.Guid -ine [string]$Result.Guid){$Previous=$null}
++    $presenceOnly=((Get-DomeniaLiveField $Result 'Outcome') -eq 'PresenceOnly')
+     $outcome=Get-DomeniaLiveField $Result 'Outcome' 'Unavailable'
+-    if($outcome -notin @('Observed','NoConsole','Denied','AuthRejected','Timeout','Unavailable')){$outcome='Unavailable'}
+-    $user=(Get-DomeniaLiveField $Result 'User').Trim()
++    if($presenceOnly){$outcome=Get-DomeniaLiveField $Previous 'Outcome' 'NotRequested'}
++    if($outcome -notin @('Observed','NoConsole','Denied','AuthRejected','Timeout','Unavailable','NotRequested')){$outcome='Unavailable'}
++    $user=if($presenceOnly){Get-DomeniaLiveField $Previous 'CurrentUser'}else{(Get-DomeniaLiveField $Result 'User').Trim()}
+     if($user.Length -gt 256){$user=$user.Substring(0,256)}
+     if($outcome -eq 'Observed' -and [string]::IsNullOrWhiteSpace($user)){$outcome='Unavailable'}
+     if($null -ne $Previous -and $Previous.Guid -and $Result.Guid -and [string]$Previous.Guid -ine [string]$Result.Guid){$Previous=$null}
+     $last=Get-DomeniaLiveField $Previous 'LastUser'
+     $lastAt=Get-DomeniaLiveField $Previous 'ObservedUtc'
+     $lastSource=Get-DomeniaLiveField $Previous 'LastSource'
+-    if($outcome -eq 'Observed'){$last=$user;$lastAt=$NowUtc;$lastSource=Get-DomeniaLiveField $Result 'Source'}
+-    $detail=Get-DomeniaLiveField $Result 'Detail'
++    if(-not $presenceOnly -and $outcome -eq 'Observed'){$last=$user;$lastAt=$NowUtc;$lastSource=Get-DomeniaLiveField $Result 'Source'}
++    $detail=if($presenceOnly){Get-DomeniaLiveField $Previous 'Detail'}else{Get-DomeniaLiveField $Result 'Detail'}
+     if($detail.Length -gt 1000){$detail=$detail.Substring(0,1000)}
++    $presence=Get-DomeniaLiveField $Previous 'Presence' 'Non vérifié'
++    $presenceAt=Get-DomeniaLiveField $Previous 'PresenceCheckedUtc' (Get-DomeniaLiveField $Previous 'CheckedUtc')
++    $presenceDetail=Get-DomeniaLiveField $Previous 'PresenceDetail'
++    $newPresenceAt=Get-DomeniaLiveField $Result 'PresenceCheckedUtc'
++    $newStamp=[datetimeoffset]::MinValue;$oldStamp=[datetimeoffset]::MinValue
++    $newValid=[datetimeoffset]::TryParse($newPresenceAt,[ref]$newStamp)
++    $oldValid=[datetimeoffset]::TryParse($presenceAt,[ref]$oldStamp)
++    if($newValid -and (-not $oldValid -or $newStamp -ge $oldStamp)){
++        $presence=Get-DomeniaLiveField $Result 'Presence' 'Erreur de ping'
++        $presenceAt=$newPresenceAt;$presenceDetail=Get-DomeniaLiveField $Result 'PresenceDetail'
++    } elseif(-not $presenceAt -and (Get-DomeniaLiveField $Result 'Presence') -eq 'En ligne') {
++        $presence='En ligne';$presenceAt=$NowUtc;$presenceDetail='Réponse distante confirmée.'
++    }
++    $userChecked=if($presenceOnly){Get-DomeniaLiveField $Previous 'UserCheckedUtc' (Get-DomeniaLiveField $Previous 'CheckedUtc')}else{$NowUtc}
+     return [pscustomobject]@{
+         Key=Get-DomeniaLiveField $Result 'Key'; Computer=Get-DomeniaLiveField $Result 'Computer'
+         Guid=Get-DomeniaLiveField $Result 'Guid'; Outcome=$outcome
+         CurrentUser=$(if($outcome -eq 'Observed'){$user}else{''})
+-        LastUser=$last; ObservedUtc=$lastAt; CheckedUtc=$NowUtc
+-        LastSource=$lastSource; Source=Get-DomeniaLiveField $Result 'Source'; Detail=$detail
+-        Presence=Get-DomeniaLiveField $Result 'Presence' 'Inconnu'
+-        LinkUser=Get-DomeniaLiveField $Result 'LinkUser'; UserDn=Get-DomeniaLiveField $Result 'UserDn'; UserGuid=Get-DomeniaLiveField $Result 'UserGuid'
++        LastUser=$last; ObservedUtc=$lastAt; CheckedUtc=$NowUtc; UserCheckedUtc=$userChecked
++        LastSource=$lastSource; Source=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'Source'}else{Get-DomeniaLiveField $Result 'Source'}); Detail=$detail
++        Presence=$presence;PresenceCheckedUtc=$presenceAt;PresenceDetail=$presenceDetail
++        LinkUser=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'LinkUser'}else{Get-DomeniaLiveField $Result 'LinkUser'}); UserDn=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'UserDn'}else{Get-DomeniaLiveField $Result 'UserDn'}); UserGuid=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'UserGuid'}else{Get-DomeniaLiveField $Result 'UserGuid'})
+         DirectoryAuthRejected=((Get-DomeniaLiveField $Result 'DirectoryAuthRejected') -eq 'True')
+     }
+ }
+@@ -78,6 +95,7 @@
+     $state=if($null -eq $Observation){'Non vérifié · sélectionner le poste'}else{'À vérifier'};$display=if($last){$last+' (cache)'}else{'Non déterminé'}
+     if(-not $Cached){
+         switch($outcome){
++            'NotRequested' {$state='Utilisateur non vérifié';$display='Non déterminé'}
+             'Observed' {$display=$current;$state='Console observée'}
+             'NoConsole' {$display='Aucun compte console';$state='Lecture réussie'}
+             'Denied' {$state='Accès refusé'}
+@@ -87,7 +105,7 @@
+         }
+     }
+     if($Pending){$state='Vérification en cours'}
+-    $checked=Get-DomeniaLiveField $Observation 'CheckedUtc'
++    $checked=Get-DomeniaLiveField $Observation 'UserCheckedUtc' (Get-DomeniaLiveField $Observation 'CheckedUtc')
+     $seen=Get-DomeniaLiveField $Observation 'ObservedUtc'
+     $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`nDernière tentative UTC : $checked`r`nSource : $(Get-DomeniaLiveField $Observation 'Source')`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
+     [pscustomobject]@{Display=$display;State=$state;Detail=$detail;Checked=$checked;Observed=$seen;Source=Get-DomeniaLiveField $Observation 'Source'}
+@@ -95,17 +113,35 @@
+ function Test-DomeniaLiveIdentity {
+     param($State,[long]$SessionEpoch,[string]$Identity)
+     return ($null -ne $State -and [long]$State.Epoch -eq $SessionEpoch -and [string]$State.Identity -ceq $Identity)
++}
++function Get-DomeniaLivePresenceView {
++    param($Observation,[switch]$Cached)
++    $state=Get-DomeniaLiveField $Observation 'Presence' 'Non vérifié'
++    if($state -in @('','Inconnu')){$state='Non vérifié'}
++    if($state -eq 'Hors ligne'){$state='Sans réponse au ping'}
++    $at=Get-DomeniaLiveField $Observation 'PresenceCheckedUtc' (Get-DomeniaLiveField $Observation 'CheckedUtc')
++    $message=Get-DomeniaLiveField $Observation 'PresenceDetail'
++    if($state -eq 'Non vérifié'){$at='';$message='Sélectionnez ce poste pour envoyer un seul ping. Aucun contrôle collectif.'}
++    if($state -eq 'Sans réponse au ping'){$message+=' Pas de réponse ICMP : poste indisponible ou ICMP filtré, sans preuve qu''il est éteint.'}
++    $display=$state
++    if($Cached -and $at -and $state -ne 'Non vérifié'){$display+=' (cache)'}
++    [pscustomobject]@{Display=$display;State=$state;Checked=$at;Detail=($message+"`r`nVérification réseau UTC : "+$at+$(if($Cached){"`r`nObservation historique, pas un état actuel confirmé."}else{''}))}
++}
++function Test-DomeniaPresenceMatch {
++    param([string]$State,[string]$Filter)
++    if(-not $Filter -or $Filter -eq 'Tous'){return $true}
++    $state=($State -replace ' \(cache\)$','').Trim()
++    if($state -in @('','Inconnu')){$state='Non vérifié'}
++    if($Filter -eq 'Inconnu'){$Filter='Non vérifié'}
++    if($Filter -eq 'Hors ligne'){$Filter='Sans réponse au ping'}
++    if($state -eq 'Hors ligne'){$state='Sans réponse au ping'}
++    return ($state -eq $Filter)
+ }
+ function Get-DomeniaLiveProbeCode {
+     return @'
+ $target=[string]$Payload.Computer
+ if($target.Length -gt 253 -or $target -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$'){throw 'Cible distante invalide.'}
+-$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='CIM/DCOM · Win32_ComputerSystem.UserName';Detail='';Presence='Inconnu';LinkUser='';UserDn='';UserGuid='';DirectoryAuthRejected=$false}
+-if($null -ne $Context.PSObject.Properties['UseCim'] -and -not [bool]$Context.UseCim){
+-    $answer.Detail='Lecture CIM désactivée dans la configuration. Aucun autre transport automatique utilisé.'
+-    [pscustomobject]$answer;return
+-}
+-$credential=Get-WMachineCredential $Context
++$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='CIM/DCOM · Win32_ComputerSystem.UserName';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';DirectoryAuthRejected=$false}
+ $cim=$null;$ping=$null
+ function Get-NativeCode($ErrorValue){
+     $ex=$ErrorValue.Exception
+@@ -118,9 +154,31 @@
+     }
+     return 0L
+ }
++# One ICMP echo, on the worker. Publish it before any possibly slow CIM call.
++try {
++    $ping=New-Object Net.NetworkInformation.Ping
++    $p=$ping.Send($target,900)
++    if($null -ne $p -and [string]$p.Status -eq 'Success') {
++        $answer.Presence='En ligne';$answer.PresenceDetail='Réponse ICMP · '+[string]$p.RoundtripTime+' ms'
++    } else {
++        $answer.Presence='Sans réponse au ping';$answer.PresenceDetail='ICMP : '+$(if($null -ne $p){[string]$p.Status}else{'aucune réponse'})
++    }
++} catch {
++    $answer.Presence='Erreur de ping';$answer.PresenceDetail='Le contrôle ICMP n''a pas abouti (résolution DNS ou erreur réseau). '+$_.Exception.Message
++} finally {if($null -ne $ping){$ping.Dispose()}}
++$answer.PresenceCheckedUtc=[datetime]::UtcNow.ToString('o')
++if($null -ne $Payload.PSObject.Properties['PresenceProgress'] -and $null -ne $Payload.PresenceProgress){
++    $packet=[pscustomobject]@{Outcome='PresenceOnly';Key=$answer.Key;Guid=$answer.Guid;Computer=$target;Presence=$answer.Presence;PresenceCheckedUtc=$answer.PresenceCheckedUtc;PresenceDetail=$answer.PresenceDetail}
++    $Payload.PresenceProgress.Enqueue([pscustomobject]@{Result=$packet;State=$Payload.PresenceState})
++}
++$probeUser=($null -eq $Payload.PSObject.Properties['ProbeUser'] -or [bool]$Payload.ProbeUser)
++if(-not $probeUser -or ($null -ne $Context.PSObject.Properties['UseCim'] -and -not [bool]$Context.UseCim)){
++    $answer.Outcome='PresenceOnly';$answer.Detail='Contrôle réseau uniquement. Aucune lecture du compte console.'
++    [pscustomobject]$answer;return
++}
+ try{
+-    # A failed ICMP reply is not a permission/availability verdict for WMI.
+-    try{$ping=New-Object Net.NetworkInformation.Ping;$p=$ping.Send($target,600);if($p.Status -eq 'Success'){$answer.Presence='En ligne'}}catch{}finally{if($null -ne $ping){$ping.Dispose()}}
++    # Missing ICMP reply does not block a separately requested CIM read.
++    $credential=Get-WMachineCredential $Context
+     $timeout=[Math]::Max(2,[Math]::Min(8,[int]$Payload.MethodSeconds))
+     # One credential, one read-only transport in this automatic path. No SMB staging.
+     $option=New-CimSessionOption -Protocol Dcom -ErrorAction Stop
+@@ -128,8 +186,8 @@
+     if($null -ne $credential){$parameters.Credential=$credential}
+     $cim=New-CimSession @parameters
+     $cs=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property UserName -OperationTimeoutSec $timeout -ErrorAction Stop
+-    $answer.Presence='En ligne'
+     if($null -eq $cs){throw 'Le fournisseur CIM ne retourne pas Win32_ComputerSystem.'}
++    $answer.Presence='En ligne';$answer.PresenceCheckedUtc=[datetime]::UtcNow.ToString('o');$answer.PresenceDetail='Réponse CIM/DCOM reçue ; '+$answer.PresenceDetail
+     $answer.User=([string]$cs.UserName).Trim()
+     $answer.Outcome=if($answer.User){'Observed'}else{'NoConsole'}
+     $answer.Detail=if($answer.User){'Compte de la console observé maintenant. Les sessions RDP ne sont pas recensées.'}else{'Lecture réussie : aucun compte renvoyé pour la console. Cela ne prouve pas l''absence de sessions RDP.'}
+@@ -356,7 +414,7 @@
+         if([string]$observation.Outcome -eq 'Observed' -and $observation.LinkUser -and $observation.UserDn){
+             $computer=([string]$observation.Computer).Split('.')[0].ToUpperInvariant()
+             $key=ConvertTo-DomeniaSqlLiteral $computer
+-            $when=([datetime]::Parse([string]$observation.CheckedUtc)).ToLocalTime().ToString('s')
++            $when=([datetime]::Parse([string]$observation.ObservedUtc)).ToLocalTime().ToString('s')
+             $exists=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE name='user_machine_links' AND type='table';" $db)
+             if($exists.Count -gt 0){
+                 $vals=@($computer,[string]$observation.LinkUser,$computer,'Console CIM/DCOM',97,1,$when,'Compte console observé ; sessions RDP non recensées.',[string]$observation.UserGuid,[string]$observation.Guid,[string]$observation.UserDn,[string]$observation.Key)
+--- RC1.3/wad/modules/Domenia-Live.Types.cs
++++ RC1.4/wad/modules/Domenia-Live.Types.cs
+@@ -16,7 +16,7 @@
+             var handler = PropertyChanged;
+             if (handler != null) handler(this, new PropertyChangedEventArgs(name));
+         }
+-        private static readonly HashSet<string> Allowed = new HashSet<string>(StringComparer.Ordinal) {"Type","Name","Login","UPN","Mail","Description","Changed","DN","State","OS","LastLogon","Guid","Association","LinkSource","LinkConfidence","Presence","SessionDisplay","SessionState","SessionSource","SessionChecked","SessionObserved","SessionDetail","DirectoryState","DirectoryChecked"};
++        private static readonly HashSet<string> Allowed = new HashSet<string>(StringComparer.Ordinal) {"Type","Name","Login","UPN","Mail","Description","Changed","DN","State","OS","LastLogon","Guid","Association","LinkSource","LinkConfidence","Presence","PresenceDetail","SessionDisplay","SessionState","SessionSource","SessionChecked","SessionObserved","SessionDetail","DirectoryState","DirectoryChecked"};
+         public string Type { get { return Read("Type"); } set { Set("Type", value); } }
+         public string Name { get { return Read("Name"); } set { Set("Name", value); } }
+         public string Login { get { return Read("Login"); } set { Set("Login", value); } }
+@@ -32,6 +32,7 @@
+         public string Association { get { return Read("Association"); } set { Set("Association", value); } }
+         public string LinkSource { get { return Read("LinkSource"); } set { Set("LinkSource", value); } }
+         public string LinkConfidence { get { return Read("LinkConfidence"); } set { Set("LinkConfidence", value); } }
++        public string PresenceDetail { get { return Read("PresenceDetail"); } set { Set("PresenceDetail", value); } }
+         public string Presence { get { return Read("Presence"); } set { Set("Presence", value); } }
+         public string SessionDisplay { get { return Read("SessionDisplay"); } set { Set("SessionDisplay", value); } }
+         public string SessionState { get { return Read("SessionState"); } set { Set("SessionState", value); } }
+--- RC1.3/wad/modules/Domenia-Live.UI.ps1
++++ RC1.4/wad/modules/Domenia-Live.UI.ps1
+@@ -31,7 +31,7 @@
+             Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
+             ObservationsLoaded=$false;Refresh=[Collections.Generic.Queue[object]]::new()
+             SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault=''
+-            RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue
++            PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue
+         }
+         Reset-DomeniaLiveIdentity
+         $check=Get-DomeniaControl 'ChkLiveUsers'
+@@ -39,7 +39,7 @@
+             $check.IsChecked=ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'VerifyUserOnSelection' $true) -Default $true
+             $script:Live.AutoDetect=[bool]$check.IsChecked
+             $check.Add_Checked({if($null -ne $script:Live){$script:Live.AutoDetect=$true;Select-DomeniaLiveResult}})
+-            $check.Add_Unchecked({if($null -ne $script:Live){$script:Live.AutoDetect=$false;Stop-DomeniaLiveProbes}})
++            $check.Add_Unchecked({if($null -ne $script:Live){$script:Live.AutoDetect=$false}})
+         }
+         $button=Get-DomeniaControl 'BtnLiveRecheck'
+         if($null -ne $button){$button.Add_Click({Request-DomeniaLiveRecheck})}
+@@ -74,6 +74,7 @@
+     $script:Live.Search=$null
+     Clear-DomeniaLiveProbeIntent
+     $script:Live.Done=@{}
++    $script:Live.PresenceSeen=@{}
+ }
+ function Stop-DomeniaLiveProbes {
+     if($null -eq $script:Live){return}
+@@ -105,7 +106,7 @@
+     Reset-DomeniaLiveIdentity;Stop-DomeniaLiveSearch
+     $queue=[Collections.Concurrent.ConcurrentQueue[object]]::new();$cacheQueue=[Collections.Concurrent.ConcurrentQueue[object]]::new()
+     $stop=[Threading.CancellationTokenSource]::new()
+-    $key=Get-DomeniaLiveHash ($script:Live.Scope+'|'+[string]$State.BaseDn+'|'+[string]$State.Scope+'|'+[string]$State.TypeFilter+'|'+[string]$State.Search+'|'+[string]$State.Limit)
++    $key=Get-DomeniaLiveHash ('search-v214|'+[string]$State.SearchMode+'|'+$script:Live.Scope+'|'+[string]$State.BaseDn+'|'+[string]$State.Scope+'|'+[string]$State.TypeFilter+'|'+[string]$State.Search+'|'+[string]$State.Limit)
+     $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+     $s=[pscustomobject]@{
+         Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;State=$State;QueryKey=$key
+@@ -148,7 +149,7 @@
+ function Stop-DomeniaLiveJob {
+     param($Job)
+     if($null -eq $Job -or $null -eq $script:Live){return}
+-    if($Job.OperationId -eq 'LiveConsole' -and $null -ne $Job.CallbackState){
++    if($Job.OperationId -in @('LiveConsole','LiveSelectedPing') -and $null -ne $Job.CallbackState){
+         $key=[string]$Job.CallbackState.Key
+         if($Job.CallbackState.Generation -eq $script:GlobalSearchGeneration -and -not $Job.Superseded){
+             $script:Live.Done[$key]=$true
+@@ -169,12 +170,19 @@
+     $filter=Get-DomeniaControl 'TxtSuiteResultFilter'
+     $query=if($null -ne $filter){[string]$filter.Text}else{''}
+     $presence=[string]$script:CurrentPresenceFilter
++    if((Get-DomeniaSearchMode) -eq 'Global'){$query='';$presence='Tous'}
+     # Capture values, not controls; filtering performs no network or database I/O.
+     if($query.Length -gt 120){$query=$query.Substring(0,120)}
+     $terms=@($query.Trim() -split '\s+'|Where-Object {$_})
+     $predicate={
+         param($row)
+-        if($presence -and $presence -ne 'Tous' -and [string]$row.Presence -ne $presence){return $false}
++        $network=([string]$row.Presence -replace ' \(cache\)$','').Trim()
++        if($network -in @('','Inconnu')){$network='Non vérifié'}
++        $wanted=$presence
++        if($wanted -eq 'Inconnu'){$wanted='Non vérifié'}
++        if($wanted -eq 'Hors ligne'){$wanted='Sans réponse au ping'}
++        if($network -eq 'Hors ligne'){$network='Sans réponse au ping'}
++        if($wanted -and $wanted -ne 'Tous' -and $network -ne $wanted){return $false}
+         $parts=[Collections.Generic.List[string]]::new()
+         foreach($name in @('Type','Name','Login','UPN','Association','Presence','SessionDisplay','SessionState')){
+             $value=[string]$row.$name;if($value.Length -gt 2048){$value=$value.Substring(0,2048)};[void]$parts.Add($value)
+@@ -185,7 +193,7 @@
+     }.GetNewClosure()
+     $old=$script:SuppressGridSelectionEvents;$script:SuppressGridSelectionEvents=$true
+     try{$view.Filter=[Predicate[object]]$predicate;$view.Refresh()}finally{$script:SuppressGridSelectionEvents=$old}
+-    [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre local"))
++    [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
+     $script:Live.LastFilter=[datetime]::UtcNow;$s.RefreshNeeded=$false
+ }
+ function Set-DomeniaLiveObservationOnRow {
+@@ -196,7 +204,11 @@
+     $view=Get-DomeniaLiveObservationView $Observation -Cached:$Cached -Pending:$Pending
+     $Row.SessionDisplay=$view.Display;$Row.SessionState=$view.State;$Row.SessionDetail=$view.Detail
+     $Row.SessionChecked=$view.Checked;$Row.SessionObserved=$view.Observed;$Row.SessionSource=$view.Source
+-    if(-not $Cached -and $null -ne $Observation){$Row.Presence=[string]$Observation.Presence}
++    $key=Get-DomeniaLiveObjectKey $Row
++    $historical=[bool]$Cached
++    if($null -ne $script:Live -and $null -ne $script:Live.PresenceSeen -and $script:Live.PresenceSeen.ContainsKey($key)){$historical=$false}
++    $network=Get-DomeniaLivePresenceView $Observation -Cached:$historical
++    $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' $network.Detail
+ }
+ function Add-DomeniaLiveRow {
+     param($Event)
+@@ -231,7 +243,7 @@
+     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}
+     if($isNew){
+         [void](Set-RowAssociationMetadata -Rows @($row))
+-        $row.Presence='Inconnu'
++        $row.Presence=$(if($row.Type -eq 'Machine'){'Non vérifié'}else{'Sans objet'})
+         if(-not $fresh){$s.CacheKeys.Enqueue($key)}
+         $observation=$null
+         [void]$script:Live.Observations.TryGetValue($key,[ref]$observation)
+@@ -266,7 +278,7 @@
+     # Only an unsent request is discarded. Never pretend a native in-flight call stopped.
+     foreach($item in @($script:Live.PendingKeys.Values)){
+         if($null -eq $item.Row -or $script:Live.Busy.ContainsKey([string]$item.Key)){continue}
+-        if([string]$item.Row.SessionState -eq 'En attente de vérification'){
++        if([string]$item.Row.SessionState -eq 'En attente de vérification' -or [string]$item.Row.Presence -eq 'Vérification en cours'){
+             $known=$null;[void]$script:Live.Observations.TryGetValue([string]$item.Key,[ref]$known)
+             Set-DomeniaLiveObservationOnRow $item.Row $known -Cached
+         }
+@@ -313,7 +325,6 @@
+     param($Row,[switch]$Priority)
+     if(-not (Test-DomeniaLiveSearchActive) -or -not (Test-DomeniaLiveProbeIntent -Row $Row)){return}
+     $intent=$script:Live.ProbeSelection
+-    if((-not $script:Live.AutoDetect -and -not $intent.Manual) -or $script:Live.RemoteFaulted -or $script:DirectoryCredentialFaulted){return}
+     $key=Get-DomeniaLiveObjectKey $Row
+     if(-not $script:Live.Search.Fresh.ContainsKey($key)){return}
+     $current=$script:Live.Search.Map[$key]
+@@ -335,7 +346,8 @@
+         ReadyAfter=$intent.ReadyAfter;Row=$Row;RequestId=$intent.RequestId
+     }
+     $script:Live.PendingKeys[$key]=$item;$script:Live.Pending.Enqueue($item)
+-    $Row.SessionState='En attente de vérification'
++    $Row.Presence='Vérification en cours'
++    if(($script:Live.AutoDetect -or $intent.Manual) -and -not $script:Live.RemoteFaulted -and -not $script:DirectoryCredentialFaulted){$Row.SessionState='En attente de vérification'}
+ }
+ function Request-DomeniaLiveSelectedProbe {
+     param([string]$Computer)
+@@ -362,7 +374,7 @@
+     $oldUser=if($null -ne $existing){Normalize-LinkUser ([string]$existing.UserLogin)}else{''}
+     $link=if($null -ne $existing){$existing}else{[pscustomobject]@{UserLogin='';Computer=$computer;Source='';Confidence=97;VerifiedInAD=$true;When='';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''}}
+     $link.UserLogin=$user;$link.Source='Console CIM/DCOM';$link.Confidence=97;$link.VerifiedInAD=$true
+-    $link.When=([datetime]::Parse([string]$Observation.CheckedUtc)).ToLocalTime().ToString('s');$link.Details='Compte console observé ; sessions RDP non recensées.'
++    $link.When=([datetime]::Parse([string]$Observation.ObservedUtc)).ToLocalTime().ToString('s');$link.Details='Compte console observé ; sessions RDP non recensées.'
+     foreach($pair in @(@('UserGuid',$Observation.UserGuid),@('ComputerGuid',$Observation.Guid),@('UserDn',$Observation.UserDn),@('ComputerDn',$Observation.Key))){Set-DomeniaLiveRowValue $link $pair[0] $pair[1]}
+     if($null -eq $existing){$script:UserMachineLinks=@($script:UserMachineLinks)+$link}
+     # Maintain the existing lookup without serializing the whole links table per machine.
+@@ -375,6 +387,28 @@
+     if(-not $script:LinksByUser[$u].Contains($link)){[void]$script:LinksByUser[$u].Add($link)}
+     $script:LinkIndexCount=@($script:UserMachineLinks).Count;$script:LinkIndexGeneration++
+ }
++function Complete-DomeniaLivePresence {
++    param($Result,$State)
++    if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
++    if([string]$Result.Key -cne [string]$State.Key -or [string]$Result.Guid -ine [string]$State.Guid){return}
++    $previous=$null;[void]$script:Live.Observations.TryGetValue([string]$State.Key,[ref]$previous)
++    if($null -ne $previous -and $previous.Guid -and $State.Guid -and [string]$previous.Guid -ine [string]$State.Guid){return}
++    $observation=ConvertTo-DomeniaLiveObservation $Result $previous
++    $script:Live.Observations[[string]$State.Key]=$observation
++    $script:Live.SaveQueue[[string]$State.Key]=$observation
++    if(Test-DomeniaLiveSearchActive){
++        $s=$script:Live.Search;$row=$s.Map[[string]$State.Key]
++        if($null -ne $row -and [string]$row.Guid -ieq [string]$State.Guid){
++            $script:Live.PresenceSeen[[string]$State.Key]=$true
++            $view=Get-DomeniaLivePresenceView $observation
++            $row.Presence=$view.Display;Set-DomeniaLiveRowValue $row 'PresenceDetail' $view.Detail;$s.RefreshNeeded=$true
++            if($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$row.DN){
++                Set-DomeniaPresenceText 'TxtCompPresence' $view.Display
++                Update-DomeniaObjectPresence -State $view.Display -Target ([string]$State.Computer)
++            }
++        }
++    }
++}
+ function Complete-DomeniaLiveProbe {
+     param($Result,$State)
+     if($null -eq $script:Live){return}
+@@ -394,23 +428,28 @@
+     $observation=ConvertTo-DomeniaLiveObservation $result $previous
+     $script:Live.Observations[[string]$State.Key]=$observation;if($State.Generation -eq $script:GlobalSearchGeneration -or ((Test-DomeniaLiveSearchActive) -and $script:Live.Search.Fresh.ContainsKey([string]$State.Key))){$script:Live.Done[[string]$State.Key]=$true}
+     $script:Live.SaveQueue[[string]$State.Key]=$observation
++    if (Get-DomeniaLiveField $result 'PresenceCheckedUtc') { $script:Live.PresenceSeen[[string]$State.Key]=$true }
+     if($observation.Outcome -eq 'AuthRejected'){
+         $script:Live.RemoteFaulted=$true;$script:Live.Pending.Clear();$script:Live.PendingKeys=@{}
+         Write-AppLog 'Compte distant rejeté : vérifications sur sélection suspendues. Corriger le compte dans Comptes avant de réessayer.' 'ERROR'
+     }
+     if($observation.DirectoryAuthRejected){$script:DirectoryCredentialFaulted=$true;$script:DirectoryCredentialFaultMessage='Identifiants AD refusés lors de la validation du compte console.'}
+-    Merge-DomeniaLiveLinkMemory $observation
++    if([string]$result.Outcome -ne 'PresenceOnly'){Merge-DomeniaLiveLinkMemory $observation}
+     if(Test-DomeniaLiveSearchActive){
+         $s=$script:Live.Search
+         if($s.Map.ContainsKey([string]$State.Key)){
+             $row=$s.Map[[string]$State.Key]
+             if(-not $row.Guid -or -not $observation.Guid -or $row.Guid -ieq $observation.Guid){
+-                Set-DomeniaLiveObservationOnRow $row $observation
++                Set-DomeniaLiveObservationOnRow $row $observation -Cached:([string]$result.Outcome -eq 'PresenceOnly')
++                if($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$row.DN){
++                    Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence)
++                    Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer)
++                }
+                 [void](Set-RowAssociationMetadata -Rows @($row));$s.RefreshNeeded=$true
+             }
+         }
+     }
+-    if((Get-CurrentSelectedComputerName) -ieq (Normalize-LinkComputer ([string]$State.Computer))){
++    if([string]$result.Outcome -ne 'PresenceOnly' -and (Get-CurrentSelectedComputerName) -ieq (Normalize-LinkComputer ([string]$State.Computer))){
+         [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text ((Get-DomeniaLiveObservationView $observation).State+' : '+(Get-DomeniaLiveObservationView $observation).Display))
+         # Do not rebuild the complete associations grid for every background result.
+         $link=Get-ExistingLinkForComputer ([string]$State.Computer)
+@@ -425,6 +464,11 @@
+     param([string]$Message,$State)
+     Reset-DomeniaLiveIdentity
+     if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
++    if($null -ne $State.PSObject.Properties['ProbeUser'] -and -not [bool]$State.ProbeUser){
++        $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome='PresenceOnly';Presence='Erreur de ping';PresenceCheckedUtc=[datetime]::UtcNow.ToString('o');PresenceDetail='Le contrôle réseau n''a pas abouti : délai ou erreur du worker. Aucun verdict hors ligne.'}
++        Complete-DomeniaLiveProbe $result $State
++        return
++    }
+     $outcome=if($Message -match '(?i)timeout|délai|delai'){'Timeout'}else{'Unavailable'}
+     $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome=$outcome;User='';Source='CIM/DCOM';Detail=$Message;Presence='Inconnu'}
+     Complete-DomeniaLiveProbe $result $State
+@@ -498,16 +542,16 @@
+             return
+         }
+     }
+-    if(-not (Test-DomeniaLiveSearchActive) -or $script:Live.RemoteFaulted -or $script:DirectoryCredentialFaulted){return}
++    if(-not (Test-DomeniaLiveSearchActive)){return}
+     if($null -eq $grid -or -not $grid.IsEnabled){return}
+     $intent=$script:Live.ProbeSelection
+-    if($null -eq $intent -or $intent.Requested -or (-not $script:Live.AutoDetect -and -not $intent.Manual)){return}
++    if($null -eq $intent -or $intent.Requested){return}
+     $selected=Get-DomeniaSelectedGridRow
+     if(@($grid.SelectedItems).Count -ne 1 -or -not (Test-DomeniaLiveProbeIntent -Row $selected)){Clear-DomeniaLiveProbeIntent;return}
+     if(-not $s.Fresh.ContainsKey([string]$intent.Key)){return}
+     Request-DomeniaLiveProbe -Row $selected
+     $parallel=[Math]::Max(1,[Math]::Min(3,[int](Get-CfgValue 'Streaming' 'MaxUserProbes' 2)))
+-    if((Get-DomeniaLiveWorkerCount 'LiveConsole') -ge $parallel){return}
++    if(((Get-DomeniaLiveWorkerCount 'LiveConsole')+(Get-DomeniaLiveWorkerCount 'LiveSelectedPing')) -ge $parallel){return}
+     $item=$script:Live.PendingKeys[[string]$intent.Key]
+     if($null -eq $item -or $item.RequestId -cne $intent.RequestId -or $item.ReadyAfter -gt [datetime]::UtcNow){return}
+     if(-not (Test-DomeniaLiveIdentity $item ([long]$script:SessionEpoch) $script:Live.Identity) -or $item.Generation -ne $script:GlobalSearchGeneration){Clear-DomeniaLiveProbeIntent;return}
+@@ -520,12 +564,20 @@
+     [void]$script:Live.PendingKeys.Remove([string]$item.Key);$script:Live.Pending.Clear()
+     # One attempt per explicit intent; a timeout does not silently replay it.
+     $intent.Requested=$true
+-    $payload=[pscustomobject]@{Key=$item.Key;Computer=$item.Computer;Guid=$item.Guid;MethodSeconds=4}
++    $probeUser=($script:Live.AutoDetect -or $intent.Manual) -and -not $script:Live.RemoteFaulted -and -not $script:DirectoryCredentialFaulted
++    if($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey('Remote')){$probeUser=$false}
++    if(-not [bool](Get-CfgValue 'Remote' 'UseCim' $true)){$probeUser=$false}
++    $operation=if($probeUser){'LiveConsole'}else{'LiveSelectedPing'}
++    Add-Member -InputObject $item -NotePropertyName 'ProbeUser' -NotePropertyValue ([bool]$probeUser) -Force
++    $state=[pscustomobject]@{Key=$item.Key;Computer=$item.Computer;Guid=$item.Guid;Identity=$item.Identity;Epoch=$item.Epoch;Generation=$item.Generation;RequestId=$item.RequestId}
++    $payload=[pscustomobject]@{Key=$item.Key;Computer=$item.Computer;Guid=$item.Guid;MethodSeconds=4;ProbeUser=$probeUser;PresenceProgress=$script:Live.PresenceEvents;PresenceState=$state}
+     try{
+-        $id=Start-UiTask -Name ('Utilisateur console '+$item.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload $payload -CallbackState $item -TimeoutSeconds 14 -SuccessHandler 'Complete-DomeniaLiveProbe' -ErrorHandler 'Fail-DomeniaLiveProbe'
+-        $script:Live.Busy[[string]$item.Key]=$id;$item.Row.SessionState='Vérification en cours'
++        $id=Start-UiTask -Name ('Présence'+$(if($probeUser){' et utilisateur'}else{''})+' '+$item.Computer) -OperationId $operation -Code (Get-DomeniaLiveProbeCode) -Payload $payload -CallbackState $item -TimeoutSeconds 14 -SuccessHandler 'Complete-DomeniaLiveProbe' -ErrorHandler 'Fail-DomeniaLiveProbe'
++        $script:Live.Busy[[string]$item.Key]=$id;$item.Row.Presence='Vérification en cours'
++        if($probeUser){$item.Row.SessionState='Vérification en cours'}
+     }catch{
+-        $item.Row.SessionState='Vérification non démarrée · réessayer'
++        if($probeUser){$item.Row.SessionState='Vérification non démarrée · réessayer'}
++        $item.Row.Presence='Non vérifié';Set-DomeniaLiveRowValue $item.Row 'PresenceDetail' 'Contrôle non démarré ; sélectionner à nouveau ou utiliser Revérifier ce poste.'
+         throw
+     }
+ }
+@@ -549,6 +601,10 @@
+         }
+         if(-not $script:ActiveWriteTaskId -and $script:WriteState -notin @('Unknown','UnknownPending') -and $script:Live.Deferred.Count -gt 0){
+             $deferred=$script:Live.Deferred.Dequeue();Complete-DomeniaLiveProbe $deferred.Result $deferred.State
++        }
++        if(-not $script:ActiveWriteTaskId -and $script:WriteState -notin @('Unknown','UnknownPending') -and $null -ne $script:Live.PresenceEvents){
++            $packet=$null
++            for($i=0;$i -lt 4 -and $script:Live.PresenceEvents.TryDequeue([ref]$packet);$i++){Complete-DomeniaLivePresence $packet.Result $packet.State;$packet=$null}
+         }
+         $grid=Get-DomeniaControl 'DgObjects'
+         if(-not $script:ActiveWriteTaskId -and $script:WriteState -notin @('Unknown','UnknownPending')){
+@@ -600,14 +656,14 @@
+                 if(-not $s.Finalized){$script:BranchCountLabel="$($s.Rows.Count) ligne(s) affichée(s) · $($s.Fresh.Count) vérifiée(s) AD · chargement…"}
+                 [void](Set-DomeniaControlText 'LblBranchCount' $script:BranchCountLabel)
+                 $filterBox=Get-DomeniaControl 'TxtSuiteResultFilter'
+-                $hasFilter=($script:CurrentPresenceFilter -ne 'Tous' -or ($null -ne $filterBox -and -not [string]::IsNullOrWhiteSpace([string]$filterBox.Text)))
++                $hasFilter=((Get-DomeniaSearchMode) -ne 'Global' -and ($script:CurrentPresenceFilter -ne 'Tous' -or ($null -ne $filterBox -and -not [string]::IsNullOrWhiteSpace([string]$filterBox.Text))))
+                 if(($hasFilter -or -not $script:Live.Notifying) -and $s.RefreshNeeded -and ([datetime]::UtcNow-$script:Live.LastFilter).TotalMilliseconds -ge 400){Update-DomeniaLiveFilter}
+-                [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre local"))
++                [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
+             }
+         }
+         try{Start-DomeniaLiveBackgroundWork}catch{$script:Live.NextStart=[datetime]::UtcNow.AddSeconds(2);Write-AppLog ('Travail différé : '+$_.Exception.Message) 'WARN'}
+         $save=if(-not $script:Live.CacheReady){'cache uniquement en mémoire'}elseif($script:Live.SaveFault){'mémoire locale non enregistrée'}elseif($script:Live.SaveJob -or $script:Live.SaveQueue.Count -or $null -ne $script:Live.QueryToSave){'enregistrement en cours'}else{'aucun enregistrement en attente'}
+-        $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'vérification sur sélection désactivée'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}else{'Sélectionnez un poste pour vérifier son utilisateur · double-clic pour ouvrir la fiche'}
++        $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'ping à la sélection · utilisateur désactivé'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}else{'Sélection : un ping + utilisateur si activé · double-clic : fiche · aucun contrôle collectif'}
+         [void](Set-DomeniaControlText 'LblLiveState' ($probe+' · '+$save))
+     }finally{$script:Live.InTick=$false}
+ }
+--- RC1.3/wad/modules/Domenia-UX.help.json
++++ RC1.4/wad/modules/Domenia-UX.help.json
+@@ -128,16 +128,18 @@
+   {
+     "Name": "TxtGlobalSearch",
+     "Title": "Rechercher",
+-    "Text": "Saisissez un nom, un identifiant, une adresse mail ou un nom de poste. Entrée recherche dans l’OU sélectionnée ; vide, elle affiche son contenu limité.",
+-    "Kind": "TextBox",
+-    "Source": "specific"
++    "Text": "Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée.",
++    "Kind": "TextBox",
++    "Source": "specific",
++    "Shortcut": ""
+   },
+   {
+     "Name": "BtnGlobalSearch",
+-    "Title": "Rechercher dans l’OU sélectionnée",
+-    "Text": "Recherche dans le périmètre affiché. Sans texte, affiche son contenu dans la limite demandée.",
+-    "Kind": "Button",
+-    "Source": "specific"
++    "Title": "Rechercher dans tout le domaine",
++    "Text": "Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection.",
++    "Kind": "Button",
++    "Source": "specific",
++    "Shortcut": ""
+   },
+   {
+     "Name": "BtnCommandPalette",
+@@ -408,9 +410,10 @@
+   {
+     "Name": "TvDirectory",
+     "Title": "Arbre des OU et conteneurs",
+-    "Text": "Développez une branche pour voir ses sous-OU. Sélectionnez-la pour filtrer les résultats à droite, en conservant le texte saisi.",
++    "Text": "Développez les sous-OU ou cliquez une branche pour afficher son contenu. Le texte de la recherche globale reste conservé mais ne filtre pas cette navigation.",
+     "Kind": "TreeView",
+-    "Source": "existing-help"
++    "Source": "existing-help",
++    "Shortcut": ""
+   },
+   {
+     "Name": "WsSearch",
+@@ -429,9 +432,10 @@
+   {
+     "Name": "CmbPresenceFilter",
+     "Title": "Présence réseau",
+-    "Text": "N affiche que les postes en ligne, hors ligne, ou tous.",
++    "Text": "Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif.",
+     "Kind": "ComboBox",
+-    "Source": "existing-help"
++    "Source": "existing-help",
++    "Shortcut": ""
+   },
+   {
+     "Name": "TxtGlobalLimit",
+@@ -485,9 +489,10 @@
+   {
+     "Name": "BtnLoadBranch",
+     "Title": "Actualiser les résultats",
+-    "Text": "Relance la lecture AD avec le texte, le type et le filtre OU actuels.",
+-    "Kind": "Button",
+-    "Source": "label-help"
++    "Text": "Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres.",
++    "Kind": "Button",
++    "Source": "label-help",
++    "Shortcut": ""
+   },
+   {
+     "Name": "BtnClearBranch",
+@@ -498,10 +503,11 @@
+   },
+   {
+     "Name": "DgObjects",
+-    "Title": "Résultats : sélection et ouverture",
+-    "Text": "Un clic sélectionne ; une seule machine peut être vérifiée en arrière-plan. Double-clic ou Entrée ouvre la fiche. Les actions groupées restent explicites.",
++    "Title": "Résultats : sélection et ouverture explicite",
++    "Text": "Un clic sélectionne la ligne et lance un ping, avec la lecture utilisateur si activée. Double-clic ou Entrée ouvre la fiche. Aucun scan de la liste. Clic droit : actions.",
+     "Kind": "DataGrid",
+-    "Source": "existing-help"
++    "Source": "existing-help",
++    "Shortcut": ""
+   },
+   {
+     "Name": "WsObject",
+@@ -2824,7 +2830,8 @@
+     "Name": "BtnSearchAllDomain",
+     "Kind": "Button",
+     "Title": "Tout le domaine",
+-    "Text": "Retire le filtre OU, inclut toutes les sous-OU et relance la recherche sans effacer le texte saisi."
++    "Text": "Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante.",
++    "Shortcut": ""
+   },
+   {
+     "Name": "SearchOuSplitter",
+@@ -2948,17 +2955,19 @@
+   },
+   {
+     "Name": "ChkLiveUsers",
+-    "Title": "Vérifier le poste sélectionné",
+-    "Text": "Un clic sur une machine vérifie son compte console en arrière-plan. Charger ou faire défiler la liste ne sonde aucun poste.",
++    "Title": "Vérification sur sélection",
++    "Text": "Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif.",
+     "Kind": "CheckBox",
+-    "Source": "R1.12-static"
++    "Source": "R1.12-static",
++    "Shortcut": ""
+   },
+   {
+     "Name": "BtnLiveRecheck",
+     "Title": "Revérifier ce poste",
+-    "Text": "Vérifie uniquement la machine sélectionnée, même si la vérification sur sélection est décochée. Un seul essai ; aucune sonde en double.",
+-    "Kind": "Button",
+-    "Source": "R1.12-static"
++    "Text": "Relance un ping unique et la lecture utilisateur sur le poste sélectionné. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage.",
++    "Kind": "Button",
++    "Source": "R1.12-static",
++    "Shortcut": ""
+   },
+   {
+     "Name": "BtnAccessRecovery",
+@@ -3086,5 +3095,13 @@
+     "Title": "Ouvrir FilPro",
+     "Text": "Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis.",
+     "Sensitive": false
++  },
++  {
++    "Name": "BtnSearchInOu",
++    "Kind": "Button",
++    "Source": "RC1.4",
++    "Title": "Afficher l’OU sélectionnée",
++    "Text": "Revient à l’OU sélectionnée et réactive ses filtres. Le texte du bandeau n’est pas utilisé.",
++    "Shortcut": ""
+   }
+ ]

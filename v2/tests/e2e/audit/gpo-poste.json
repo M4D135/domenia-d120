@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : liens GPO d’un poste et résultat appliqué",
+  "description": "Cherche un portable de Paris dans l’index local, lit ses liens GPO (chaîne Paris, Postes, domaine, avec la GPO de sécurité forcée) puis le résultat appliqué sur le poste : la colonne « Résultat sur le poste » est visible sans défilement horizontal, ses pastilles longues sont coupées avec points de suspension.",
+  "modes": ["simulation"],
+  "start": "audit?tab=objet",
+  "steps": [
+    { "do": "type", "selector": "#aud-find-input", "text": "PT-PAR-", "title": "Chercher un portable de Paris" },
+    { "do": "wait", "selector": ".aud-hit", "within": "#aud-find-list", "title": "Des postes sont trouvés dans l’index local" },
+    { "do": "press", "key": "Enter", "title": "Choisir le premier poste" },
+    { "do": "wait", "selector": ".aud-target[data-kind=\"computer\"]", "title": "La cible est un ordinateur" },
+    { "do": "click", "selector": ".aud-views [data-tab=\"gpo\"]", "title": "Ouvrir la vue GPO" },
+    { "do": "click", "selector": "[data-act=\"gpoLinks\"]", "title": "Lire les liens GPO" },
+    { "do": "wait", "selector": ".aud-ladder .aud-rung", "count": 3, "timeoutMs": 15000, "title": "Trois niveaux : Paris, Postes, domaine" },
+    { "do": "expect", "contains": "Postes - Sécurité de base", "within": ".aud-ladder", "title": "La GPO forcée figure sur la chaîne" },
+    { "do": "click", "selector": "[data-act=\"gpoApplied\"]", "title": "Lire le résultat sur le poste" },
+    { "do": "wait", "contains": "Résultat sur le poste", "within": "[data-grid=\"gpo\"]", "timeoutMs": 20000, "title": "La colonne du résultat est affichée en deuxième position" },
+    { "do": "shot", "name": "gpo", "selector": ".aud-views" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

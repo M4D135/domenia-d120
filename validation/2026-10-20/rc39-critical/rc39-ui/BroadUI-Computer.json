@@ -1,0 +1,482 @@
+[
+    {
+        "Id":  "RootScroll",
+        "Name":  "",
+        "Type":  "ControlType.Pane",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxBrandCompact",
+        "Name":  "D",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabApplicationTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxSidebarToggle",
+        "Name":  "Déployer le menu : icônes et libellés.",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabDashboard",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavBack",
+        "Name":  "Précédent",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavForward",
+        "Name":  "Suivant",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblUxPageTitle",
+        "Name":  "Poste · DC01",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUxDomain",
+        "Name":  "Connecté à cnamts.local",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUxSubject",
+        "Name":  "Poste · DC01",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxSubjectClear",
+        "Name":  "Désélectionner",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ChkReadOnlyMode",
+        "Name":  "Protection des modifications",
+        "Type":  "ControlType.CheckBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WorkspaceTabs",
+        "Name":  "Choisissez une rubrique dans la barre latérale",
+        "Type":  "ControlType.Tab",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblComputerReadStatus",
+        "Name":  "Machine : DC01 | Fiche lue. Identifiant DC01 · Systeme Non renseigne · Etat Non renseigne · Emplacement Non renseigne · Presence Non verifiee",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblCompHeaderName",
+        "Name":  "Nom du poste",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblCompHeaderPresence",
+        "Name":  "Présence du poste",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblCompHeaderSystem",
+        "Name":  "Système du poste",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblCompHeaderNoUser",
+        "Name":  "Aucun utilisateur associé",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblCompHeaderInventory",
+        "Name":  "Âge du dernier inventaire",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCompAccountPill",
+        "Name":  "Compte poste : session Windows",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCompHeaderRdp",
+        "Name":  "Bureau à distance",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCompHeaderC",
+        "Name":  "Ouvrir le disque C (C$)",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCompHeaderPing",
+        "Name":  "Tester la réponse",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ComputerTabs",
+        "Name":  "Vues dʼassistance poste",
+        "Type":  "ControlType.Tab",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabComputer",
+        "Name":  "Vue dʼensemble",
+        "Type":  "ControlType.TabItem",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompName",
+        "Name":  "Nom du compte ordinateur",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompDns",
+        "Name":  "Nom réseau complet",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompPresence",
+        "Name":  "Présence réseau",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompOs",
+        "Name":  "Système d’exploitation",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompOsVersion",
+        "Name":  "Version du système",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompDescription",
+        "Name":  "Description",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompLocation",
+        "Name":  "Localisation",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompManagedBy",
+        "Name":  "Responsable",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCompManagedByPick",
+        "Name":  "Choisir le responsable",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompState",
+        "Name":  "État du compte ordinateur",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompLastLogon",
+        "Name":  "Dernière connexion connue",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtCompUac",
+        "Name":  "Options du compte ordinateur",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblCompLinkSummary",
+        "Name":  "Utilisateur associé",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnOpenLinkedUser",
+        "Name":  "Ouvrir la fiche de lʼutilisateur associé",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnRefreshMachineLink",
+        "Name":  "Détecter à nouveau lʼutilisateur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCompSave",
+        "Name":  "Enregistrer",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "BtnCompEdit",
+        "Name":  "Modifier la fiche",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "TxtCompLogonByDc",
+        "Name":  "Activité de connexion du poste",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCompLogonByDc",
+        "Name":  "Lire la dernière connexion du poste sur chaque contrôleur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblComputerDashboard",
+        "Name":  "Lancez un inventaire (Rapide ou Complet) : le tableau de bord se remplit avec ses resultats.",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnDashboardInventory",
+        "Name":  "Inventaire rapide pour le tableau de bord",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnDashboardInventoryDeep",
+        "Name":  "Inventaire complet pour le tableau de bord",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Règles de santé",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Atelier",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ajouter un widget",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Personnaliser",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "VerticalScrollBar",
+        "Name":  "",
+        "Type":  "ControlType.ScrollBar",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PageUp",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PageDown",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabComputerAdmin",
+        "Name":  "Intervenir",
+        "Type":  "ControlType.TabItem",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabComputerDetails",
+        "Name":  "Détails",
+        "Type":  "ControlType.TabItem",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabComputerHealth",
+        "Name":  "Diagnostic",
+        "Type":  "ControlType.TabItem",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabSecurity",
+        "Name":  "Secrets",
+        "Type":  "ControlType.TabItem",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUiLogLast",
+        "Name":  "Dernier message du journal",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxLogToggle",
+        "Name":  "Déplier le journal",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LstSearchBarScope",
+        "Name":  "Où chercher",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ItmSearchBarScopeOu",
+        "Name":  "Dans lʼOU choisie",
+        "Type":  "ControlType.ListItem",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblSearchBarScopeOu",
+        "Name":  "OU de la recherche",
+        "Type":  "ControlType.Text",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LstSearchBarType",
+        "Name":  "Type cherché",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalSearchClear",
+        "Name":  "Vider la recherche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCommandPalette",
+        "Name":  "Palette de commandes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnAccessRecovery",
+        "Name":  "Accès",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSuiteActivity",
+        "Name":  "Opérations",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnThemeToggle",
+        "Name":  "Passer au thème sombre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxHelpToggle",
+        "Name":  "Afficher lʼaide",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomOut",
+        "Name":  "Réduire le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomReset",
+        "Name":  "Réinitialiser le zoom à 100 %",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomIn",
+        "Name":  "Agrandir le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    }
+]

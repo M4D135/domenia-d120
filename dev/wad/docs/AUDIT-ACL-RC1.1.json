@@ -1,0 +1,251 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.1-ACL",
+  "Passed": 57,
+  "Failed": 0,
+  "Source": "RC1 original DEV ZIP",
+  "BaselineSha256": "42DF4207F93A02336D59D087917FCD639B75D62C932B701F6218DD22621570F3",
+  "ChangedRuntime": [
+    "wad/Domenia-Core.ps1",
+    "wad/modules/Domenia-Receipts.Worker.ps1"
+  ],
+  "ChangedCoreFunctions": [
+    "Initialize-DomeniaDataStore",
+    "Initialize-DomeniaPresentation"
+  ],
+  "ChangedWorkerHelpers": [
+    "Invoke-WRemoteScheduledTaskScript"
+  ],
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "NativeACLExecuted": false,
+  "Checks": [
+    {
+      "Name": "Original DEV archive CRC",
+      "Passed": true
+    },
+    {
+      "Name": "DataStore: one SDDL call",
+      "Passed": true
+    },
+    {
+      "Name": "DataStore: explicit Access-only overload",
+      "Passed": true
+    },
+    {
+      "Name": "DataStore: no Owner Group or Audit in SDDL",
+      "Passed": true
+    },
+    {
+      "Name": "DataStore: original restrictive DACL retained",
+      "Passed": true
+    },
+    {
+      "Name": "DataStore: persistence kept",
+      "Passed": true
+    },
+    {
+      "Name": "DataStore: no token privilege adjustment",
+      "Passed": true
+    },
+    {
+      "Name": "Receipts: one SDDL call",
+      "Passed": true
+    },
+    {
+      "Name": "Receipts: explicit Access-only overload",
+      "Passed": true
+    },
+    {
+      "Name": "Receipts: no Owner Group or Audit in SDDL",
+      "Passed": true
+    },
+    {
+      "Name": "Receipts: original restrictive DACL retained",
+      "Passed": true
+    },
+    {
+      "Name": "Receipts: persistence kept",
+      "Passed": true
+    },
+    {
+      "Name": "Receipts: no token privilege adjustment",
+      "Passed": true
+    },
+    {
+      "Name": "Remote: one SDDL call",
+      "Passed": true
+    },
+    {
+      "Name": "Remote: explicit Access-only overload",
+      "Passed": true
+    },
+    {
+      "Name": "Remote: no Owner Group or Audit in SDDL",
+      "Passed": true
+    },
+    {
+      "Name": "Remote: original restrictive DACL retained",
+      "Passed": true
+    },
+    {
+      "Name": "Remote: persistence kept",
+      "Passed": true
+    },
+    {
+      "Name": "Remote: no token privilege adjustment",
+      "Passed": true
+    },
+    {
+      "Name": "Only three runtime SDDL initializations",
+      "Passed": true
+    },
+    {
+      "Name": "Store failure remains fatal with native inner exception",
+      "Passed": true
+    },
+    {
+      "Name": "Receipts failure remains fatal with native inner exception",
+      "Passed": true
+    },
+    {
+      "Name": "Store validated only after protection",
+      "Passed": true
+    },
+    {
+      "Name": "Store reparse checks retained",
+      "Passed": true
+    },
+    {
+      "Name": "Receipts reparse checks retained",
+      "Passed": true
+    },
+    {
+      "Name": "Network data store guard retained",
+      "Passed": true
+    },
+    {
+      "Name": "Remote consent retained",
+      "Passed": true
+    },
+    {
+      "Name": "Same top-level function names",
+      "Passed": true
+    },
+    {
+      "Name": "Only startup-storage and display-build functions changed",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved function: Invoke-DomeniaInProcessAuthProbe",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved function: Start-DomeniaFastLoginAttempt",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved function: Start-DomeniaLoginAuthRunspace",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved function: Invoke-GlobalSearch",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved function: Assert-DomeniaCapability",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved function: Get-DomeniaWorkerOperationHashes",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved function: Show-AdObjectResult",
+      "Passed": true
+    },
+    {
+      "Name": "Only remote-staging helper changed in WorkerCommon",
+      "Passed": true
+    },
+    {
+      "Name": "54 operation definitions preserved",
+      "Passed": true
+    },
+    {
+      "Name": "Only two runtime source files changed",
+      "Passed": true
+    },
+    {
+      "Name": "Compiled launcher unchanged",
+      "Passed": true
+    },
+    {
+      "Name": "Support unblock script unchanged",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical check (not native parser): wad/Domenia-Core.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical check (not native parser): wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical check (not native parser): wad/tests/Test-DomeniaAcl.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical check (not native parser): INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "WorkerCommon lexical check (not native parser)",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: ParseInput",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: Find-AclCall",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: _saclModified",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: _ownerModified",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: _groupModified",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: SetAccessControl",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: Get-WReceiptRoot",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: AclFixtureOwned",
+      "Passed": true
+    },
+    {
+      "Name": "Windows regression suite contains: LiveSaclReadOrWrite=$false",
+      "Passed": true
+    },
+    {
+      "Name": "New Windows suite invoked before installer copies code",
+      "Passed": true
+    },
+    {
+      "Name": "PROD includes no test dependency",
+      "Passed": true
+    }
+  ]
+}

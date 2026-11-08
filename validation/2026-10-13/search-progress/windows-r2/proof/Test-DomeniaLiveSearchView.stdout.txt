@@ -1,0 +1,12 @@
+PASS Real loader keeps application functions private to the script
+FAIL Progressive arrivals without query survive three timer ticks
+PASS Real ApplySearch intersects native matching GUIDs and object types
+PASS GUID normalization and later arrivals use the active predicate
+PASS Reapply recomputes GUID selection and explicit refresh preserves it
+PASS Active selection with empty or missing map fails closed
+FAIL Disabled grid defers ApplySearch and ClearSearch until the next real tick
+PASS Real ClearSearch restores rows then local text and presence filters work
+PASS Five thousand machines plus other object types remain complete and filterable
+PASS A fresh global search restarts and ignores residual local text and presence
+PASS Explicit Fleet chrome button opens the script-local workshop; chart click stays inert
+LiveSearchView: 11 cases / 61 assertions / 2 failed

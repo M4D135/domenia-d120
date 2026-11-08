@@ -1,0 +1,32 @@
+{
+  "Application": "Domenia 1.0 RC1",
+  "Runtime": "Windows PowerShell 5.1 x64 / WPF",
+  "Dependencies": [
+    {
+      "Path": "wad/Microsoft.ActiveDirectory.Management.dll",
+      "Bytes": 1172992,
+      "Sha256": "1a6af7b8f8bce5b35ff873e2528746480c980526d86e38ca5acd04c2e9037157",
+      "Source": "User-provided ADCC R1.13 archive",
+      "Modified": false,
+      "ThirdPartyLicenseReviewRequired": true
+    },
+    {
+      "Path": "wad/ActiveDirectoryPowerShellResources.dll",
+      "Bytes": 33280,
+      "Sha256": "e233d92238aa31ea1b3c60145d8811edb2e517e1b9b53f4bc496883ee5d9973b",
+      "Source": "User-provided ADCC R1.13 archive",
+      "Modified": false,
+      "ThirdPartyLicenseReviewRequired": true
+    },
+    {
+      "Path": "wad/PsExec.exe",
+      "Bytes": 833472,
+      "Sha256": "edfae1a69522f87b12c6dac3225d930e4848832e3c551ee1e7d31736bf4525ef",
+      "Source": "User-provided ADCC R1.13 archive",
+      "Modified": false,
+      "ThirdPartyLicenseReviewRequired": true
+    }
+  ],
+  "ExternalDownloadsOnLaunch": false,
+  "Notes": "System components such as winsqlite3.dll, CIM and WTS are provided by Windows, not bundled."
+}

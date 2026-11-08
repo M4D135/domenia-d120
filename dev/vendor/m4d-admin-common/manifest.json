@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Version": "0.1.1-domenia.1",
+  "Repository": "https://github.com/M4D135/m4d-admin-common",
+  "Upstream": {
+    "Repository": "https://github.com/M4D135/m4d-admin-common",
+    "Commit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
+    "Version": "0.1.1",
+    "SourceSHA256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972"
+  },
+  "LocalModification": true,
+  "SourceSHA256": "4ee562b205eb761e0c7f1fe1c1e4e45b7a2d0751b45c8b6f59ccde28338f474e",
+  "SourceHashFormat": "SHA256 of QueryEngine.cs file bytes",
+  "TargetFramework": "net472",
+  "LanguageVersion": "CSharp5",
+  "BuildScript": "tools/build_query.ps1 -CompilerDirectory (Microsoft.Net.Compilers.Toolset 4.8.0, tasks/net472)",
+  "Builder": {
+    "PowerShell": "5.1.26100.6584",
+    "Compiler": "4.800.23.55801",
+    "CompilerSHA256": "C9B43DB498213E8E8CA5D7E03A25DEFDDA2031D5E025553B8EB9773F79EBD226",
+    "Language": "C# 5",
+    "ReferenceAssemblies": "Microsoft.NETFramework.ReferenceAssemblies.net472 1.0.3",
+    "Deterministic": true
+  },
+  "Files": [
+    {
+      "Name": "M4D.Admin.Common.Query.dll",
+      "SHA256": "472d9c5feba970e2999621072ded76a8bf691ef22dc4de23fd4e5d0fb45a4d98",
+      "Bytes": 26112
+    }
+  ]
+}

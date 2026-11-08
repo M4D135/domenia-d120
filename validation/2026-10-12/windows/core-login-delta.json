@@ -1,0 +1,9 @@
+{
+  "PreviousArchiveSHA256": "C4C3A6E2F693A57BFE3C066F849A6896042DA1E60A04665064DF3FA0DD742338",
+  "FinalArchiveSHA256": "4CFD5E6E029D6B6DBF7892D1E509F8CEE585FC78C4ABE2953AF87109383E634C",
+  "Method": "PowerShell Parser.ParseFile, compare sources after replacing exact Show-LoginWindow AST extent",
+  "ChangedFunction": "Show-LoginWindow",
+  "OtherCoreTextIdentical": true,
+  "OtherRuntimeFilesIdentical": 90,
+  "CaptureFunctionsAndXamlUnchanged": true
+}

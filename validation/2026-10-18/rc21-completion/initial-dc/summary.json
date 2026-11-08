@@ -1,0 +1,48 @@
+﻿{
+    "Computer":  "DC01",
+    "OS":  "Microsoft Windows NT 10.0.26100.0",
+    "PowerShell":  "5.1.26100.7462",
+    "ArchiveSha256":  "DD0386B01E0FD2FFB49D12AA699678682B9525C200B878346FF6BEC760F3D27B",
+    "SourceFileCount":  646,
+    "SourceFilesUnchanged":  true,
+    "Results":  [
+                    {
+                        "Name":  "CredentialGuard",
+                        "ExitCode":  1,
+                        "ReportExists":  true,
+                        "Seconds":  28.616189499999997
+                    },
+                    {
+                        "Name":  "RelationsAlignment",
+                        "ExitCode":  0,
+                        "ReportExists":  true,
+                        "Seconds":  10.7141405
+                    },
+                    {
+                        "Name":  "WiringAcces",
+                        "ExitCode":  0,
+                        "ReportExists":  true,
+                        "Seconds":  62.8130014
+                    },
+                    {
+                        "Name":  "WiringRelations",
+                        "ExitCode":  1,
+                        "ReportExists":  true,
+                        "Seconds":  31.9972787
+                    },
+                    {
+                        "Name":  "LapsQualification",
+                        "ExitCode":  0,
+                        "ReportExists":  true,
+                        "Seconds":  3.5730402999999997
+                    },
+                    {
+                        "Name":  "StorageMaintenance",
+                        "ExitCode":  0,
+                        "ReportExists":  true,
+                        "Seconds":  36.5965638
+                    }
+                ],
+    "DateUtc":  "2026-10-18T11:45:25.2335218Z",
+    "Scope":  "Isolated disposable files; synthetic/native tests plus read-only live LDAP schema/expiration; no AD writes"
+}

@@ -1,0 +1,33 @@
+{
+  "Suite": "DomeniaDiagnosticExport",
+  "Passed": true,
+  "Total": 4,
+  "Failed": 0,
+  "Assertions": 12,
+  "PowerShell": "5.1.26100.6584",
+  "Edition": "Desktop",
+  "Cases": [
+    {
+      "Name": "Explicit local export writes exactly the previewed redacted JSON",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Refusing confirmation leaves an existing diagnostic unchanged and never opens a chooser",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Cancelling file selection leaves the prior diagnostic unchanged",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "A locked destination refuses replacement and leaves no partial document",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "NetworkUsed": false,
+  "ProductionPreferencesTouched": false
+}

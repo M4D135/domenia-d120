@@ -1,0 +1,1302 @@
+{
+  "programme": "60 améliorations du 20 octobre 2026",
+  "base_commit": "4987773",
+  "candidate": "RC1.17.39",
+  "sequence": "Tous les lots de code, puis tests Windows, corrections ciblées, packs, commit et push",
+  "vm": "DOMENIA-FIRSTRUN-20261020 conservée",
+  "points": [
+    {
+      "id": 1,
+      "titre": "Fiche mémoire immédiate puis AD",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LocalPreview.json"
+      ],
+      "limites": [
+        "Pas de mesure du délai cache vers AD sur toute la navigation."
+      ],
+      "mise_en_oeuvre": "Cache de visite y compris expiré présenté comme historique, puis relecture AD ; ouverture locale sans nouvelle fraîcheur.",
+      "portee_tests": "LocalPreview 19/19 : aperçu objet local, identité/epoch et visite expirée.",
+      "reste_code": []
+    },
+    {
+      "id": 2,
+      "titre": "Aperçu SQLite avant réseau",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LocalPreview.json"
+      ],
+      "limites": [
+        "Les recherches complexes ne reçoivent pas de substitut local élargi."
+      ],
+      "mise_en_oeuvre": "Aperçu SQLite court avant AD ; même OU, type, DN/GUID et garde de session/base.",
+      "portee_tests": "LocalPreview 19/19 sur SQLite natif ; préfixes littéraux, portée et callbacks obsolètes.",
+      "reste_code": []
+    },
+    {
+      "id": 3,
+      "titre": "Conserver données connues sur échec",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LocalPreview.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LiveSearchView.json"
+      ],
+      "limites": [
+        "LiveSearchView utilise le vrai Dispatcher avec données synthétiques ; pas de panne réseau réelle dans cette suite."
+      ],
+      "mise_en_oeuvre": "Échec AD attend l’aperçu local déjà lancé ; reliquat local détaché seulement après fin sans erreur, y compris après le dernier COMMIT.",
+      "portee_tests": "19/19 LocalPreview et 16/16 LiveSearchView ; conservation sur échec AD/SQL et rejet du cache après succès final.",
+      "reste_code": []
+    },
+    {
+      "id": 4,
+      "titre": "Priorité à la sélection",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "La sélection reste derrière les écritures et certaines demandes explicites."
+      ],
+      "mise_en_oeuvre": "Ordonnanceur à classes/priorités, sélection en attente et vieillissement ; budgets bornés.",
+      "portee_tests": "Aucun reçu ciblé de latence sous saturation dans cette passe.",
+      "reste_code": []
+    },
+    {
+      "id": 5,
+      "titre": "Annuler recherches remplacées",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LocalPreview.json"
+      ],
+      "limites": [
+        "Le rejet d’un résultat périmé ne prouve pas l’arrêt instantané d’une API native."
+      ],
+      "mise_en_oeuvre": "Recherche remplacée : token/pipe invalidés avant démarrage de la nouvelle recherche.",
+      "portee_tests": "LocalPreview : ancien callback interdit dans la nouvelle recherche.",
+      "reste_code": []
+    },
+    {
+      "id": 6,
+      "titre": "Actualiser les champs modifiés",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md",
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-LocalPreview.UI.ps1"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LocalPreview.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LiveSearchView.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/LocalPreview.json"
+      ],
+      "limites": [
+        "Changements de sécurité, identité, membres, manager ou forme inconnue reprennent volontairement le remplissage complet. Résumés dépendant du temps et protections restent actualisés. Les 21 cas LocalPreview réussis sont des scénarios locaux ciblés, sans qualification générale de navigation ni gain de latence établi."
+      ],
+      "mise_en_oeuvre": "Show-AdObjectResult ne remplit plus une projection identique ; delta ciblé des champs simples autorisés à lecteur/identité identiques. Dates de source, générations, permissions et secrets restent traités à chaque reçu. Les chemins rapides réassocient le panneau de connexion à la génération actuelle ; chaque reçu invalide le repère de droits après annulation/vidage des capacités, sans invalider le cache brut inchangé.",
+      "portee_tests": "R2 LocalPreview 21/21 : inclut les deux cas Programme 6, delta limité et vrai callback, générations/panneau/lecture explicite, réévaluation droits, Fill/Clear, dates/secrets. SQLite native et projections synthétiques ; les reçus antérieurs sont conservés.",
+      "reste_code": []
+    },
+    {
+      "id": 7,
+      "titre": "Grandes listes progressives rapides",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LiveSearchView.json"
+      ],
+      "limites": [
+        "Données synthétiques ; gain de latence chiffré non qualifié et coût de l’arbre traité séparément au point 8."
+      ],
+      "mise_en_oeuvre": "Rendu progressif Live : cadence et budget adaptés au backlog, conservation des lignes lors des continuations.",
+      "portee_tests": "16/16 ; arrivées sur plusieurs ticks, 5 000 machines filtrables et continuation conservant les lignes.",
+      "reste_code": []
+    },
+    {
+      "id": 8,
+      "titre": "Virtualisation des grilles et arbres",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md",
+        "dev/engineering/d120/programme-2026-10-20/Point8-TvDirectory.md",
+        "dev/wad/Domenia-Core.ps1",
+        "dev/engineering/d120/programme-2026-10-20/Point8-Virtualisation.md",
+        "dev/wad/modules/Domenia-DirectoryTree.Types.cs",
+        "dev/wad/modules/Domenia-DirectoryTree.UI.ps1"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/WiringCache.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/TreeRendering.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/TreeVirtualization.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/Navigation.json",
+        "validation/2026-10-20/rc39-critical/rc39-tree-r4/TreeVirtualization.json",
+        "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json"
+      ],
+      "limites": [
+        "R4 TreeVirtualization 8/8 sous WPF réel sur 10 000 DTO synthétiques ; 40 conteneurs au premier relevé, maximum 61 sur neuf cibles. SyntheticOnly=true : aucun AD/réseau réel ni benchmark de mémoire du processus. Navigation Programme 8 5/5 est un sous-ensemble (Complete=false).",
+        "La virtualisation limite les conteneurs visuels réalisés, pas la mémoire des données déjà lues : les DTO, métadonnées et lignes chargées restent conservés. Aucun benchmark de mémoire du processus ou qualification AD à grande échelle n’est revendiqué.",
+        "Le quota commun et la tranche coopérative de 8 ms ne sont pas une garantie temps réel ; une opération WPF native ne peut pas être préemptée."
+      ],
+      "mise_en_oeuvre": "Grilles virtualisées ; arbre séparant les données observables des TreeViewItem générés et recyclés par WPF. Template hiérarchique et panneau virtuel à chaque niveau ; filtre sur les vues de données ; sélection/expansion/favoris conservés dans les DTO. Révélation du seul chemin cible par ticks avec annulation sur changement de contexte. Budget global, équité et groupes du job parent conservés. Compilation des quatre types différée au premier usage.",
+      "portee_tests": "D023 reçu pour les grilles. R2 : compilation, TreeRendering 4/4 (vrais types, pas de qualification du rendu WPF), Navigation Programme 8 5/5 (contrôles WPF, dépendances doublées). R4 : TreeVirtualization 8/8, révélation lointaine, recyclage/favori, groupe, filtre, feuille non lue et annulation epoch ; compteurs de lecture restent nuls sur les chemins programmés. Les trois échecs de révélation R2/R3 restent conservés ; trigger du thème/panneau enfant corrigé. WiringRecherche R4, lancé sans filtre : 47/53, dont les dix cas précédemment ciblés réussis ; les six échecs ont ensuite passé leurs retests (cinq en R5, D028 en R6). Bilan cumulé : 47 R4 + 5 R5 + 1 R6 ; les 53 cas ne sont pas rejoués ensemble.",
+      "reste_code": []
+    },
+    {
+      "id": 9,
+      "titre": "Index SQLite adaptés aux recherches",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageMaintenance.json"
+      ],
+      "limites": [
+        "Ne qualifie pas les plans/coûts de toutes les recherches sur volume représentatif."
+      ],
+      "mise_en_oeuvre": "Index GUID/nom/login/UPN/DN/USN/type et type_nom présents dans SQLite.",
+      "portee_tests": "StorageMaintenance : index composite présent et plans de lectures exposés.",
+      "reste_code": []
+    },
+    {
+      "id": 10,
+      "titre": "Mesures réseau/local/traitement/rendu",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Séparation complète des temps, dont rendu, et coût d’instrumentation à mesurer."
+      ],
+      "mise_en_oeuvre": "Mesures bornées à 512 séries, catégories réseau/local/traitement et synthèses du moteur.",
+      "portee_tests": "Aucun reçu de mesure bout en bout dans cette passe.",
+      "reste_code": []
+    },
+    {
+      "id": 11,
+      "titre": "Vues lourdes chargées à la demande",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Raccordement relu ; couverture de toutes les vues non démontrée."
+      ],
+      "mise_en_oeuvre": "Onglets lourds chargés lorsqu’ils deviennent visibles et périmés.",
+      "portee_tests": "Aucun parcours ciblé de toutes les vues lourdes exécuté.",
+      "reste_code": []
+    },
+    {
+      "id": 12,
+      "titre": "Accueil utilisable avant travaux secondaires",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StartupIntegrity.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StartupLogin.json"
+      ],
+      "limites": [
+        "Pas de mesure de temps avant première interaction ni de l’ensemble des travaux différés."
+      ],
+      "mise_en_oeuvre": "Initialisation secondaire différée à ContentRendered/ApplicationIdle.",
+      "portee_tests": "StartupIntegrity réussi ; StartupLogin 48/48 sans AD ni données de production.",
+      "reste_code": []
+    },
+    {
+      "id": 13,
+      "titre": "Réutiliser les vues déjà ouvertes",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LocalPreview.json"
+      ],
+      "limites": [
+        "Réutilisation des cartes non exécutée par Boards dans cette passe ; pas un cache de toutes les vues."
+      ],
+      "mise_en_oeuvre": "Réutilise la présentation inchangée ; cartes simples admissibles conservées par clé de rendu.",
+      "portee_tests": "LocalPreview : présentation conservée seulement à identité et lecteur identiques.",
+      "reste_code": []
+    },
+    {
+      "id": 14,
+      "titre": "Conserver sélection défilement filtres",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LiveSearchView.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/Navigation.json"
+      ],
+      "limites": [
+        "Navigation rapide, défilement et arbre avec données modifiées non qualifiés ici."
+      ],
+      "mise_en_oeuvre": "Snapshots navigation, restauration arbre et signets de continuité ; filtres/choix explicites conservés.",
+      "portee_tests": "LiveSearchView : rafraîchissement conserve sélection GUID ; continuation conserve lignes/filtres. R2 Navigation Programme 8 5/5 : sous-ensemble Complete=false, vrais contrôles WPF mais annuaire/postes/base/fenêtres doublés ; pas une preuve du défilement final hors écran.",
+      "reste_code": []
+    },
+    {
+      "id": 15,
+      "titre": "Pas de recalcul des pages masquées",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LiveSearchView.json"
+      ],
+      "limites": [
+        "Le test ne couvre pas toutes les pages masquées ni tous les recalculs."
+      ],
+      "mise_en_oeuvre": "Widgets/page masquée différés ; relayout et demandes d’index soumis à l’état visible.",
+      "portee_tests": "LiveSearchView : grille désactivée reporte ApplySearch/ClearSearch au prochain vrai tick.",
+      "reste_code": []
+    },
+    {
+      "id": 16,
+      "titre": "Minuteries sobres au repos",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "La cadence Live active n’est pas une mesure de repos."
+      ],
+      "mise_en_oeuvre": "Minuterie moteur selon prochain abonné ; Live s’arrête sans travail actif.",
+      "portee_tests": "Aucune mesure CPU/réveils au repos dans cette passe.",
+      "reste_code": []
+    },
+    {
+      "id": 17,
+      "titre": "Stabilité mémoire et tâches en navigation",
+      "responsable": "root",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Mémoire, handles et tâches résiduelles restent non qualifiés (point 59)."
+      ],
+      "mise_en_oeuvre": "Caches bornés en taille/TTL et files/budgets du moteur présents.",
+      "portee_tests": "Aucun test d’endurance de navigation exécuté.",
+      "reste_code": []
+    },
+    {
+      "id": 18,
+      "titre": "Timeout poste poursuit et clôt le lot",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-live-timeout/LiveBatch.json"
+      ],
+      "limites": [
+        "Scénario contrôlé de 2 cibles, pas qualification de tous les délais natifs ni des reprises."
+      ],
+      "mise_en_oeuvre": "Échec stocké sans empêcher clôture du lot ; poste suivant admis quand le moteur et les reçus le permettent.",
+      "portee_tests": "AD/WMI/SQLite réels sans mocks : premier endpoint timeout moteur ramené de 25 à 2 s, DC01 suivant Success SQL ; lot 2/2, 1 échec, aucun reçu en attente.",
+      "reste_code": []
+    },
+    {
+      "id": 19,
+      "titre": "Mutualiser lectures inter-widget",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/RemoteStore.json"
+      ],
+      "limites": [
+        "Groupes même poste/namespace/classe/filtre ; dépendances réseau simulées dans ce banc."
+      ],
+      "mise_en_oeuvre": "Lectures CIM compatibles mutualisées ; contrôle d’identité inclus dans le compte des appels.",
+      "portee_tests": "RemoteStore 34/34 : 3 consommateurs, contrôle identité et appel fournisseur partagés, appels évités comptés.",
+      "reste_code": []
+    },
+    {
+      "id": 20,
+      "titre": "Réutiliser les sessions de relevé",
+      "responsable": "collectes",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/RemoteStore.json"
+      ],
+      "limites": [
+        "Aucun cache de session global ni preuve de durée sur réseau dégradé étendu."
+      ],
+      "mise_en_oeuvre": "Une session CIM par relevé de poste, partagée puis libérée dans finally.",
+      "portee_tests": "RemoteStore : session unique et libération même sur refus/échec.",
+      "reste_code": []
+    },
+    {
+      "id": 21,
+      "titre": "Parallélisme adapté et borné",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Parallélisme 1–8 borné par opérateur/moteur ; pas de preuve en charge multi-source."
+      ],
+      "mise_en_oeuvre": "Budgets adaptatifs par source existants ; réadmission d’une cible attend aussi son commit.",
+      "portee_tests": "Cas Collection/ParkDetection écrits mais absents des reçus de cette passe.",
+      "reste_code": []
+    },
+    {
+      "id": 22,
+      "titre": "Délais par sonde et plafond poste",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/RemoteStore.json",
+        "validation/2026-10-20/rc39-critical/rc39-live-timeout/LiveBatch.json"
+      ],
+      "limites": [
+        "Le test réel raccourcit seulement le premier idle timeout ; il ne mesure pas chaque fournisseur lent."
+      ],
+      "mise_en_oeuvre": "Sondes rapides 10 s/lentes 15 s ; maximum des consommateurs borné 1–20 s ; plafond poste estimé, maximum 300 s.",
+      "portee_tests": "RemoteStore : groupes 10/15/20/1 s ; WMI réel : expiration de la première cible puis poursuite.",
+      "reste_code": []
+    },
+    {
+      "id": 23,
+      "titre": "Sondes rapides avant coûteuses explicites",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/RemoteStore.json"
+      ],
+      "limites": [
+        "Nouveau test d’ordre/exclusion P60-23 Park non exécuté ; pas de scan implicite."
+      ],
+      "mise_en_oeuvre": "Ordre stable rapides puis lentes ; catalogue Slow conservé ; sondes lentes exclues du relevé collectif, explicites au widget.",
+      "portee_tests": "Groupe mixte et son délai maximal couverts par RemoteStore.",
+      "reste_code": []
+    },
+    {
+      "id": 24,
+      "titre": "Fraîcheur sélective et forçage prioritaire",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Forçage relit volontairement ; dates de source jamais remplacées par date du clic."
+      ],
+      "mise_en_oeuvre": "Fraîcheur vérifiée par identité/définition/date/erreur ; CacheMinutes=0 prioritaire sur âge de réutilisation.",
+      "portee_tests": "Nouveau P60-24 Park écrit, pas de reçu d’exécution.",
+      "reste_code": []
+    },
+    {
+      "id": 25,
+      "titre": "Relancer uniquement les échecs",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-live-timeout/LiveBatch.json"
+      ],
+      "limites": [
+        "La relance des seuls échecs n’a pas été exécutée dans ce scénario ; P60-25 ParkDetection reste sans reçu."
+      ],
+      "mise_en_oeuvre": "Seuls échecs de la tentative demandée restent reprenables ; reprise attend commit puis réutilise familles déjà réussies.",
+      "portee_tests": "WMI réel confirme clôture malgré un échec et stockage séparé Error/Success.",
+      "reste_code": []
+    },
+    {
+      "id": 26,
+      "titre": "Pause arrêt reprise sans perte",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Aucune preuve de pause/arrêt/reprise durable produite par le seul lot WMI réel."
+      ],
+      "mise_en_oeuvre": "Plan durable existant, flush arrêt/fermeture, reprise contrôlée domaine/base ; texte final précise les échecs restants.",
+      "portee_tests": "ParkDetection et CollectionWiring non exécutés dans cette passe.",
+      "reste_code": []
+    },
+    {
+      "id": 27,
+      "titre": "Panne poste distincte des identifiants",
+      "responsable": "collectes",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/RemoteStore.json"
+      ],
+      "limites": [
+        "Scénarios de banc ; pas de changement de compte réel ni de panne globale en laboratoire."
+      ],
+      "mise_en_oeuvre": "Erreurs poste/RPC séparées des refus d’identifiants ; refus compte ouvre le circuit sans retry automatique.",
+      "portee_tests": "RemoteStore : refus auth arrête les appels CIM ; mauvaise identité refusée avant écriture.",
+      "reste_code": []
+    },
+    {
+      "id": 28,
+      "titre": "Progression globale et motifs",
+      "responsable": "collectes",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/RemoteStore.json",
+        "validation/2026-10-20/rc39-critical/rc39-live-timeout/LiveBatch.json"
+      ],
+      "limites": [
+        "Nouveau texte P60-28 ParkDetection non exécuté ; pas de pourcentage déduit du temps."
+      ],
+      "mise_en_oeuvre": "Progression fondée sur reçus SQL ; texte en file, reçus attendus et étapes des huit postes actifs au maximum.",
+      "portee_tests": "RemoteStore : chaque requête/étape alimente le progrès ; WMI réel termine 2/2 avec files et reçus vides.",
+      "reste_code": []
+    },
+    {
+      "id": 29,
+      "titre": "Étude lecture AD incrémentale",
+      "responsable": "collectes",
+      "code": "ETUDE_TERMINEE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Aucun nouveau DirSync ; AD réel du scénario WMI ne qualifie pas une synchronisation incrémentale ni son débit."
+      ],
+      "mise_en_oeuvre": "USN/DC/invocationId existant conservé, repère et données atomiques ; Deleted=true exige désormais DeletedRead=Read.",
+      "portee_tests": "Cas Cache/DirectorySync dont P60-29 écrits, pas de reçu dans cette passe.",
+      "reste_code": []
+    },
+    {
+      "id": 30,
+      "titre": "Cas limites Premiers pas",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-ui/CriticalUI-Result.json"
+      ],
+      "limites": [
+        "Aucune lecture déclenchée par l’affichage."
+      ],
+      "mise_en_oeuvre": "Premiers pas : OU vide, couverture inconnue/changée, interruption et hors connexion explicités ; Base désactivée sans OU.",
+      "portee_tests": "Boards Programme 30 écrit, non exécuté dans cette passe. UI critique réelle : parcours OU/index AD puis ouverture fiche/poste/santé réussi ; ne couvre pas tous les nouveaux cas.",
+      "reste_code": []
+    },
+    {
+      "id": 31,
+      "titre": "Classement exact préfixe approximatif",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Classement des résultats obtenus ; pas de correction orthographique ou recherche floue supplémentaire."
+      ],
+      "mise_en_oeuvre": "Classement existant exact/préfixe/contient enrichi pour mail et jokers explicites aux deux extrémités.",
+      "portee_tests": "Navigation Programme 31 et règles Search sans reçu de cette passe.",
+      "reste_code": []
+    },
+    {
+      "id": 32,
+      "titre": "Expliquer résultats absents",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LiveSearchView.json"
+      ],
+      "limites": [
+        "Nouveaux cas Navigation Programme 32 et UxQualification non exécutés ; aucune absence globale inférée."
+      ],
+      "mise_en_oeuvre": "État vide explique portée/type/filtre/plafond/partiel/inconnu ; Final.Partial ne devient pas Complete.",
+      "portee_tests": "LiveSearchView UX-03 réussi : filtre masquant toutes les lignes expliqué et effaçable sans requête.",
+      "reste_code": []
+    },
+    {
+      "id": 33,
+      "titre": "Recherches récentes et favorites",
+      "responsable": "parcours_dashboard",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Ouvrir un favori ou une vue ne lance pas de collecte."
+      ],
+      "mise_en_oeuvre": "Huit dernières recherches/fiches locales, favoris de requêtes/OU et vues sauvegardées existants conservés.",
+      "portee_tests": "Navigation P54/P57 et règles récents sans reçu.",
+      "reste_code": []
+    },
+    {
+      "id": 34,
+      "titre": "Accès fiche poste relations diagnostic",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-ui/CriticalUI-Result.json"
+      ],
+      "limites": [
+        "Une navigation ne lance aucune collecte."
+      ],
+      "mise_en_oeuvre": "Routes directes existantes conservées ; collecte manquante ouvre Inventaire ou Base autonome.",
+      "portee_tests": "Nouveau clic Boards Programme 47 écrit mais non exécuté. UI critique réelle : parcours OU/index AD puis ouverture fiche/poste/santé réussi ; ne couvre pas tous les nouveaux cas.",
+      "reste_code": []
+    },
+    {
+      "id": 35,
+      "titre": "Cohérence boutons menus raccourcis",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Cohérence de l’ensemble des gestes WPF non qualifiée."
+      ],
+      "mise_en_oeuvre": "Dispatcher commun boutons/menu/clavier conservé ; presets utilisent la même action et annulation.",
+      "portee_tests": "Boards clavier/représentation/presets non exécuté.",
+      "reste_code": []
+    },
+    {
+      "id": 36,
+      "titre": "Avertissements discrets regroupés",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/HealthRules.json"
+      ],
+      "limites": [
+        "WpfExecuted=false ; aucune recette visuelle du regroupement."
+      ],
+      "mise_en_oeuvre": "Regroupement existant par règle et GUID conservé ; inconnu ne devient ni aucun signalement ni pénalité zéro.",
+      "portee_tests": "HealthRules 23/23 dont Programme 46 et cas couverture/score.",
+      "reste_code": []
+    },
+    {
+      "id": 37,
+      "titre": "Local actualiser modifier distincts",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Pas de recette utilisateur des libellés et du clic sur le candidat."
+      ],
+      "mise_en_oeuvre": "Lecture locale, actualisation et personnalisation distinguées ; presets sans collecte et bouton explique la lecture suivante.",
+      "portee_tests": "Boards Programme 47 sans reçu.",
+      "reste_code": []
+    },
+    {
+      "id": 38,
+      "titre": "Recalcul des widgets affectés",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md",
+        "dev/wad/modules/Domenia-Widgets.UI.ps1",
+        "dev/wad/modules/Domenia-QueryTargets.UI.ps1",
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/Boards.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/QueryTargets.json"
+      ],
+      "limites": [
+        "Fallback de sûreté : collecte/calcul en attente, Action, forme opaque/cyclique/trop grande, pause, sonde DaysSince, champs de requête probe/instance/detail et sélection de sonde contournent le cache. Le calcul complet et les demandes nécessaires restent exécutés ; les cartes spécialisées sont reconstruites.",
+        "Le record canonique du poste est reprojeté pour vérifier les valeurs temporelles et la fraîcheur ; seules les dépendances évaluées invalident le plan. Le fournisseur Computer conserve sa réévaluation conservatrice sans contrat global de révision/horloge. Le fournisseur Fleet utilise son résultat déjà publié. Aucune promesse d’incrémental champ par champ pour ces fournisseurs ; aucun gain mesuré.",
+        "R2 : Boards Programme 38 4/4, SelectionComplete=true mais Complete=false (filtre, pas les 73 cas) ; QueryTargets 39/39. Données locales/synthétiques et contrôles WPF ciblés, sans AD/réseau ni gain global chiffré."
+      ],
+      "mise_en_oeuvre": "Cache avant Get-DomeniaBoardWidgetPlan et résolution : dépendances source bornées, contrat, contexte, dates, pause et fraîcheur ; mutations en place détectées. Builtin, Query/Probe Fleet prêts, Probe Computer. Query Computer : record canonique AD/lifecycle/observations, champs demandés incluant raffinements/expression/groupage, qualité/dates et identité ; même record transmis au calcul en cas de miss. Plans inchangés réutilisés et cartes WPF valeurs/distributions/séries/mesures/listes conservées via clé incluant largeur, snapshot, dates affichées, état partiel et palette. En amont, cache du fournisseur logiciel avant groupements/tris, invalidé par lignes, jour, date source, identité/store, couleurs et culture.",
+      "portee_tests": "R2 Boards Programme 38 4/4 : plans, compteurs de constructions WPF, changements isolés/date/largeur/palette/contexte et fournisseur logiciel avant agrégation. Sélection complète, suite complète non exécutée (Complete=false). QueryTargets 39/39 : vrais records/DLL, dépendances AD/lifecycle/observations projetées localement, qualité/dates/identité et fallback des filtres de sonde cachés.",
+      "reste_code": []
+    },
+    {
+      "id": 39,
+      "titre": "Dernière vue pendant recalcul",
+      "responsable": "parcours_dashboard",
+      "code": "DEJA_EXISTANT_RELU",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Pas de validation du dashboard pendant calcul dans cette passe."
+      ],
+      "mise_en_oeuvre": "Dernière vue Fleet conservée durant calcul différé/échec ; résultat protégé par clé de périmètre.",
+      "portee_tests": "Cas Boards accueil non recalculable et dashboard masqué sans reçu.",
+      "reste_code": []
+    },
+    {
+      "id": 40,
+      "titre": "Raisons des widgets vides",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/HealthRules.json"
+      ],
+      "limites": [
+        "Boards widgets/BF-019 non exécutés ; toutes raisons visuelles non couvertes."
+      ],
+      "mise_en_oeuvre": "Placeholders existants conservés ; historique insuffisant et source/date inconnue expliqués avec geste utile.",
+      "portee_tests": "HealthRules Programme 46 réussi pour données santé manquantes.",
+      "reste_code": []
+    },
+    {
+      "id": 41,
+      "titre": "Persistance tailles et ordre",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StoragePreferences.json"
+      ],
+      "limites": [
+        "Ne couvre pas le drag/resize WPF ni le nouveau cas Boards Programme 41/42."
+      ],
+      "mise_en_oeuvre": "Persistance et undo existants ; presets conservent Id, taille, titre, pause et widgets personnalisés.",
+      "portee_tests": "StoragePreferences : layouts et choix requêtes survivent snapshot/restauration, rollback réussi sur échec.",
+      "reste_code": []
+    },
+    {
+      "id": 42,
+      "titre": "Dispositions support inventaire santé",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Aucune collecte et aucun changement du périmètre de données."
+      ],
+      "mise_en_oeuvre": "Presets Support/Inventaire/Santé additifs raccordés à Personnaliser ; ajout des cartes connues manquantes et conservation des personnalisées.",
+      "portee_tests": "Boards Programme 41/42 écrit (idempotence/undo), sans reçu.",
+      "reste_code": []
+    },
+    {
+      "id": 43,
+      "titre": "Comparaison OU et état précédent",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Comparaison limitée aux données réellement historiques et mêmes critères ; pas de stockage parallèle."
+      ],
+      "mise_en_oeuvre": "Pivots OU et comparaison snapshots existants ; dates invalides/futures et doublons quotidiens filtrés.",
+      "portee_tests": "HealthRules comparaisons et BoardFleet BF-019 sans reçu.",
+      "reste_code": []
+    },
+    {
+      "id": 44,
+      "titre": "Évolution appuyée sur historique",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES",
+      "preuves_tests": [],
+      "limites": [
+        "Jours manquants restent absents ; aucune fausse histoire ni preuve de UI produite."
+      ],
+      "mise_en_oeuvre": "Courbes dès deux dates valides du même indicateur sur 90 jours ; valeurs absentes/non finies/négatives ignorées.",
+      "portee_tests": "BF-019 enrichi écrit, non exécuté.",
+      "reste_code": []
+    },
+    {
+      "id": 45,
+      "titre": "Alertes santé explicables",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/HealthRules.json",
+        "validation/2026-10-20/rc39-critical/rc39-ui/CriticalUI-Result.json"
+      ],
+      "limites": [
+        "Modèle sans WPF ; date de calcul ne remplace jamais une collecte."
+      ],
+      "mise_en_oeuvre": "Preuve de règle : seuil, valeur, source et date/période connue ; drilldown existant vers GUID signalés/masqués.",
+      "portee_tests": "HealthRules Programme 45 réussi ; seuil/source/date et cibles exactes. UI critique réelle : parcours OU/index AD puis ouverture fiche/poste/santé réussi ; ne couvre pas tous les nouveaux cas.",
+      "reste_code": []
+    },
+    {
+      "id": 46,
+      "titre": "Sain problème inconnu distincts",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/HealthRules.json",
+        "validation/2026-10-20/rc39-critical/rc39-ui/CriticalUI-Result.json"
+      ],
+      "limites": [
+        "WpfExecuted=false ; colonne et gestes UI non exécutés."
+      ],
+      "mise_en_oeuvre": "Constat Sain/Problème/Inconnu distinct de l’activation ; couverture partielle/missing reste inconnue, problème reste sous suspension.",
+      "portee_tests": "HealthRules Programme 45/46/48 et couverture : 23/23 au total. UI critique réelle : parcours OU/index AD puis ouverture fiche/poste/santé réussi ; ne couvre pas tous les nouveaux cas.",
+      "reste_code": []
+    },
+    {
+      "id": 47,
+      "titre": "Collecter les données manquantes",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/HealthRules.json",
+        "validation/2026-10-20/rc39-critical/rc39-ui/CriticalUI-Result.json"
+      ],
+      "limites": [
+        "Vrai clic WPF et compte StartCalls/ParkCalls du cas Boards Programme 47 non exécutés."
+      ],
+      "mise_en_oeuvre": "Bouton MissingData ouvre l’écran de collecte adapté au snapshot consulté ; vue remplacée protégée.",
+      "portee_tests": "HealthRules Programme 46 confirme la donnée manquante et la cible explicite. UI critique réelle : parcours OU/index AD puis ouverture fiche/poste/santé réussi ; ne couvre pas tous les nouveaux cas.",
+      "reste_code": []
+    },
+    {
+      "id": 48,
+      "titre": "Exceptions motivées et bornées",
+      "responsable": "parcours_dashboard",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/HealthRules.json"
+      ],
+      "limites": [
+        "Éditeur WPF et ensemble des cas d’expiration/héritage des règles non exécutés ici."
+      ],
+      "mise_en_oeuvre": "Motif/échéance UTC/héritage existants ; preuve du problème conservée pendant suspension, trace historique bornée.",
+      "portee_tests": "HealthRules Programme 48 : exception motivée datée masque sans effacer la preuve.",
+      "reste_code": []
+    },
+    {
+      "id": 49,
+      "titre": "Rotations et échéances sauvegardes",
+      "responsable": "stockage_opencode",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-stockage.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageMaintenance.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StoragePreferences.json"
+      ],
+      "limites": [
+        "Échéances/rotation longue période et volumes représentatifs non qualifiés ; aucun banc BackupQualification supplémentaire produit."
+      ],
+      "mise_en_oeuvre": "Rotation limitée aux noms réguliers de sa série ; nouvelle copie, migrations/rétention/gestes et fichiers opérateur préservés.",
+      "portee_tests": "Maintenance 33/33 : échéancier borné et archive migration conservée après rotation ; préférences 9/9.",
+      "reste_code": []
+    },
+    {
+      "id": 50,
+      "titre": "Restauration données et réglages",
+      "responsable": "stockage_opencode",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-stockage.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageMaintenance.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StoragePreferences.json"
+      ],
+      "limites": [
+        "Retour UI et redémarrage après restauration complète/ancienne copie non qualifiés.",
+        "Le StoreId est lié au chemin complet et au domaine : copier manuellement un profil vers un autre chemin ne migre pas son identité. Utiliser Déplacer/Restaurer ; le premier contrôle visuel sur profil déplacé a été refusé ; VisualCompact réussit ensuite au chemin original conservé, sans modification de cette protection."
+      ],
+      "mise_en_oeuvre": "Paire DB + annexe préférences liée SHA256, limites taille/profondeur et aperçu revérifiés ; rollback préférences ; anciennes copies annoncées données seules.",
+      "portee_tests": "Restauration données/requêtes/snapshot complet, hash/profondeur/annexe altérée refusés ; layouts/choix et rollback disque réussis.",
+      "reste_code": []
+    },
+    {
+      "id": 51,
+      "titre": "Disque plein destination inaccessible verrou",
+      "responsable": "stockage_opencode",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-stockage.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageFaults.json"
+      ],
+      "limites": [
+        "Rapport Qualifying=false : aucun volume physiquement plein ; destination inaccessible et publication seconde copie à qualifier."
+      ],
+      "mise_en_oeuvre": "Publication DB+annexe via temporaires et previous, rollback destination ; bancs verrous/SQLITE_FULL/arrêts existants.",
+      "portee_tests": "StorageFaults 8/8, 42 assertions : verrous réels, SQLITE_FULL via max_page_count et Process.Kill.",
+      "reste_code": []
+    },
+    {
+      "id": 52,
+      "titre": "Coût des écritures et rétention",
+      "responsable": "stockage_opencode",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-stockage.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageMaintenance.json"
+      ],
+      "limites": [
+        "Pas de métriques d’écriture/endurance sur domaine représentatif."
+      ],
+      "mise_en_oeuvre": "Rétention sans candidat refusée avant backup/révision ; compaction historique en une passe ; copies pré-rétention préservées.",
+      "portee_tests": "Maintenance : zéro candidat sans backup/révision et compaction d’un grand parc réussis.",
+      "reste_code": []
+    },
+    {
+      "id": 53,
+      "titre": "Retour arrière après migration",
+      "responsable": "stockage_opencode",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-stockage.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageMaintenance.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/StorageFaults.json"
+      ],
+      "limites": [
+        "Ne qualifie pas tout le coordinateur de migration ni une exécution avec un ancien runtime."
+      ],
+      "mise_en_oeuvre": "Backup autonome pré-migration en journal DELETE avec quick_check ; archive préservée par rotation et transaction DDL revient en arrière.",
+      "portee_tests": "Maintenance : schéma/données et archive de migration conservés ; Faults : migration interrompue puis reprise.",
+      "reste_code": []
+    },
+    {
+      "id": 54,
+      "titre": "Diagnostic expurgé",
+      "responsable": "stockage_opencode",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-stockage.md"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-final-delta/DiagnosticExport.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-delta/Rules-Observability.json"
+      ],
+      "limites": [
+        "Export local ciblé sans réseau ni préférences de production ; ne qualifie pas tous les incidents de disque ni une session de production."
+      ],
+      "mise_en_oeuvre": "Diagnostic expurgé à listes fermées/versions numériques ; sentinelles et noms libres rejetés ; banc export document écrit.",
+      "portee_tests": "R1 DiagnosticExport 4/4, 12 assertions : fichier JSON exporté identique à l’aperçu expurgé, refus, annulation et destination verrouillée sans document partiel. Règles Observability 17/17 ; rapports historiques conservés.",
+      "reste_code": []
+    },
+    {
+      "id": 55,
+      "titre": "Découpage progressif du cœur",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md",
+        "dev/engineering/d120/programme-2026-10-20/AssociationRows-static.json"
+      ],
+      "tests_windows": "PARTIELS_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-final-delta/AssociationRows.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json"
+      ],
+      "limites": [
+        "Extraction ciblée, pas découpage complet du cœur ; banc local, sans parcours AD réel."
+      ],
+      "mise_en_oeuvre": "Set-RowAssociationMetadata extrait dans AssociationRows.UI et enregistré au chargeur ; corps identique attesté par SHA.",
+      "portee_tests": "R1 AssociationRows 5/5 : identité/ordre des lignes, enrichissement utilisateur, erreur facultative, GUID machine et meilleur lien. Le reçu statique initial reste non qualifiant Windows ; le reçu R1 atteste les cinq exécutions.",
+      "reste_code": []
+    },
+    {
+      "id": 56,
+      "titre": "Bancs cohérents sans assertions affaiblies",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "CIBLES_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LocalPreview.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/LiveSearchView.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/WiringCache.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/WiringCache.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/WiringCache-final.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/Done.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/LocalPreview.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/Boards.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/QueryTargets.json",
+        "validation/2026-10-20/rc39-critical/rc39-tree-r4/TreeVirtualization.json",
+        "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-visual-compact/VisualCompact-Result.json"
+      ],
+      "limites": [
+        "Contrôles critiques seulement. WiringRecherche : 47 succès R4, cinq retests réussis R5 et D028 réussi R6 ; aucun échec connu restant dans ces cas, sans réexécution intégrale des 53 cas. Rapports historiques en échec conservés."
+      ],
+      "mise_en_oeuvre": "Fixtures LocalPreview/Live/Wiring chargent leurs vraies dépendances ; assertions conservées, incidents/opérations fictives couverts par bancs Python.",
+      "portee_tests": "R1 acquis conservés. R2 : LocalPreview 21/21, QueryTargets 39/39, Boards Programme 38 4/4 (SelectionComplete=true, Complete=false), TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 : TreeVirtualization 8/8 WPF réel/synthétique après trois échecs de révélation R2/R3 ; WiringRecherche R4 sans filtre : 47/53, les dix cas ciblés antérieurement passent ; les six échecs passent ensuite : cinq en R5, D028 en R6. Bilan cumulé 47 + 5 + 1 ; suite complète non rejouée.",
+      "reste_code": []
+    },
+    {
+      "id": 57,
+      "titre": "Recette courte représentative",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "CIBLES_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/Progress.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/Done.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/Done.json",
+        "validation/2026-10-20/rc39-critical/rc39-live-timeout/LiveBatch.json",
+        "validation/2026-10-20/rc39-critical/rc39-critical-retest/WiringCache-final.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/Done.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/LocalPreview.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/Boards.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-retest/QueryTargets.json",
+        "validation/2026-10-20/rc39-critical/rc39-tree-r4/TreeVirtualization.json",
+        "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-visual-compact/VisualCompact-Result.json",
+        "validation/2026-10-20/rc39-critical/FinalCompactIntegrity.json",
+        "validation/2026-10-20/rc39-critical/rc39-visual-compact/VisualReview.json",
+        "validation/2026-10-20/rc39-critical/rc39-visual-retest/VisualReview.json"
+      ],
+      "limites": [
+        "Contrôles critiques seulement. WiringRecherche : 47 succès R4, cinq retests réussis R5 et D028 réussi R6 ; aucun échec connu restant dans ces cas, sans réexécution intégrale des 53 cas. Rapports historiques en échec conservés."
+      ],
+      "mise_en_oeuvre": "Verify-Critical orchestre une recette critique réduite ; scénario AD/WMI/SQL réel séparé.",
+      "portee_tests": "R1 acquis conservés. R2 : LocalPreview 21/21, QueryTargets 39/39, Boards Programme 38 4/4 (SelectionComplete=true, Complete=false), TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 : TreeVirtualization 8/8 WPF réel/synthétique après trois échecs de révélation R2/R3 ; WiringRecherche R4 sans filtre : 47/53, les dix cas ciblés antérieurement passent ; les six échecs passent ensuite : cinq en R5, D028 en R6. Bilan cumulé 47 + 5 + 1 ; suite complète non rejouée.",
+      "reste_code": []
+    },
+    {
+      "id": 58,
+      "titre": "Preuves liées au pack et parité DEV PROD",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md",
+        "validation/2026-10-20/rc39-critical/BuildInitial.json"
+      ],
+      "tests_windows": "CIBLES_REUSSIS",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/rc39-critical-tests/Environment.json",
+        "validation/2026-10-20/rc39-critical/BuildQualifiedCompact.json",
+        "validation/2026-10-20/rc39-critical/rc39-visual-compact/VisualCompact-Result.json",
+        "validation/2026-10-20/rc39-critical/FinalCompactIntegrity.json",
+        "validation/2026-10-20/rc39-critical/rc39-visual-compact/VisualReview.json",
+        "validation/2026-10-20/rc39-critical/rc39-visual-retest/VisualReview.json"
+      ],
+      "limites": [
+        "Qualification critique ciblée seulement. Le reçu du générateur reste WindowsQualification NOT_EVALUATED et Publishable=false ; aucune qualification générale ni publication acquise par ce seul reçu. Dernière reconstruction DEV documentaire doit préserver les 176 fichiers runtime et le PROD exact."
+      ],
+      "mise_en_oeuvre": "Contrats/manifestes et garde release présents ; BuildQualifiedCompact confirme 176 fichiers runtime identiques DEV/PROD. 177 fichiers avec manifeste déployés et vérifiés au chemin de profil original.",
+      "portee_tests": "PROD SHA256 27244218D38B6924F7F0F5BD246C613458C328CE3472DE963FD6E75651B7B7A9 ; ZIP/manifeste/guard PASS. FinalCompactIntegrity exit 0. VisualCompact : état vide défilable, action visible, dashboard peuplé, aucun nouvel ERROR ; Core inchangé par le dernier correctif Main.xaml. Compact montre encore le chargement de l’arbre ; VisualRetest précédent montre 11 branches déclarées et sept éléments UIA avec le même runtime d’arbre.",
+      "reste_code": []
+    },
+    {
+      "id": 59,
+      "titre": "Échelle endurance réseau DPI accessibilité",
+      "responsable": "root",
+      "code": "NON_REALISE_HORS_PASSE_CRITIQUE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md"
+      ],
+      "tests_windows": "NON_EXECUTES_HORS_PERIMETRE",
+      "preuves_tests": [],
+      "limites": [
+        "Les cas synthétiques 5 000 objets et quelques pannes injectées ne constituent pas cette qualification."
+      ],
+      "mise_en_oeuvre": "Qualification étendue non lancée conformément au périmètre critique demandé.",
+      "portee_tests": "Aucune campagne échelle/endurance/réseau/DPI/accessibilité de cette passe.",
+      "reste_code": []
+    },
+    {
+      "id": 60,
+      "titre": "Suivi courant et guides cohérents",
+      "responsable": "root",
+      "code": "IMPLEMENTE",
+      "preuves_code": [
+        "dev/engineering/d120/programme-2026-10-20/Lot-stockage.md",
+        "guides/technicien.md",
+        "guides/administrateur.md",
+        "guides/technicien.json",
+        "guides/administrateur.json"
+      ],
+      "tests_windows": "QA_DOCUMENTAIRE_REUSSIE",
+      "preuves_tests": [
+        "validation/2026-10-20/rc39-critical/GuideSyncInitial.json",
+        "validation/2026-10-20/rc39-critical/DocSync.json"
+      ],
+      "limites": [
+        "Pas d’exécution native Word ; captures RC20 conservées et explicitement historiques, pas preuve visuelle runtime RC39."
+      ],
+      "mise_en_oeuvre": "Quatre sources de guides RC39 mises à jour, quatre DOC générés/synchronisés et suivi 60 détaillé par preuve/limite.",
+      "portee_tests": "guide-qa-sync passed=true : tous feuillets en planches et pages modifiées agrandies ; doc_sync PASS.",
+      "reste_code": []
+    }
+  ],
+  "updated_utc": "2026-10-20T22:03:56.952785+00:00",
+  "checkpoint_branch": "codex/rc39-60points-checkpoint",
+  "qualification": "CIBLEE_REUSSIE",
+  "decision_tests": "Dernière décision utilisateur : contrôler les fonctions critiques sous Windows seulement ; qualification étendue du point 59 hors périmètre de cette passe ; VM conservée.",
+  "candidate_runtime_files": 176,
+  "previous_checkpoint": "4d90115b0ab7a71c7559ed343fcd4890a897c204",
+  "critical_runner": "Verify-Critical.ps1",
+  "critical_scope": [
+    "startup/imports",
+    "local preview and AD search",
+    "WMI continuation",
+    "health",
+    "backup and restore"
+  ],
+  "statics": "35 targeted Python checks passed after repairs; lexical and closed-loader checks passed; build succeeded.",
+  "checkpoint_note": "Qualification critique ciblée réussie après corrections et retests. WiringRecherche : 47 succès R4 + cinq R5 + D028 R6 ; les 53 cas ne sont pas rejoués ensemble. VisualCompact réussi sur le PROD 27244218… : état vide défilable/action visible, dashboard peuplé, aucun nouvel ERROR, intégrité exit 0. Arbre encore en chargement dans Compact ; le retest précédent, au runtime arbre identique, montre 11 branches déclarées et sept éléments UIA. 177 fichiers déployés, dont 176 runtime. Publication finale en cours ; point 59 hors passe, acceptance_passed=false, aucune qualification globale 60/60.",
+  "chemins_preuves": "Chemins relatifs à la racine du dépôt ; ../../rc39-local-first est le dossier local de reçus hors dépôt.",
+  "acceptance_passed": false,
+  "preuves_globales": [
+    "validation/2026-10-20/rc39-critical/rc39-critical-tests/Environment.json",
+    "validation/2026-10-20/rc39-critical/rc39-critical-tests/Progress.json",
+    "validation/2026-10-20/rc39-critical/rc39-critical-tests/Done.json",
+    "validation/2026-10-20/rc39-critical/rc39-critical-retest/Done.json",
+    "validation/2026-10-20/rc39-critical/rc39-live-timeout/LiveBatch.json",
+    "validation/2026-10-20/rc39-critical/BuildInitial.json",
+    "validation/2026-10-20/rc39-critical/GuideSyncInitial.json",
+    "validation/2026-10-20/rc39-critical/rc39-critical-retest/WiringCache-final.json",
+    "validation/2026-10-20/rc39-critical/rc39-ui/CriticalUI-Result.json",
+    "validation/2026-10-20/rc39-critical/rc39-final-retest/Environment.json",
+    "validation/2026-10-20/rc39-critical/rc39-final-retest/Done.json",
+    "validation/2026-10-20/rc39-critical/rc39-final-retest/Rules-Park.json",
+    "validation/2026-10-20/rc39-critical/rc39-tree-r4/TreeVirtualization.json",
+    "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json",
+    "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+    "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json",
+    "validation/2026-10-20/rc39-critical/rc39-visual-initial/Diagnostic.json",
+    "validation/2026-10-20/rc39-critical/rc39-visual-initial/VisualFinal-Result.json",
+    "validation/2026-10-20/rc39-critical/BuildQualifiedCompact.json",
+    "validation/2026-10-20/rc39-critical/rc39-visual-compact/VisualCompact-Result.json",
+    "validation/2026-10-20/rc39-critical/FinalCompactIntegrity.json",
+    "validation/2026-10-20/rc39-critical/UpgradeCompactApplied.json",
+    "validation/2026-10-20/rc39-critical/rc39-visual-compact/VisualReview.json",
+    "validation/2026-10-20/rc39-critical/rc39-visual-retest/VisualRetest-Result.json",
+    "validation/2026-10-20/rc39-critical/rc39-visual-retest/VisualReview.json"
+  ],
+  "lecture_statuts": {
+    "code": "DEJA_EXISTANT_RELU : mécanisme raccordé relu ; IMPLEMENTE : ajout/correctif intégré ; PARTIEL_RESTE_CODE : lacune connue ; ETUDE_TERMINEE : décision documentée. Aucun de ces états ne clôture la qualification.",
+    "tests_windows": "PARTIELS_REUSSIS : seuls les cas nommés sont prouvés ; PARTIELS_RETEST_EN_ATTENTE : résultats acquis mais dernier reçu manquant ; NON_EXECUTES : aucune preuve ciblée dans cette passe. Un contrôle AST ou une simulation reste identifié comme tel.",
+    "preuves": "Les rapports de lots décrivent les sources et les tests écrits, pas leur exécution. Les reçus datés priment pour les exécutions ; leurs hashes ne prouvent pas un runtime modifié ensuite."
+  },
+  "synthese": {
+    "code_restant_confirme": [],
+    "constats_intermediaires_corriges": [
+      {
+        "points": [
+          8
+        ],
+        "ancien_constat": "TvDirectory conservait directement les conteneurs ; le budget de rendu ne remplaçait pas la virtualisation.",
+        "correction": "Modèle observable et panneaux virtuels intégrés. Le trigger du thème imposant un panneau standard aux enfants a été corrigé après les trois échecs de révélation R2/R3. R4 TreeVirtualization 8/8 : WPF réel, 10 000 DTO synthétiques, 40 conteneurs au premier relevé et maximum 61 sur neuf cibles. Ce succès ciblé ne mesure ni la mémoire du processus ni un parc AD réel ; les données lues restent conservées."
+      },
+      {
+        "points": [
+          38
+        ],
+        "ancien_constat": "Les dépendances Query Computer n'étaient pas représentées dans le cache de plans et les fournisseurs amont étaient recalculés.",
+        "correction": "Cache Query Computer fondé sur le record canonique et ses champs demandés, qualité et dates ; record transmis au calcul en cas de miss. Cache logiciel placé avant groupements et tris. Les formes non admissibles et le fournisseur Computer gardent leur recalcul conservateur ; aucun incrémental universel ni gain chiffré revendiqué."
+      }
+    ],
+    "couverture_code_bornee": [
+      {
+        "points": [
+          31
+        ],
+        "limite": "Exact/préfixe/contient pour les résultats obtenus ; aucune correction typographique ou requête floue ajoutée."
+      },
+      {
+        "points": [
+          10
+        ],
+        "limite": "Mesure Dispatcher du traitement interface incluant le rendu ; aucune mesure bout en bout qualifiée."
+      }
+    ],
+    "qualification_critique_restante": [],
+    "qualification_non_executee_hors_passe": [
+      "Suites intégrales Boards et Navigation non rejouées : seuls les filtres Programme 38 et Programme 8 passent en R2. Règles Park 14, BoardFleet 26, Collection 49, DirectorySync 11 et Observability 17 réussies ; elles ne prouvent pas à elles seules les parcours WPF/réseau. UxQualification et campagnes complètes restent non exécutées.",
+      "Échelle/endurance/mémoire, latences de navigation, réseau dégradé étendu, DPI et accessibilité (59) : hors périmètre critique demandé.",
+      "Rotations sur longue période, destination de sauvegarde inaccessible, volume physiquement plein, restauration complète depuis l’interface/redémarrage, coordinateur de migration complet : non qualifiés."
+    ],
+    "livraison": "PROD qualifié dans le périmètre critique ciblé : SHA256 27244218D38B6924F7F0F5BD246C613458C328CE3472DE963FD6E75651B7B7A9. 176 fichiers runtime identiques DEV/PROD, 177 fichiers déployés avec manifeste vérifiés. FinalCompactIntegrity exit 0 et VisualCompact réussi. Dernière reconstruction DEV documentaire/publication gérée par root ; préserver le PROD exact. Le garde général du build reste Publishable=false et WindowsQualification NOT_EVALUATED ; acceptance_passed=false, pas de qualification étendue.",
+    "guides": "Quatre DOC compilés et synchronisés ; QA visuelle passée sans exécution native Word. Texte RC39, captures RC20 explicitement historiques.",
+    "qualification_critique_acquise": "Contrôles critiques ciblés et retests réussis, aucun échec connu restant dans leur périmètre. WiringRecherche : 47 R4 + 5 R5 + 1 R6, pas de réexécution groupée des 53 cas. VisualCompact réussi après maintien du chemin de profil et correction du ScrollViewer de l’état vide ; aucun nouvel ERROR. La capture Compact montre encore le chargement de l’arbre ; les 11 branches déclarées/sept éléments UIA sont attestés par VisualRetest précédent avec le runtime d’arbre identique, complété par R4 synthétique 8/8."
+  },
+  "correctifs_apres_recus": {
+    "points": [
+      6,
+      8,
+      38
+    ],
+    "etat": "CIBLEE_REUSSIE",
+    "statique": "Contrôle lexical Python PASS sur 350 fichiers ; BOM/LF et diff-check des fichiers 6/38 sans erreur. Aucun parseur natif ni test Windows exécuté par le sous-lot.",
+    "tests_ecrits": [
+      "R2 Test-DomeniaLocalPreview : 21/21, dont les deux cas Programme 6 ; vrai callback, champs ciblés, générations, droits, fraîcheur et secrets.",
+      "R2 Test-DomeniaBoards filtre Programme 38 : 4/4, SelectionComplete=true, Complete=false ; plans, compteurs WPF, dépendances et cache fournisseur logiciel. Les 73 cas ne sont pas tous exécutés.",
+      "R2 Test-DomeniaQueryTargets : 39/39 ; vrais records/DLL, données locales, invalidations ciblées et filtre de sonde caché.",
+      "R2 TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 TreeVirtualization 8/8 WPF réel/synthétique après correction du panneau enfant ; WiringRecherche R4 sans filtre : 47/53, les six échecs passent ensuite (cinq en R5, D028 en R6). Les dix cas visés en R2 sont réussis ; bilan cumulé 47 + 5 + 1, suite complète non rejouée."
+    ],
+    "limite": "Les rapports sont liés aux sources de leur passage. R4 qualifie les scénarios WPF synthétiques de l’arbre ; les six échecs WiringRecherche passent leurs retests R5/R6. VisualCompact valide le dernier correctif Main.xaml (ScrollViewer de l’état vide), Core inchangé ; aucun nouvel ERROR. Les suites complètes non rejouées et la qualification étendue du point 59 restent hors passe. Aucun verdict global des 60 points."
+  },
+  "current_checkpoint": "4d90115b0ab7a71c7559ed343fcd4890a897c204"
+}

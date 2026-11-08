@@ -1,0 +1,21 @@
+{
+  "id": "ACC-049",
+  "verdict": "fait",
+  "preuves": [
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:48 — la population de la requête est bâtie sur le périmètre de l'OU (input.Scope) depuis l'instantané local, sans lecture réseau",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:65 — parts « Correspondants », « Inconnus » (ligne 66) et « Non correspondants » (ligne 67), chacune rattachée à son ensemble exact de GUID (lignes 57-62)",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:71 — répartition bornée aux 10 premières valeurs (QueryAnalysis.Items(..., 10))",
+    "src/Domenia.Core/Screens/Requetes/QueryAnalysis.cs:632 — « Autres valeurs » exacte, définie par l'exclusion des valeurs déjà affichées ; QueryAnalysis.cs:636 — « Valeur inconnue » pour les valeurs manquantes",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:79 — une part dont le détail ne reproduit pas son compte est refusée : « Détails incomplets pour une part ; aucune répartition approximative publiée. »",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:85 — détail « N correspondants · N inconnus · N non correspondants » suivi des sources et de leurs dates (lignes 83-84)",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:92 — ton d'avertissement dès qu'il existe des inconnus ou que la révision liée est en retard",
+    "src/Domenia.Core/Screens/Accueil/FleetQueryWidgets.cs:23 — états explicites : « Calcul à préciser » (défaut), « Requête absente » (ligne 33), sous-titre « Aucun résultat courant » (ligne 24)",
+    "tests/Domenia.Tests/FleetQueryWidgetTests.cs:64 — « Autres valeurs » bien présent au-delà des dix premières valeurs",
+    "tests/Domenia.Tests/FleetQueryWidgetTests.cs:69 — chaque part conserve son ensemble exact, sans recouvrement entre parts (ligne 70) et total conservé (ligne 72)",
+    "tests/Domenia.Tests/FleetQueryWidgetTests.cs:105 — requête absente : le widget n'est jamais présenté comme un zéro"
+  ],
+  "manque": "",
+  "effort": "S",
+  "depend": ["ACC-048", "atelier de requêtes (bibliothèque locale)"],
+  "risque": "lecture"
+}
