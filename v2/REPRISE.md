@@ -2,7 +2,7 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**09/11/2026 : correctif 2.1.1 en qualification CI (présence et lectures distantes sans Domain Admins, retour de production) ; 2.1.0 reste la release publiée.**
+**09/11/2026 : 2.1.1 qualifiée en CI sur `7627bd1e` (présence et lectures distantes sans Domain Admins), publication en attente de l’accord de David ; 2.1.0 publiée, connexion AD vérifiée sur banc.**
 
 ## 09/11/2026 — 2.1.1 : le poste décide, pas Domain Admins
 
@@ -25,6 +25,16 @@ Correctifs (décision du 9 novembre dans `docs/DECISIONS.md`) :
   `A_standard_Windows_session_runs_presence_and_inventory_campaigns`,
   `A_standard_explicit_account_measures_presence_but_starts_no_inventory_campaign` ;
 - version 2.1.1, guide `docs/RECETTE-MANUELLE-V2.1.1.md`, contrats d’opérations régénérés.
+
+Qualification : [run 42641992867](https://github.com/M4D135/domenia-d120/actions/runs/42641992867) sur `7627bd1e`, réussi.
+C# 3 028 tests (complète) et 1 586 critiques, dont les quatre nouveaux ; 218 contrôles navigateur, 7 scénarios de
+simulation ; connexion native hors connexion réussie, fermeture code 0. ZIP `Domenia_2.1.1_PROD-LIGHT_Windows-x64.zip`,
+84 266 401 octets, SHA-256 `85d795d75b332a9008de14c235ca81b788d44a4006e510e86c7f6c568689f8b2`, exécutable
+`882a8d07…`. Ses 788 fichiers ne contiennent pas le nom du domaine de labo. Notes et script de publication prêts hors
+dépôt (`domenia-kit/release-v2.1.1/`). Non exercé : un compte hors Domain Admins sur un domaine.
+
+Banc 2.1.0 : le LOGIN du kit `94851344` a réussi le 09/11 à 16:13 (parcours hors connexion, puis connexion avec la
+session Windows, fenêtre de validation, Accueil connecté, fermetures code 0). Rapport hors dépôt, SHA-256 `f771d12d…`.
 
 Le login NETBIOS (`DOMAINE\compte`) est accepté partout ; le champ « Compte » propose le dernier identifiant mémorisé
 pour la ressource, quelle que soit sa forme.
