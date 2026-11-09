@@ -16768,7 +16768,7 @@
   "operations": [],
   "safeguards": "Description absente jamais présumée identique.",
   "improvement": "",
-  "status": "a-faire"
+  "status": "fait"
  },
  {
   "id": "TRV-112",
@@ -18481,7 +18481,7 @@
   "operations": [],
   "safeguards": "Aucune écriture, aucun code, aucune méthode WMI ; coût lourd exige la collecte explicite.",
   "improvement": "",
-  "status": "a-faire"
+  "status": "fait"
  },
  {
   "id": "TRV-191",

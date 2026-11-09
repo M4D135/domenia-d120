@@ -2,7 +2,31 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**09/11/2026 : 2.1.1 publiée sur `7627bd1e` (présence et lectures distantes sans Domain Admins), à valider en production avec un compte hors Domain Admins ; 2.1.0 : connexion AD vérifiée sur banc. Relais vers Codex : [`docs/reprise/RELAIS-CODEX-20261109.md`](docs/reprise/RELAIS-CODEX-20261109.md).**
+**09/11/2026 : TRV-111 et TRV-190 clôturées dans le code après qualification CI (1 601 tests C# critiques) et relecture Spark ; corrections non publiées. Production : 2.1.1 sur `7627bd1e`, toujours à valider hors Domain Admins. PAR-046 reste partiel. Relais : [`docs/reprise/RELAIS-CODEX-20261109.md`](docs/reprise/RELAIS-CODEX-20261109.md).**
+
+## 09/11/2026 — TRV-111 et TRV-190 : preuves retrouvées et garanties testées
+
+Demande de David : « Go, attaque TRV-111 et TRV-190 avec le Spark. » Développement sur
+`codex/parite-populations-sondes-20261109`, commit source `c623de069eceed3e3a9390d00aec266e7245b4d7`.
+
+- TRV-111 : le descripteur complet existait dans Requêtes ; l’ancien audit citait un mauvais chemin. Sept tests
+  dédiés couvrent la comparaison et la description. Un score qui devient disponible ou disparaît ne fait plus
+  annoncer un état stable ou un gain : comparaison limitée, raison visible.
+- TRV-190 : le contrat et son admission existaient. Huit tests dédiés couvrent les refus et les témoins valides.
+  Garde comptes/groupes insensible à la casse, filtre local réellement restrictif, sous-espaces interdits refusés.
+  Lecture CIM seule, aucune méthode ni écriture, coût lourd explicitement collecté et exclusion des contrôleurs
+  conservés.
+- [CI 42696468288](https://github.com/M4D135/domenia-d120/actions/runs/42696468288) : Debug/Release réussis,
+  1 601/1 601 tests C# critiques, 26 auto-tests du harnais et 15 contrôles Python de publication réussis.
+  Mac : 48 tests Python réussis, non qualifiants Windows. Relecture finale du Spark : aucun défaut relevé.
+- Catalogue synchronisé par `apply_status.py --only TRV-111 TRV-190` : 621 faites, 370 améliorées, une partielle
+  (PAR-046), aucune à faire, une abandonnée. La portée ciblée évite de rejouer treize anciennes déclarations de
+  statuts appartenant à d’autres lots ; les totaux périmés de FEATURES.md sont recalculés.
+
+[Rapport et références fichier:ligne](docs/reprise/rapports/TRV-111-TRV-190-20261109.md).
+Aucune modification de schéma, recette AD/VM/production ou publication. La suite C# complète et les parcours
+navigateur/native ne sont pas réexécutés pour ce lot. La production reste 2.1.1 ; le retour hors Domain Admins et
+la recette manuelle restent à David. PAR-046 est hors de ce lot.
 
 ## 09/11/2026 — 2.1.1 : le poste décide, pas Domain Admins
 

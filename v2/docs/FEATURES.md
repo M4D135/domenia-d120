@@ -154,7 +154,7 @@ Audit de parité du 31/10/2026 : les 293 fonctions encore `a-faire` ou `partiel`
 | [Fiche](#fic) | FIC | 50 | 23 | 27 | 0 | 0 | 0 |
 | [Comptes](#cpt) | CPT | 21 | 14 | 7 | 0 | 0 | 0 |
 | [Utilisateurs et postes](#rel) | REL | 52 | 39 | 13 | 0 | 0 | 0 |
-| [Poste](#pst) | PST | 117 | 84 | 31 | 1 | 0 | 1 |
+| [Poste](#pst) | PST | 117 | 84 | 32 | 0 | 0 | 1 |
 | [Comptes machine (panneau Compte poste)](#mac) | MAC | 3 | 1 | 2 | 0 | 0 | 0 |
 | [Assistance](#ass) | ASS | 16 | 7 | 9 | 0 | 0 | 0 |
 | [Atelier de requêtes](#req) | REQ | 69 | 31 | 38 | 0 | 0 | 0 |
@@ -162,9 +162,9 @@ Audit de parité du 31/10/2026 : les 293 fonctions encore `a-faire` ou `partiel`
 | [Schéma de l'annuaire](#sch) | SCH | 8 | 2 | 6 | 0 | 0 | 0 |
 | [Synchronisation et base autonome](#syn) | SYN | 30 | 17 | 13 | 0 | 0 | 0 |
 | [Opérations](#ope) | OPE | 36 | 26 | 10 | 0 | 0 | 0 |
-| [Paramètres](#par) | PAR | 51 | 30 | 10 | 11 | 0 | 0 |
-| [Transverse : moteur, sécurité, stockage, interface commune](#trv) | TRV | 316 | 153 | 80 | 72 | 11 | 0 |
-| **Total** | | **993** | **619** | **278** | **84** | **11** | **1** |
+| [Paramètres](#par) | PAR | 51 | 30 | 20 | 1 | 0 | 0 |
+| [Transverse : moteur, sécurité, stockage, interface commune](#trv) | TRV | 316 | 155 | 161 | 0 | 0 | 0 |
+| **Total** | | **993** | **621** | **370** | **1** | **0** | **1** |
 
 ## Fonctions déjà faites dans Domenia 2
 
@@ -192,7 +192,7 @@ L'Accueil de Domenia 2 affiche déjà dix widgets calculés par `src/Domenia.Cor
 
 ## Accueil (ACC)
 
-64 fonctions : 55 faites, 9 améliorées, 0 partielles, 0 à faire, 0 abandonnées.
+64 fonctions : 55 faites, 9 améliorées.
 
 ### Actualiser l'OU
 
@@ -3388,7 +3388,7 @@ Contrôle les liens contre l'annuaire et liste les orphelins avec leur motif et 
 
 ## Poste (PST)
 
-117 fonctions : 84 faites, 31 améliorées, 1 partielles, 1 abandonnées.
+117 fonctions : 84 faites, 32 améliorées, 1 abandonnée.
 
 ### Connecteurs
 
@@ -4552,7 +4552,7 @@ Local d'abord (association connue immédiatement), puis pipeline : CIM utilisate
 
 ## Comptes machine (panneau Compte poste) (MAC)
 
-3 fonctions : 1 faites, 2 améliorées.
+3 fonctions : 1 faite, 2 améliorées.
 
 ### Panneau Compte poste
 
@@ -4748,7 +4748,7 @@ Ouvre la vue où l'étape présente ses informations (fiche, Audit AD et son ong
 
 ## Atelier de requêtes (REQ)
 
-69 fonctions : 31 faites, 38 améliorées, 0 partielles, 0 à faire, 0 abandonnées.
+69 fonctions : 31 faites, 38 améliorées.
 
 ### 1. Créer
 
@@ -6435,7 +6435,7 @@ Lignes en clair pour chaque source qui n'est pas saine : « annuaire · site X :
 
 ## Paramètres (PAR)
 
-51 fonctions : 30 faites, 9 améliorées, 12 partielles.
+51 fonctions : 30 faites, 20 améliorées, 1 partielle.
 
 ### À propos
 
@@ -7023,7 +7023,7 @@ Réapplique les réglages aux contrôles sans déclencher de recherche ni de col
 
 ## Transverse : moteur, sécurité, stockage, interface commune (TRV)
 
-316 fonctions : 150 faites, 41 améliorées, 111 partielles, 14 à faire, 0 abandonnées.
+316 fonctions : 155 faites, 161 améliorées.
 
 ### Accessibilité
 
@@ -8168,9 +8168,7 @@ Vocabulaire unique pour toutes les familles : Connue, Jamais relevée, Non lue, 
 
 #### TRV-111 · Populations comparables
 
-> Reste à faire : Preuve citée par l’audit du 31/10/2026 introuvable dans le code : à revérifier.
-
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Décrit ce qu'un chiffre, widget, liste ou export compte (domaine, périmètre, profondeur, types, critères, instantané) et nomme chaque différence entre deux populations.
 
@@ -8985,9 +8983,7 @@ Chaque lecture CIM compare le DNSHostName/Name renvoyé au nom demandé (forme N
 
 #### TRV-190 · Contrat de sonde Domenia.ProbeContract/1
 
-> Reste à faire : Preuve citée par l’audit du 31/10/2026 introuvable dans le code : à revérifier.
-
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque sonde est une donnée vérifiée : lecture CIM seulement, classes et espaces de noms refusés (Win32_Product, RSoP, subscription, LDAP…), comptes/groupes locaux seulement, propriétés et filtre bornés, jetons {SINCE_24H}/{SINCE_7D}, types déclarés, privilège, coût, sources Microsoft, tests attendus.
 

@@ -55,6 +55,8 @@
     "ACC-062",
     "ACC-063",
     "ACC-064",
+    "TRV-111",
+    "TRV-190",
     "TRV-285",
     "TRV-287",
     "TRV-301",
@@ -86,5 +88,9 @@
   "reprise_L09_20261101": {
     "ACC-039": "Depuis Postes concernés, Créer une requête transmet la révision et la clé au moteur, jamais la page tronquée. Conditions simples vérifiées sur les ensembles exacts, sinon sélection figée explicitement nommée ; périmètre conservé puis aperçu local. Calcul remplacé refusé et saisie pendant la lecture conservée. Qualification Windows en attente.",
     "ACC-051": "Les points d’attention et parts de santé ouvrent l’atelier sur les GUID complets du calcul, nommés avec compte et date UTC ; aucune nouvelle cible introduite, aucun relevé réseau. Limite de sélection explicite, absences locales signalées sans effacer leurs identités. Qualification Windows en attente."
+  },
+  "reprise_TRV_20261109": {
+    "TRV-111": "Preuves retrouvées dans FleetAnalysis.Compare et Screens/Requetes/QueryWorkshop ; score indisponible jamais annoncé stable ou amélioré. Sept tests dédiés PopulationComparisonTests. Voir reprise/rapports/TRV-111-TRV-190-20261109.md pour la qualification.",
+    "TRV-190": "Contrat vérifié dans ProbeCatalog.Contract et admission du catalogue ; garde comptes/groupes insensible à la casse, filtre local réel, sous-espaces interdits refusés. Huit tests dédiés ProbeContractParityTests. Voir reprise/rapports/TRV-111-TRV-190-20261109.md pour la qualification."
   }
 }
