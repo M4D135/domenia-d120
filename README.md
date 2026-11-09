@@ -43,7 +43,7 @@ Le schéma de données ne change pas : une base de 2.0.5 à 2.0.8 s’ouvre tell
 - démarrage du ZIP avec WebView2 Evergreen ;
 - connexion native jusqu’à l’Accueil hors connexion, puis fermeture propre.
 
-Sur une VM Windows 11 de test, le contrôle du pack réussit : empreintes, extraction neuve, identité du pack et détection de WebView2 Evergreen 140.0.3485.54 (`--check-only`). La connexion à un annuaire n’a pas encore été rejouée sur ces octets. Aucune écriture AD n’a été exécutée. Ce n’est ni une recette utilisateur ni une validation sur le domaine de production.
+Sur une VM Windows 11 de test, le contrôle du pack réussit : empreintes, extraction neuve, identité du pack et détection de WebView2 Evergreen 140.0.3485.54 (`--check-only`). Le 09/11, sur la même VM jointe au domaine de test, le ZIP publié passe la connexion native : parcours hors connexion jusqu’à l’Accueil, puis connexion avec l’identité de la session Windows, fenêtre de validation et Accueil connecté, chaque fois avec une fermeture propre (code 0). Aucun mot de passe n’est saisi par les outils. Aucune écriture AD n’a été exécutée. Ce n’est ni une recette utilisateur ni une validation sur le domaine de production.
 
 ## Sources et documentation
 

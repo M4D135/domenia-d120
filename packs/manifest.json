@@ -52,10 +52,11 @@
     },
     "native_offline_login": "passed",
     "bench_check": "passed",
-    "domain_login": "not-run",
+    "domain_login": "passed-on-test-vm-2026-11-09",
     "ad_writes": "not-performed",
     "human_recipe": "pending",
-    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.0.md"
+    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.0.md",
+    "domain_login_report_sha256": "f771d12d0cba0fe71e700dc903ef86d90d0e6a391e88c7095baaa2ca5b5b04d3"
   },
   "previous_releases": [
     {
