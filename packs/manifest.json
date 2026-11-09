@@ -1,139 +1,67 @@
 {
   "schema": 2,
   "product": "Domenia",
-  "version": "2.0.8",
+  "version": "2.1.0",
   "platform": "Windows-x64",
-  "source_commit": "5f4ed1ce8ead97b01e44653bba21e83d5b5f894c",
+  "source_commit": "948513449f014a132d610456356d1c7b708d925b",
   "distribution": {
     "channel": "github-release",
-    "tag": "v2.0.8",
-    "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.8",
-    "authorization_date": "2026-10-30",
+    "tag": "v2.1.0",
+    "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0",
+    "authorization_date": "2026-11-09",
     "method": "manual-publication-of-exact-verified-archives",
     "rebuild_for_publication": false,
-    "release_id": 428912895,
-    "published_at": "2026-10-30T10:44:07Z",
+    "release_id": 438872264,
+    "published_at": "2026-11-09T08:13:46Z",
     "remote_assets_verified": true
   },
   "archives": [
     {
-      "edition": "PROD",
-      "filename": "Domenia_2.0.8_PROD_Windows-x64.zip",
-      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.0.8/Domenia_2.0.8_PROD_Windows-x64.zip",
-      "bytes": 485740238,
-      "sha256": "c0f6da6f52f6c1a5416b1cc80a250363d04d23936a3e17faa5f73586492f0a06",
-      "github_asset_id": 691782668,
-      "github_digest_verified": true
-    },
-    {
-      "edition": "DEV",
-      "filename": "Domenia_2.0.8_DEV_Windows-x64.zip",
-      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.0.8/Domenia_2.0.8_DEV_Windows-x64.zip",
-      "bytes": 507390741,
-      "sha256": "599ef4a02c2693dbd50b2db53afa1752bfd51440cfc3a3ce50d6ecd05383c4bf",
-      "github_asset_id": 691783752,
+      "edition": "PROD-LIGHT",
+      "filename": "Domenia_2.1.0_PROD-LIGHT_Windows-x64.zip",
+      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.0/Domenia_2.1.0_PROD-LIGHT_Windows-x64.zip",
+      "bytes": 84266912,
+      "sha256": "53f6a967d72879e5b284f9e29bfa097774c35523e5c4d3c52b123efc38a488a3",
+      "github_asset_id": 726715624,
       "github_digest_verified": true
     }
   ],
   "checksums": {
     "filename": "SHA256SUMS.txt",
-    "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.0.8/SHA256SUMS.txt",
-    "bytes": 201,
-    "sha256": "4712171053b071e4f7de1ea7cd7413300570f3cf3fa0b3e3d020b1313f448544",
+    "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.0/SHA256SUMS.txt",
+    "bytes": 107,
+    "sha256": "d6795c9c6bb4580c85e6bda46bf2fcd443a0fa9023c54f0056aed7fb6fefc1f3",
     "repository_copy": "packs/SHA256SUMS",
-    "github_asset_id": 691784748,
+    "github_asset_id": 726715622,
     "github_digest_verified": true
   },
   "provenance": {
-    "delivery_ci": "https://github.com/M4D135/domenia-d120/actions/runs/41029725871",
-    "build_ci": "https://github.com/M4D135/domenia-d120/actions/runs/41029725831",
-    "prod_dev_runtime_identity": "verified",
-    "executable_sha256": "2acd7b56b08521a9a757c562e6918f47b4341e0c9ee8c344ab5fe1b51750afb1",
-    "report": "v2/docs/reprise/rapports/RAPPORT-PRESENCE-DNS-2.0.8-20261030.md"
+    "delivery_ci": "https://github.com/M4D135/domenia-d120/actions/runs/42534422081",
+    "executable_sha256": "61f54b7108f501dc5a94126d0cd0f6adedb239f3dd3d7d854ec20ffafdc30ab6",
+    "webview2": "evergreen-140.0.3485.54-or-socle-pack",
+    "report": "v2/REPRISE.md"
   },
   "qualification": {
-    "scope": "presence-dns-absent-name-is-a-result-not-a-probe-failure",
+    "scope": "prod-light-only-22-parity-lots",
     "ci": "passed",
     "ci_counts": {
-      "csharp_full_passed": 2593,
-      "csharp_critical_passed": 942,
-      "harness_self_tests": 26,
-      "release_guard_tests": 15,
-      "manual_package_verifier_tests": 11,
-      "browser_evidence_verifier_tests": 12,
-      "web_critical": 111,
+      "csharp_full_passed": 3025,
+      "csharp_critical_passed": 1583,
+      "web_critical": 218,
       "simulation_scenarios": 7
     },
-    "native_visual_review": "not-run-user-request",
-    "vm": "not-run-user-request",
-    "authentication": "not-attempted",
-    "domain_read": "not-run",
-    "single_target_ping": "not-run",
+    "native_offline_login": "passed",
+    "bench_check": "passed",
+    "domain_login": "not-run",
     "ad_writes": "not-performed",
     "human_recipe": "pending",
-    "strict_two_workstation_vm_qualification": "not-qualified",
-    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.0.8.md",
-    "report": "v2/docs/reprise/rapports/RAPPORT-PRESENCE-DNS-2.0.8-20261030.md",
-    "vm_acceptance": {
-      "annuaire": {
-        "passed": 6,
-        "failed": 0,
-        "skipped": 132
-      },
-      "simulation": {
-        "passed": 136,
-        "failed": 0,
-        "skipped": 2
-      }
-    }
+    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.0.md"
   },
   "previous_releases": [
     {
-      "tag": "v2.0.7",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.7"
-    },
-    {
-      "tag": "v2.0.6",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.6"
-    },
-    {
-      "tag": "v2.0.5",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.5"
-    },
-    {
-      "tag": "v2.0.4",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.4"
-    },
-    {
-      "tag": "v2.0.3",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.3"
-    },
-    {
-      "tag": "v2.0.2",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.2"
-    },
-    {
-      "tag": "v2.0.1",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.1"
-    },
-    {
-      "tag": "v2.0.0",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.0"
+      "tag": "v2.0.8",
+      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.0.8",
+      "archives_published": false
     }
-  ],
-  "v1_history": {
-    "tag": "v1-historique-20261026",
-    "source_commit": "c9898f61aaeca52f9e1ce1e1e01e74d8d2b5b595",
-    "url": "https://github.com/M4D135/domenia-d120/tree/v1-historique-20261026"
-  },
-  "layout": {
-    "root": [
-      "Domenia.exe",
-      "wad"
-    ],
-    "metadata": "wad/package-release.json",
-    "integrity": "wad/package-manifest.json",
-    "developer_sources": "wad/developer",
-    "upgrade_from_flat": "extract-into-new-directory"
-  }
+  ]
 }
