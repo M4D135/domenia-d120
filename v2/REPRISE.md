@@ -2,7 +2,29 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**08/11/2026 (nuit) : 2.1.0 qualifiée par la CI, sans nom du domaine de labo dans le pack ; dépôt à recréer avec sa seule dernière version, puis run, banc AD et publication ; production publiée toujours 2.0.8.**
+**09/11/2026 : [release v2.1.0](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0) publiée sur le commit unique du dépôt recréé ; connexion AD non vérifiée sur banc (recette domaine à faire).**
+
+## 09/11/2026 — dépôt recréé, 2.1.0 publiée
+
+Le dépôt a été recréé dans la nuit. Il ne contient plus qu’un commit, `948513449f014a132d610456356d1c7b708d925b` (arbre `d22ffacb`, identique à l’ancien `master`), et le tag `v2.0.8`. Les SHA cités plus bas n’existent plus sur GitHub. La release v2.0.8 ne garde que `SHA256SUMS.txt` : ses ZIP contenaient le nom du domaine de labo. Les anciens clones ont une URL de push neutralisée : ne jamais y repousser une branche ni un tag.
+
+Le run de livraison [42534422081](https://github.com/M4D135/domenia-d120/actions/runs/42534422081), sur ce commit, est vert :
+
+- 1583/1583 tests C# critiques, 3025/3025 complets ;
+- 218 contrôles web critiques et 7 scénarios de simulation UI ;
+- preuves navigateur valides ;
+- login natif hors connexion, fermeture avec le code 0.
+
+ZIP `Domenia_2.1.0_PROD-LIGHT_Windows-x64.zip`, SHA-256 `53f6a967d72879e5b284f9e29bfa097774c35523e5c4d3c52b123efc38a488a3`. Ses 788 entrées ne contiennent pas le nom du domaine de labo, et son `package-release.json` porte ce commit.
+
+Banc AD, le 09/11 : le CHECK du kit sur ce ZIP est réussi (moteur Evergreen 140.0.3485.54). Le LOGIN demande que David ouvre lui-même la session Windows de la VM ; aucun outil ne saisit ce mot de passe à sa place. David étant absent, il a décidé de publier sans ce LOGIN (« go publier »).
+
+La [release v2.1.0](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0) est publiée le 09/11 à 08:13 UTC, en dernière version, sur `94851344`. Elle contient le ZIP ci-dessus (SHA-256 vérifié par GitHub) et `SHA256SUMS.txt`. Ses notes disent que la connexion AD n’a pas été vérifiée sur banc.
+
+Reste à faire :
+
+- Recette sur le domaine. Le kit CHECK + LOGIN reste prêt sur le banc : extraction vérifiée, `login-done.json` absent. Elle demande l’ouverture de session par David, puis LOGIN et rapport.
+- Recette manuelle selon le [guide 2.1.0](docs/RECETTE-MANUELLE-V2.1.0.md).
 
 ## 08/11/2026 (nuit) — Domenia 2.1.0 qualifiée et fusionnée
 
