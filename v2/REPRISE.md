@@ -2,9 +2,9 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**09/11/2026 : parité clôturée dans le code : 622 faites, 370 améliorées, aucune partielle ni à faire, PST-001 abandonnée. Candidat 2.1.2 préparé ; qualification complète et publication en attente. Production : 2.1.1 sur `7627bd1e`, toujours à valider hors Domain Admins. Relais : [`docs/reprise/RELAIS-CODEX-20261109.md`](docs/reprise/RELAIS-CODEX-20261109.md).**
+**09/11/2026 : parité clôturée : 622 faites, 370 améliorées, aucune partielle ni à faire, PST-001 abandonnée. 2.1.2 qualifiée sur `c2e5edb1` : 3 043 tests C# complets, 1 601 critiques, 218 contrôles navigateur, 7 simulations et login natif hors connexion. ZIP vérifié, publication en attente du go explicite. Production : 2.1.1 sur `7627bd1e`, toujours à valider hors Domain Admins. Relais : [`docs/reprise/RELAIS-CODEX-20261109.md`](docs/reprise/RELAIS-CODEX-20261109.md).**
 
-## 09/11/2026 — clôture PAR-046 et préparation de 2.1.2
+## 09/11/2026 — clôture PAR-046 et qualification complète de 2.1.2
 
 Demande de David : « go tout terminer ». PAR-046 est terminé par les raccordements existants L16/L02 : délai
 effectif transmis aux fournisseurs, borné de 1 à 300 secondes (défaut 10), place occupée jusqu'au retour réel d'un
@@ -14,8 +14,18 @@ sans annoncer d'exécution en VM. Ces deux points du relais étaient périmés.
 
 Catalogue synchronisé par `apply_status.py --only PAR-046` : 622 faites, 370 améliorées, zéro partielle ou à faire,
 une abandonnée. Version 2.1.2 et gardes de livraison alignés, contrats vérifiés, 48 tests Python Mac réussis.
-Qualification complète du ZIP Windows en attente. La production reste 2.1.1 ; publication sur confirmation explicite
-de David. La recette réelle reste à faire, et aucun changement de schéma n'est introduit.
+Qualification complète [42701363001](https://github.com/M4D135/domenia-d120/actions/runs/42701363001), sur
+`c2e5edb1fe1841821a02e27e2014a6774015c82e`, réussie sous Windows hébergé : 3 043/3 043 tests C# complets,
+1 601/1 601 critiques (dont les 15 tests TRV et les tests PAR cités), 218 contrôles navigateur et 7 simulations.
+Login natif hors connexion réussi, fermeture code 0. Compilation Debug/Release et parseur PowerShell réussis.
+
+ZIP `Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip`, 84 267 433 octets, SHA-256
+`b4fd5a59f571db88ae60a4fe612e44bf58230b28c1c1e0302cc79a88b5082a2f`. Téléchargement des deux artefacts CI,
+empreintes et commit embarqué vérifiés ; le nom du domaine de labo est absent des 788 fichiers (UTF-8 et UTF-16LE).
+Le Spark n'a relevé aucun défaut bloquant dans le diff final ni dans les notes de version.
+
+La production reste 2.1.1 ; publication sur confirmation explicite de David. Aucun nouveau tag ni release créé.
+La recette réelle reste à faire, aucun ancien LOGIN de banc n'est reporté sur ce SHA, et le schéma reste 11, révision 2.
 
 [Preuves et qualification](docs/reprise/rapports/CLOTURE-DOMENIA2-V2.1.2-20261109.md),
 [guide de recette 2.1.2](docs/RECETTE-MANUELLE-V2.1.2.md).
