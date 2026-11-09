@@ -748,8 +748,9 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
             : exactTargets.Select(AdComputerIndex.For(current.Directory).Find).OfType<DirectoryComputer>();
         var targets = CampaignBranches.Order(candidates.Where(c => ScopeRules.Contains(scope, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)
             && (exactTargets is null || !inventory || current.Observations.Find(c.ObjectGuid) is { } o && CollectionNetworkPolicy.Eligible(o.Presence, allowUnanswered)))).ToArray();
-        if (targets.Length > 0)
-        { await AdWorkstationAccess.RequireNetworkIdentityAsync(this, targets[0].DnsHostName ?? targets[0].Name, cancellationToken).ConfigureAwait(false); }
+        // ICMP and DNS carry no credential: presence never asks for workstation administration (David, 09/11/2026).
+        if (inventory && targets.Length > 0)
+        { await AdWorkstationAccess.RequireNetworkIdentityAsync(this, targets[0].DnsHostName ?? targets[0].Name, cancellationToken, readOnly: true).ConfigureAwait(false); }
         var remoteSettings = await RemoteCollectionSettings.EffectiveAsync(AccountContext, cancellationToken).ConfigureAwait(false);
         using var transientScope = inventory ? TransientReadAuthorization.Begin(remoteSettings, targets.Select(c => c.ObjectGuid)) : null;
         var results = new WorkstationObservation?[targets.Length];
@@ -815,7 +816,7 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
             {
                 if (Epoch != generation) { throw new OperationCanceledException("La session a changé.", cancellationToken); }
                 var host = computer.DnsHostName ?? computer.Name;
-                await AdWorkstationAccess.RequireNetworkIdentityAsync(this, host, cancellationToken).ConfigureAwait(false);
+                if (inventory) { await AdWorkstationAccess.RequireNetworkIdentityAsync(this, host, cancellationToken, readOnly: true).ConfigureAwait(false); }
                 var before = current.Observations.Find(computer.ObjectGuid);
                 var presence = before?.Presence ?? PresenceMeasure.Unread;
                 var measured = before?.Inventory ?? InventoryMeasure.Unread;
@@ -855,7 +856,7 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
                 {
                     if (probe is ICredentialWorkstationFactsProbe authenticated)
                     {
-                        using var ownedMachine = retainedAccess is null ? await AdWorkstationAccess.AcquireAsync(this, host, cancellationToken).ConfigureAwait(false) : null;
+                        using var ownedMachine = retainedAccess is null ? await AdWorkstationAccess.AcquireAsync(this, host, cancellationToken, readOnly: true).ConfigureAwait(false) : null;
                         var access = retainedAccess?.Machine ?? ownedMachine!;
                         var read = await new CollectionReadRetry(Clock, retryPolicy).RunAsync(async token =>
                         {

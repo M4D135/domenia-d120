@@ -76,23 +76,75 @@ internal static partial class AdministrationIdentityTests
     }
 
     [Test]
-    public static async Task A_standard_account_keeps_cached_AD_views_but_starts_neither_ping_nor_inventory_campaigns()
+    public static async Task A_standard_explicit_account_measures_presence_but_starts_no_inventory_campaign()
+    {
+        // ICMP and DNS carry no credential: measuring online workstations needs no administration (David, 09/11/2026).
+        // A typed connection account keeps the administration check before WMI.
+        foreach (var family in new[] { MeasureFamily.Presence, MeasureFamily.Inventory })
+        {
+            var pc = Fixtures.Computer("PC1"); var probe = new CountingProbe(); var copies = 0;
+            var cache = new AdAccueilTests.FleetCache(Fixtures.Snapshot(computers: [pc]));
+            using var source = new AdDirectorySource("test.local", () => "TEST\\reader", TestClock.Fixed(), probe,
+                new AdBoundaryTests.RecordingAdConnection(), cache)
+            { SessionCredentialCopy = () => { copies++; return AdBoundaryTests.NativeSessionCredential(); } };
+            source.AdoptConnection(new AdBoundaryTests.RecordingAdConnection(), Fixtures.Domain,
+                new(new("TEST\\reader", null, null, "CN=reader," + Fixtures.People), Fixtures.Domain.DomainSid + "-1001",
+                    new(RightsLevel.Unknown, "Non évalués", true, "Droits AD distincts."))
+                { Administration = new(AdministrationIdentityState.Standard, "Lecture AD seule.") }, source.Epoch, false);
+            Check.Equal(1, (await source.ReadLocalAsync(CancellationToken.None)).Directory.Computers.Length, "cache AD accessible");
+            if (family == MeasureFamily.Presence)
+            {
+                await source.RefreshAsync(family, new(Fixtures.Postes, "Postes", true), CancellationToken.None);
+                Check.Equal(1, probe.Calls, "un ping par poste, sans compte d’administration");
+                Check.True(source.CurrentObservations.Workstations.Single().Presence.Answered == true, "présence enregistrée");
+            }
+            else
+            {
+                var error = await Check.ThrowsAsync<DomeniaOperationException>(() => source.RefreshAsync(family,
+                    new(Fixtures.Postes, "Postes", true), CancellationToken.None), "campagne distante refusée");
+                Check.Equal(AdministrationIdentity.Required, error.Code, "voie autre compte explicite");
+                Check.Equal(0, probe.Calls, "aucun WMI envoyé");
+            }
+            Check.Equal(0, copies, "aucune identité native copiée");
+        }
+    }
+
+    [Test]
+    public static async Task A_Windows_session_read_is_left_to_the_workstation_but_writes_keep_the_check()
+    {
+        // David, 09/11/2026: with the Windows session identity, a remote read is tried and the workstation grants or refuses it.
+        foreach (var state in new[] { AdministrationIdentityState.Unknown, AdministrationIdentityState.Standard })
+        {
+            using var ldap = new AdBoundaryTests.RecordingAdConnection(); var copies = 0;
+            using var source = new AdDirectorySource("test.local", () => "TEST\\reader", TestClock.Fixed(), connection: ldap)
+            { SessionCredentialCopy = () => { copies++; return AdBoundaryTests.NativeSessionCredential(); },
+              AdministrationOverride = new(state, "Lecture AD seule.") };
+            using (var read = await AdWorkstationAccess.AcquireAsync(source, "PC-01.test.local", CancellationToken.None, readOnly: true))
+            {
+                await read.BeforeContactAsync(source, "PC-01.test.local", CancellationToken.None);
+                Check.True(read.Credential.Session, "identité de la session Windows");
+                Check.Null(read.Credential.Password, "aucun mot de passe manipulé");
+            }
+            Check.Equal(1, copies, "une copie de l’identité native, sans secret");
+            var write = await Check.ThrowsAsync<DomeniaOperationException>(() => AdWorkstationAccess.AcquireAsync(source, "PC-01.test.local", CancellationToken.None), "écriture distante contrôlée");
+            Check.Equal(AdministrationIdentity.Required, write.Code, "voie autre compte explicite");
+            Check.Equal(1, copies, "refus avant copie native");
+        }
+    }
+
+    [Test]
+    public static async Task A_standard_Windows_session_runs_presence_and_inventory_campaigns()
     {
         foreach (var family in new[] { MeasureFamily.Presence, MeasureFamily.Inventory })
         {
             var pc = Fixtures.Computer("PC1"); var probe = new CountingProbe();
             var cache = new AdAccueilTests.FleetCache(Fixtures.Snapshot(computers: [pc]));
             using var source = new AdDirectorySource("test.local", () => "TEST\\reader", TestClock.Fixed(), probe,
-                new AdBoundaryTests.RecordingAdConnection(), cache);
-            source.AdoptConnection(new AdBoundaryTests.RecordingAdConnection(), Fixtures.Domain,
-                new(new("TEST\\reader", null, null, "CN=reader," + Fixtures.People), Fixtures.Domain.DomainSid + "-1001",
-                    new(RightsLevel.Unknown, "Non évalués", true, "Droits AD distincts."))
-                { Administration = new(AdministrationIdentityState.Standard, "Lecture AD seule.") }, source.Epoch, false);
-            Check.Equal(1, (await source.ReadLocalAsync(CancellationToken.None)).Directory.Computers.Length, "cache AD accessible");
-            var error = await Check.ThrowsAsync<DomeniaOperationException>(() => source.RefreshAsync(family,
-                new(Fixtures.Postes, "Postes", true), CancellationToken.None), "campagne distante refusée");
-            Check.Equal(AdministrationIdentity.Required, error.Code, "voie autre compte explicite");
-            Check.Equal(0, probe.Calls, "aucun ping ni WMI envoyé");
+                new AdBoundaryTests.RecordingAdConnection(), cache)
+            { AdministrationOverride = new(AdministrationIdentityState.Standard, "Lecture AD seule.") };
+            await source.ReadLocalAsync(CancellationToken.None);
+            await source.RefreshAsync(family, new(Fixtures.Postes, "Postes", true), CancellationToken.None);
+            Check.Equal(family == MeasureFamily.Presence ? 1 : 2, probe.Calls, "le poste décide : ping, puis WMI pour l’inventaire");
         }
     }
 

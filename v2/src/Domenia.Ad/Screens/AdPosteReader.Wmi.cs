@@ -10,7 +10,7 @@ public sealed partial class AdPosteReader
 {
     private async Task<WorkstationWmiReading> WmiAsync(LocalPoste local, WmiMetadataKind kind, string ns, string? className, WmiRequest? request, CancellationToken token)
     {
-        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, token).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, token, readOnly: true).ConfigureAwait(false);
         EnsureEpoch(local.Epoch);
         var reader = InventoryReader(access);
         var result = request is null ? await reader.ReadWmiMetadataAsync(local.Computer.DnsHostName!, kind, ns, className, token, access.Credential).ConfigureAwait(false)

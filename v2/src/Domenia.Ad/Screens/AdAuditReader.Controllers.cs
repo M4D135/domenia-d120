@@ -118,7 +118,7 @@ public sealed partial class AdAuditReader
         {
             try
             {
-                using var machine = await AdWorkstationAccess.AcquireAsync(source, host, token).ConfigureAwait(false);
+                using var machine = await AdWorkstationAccess.AcquireAsync(source, host, token, readOnly: true).ConfigureAwait(false);
                 var read = await (WorkstationFactory?.Invoke(host) ?? machine.InventoryReader()).ReadWmiQueryAsync(host, new(@"root\cimv2", "Win32_Service", "Name='NTDS' OR Name='Netlogon' OR Name='Kdc' OR Name='W32Time' OR Name='ADWS' OR Name='DNS' OR Name='DFSR' OR Name='NtFrs'", 9), token, machine.Credential).ConfigureAwait(false);
                 machine.EnsureCurrent(); if (read.AuthenticationRejected || read.Status == SourceStatus.Refused) { machine.Refused(host, "Services du contrôleur", read.AuthenticationRejected); }
                 if (!string.Equals(read.ReportedName, host.Split('.')[0], StringComparison.OrdinalIgnoreCase)) { throw Incomplete(); }

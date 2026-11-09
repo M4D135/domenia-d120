@@ -43,7 +43,7 @@ public sealed partial class AdPosteReader
         string? noticeAction = null; RemoteTaskReadResult? remote = null; var authenticationRejected = false; var directoryUnavailable = false;
         if (local.Computer.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(local.Computer) is null)
         { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte machine et nom DNS incohérents ; aucun contact distant."); }
-        using var machine = await AdWorkstationAccess.AcquireAsync(source, host, stop.Token).ConfigureAwait(false);
+        using var machine = await AdWorkstationAccess.AcquireAsync(source, host, stop.Token, readOnly: true).ConfigureAwait(false);
         using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, dn, stop.Token).ConfigureAwait(false);
         async Task ConfirmParent(CancellationToken token)
         {

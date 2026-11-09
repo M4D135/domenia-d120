@@ -28,7 +28,7 @@ public sealed partial class AdPosteReader
     {
         WmiWorkstationReader.CheckProbes(probes); // Reject the entire selection before LDAP or workstation contacts.
         var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
-        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, cancellationToken, readOnly: true).ConfigureAwait(false);
         var read = await InventoryReader(access).ReadProbesAsync(local.Computer.DnsHostName!, probes, progress, cancellationToken, access.Credential).ConfigureAwait(false);
         access.EnsureCurrent(); EnsureEpoch(local.Epoch);
         // Authoritative aggregate from the closed native probe campaign (may exceed the generic inspection cap).

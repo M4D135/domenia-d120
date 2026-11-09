@@ -521,6 +521,39 @@ internal static class WorkstationPresenceTests
     }
 
     [Test]
+    public static async Task A_standard_account_pings_from_fiche_workstation_and_search_without_administration()
+    {
+        // ICMP and DNS carry no credential: an account outside Domain Admins measures presence (David, 09/11/2026).
+        var standard = new AdministrationIdentity(AdministrationIdentityState.Standard, "Lecture AD seule.");
+        var pc = Fixtures.Computer("PC");
+        var cache = new AdPosteNetworkTests.Cache(Fixtures.Snapshot(computers: [pc]));
+        using var ldap = new AdBoundaryTests.RecordingAdConnection { SearchAnswer = q => q.BaseDn == pc.DistinguishedName ? [AdPosteNetworkTests.Entry(pc)] : [] };
+        using var source = new AdDirectorySource("test.local", () => @"TEST\test", TestClock.Fixed(), connection: ldap, localStore: cache) { AdministrationOverride = standard };
+        var echoes = 0;
+        var success = new WorkstationPresenceReader(source.Clock)
+        {
+            ResolveOverride = (_, _) => Task.FromResult(new[] { FirstAddress }),
+            EchoOverride = (_, _, _) => { echoes++; return Task.FromResult(new WorkstationPresenceReader.EchoReply(IPStatus.Success, FirstAddress, 12)); },
+        };
+        var fiche = await new AdFicheReader(source) { PresenceReaderOverride = success }.PingAsync(pc.DistinguishedName, CancellationToken.None);
+        Check.Equal("online", fiche.State, "fiche : ping sans compte d’administration");
+        var poste = await new AdPosteReader(source) { PresenceReaderOverride = success }.PingAsync(pc.DistinguishedName, CancellationToken.None);
+        Check.Equal(true, poste.Answered, "poste : ping sans compte d’administration");
+        Check.Equal(2, echoes, "un écho par demande");
+
+        using var searchLdap = new AdBoundaryTests.RecordingAdConnection();
+        using var searchSource = new AdDirectorySource("test.local", () => @"TEST\test", TestClock.Fixed(), connection: searchLdap) { AdministrationOverride = standard };
+        await searchSource.DomainAsync(CancellationToken.None);
+        await searchSource.RememberObjectsAsync(Fixtures.Snapshot(computers: [pc]) with { Complete = false }, searchSource.Epoch, CancellationToken.None);
+        var searchEchoes = 0;
+        var search = new AdSearchReader(searchSource)
+        { EchoOverride = (_, _) => { searchEchoes++; return Task.FromResult(new PresenceMeasure(MeasureState.Known, true, Fixtures.Now, Fixtures.Now)); } };
+        await search.ProbeAsync(pc.ObjectGuid, SurveyMode.Ping, 1, TimeSpan.Zero, CancellationToken.None);
+        Check.Equal(1, searchEchoes, "recherche : écho sans compte d’administration");
+        Check.True(searchSource.CurrentObservations.Workstations.Single().Presence.Answered == true, "recherche : présence enregistrée");
+    }
+
+    [Test]
     public static async Task Workshop_counts_unmeasured_presence_as_failure_and_retains_its_diagnostic()
     {
         var pc = Fixtures.Computer("PC");

@@ -2,7 +2,32 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**09/11/2026 : [release v2.1.0](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0) publiée sur le commit unique du dépôt recréé ; connexion AD non vérifiée sur banc (recette domaine à faire).**
+**09/11/2026 : correctif 2.1.1 en qualification CI (présence et lectures distantes sans Domain Admins, retour de production) ; 2.1.0 reste la release publiée.**
+
+## 09/11/2026 — 2.1.1 : le poste décide, pas Domain Admins
+
+Retour de David en production, avec un compte hors Domain Admins : « Mesurer maintenant » sur la présence affichait
+« Lecture de l’annuaire disponible. Pour les fonctions distantes, validez explicitement ce compte… », puis « Utiliser un
+autre compte » proposait le premier poste de l’OU, éteint (« Poste injoignable »). Cause : les quatre chemins de ping
+(relevé de l’Accueil, fiche, poste, écho de Rechercher) appelaient `AdWorkstationAccess.RequireNetworkIdentityAsync`, qui
+exige Domain Admins ou une preuve par poste. Le contrôle datait de 2.0.5 (commit du 28/10) et le test
+`A_standard_account_keeps_cached_AD_views_but_starts_neither_ping_nor_inventory_campaigns` l’imposait.
+
+Correctifs (décision du 9 novembre dans `docs/DECISIONS.md`) :
+
+- ping et DNS sans contrôle d’administration ;
+- choix de David « Laisser essayer » : `AcquireAsync` et `RequireNetworkIdentityAsync` prennent `readOnly` ; avec
+  l’identité de la session Windows, une lecture est tentée et le poste accepte ou refuse. Les comptes saisis
+  (connexion explicite, temporaires, locaux) et les écritures (`AdPosteRemoteExecutors`, nettoyage des tâches) gardent
+  `RequireAdministration` ;
+- tests : `A_standard_account_pings_from_fiche_workstation_and_search_without_administration`,
+  `A_Windows_session_read_is_left_to_the_workstation_but_writes_keep_the_check`,
+  `A_standard_Windows_session_runs_presence_and_inventory_campaigns`,
+  `A_standard_explicit_account_measures_presence_but_starts_no_inventory_campaign` ;
+- version 2.1.1, guide `docs/RECETTE-MANUELLE-V2.1.1.md`, contrats d’opérations régénérés.
+
+Le login NETBIOS (`DOMAINE\compte`) est accepté partout ; le champ « Compte » propose le dernier identifiant mémorisé
+pour la ressource, quelle que soit sa forme.
 
 ## 09/11/2026 — dépôt recréé, 2.1.0 publiée
 

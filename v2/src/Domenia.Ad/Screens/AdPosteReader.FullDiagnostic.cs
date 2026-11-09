@@ -18,7 +18,7 @@ public sealed partial class AdPosteReader
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
         var local = await NetworkAsync(dn, stop.Token).ConfigureAwait(false);
         var host = local.Computer.DnsHostName!;
-        using var access = await AdWorkstationAccess.AcquireAsync(source, host, stop.Token).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, host, stop.Token, readOnly: true).ConfigureAwait(false);
         var checks = new List<DiagCheck>();
         void Add(DiagCheck check) { checks.Add(check); progress?.Report(new(checks.Count, 15, PosteDiagnostics.CheckLabel(check.Check))); }
         var network = DiagnosticNetworkOverride is { } injected ? await injected(host, stop.Token).ConfigureAwait(false) : await DiagnosticNetworkAsync(local, stop.Token).ConfigureAwait(false);

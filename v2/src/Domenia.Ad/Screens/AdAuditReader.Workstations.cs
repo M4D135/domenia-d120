@@ -50,7 +50,7 @@ public sealed partial class AdAuditReader
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); stop.CancelAfter(TimeSpan.FromSeconds(80)); var token = stop.Token;
         using var access = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, target.Dn, token).ConfigureAwait(false);
         var computer = await Machine(access, target, token).ConfigureAwait(false); var host = computer.DnsHostName!;
-        using var machine = await AdWorkstationAccess.AcquireAsync(source, host, token).ConfigureAwait(false); var reader = WorkstationFactory?.Invoke(host) ?? machine.InventoryReader();
+        using var machine = await AdWorkstationAccess.AcquireAsync(source, host, token, readOnly: true).ConfigureAwait(false); var reader = WorkstationFactory?.Invoke(host) ?? machine.InventoryReader();
         try
         {
             var first = await reader.ReadWmiQueryAsync(host, new(@"root\rsop\computer", "RSOP_GPO", null, 500), token, machine.Credential).ConfigureAwait(false);
@@ -80,7 +80,7 @@ public sealed partial class AdAuditReader
             catch (Exception ex) when (ex is SocketException or TimeoutException) { message = "Résolution directe reçue ; nom inverse non disponible."; }
         }
         var resolution = new DnsResolutionRead(dns.Addresses.Length > 0 ? ReadState.Read : ReadState.Unavailable, dns.Addresses, ptr, message);
-        using var machine = await AdWorkstationAccess.AcquireAsync(source, host, token).ConfigureAwait(false);
+        using var machine = await AdWorkstationAccess.AcquireAsync(source, host, token, readOnly: true).ConfigureAwait(false);
         try
         {
             var read = await (WorkstationFactory?.Invoke(host) ?? machine.InventoryReader()).ReadWmiQueryAsync(host, new(@"root\cimv2", "Win32_ComputerSystem", null, 2), token, machine.Credential).ConfigureAwait(false);

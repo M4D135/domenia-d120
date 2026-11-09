@@ -2,6 +2,24 @@
 
 Chaque décision est datée. Une décision plus récente remplace une décision antérieure sur le même sujet.
 
+## 9 novembre 2026 — le poste décide, pas le groupe Domain Admins
+
+David, en production avec un compte hors Domain Admins : « juste voulu mesurer les postes en ligne ! c quoi ce relogin
+qui marche meme pas en plus ». En 2.1.0, le relevé de présence de l’Accueil, le ping de la fiche, celui du poste et
+l’écho de Rechercher exigeaient le même rôle d’administration que la lecture WMI, puis proposaient « Utiliser un autre
+compte » validé sur le premier poste de l’OU, souvent éteint. L’inventaire s’arrêtait au premier poste sans
+validation explicite, une validation par poste.
+
+À partir de 2.1.1 :
+
+- ping et DNS ne demandent aucun compte d’administration : ils n’envoient aucun identifiant au poste ;
+- choix de David (« Laisser essayer ») : une lecture distante faite avec l’identité de la session Windows (inventaire,
+  console, sondes, journaux, logiciels, sessions, fiche, Rechercher, requêtes, relations, audit) est tentée sans
+  contrôle préalable de Domain Admins. Domenia ne manipule aucun mot de passe ; le poste accepte si le compte y est
+  administrateur, sinon le refus est compté pour ce poste et la campagne continue ;
+- un compte saisi (connexion par compte explicite, compte temporaire ou local) garde sa validation, comme toute
+  écriture distante (exécution, tâches planifiées, nettoyage des tâches de lecture).
+
 ## 8 novembre 2026 — plus de GitHub dans les mises à jour
 
 David : « et aussi tu va virer github pour la maj dans le logiciel ». À partir de 2.1.0, **Paramètres → Mises à jour** ne

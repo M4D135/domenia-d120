@@ -52,7 +52,7 @@ public sealed partial class AdFicheReader
         var computer = await ComputerAsync(computerDn, cancellationToken).ConfigureAwait(false);
         EnsureEpoch(epoch);
         var old = await ObservationAsync(computerDn, cancellationToken).ConfigureAwait(false);
-        await AdWorkstationAccess.RequireNetworkIdentityAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+        // ICMP carries no credential: no workstation administration is required.
         var measure = await (PresenceReaderOverride ?? new WorkstationPresenceReader(source.Clock, source.AccountContext?.Log))
             .ReadAsync(computer.DnsHostName!, TimeSpan.FromMilliseconds(1500), TimeSpan.FromMilliseconds(1200), old?.LastOnlineAt, cancellationToken).ConfigureAwait(false);
         var at = measure.CheckedAt!.Value;
@@ -67,7 +67,7 @@ public sealed partial class AdFicheReader
         var epoch = await NetworkEpochAsync(computerDn, cancellationToken).ConfigureAwait(false);
         var computer = await ComputerAsync(computerDn, cancellationToken).ConfigureAwait(false);
         EnsureEpoch(epoch);
-        using var access = await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken, readOnly: true).ConfigureAwait(false);
         var credential = access.Credential;
         var name = CredentialRules.Parse(credential.Account);
         var user = credential.Session ? null : name.Form == AccountNameForm.Upn ? credential.Account : name.Name;
@@ -103,7 +103,7 @@ public sealed partial class AdFicheReader
         var epoch = await NetworkEpochAsync(computerDn, cancellationToken).ConfigureAwait(false);
         var computer = await ComputerAsync(computerDn, cancellationToken).ConfigureAwait(false);
         EnsureEpoch(epoch);
-        using var access = InventoryOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false) : null;
+        using var access = InventoryOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken, readOnly: true).ConfigureAwait(false) : null;
         var reading = InventoryOverride is { } injected ? await injected(computer.DnsHostName!, cancellationToken).ConfigureAwait(false)
             : await access!.InventoryReader().ReadAsync(computer.DnsHostName!, WorkstationReading.Triage, null, cancellationToken, access!.Credential).ConfigureAwait(false);
         access?.EnsureCurrent();

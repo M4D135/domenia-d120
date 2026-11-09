@@ -16,9 +16,14 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
     internal PosteConfiguration Settings { get; private init; } = PosteConfiguration.Defaults;
     internal bool SingleUse { get; private init; }
     private bool UsesConnectionIdentity { get; init; }
+    private bool TriedByWorkstation { get; init; }
+
+    // David, 09/11/2026: a read with the Windows session identity is tried and the workstation grants or refuses it;
+    // no password is handled. Typed, temporary and explicit connection accounts, and every remote write, keep the check.
+    private static bool WorkstationDecides(bool readOnly, MachineAccountSource origin) => readOnly && origin == MachineAccountSource.Windows;
     internal WmiWorkstationReader InventoryReader() => new(source.Clock, configuration: Settings) { ProjectionReused = () => { if (source.AccountContext is { } context) { OperationActivity.From(context).RecordGroupedCimReuse(); } } };
 
-    internal static async Task RequireNetworkIdentityAsync(AdDirectorySource source, string host, CancellationToken token)
+    internal static async Task RequireNetworkIdentityAsync(AdDirectorySource source, string host, CancellationToken token, bool readOnly = false)
     {
         var preview = await PreviewAsync(source, host, token).ConfigureAwait(false);
         var session = await source.GetSessionAsync(token).ConfigureAwait(false);
@@ -26,8 +31,9 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
         var service = source.AccountContext is { } context ? MachineAccountService.From(context) : null;
         using var selected = service?.InspectCredentialFor(session, host, preview.Generation, preview.Source, preview.Account);
         var origin = selected?.Source ?? (session.Authentication.Method == AuthenticationMethod.ExplicitCredentials ? MachineAccountSource.Connection : MachineAccountSource.Windows);
-        source.RequireAdministration(preview.Epoch, selected?.Account ?? session.Account.Login, host, selected?.Password,
-            origin is MachineAccountSource.Windows or MachineAccountSource.Connection);
+        if (!WorkstationDecides(readOnly, origin))
+            source.RequireAdministration(preview.Epoch, selected?.Account ?? session.Account.Login, host, selected?.Password,
+                origin is MachineAccountSource.Windows or MachineAccountSource.Connection);
         token.ThrowIfCancellationRequested();
         if (source.Epoch != preview.Epoch || selected is not null && service!.Generation != selected.Generation)
             throw new DomeniaOperationException(AccountAccess.EpochChanged, "Compte modifié pendant l’admission distante ; aucun envoi.");
@@ -42,7 +48,7 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
     }
 
     internal static async Task<AdWorkstationAccess> AcquireAsync(AdDirectorySource source, string host, CancellationToken token,
-        long? expectedGeneration = null, AdWorkstationAdmission? preview = null)
+        long? expectedGeneration = null, AdWorkstationAdmission? preview = null, bool readOnly = false)
     {
         OperationCredentialScope.RequireRemote();
         var session = await source.GetSessionAsync(token).ConfigureAwait(false);
@@ -55,7 +61,8 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
             expectedSource: preview?.Source, expectedAccount: preview?.Account);
         var origin = selected?.Source ?? (session.Authentication.Method == AuthenticationMethod.ExplicitCredentials ? MachineAccountSource.Connection : MachineAccountSource.Windows);
         var connectionIdentity = origin is MachineAccountSource.Windows or MachineAccountSource.Connection;
-        source.RequireAdministration(session.Epoch, selected?.Account ?? session.Account.Login, host, selected?.Password, connectionIdentity);
+        var triedByWorkstation = WorkstationDecides(readOnly, origin);
+        if (!triedByWorkstation) source.RequireAdministration(session.Epoch, selected?.Account ?? session.Account.Login, host, selected?.Password, connectionIdentity);
         RemoteProbeCredential credential;
         if (origin is MachineAccountSource.Windows or MachineAccountSource.Connection)
         {
@@ -75,7 +82,7 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
         }
         var result = new AdWorkstationAccess(source, credential, session.Epoch, service, selected?.Generation ?? 0, selected?.Place,
             selected?.AccountKey ?? CredentialRules.AccountKey(credential.Account, session.Domain?.DnsName, session.Domain?.NetbiosName, host), host)
-            { Settings = settings, SingleUse = selected?.SingleUse == true, UsesConnectionIdentity = connectionIdentity };
+            { Settings = settings, SingleUse = selected?.SingleUse == true, UsesConnectionIdentity = connectionIdentity, TriedByWorkstation = triedByWorkstation };
         try { result.EnsureCurrent(); return result; } catch { result.Dispose(); throw; }
     }
 
@@ -92,7 +99,7 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
         EnsureCurrent();
         if (!ReferenceEquals(owner, source) || !string.Equals(host, target, StringComparison.OrdinalIgnoreCase))
         { throw new DomeniaOperationException(AccountAccess.ContextRefused, "Accès distant détenu pour une autre source ou cible ; aucun envoi."); }
-        source.RequireAdministration(epoch, Credential.Account, host, Credential.Password, UsesConnectionIdentity);
+        if (!TriedByWorkstation) source.RequireAdministration(epoch, Credential.Account, host, Credential.Password, UsesConnectionIdentity);
         service?.BeforeContact(generation, place, key);
         var current = await RemoteCollectionSettings.EffectiveAsync(source.AccountContext, token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested(); EnsureCurrent(); service?.BeforeContact(generation, place, key);

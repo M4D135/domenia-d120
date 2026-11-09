@@ -97,7 +97,7 @@ public sealed partial class AdRelationsReader
                         interrupted = "Bail à usage unique engagé pour la première cible ; aucun compte de repli choisi pour les consoles suivantes.";
                         throw new DomeniaOperationException(AccountAccess.EpochChanged, interrupted);
                     }
-                    using var selected = id == firstId ? null : await AdWorkstationAccess.AcquireAsync(source, host, token, MachineGeneration()).ConfigureAwait(false);
+                    using var selected = id == firstId ? null : await AdWorkstationAccess.AcquireAsync(source, host, token, MachineGeneration(), readOnly: true).ConfigureAwait(false);
                     var machine = selected ?? firstMachine ?? throw new OperationCanceledException(lifetime.Token);
                     read = await ReadConsoleAsync(local.Directory.Domain, expected, epoch, token, directory, host, retainedAccess: machine).ConfigureAwait(false);
                 }

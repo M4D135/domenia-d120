@@ -55,7 +55,7 @@ class BrowserEvidenceTests(unittest.TestCase):
         path.write_bytes(encoded(value))
 
     def make_fixture(self, version, light=False):
-        payload = self.package / "wad" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0") else self.package
+        payload = self.package / "wad" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1") else self.package
         for name in ("package-release.json", "package-manifest.json"):
             for directory in (self.package, self.package / "wad"):
                 (directory / name).unlink(missing_ok=True)
@@ -176,7 +176,7 @@ class BrowserEvidenceTests(unittest.TestCase):
                     self.verify(version)
 
     def test_other_or_mismatched_versions_are_refused(self):
-        for version in ("2.0.0", "2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.0.1-rc.1", "3.0.0"):
+        for version in ("2.0.0", "2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.0.1-rc.1", "3.0.0"):
             with self.subTest(version=version), self.assertRaises(verifier.guard.Refused):
                 self.verify(version)
 

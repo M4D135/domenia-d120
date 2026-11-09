@@ -42,7 +42,7 @@ public sealed partial class AdSearchReader
 
     private async Task<PresenceMeasure> EchoAsync(string host, DateTimeOffset? lastOnline, CancellationToken token)
     {
-        await AdWorkstationAccess.RequireNetworkIdentityAsync(source, host, token).ConfigureAwait(false);
+        // ICMP carries no credential: no workstation administration is required.
         if (EchoOverride is { } injected) { return await injected(host, token).ConfigureAwait(false); }
         // Same qualified transport as the home probes: one address, one echo, existing 2 s total / 1 s echo ceilings.
         return await new WorkstationPresenceReader(source.Clock, source.AccountContext?.Log)

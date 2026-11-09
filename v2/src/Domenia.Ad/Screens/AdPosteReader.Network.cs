@@ -104,7 +104,7 @@ public sealed partial class AdPosteReader
 
     private async Task<InventorySnapshot> ReadAsync(LocalPoste local, WorkstationReading scope, IProgress<PosteProgress>? progress, CancellationToken token)
     {
-        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, token).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, token, readOnly: true).ConfigureAwait(false);
         EnsureEpoch(local.Epoch);
         var value = await InventoryReader(access).ReadAsync(local.Computer.DnsHostName!, scope, progress, token, access.Credential).ConfigureAwait(false);
         access.EnsureCurrent(); EnsureEpoch(local.Epoch);
@@ -128,7 +128,7 @@ public sealed partial class AdPosteReader
 
     private async Task<PresenceReading> PingAsync(LocalPoste local, CancellationToken token)
     {
-        await AdWorkstationAccess.RequireNetworkIdentityAsync(source, local.Computer.DnsHostName ?? local.Computer.Name, token).ConfigureAwait(false);
+        // ICMP carries no credential: no workstation administration is required.
         var last = local.Observation?.Presence.LastOnlineAt;
         var result = await (PresenceReaderOverride ?? new WorkstationPresenceReader(source.Clock, source.AccountContext?.Log))
             .ReadDetailedAsync(local.Computer.DnsHostName!, TimeSpan.FromMilliseconds(1500), TimeSpan.FromSeconds(1), last, token).ConfigureAwait(false);
@@ -209,7 +209,7 @@ public sealed partial class AdPosteReader
     {
         ArgumentNullException.ThrowIfNull(request);
         var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
-        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, cancellationToken, readOnly: true).ConfigureAwait(false);
         EnsureEpoch(local.Epoch);
         var read = await InventoryReader(access).ReadSoftwareAsync(local.Computer.DnsHostName!, request, cancellationToken, access.Credential).ConfigureAwait(false);
         access.EnsureCurrent(); EnsureEpoch(local.Epoch);
@@ -290,7 +290,7 @@ public sealed partial class AdPosteReader
         var definition = PosteEvents.Preset(preset) ?? throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Préréglage d’événements inconnu.");
         var query = PosteEvents.Query(definition, hours, maxEvents, source.Clock.GetUtcNow());
         var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
-        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, cancellationToken, readOnly: true).ConfigureAwait(false);
         EnsureEpoch(local.Epoch);
         var read = await InventoryReader(access).ReadEventsAsync(local.Computer.DnsHostName!, query, cancellationToken, access.Credential).ConfigureAwait(false);
         access.EnsureCurrent(); EnsureEpoch(local.Epoch);
@@ -311,7 +311,7 @@ public sealed partial class AdPosteReader
         // A one-shot LDAP identity belongs to this entire gesture, including the final parent check.
         using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, dn, budget.Token).ConfigureAwait(false);
         local = await NetworkIdentityAsync(local, directory, budget.Token).ConfigureAwait(false);
-        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, budget.Token).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, budget.Token, readOnly: true).ConfigureAwait(false);
         EnsureEpoch(local.Epoch);
         var credential = access.Credential;
         var name = CredentialRules.Parse(credential.Account);

@@ -37,11 +37,11 @@ internal sealed class AdWorkstationReadAccess(AdReadAccess directory, AdWorkstat
                 { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Sélection modifiée pendant l’admission LDAP ; aucun contact machine."); }
                 ldap.EnsureCurrent();
                 selected = await AdWorkstationAccess.AcquireAsync(source, host, token,
-                    machinePreview.Generation is { } version ? checked(version + 1) : null, machinePreview).ConfigureAwait(false);
+                    machinePreview.Generation is { } version ? checked(version + 1) : null, machinePreview, readOnly: true).ConfigureAwait(false);
             }
             else
             {
-                selected = await AdWorkstationAccess.AcquireAsync(source, host, token, machinePreview.Generation, machinePreview).ConfigureAwait(false);
+                selected = await AdWorkstationAccess.AcquireAsync(source, host, token, machinePreview.Generation, machinePreview, readOnly: true).ConfigureAwait(false);
                 var expected = accounts?.SelectionVersion;
                 selected.EnsureCurrent();
                 ldap = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, directoryTarget, token,
