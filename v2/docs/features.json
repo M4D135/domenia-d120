@@ -14448,15 +14448,15 @@
   "page": "parametres",
   "group": "Configuration",
   "title": "Réglages réseau, accès distant et budgets",
-  "description": "Les budgets de file, concurrence, travaux physiques, délais de lecture, alertes d’écriture, cache, pagination LDAP, index et associations sont raccordés aux consommateurs et au rapport. Les valeurs administrateur réduisent les plafonds de sécurité V2 ; un délai d’alerte ne termine jamais artificiellement une écriture. Remote.CommandTimeoutSeconds reste réservé au lot L02.",
+  "description": "Les budgets de file, concurrence, travaux physiques, délais de lecture, alertes d’écriture, cache, pagination LDAP, index et associations sont raccordés aux consommateurs et au rapport. Les valeurs administrateur réduisent les plafonds de sécurité V2 ; un délai d’alerte ne termine jamais artificiellement une écriture. Remote.CommandTimeoutSeconds est consommé par chaque appel natif et relecture, borné de 1 à 300 secondes, défaut 10 ; un appel COM conserve sa place jusqu’au vrai retour.",
   "kind": "locale",
   "d1_refs": [
    "Domenia-Core.ps1:New-DefaultConfig"
   ],
   "operations": [],
   "safeguards": "Bornes appliquées à la lecture (clamp) dans les fonctions consommatrices.",
-  "improvement": "Adaptation V2 L16 : code et tests relus, qualification Windows en attente. Portée et limites dans reprise/LOTS-CODEX-20261101/L16.md.",
-  "status": "partiel"
+  "improvement": "Clôture L16/L02 : configuration effective, bornes et transmission au fournisseur couvertes par les tests. Preuves et limites dans reprise/rapports/CLOTURE-DOMENIA2-V2.1.2-20261109.md.",
+  "status": "fait"
  },
  {
   "id": "PAR-047",

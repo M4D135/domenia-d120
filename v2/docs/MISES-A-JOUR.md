@@ -48,7 +48,7 @@ Un code de sortie 0 confirme l’action annoncée ; 3 signale que la mise à jou
 
 ### Cache 2.0.5 et retour arrière
 
-Les paquets 2.0.5, 2.0.6, 2.0.7, 2.0.8, 2.1.0 et 2.1.1 déclarent le schéma 11, révision native 2 ; 2.0.6, 2.0.7, 2.0.8, 2.1.0 et 2.1.1 ne changent pas le format. La première écriture du nouveau cache par poste ou d’une campagne paginée migre la base dans une transaction, après sauvegarde vérifiée. Les anciennes lignes sont relues avant conversion ; une interruption annule toute la conversion. Les autres tables et les lectures historiques restent prises en charge.
+Les paquets 2.0.5, 2.0.6, 2.0.7, 2.0.8, 2.1.0, 2.1.1 et 2.1.2 déclarent le schéma 11, révision native 2 ; 2.0.6, 2.0.7, 2.0.8, 2.1.0, 2.1.1 et 2.1.2 ne changent pas le format. La première écriture du nouveau cache par poste ou d’une campagne paginée migre la base dans une transaction, après sauvegarde vérifiée. Les anciennes lignes sont relues avant conversion ; une interruption annule toute la conversion. Les autres tables et les lectures historiques restent prises en charge.
 
 Les anciens exécutables refusent une base migrée en révision 2. Un retour à 2.0.4 exige donc une sauvegarde datant d’avant cette migration ; remplacer seulement les binaires ne suffit pas. Conserver cette sauvegarde et utiliser le parcours de restauration explicite. Les nouvelles mesures enregistrées depuis la sauvegarde ne sont pas réinjectées automatiquement dans l’ancien format.
 
@@ -72,8 +72,8 @@ Exemple de métadonnées de structure, valeurs entre chevrons à remplacer par l
 
 ```json
 {
-  "project": "Domenia", "version": "2.1.1", "architecture": "win-x64", "packageType": "PROD-LIGHT",
-  "build": "2.1.1+<SHA256 des entrées de build>", "sourceCommit": "<commit Git 40 chiffres>",
+  "project": "Domenia", "version": "2.1.2", "architecture": "win-x64", "packageType": "PROD-LIGHT",
+  "build": "2.1.2+<SHA256 des entrées de build>", "sourceCommit": "<commit Git 40 chiffres>",
   "executableSha256": "<SHA256 de Domenia.exe>", "dataSchemaVersion": 11, "dataSchemaRevision": 2,
   "dependencies": { ".NET": "<version embarquée>", "WebView2": "Evergreen" }
 }

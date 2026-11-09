@@ -162,9 +162,9 @@ Audit de parité du 31/10/2026 : les 293 fonctions encore `a-faire` ou `partiel`
 | [Schéma de l'annuaire](#sch) | SCH | 8 | 2 | 6 | 0 | 0 | 0 |
 | [Synchronisation et base autonome](#syn) | SYN | 30 | 17 | 13 | 0 | 0 | 0 |
 | [Opérations](#ope) | OPE | 36 | 26 | 10 | 0 | 0 | 0 |
-| [Paramètres](#par) | PAR | 51 | 30 | 20 | 1 | 0 | 0 |
+| [Paramètres](#par) | PAR | 51 | 31 | 20 | 0 | 0 | 0 |
 | [Transverse : moteur, sécurité, stockage, interface commune](#trv) | TRV | 316 | 155 | 161 | 0 | 0 | 0 |
-| **Total** | | **993** | **621** | **370** | **1** | **0** | **1** |
+| **Total** | | **993** | **622** | **370** | **0** | **0** | **1** |
 
 ## Fonctions déjà faites dans Domenia 2
 
@@ -6435,7 +6435,7 @@ Lignes en clair pour chaque source qui n'est pas saine : « annuaire · site X :
 
 ## Paramètres (PAR)
 
-51 fonctions : 30 faites, 20 améliorées, 1 partielle.
+51 fonctions : 31 faites, 20 améliorées.
 
 ### À propos
 
@@ -6958,9 +6958,11 @@ Un instantané de configuration fournit les mêmes valeurs bornées au rapport e
 
 > L16 — 01/11/2026 : code et tests relus ; qualification Windows du contenu final requise. Voir [le rapport L16](reprise/LOTS-CODEX-20261101/L16.md).
 
-`partiel` · locale (aucune lecture)
+> Clôture du 09/11/2026 : raccordement L16/L02 et tests retrouvés ; [preuves et qualification](reprise/rapports/CLOTURE-DOMENIA2-V2.1.2-20261109.md).
 
-Les budgets de file, concurrence, travaux physiques, délais de lecture, alertes d’écriture, cache, pagination LDAP, index et associations sont raccordés aux consommateurs et au rapport. Les valeurs administrateur réduisent les plafonds de sécurité V2 ; un délai d’alerte ne termine jamais artificiellement une écriture. Remote.CommandTimeoutSeconds reste réservé au lot L02.
+`fait` · locale (aucune lecture)
+
+Les budgets de file, concurrence, travaux physiques, délais de lecture, alertes d’écriture, cache, pagination LDAP, index et associations sont raccordés aux consommateurs et au rapport. Les valeurs administrateur réduisent les plafonds de sécurité V2 ; un délai d’alerte ne termine jamais artificiellement une écriture. Remote.CommandTimeoutSeconds est consommé par chaque appel natif et relecture, borné de 1 à 300 secondes, défaut 10 ; un appel COM conserve sa place jusqu’au vrai retour.
 
 - Garde-fous : Bornes appliquées à la lecture (clamp) dans les fonctions consommatrices.
 - Références D1 : `Domenia-Core.ps1:New-DefaultConfig`

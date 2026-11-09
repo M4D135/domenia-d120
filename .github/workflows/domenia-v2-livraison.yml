@@ -47,7 +47,7 @@ jobs:
 
       - name: Vérifier la syntaxe des scripts avec PowerShell Windows
         run: |
-          foreach ($name in @('ci-windows.ps1', 'ci-test-profile.ps1', 'release-manual-ci.ps1', 'release-packages-vm.ps1', 'release-contract.ps1', 'private-dotnet-runtime.ps1', 'private-webview-runtime.ps1', 'check-private-webview-policy.ps1', 'release-ci-process.ps1', 'measure-package-startup.ps1', 'test-light-login.ps1')) {
+          foreach ($name in @('ci-windows.ps1', 'ci-test-profile.ps1', 'release-manual-ci.ps1', 'release-packages-vm.ps1', 'capture-release-evidence-vm.ps1', 'release-contract.ps1', 'private-dotnet-runtime.ps1', 'private-webview-runtime.ps1', 'check-private-webview-policy.ps1', 'release-ci-process.ps1', 'measure-package-startup.ps1', 'test-light-login.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path "$env:GITHUB_WORKSPACE/v2/tools" $name), [ref]$tokens, [ref]$parseErrors)

@@ -2,7 +2,23 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**09/11/2026 : TRV-111 et TRV-190 clôturées dans le code après qualification CI (1 601 tests C# critiques) et relecture Spark ; corrections non publiées. Production : 2.1.1 sur `7627bd1e`, toujours à valider hors Domain Admins. PAR-046 reste partiel. Relais : [`docs/reprise/RELAIS-CODEX-20261109.md`](docs/reprise/RELAIS-CODEX-20261109.md).**
+**09/11/2026 : parité clôturée dans le code : 622 faites, 370 améliorées, aucune partielle ni à faire, PST-001 abandonnée. Candidat 2.1.2 préparé ; qualification complète et publication en attente. Production : 2.1.1 sur `7627bd1e`, toujours à valider hors Domain Admins. Relais : [`docs/reprise/RELAIS-CODEX-20261109.md`](docs/reprise/RELAIS-CODEX-20261109.md).**
+
+## 09/11/2026 — clôture PAR-046 et préparation de 2.1.2
+
+Demande de David : « go tout terminer ». PAR-046 est terminé par les raccordements existants L16/L02 : délai
+effectif transmis aux fournisseurs, borné de 1 à 300 secondes (défaut 10), place occupée jusqu'au retour réel d'un
+appel COM et aucun rejeu. Les tests dédiés existent déjà ; le Spark confirme la preuve après deux relectures ciblées.
+Le script de capture reconnaît également déjà `wad/` et PROD-LIGHT : ajout au parseur PowerShell de la CI,
+sans annoncer d'exécution en VM. Ces deux points du relais étaient périmés.
+
+Catalogue synchronisé par `apply_status.py --only PAR-046` : 622 faites, 370 améliorées, zéro partielle ou à faire,
+une abandonnée. Version 2.1.2 et gardes de livraison alignés, contrats vérifiés, 48 tests Python Mac réussis.
+Qualification complète du ZIP Windows en attente. La production reste 2.1.1 ; publication sur confirmation explicite
+de David. La recette réelle reste à faire, et aucun changement de schéma n'est introduit.
+
+[Preuves et qualification](docs/reprise/rapports/CLOTURE-DOMENIA2-V2.1.2-20261109.md),
+[guide de recette 2.1.2](docs/RECETTE-MANUELLE-V2.1.2.md).
 
 ## 09/11/2026 — TRV-111 et TRV-190 : preuves retrouvées et garanties testées
 
