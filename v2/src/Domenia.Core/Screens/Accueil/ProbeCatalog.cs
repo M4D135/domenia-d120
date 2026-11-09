@@ -459,7 +459,8 @@ public static partial class ProbeCatalog
         {
             errors.Add("Espace de noms invalide.");
         }
-        else if (DeniedNamespaces.Contains(probe.Namespace, StringComparer.OrdinalIgnoreCase))
+        else if (DeniedNamespaces.Any(denied => probe.Namespace.Equals(denied, StringComparison.OrdinalIgnoreCase)
+            || probe.Namespace.StartsWith(denied + "\\", StringComparison.OrdinalIgnoreCase)))
         {
             errors.Add("Espace de noms refusé" + FrenchText.Colon + probe.Namespace + ".");
         }
@@ -471,7 +472,10 @@ public static partial class ProbeCatalog
         {
             errors.Add("Classe refusée" + FrenchText.Colon + probe.Class + ".");
         }
-        if (probe.Class is "Win32_UserAccount" or "Win32_Group" or "Win32_GroupUser" && !probe.SkipOnDc && !LocalAccountFilter().IsMatch(probe.Filter))
+        if ((probe.Class.Equals("Win32_UserAccount", StringComparison.OrdinalIgnoreCase)
+            || probe.Class.Equals("Win32_Group", StringComparison.OrdinalIgnoreCase)
+            || probe.Class.Equals("Win32_GroupUser", StringComparison.OrdinalIgnoreCase))
+            && !probe.SkipOnDc && !LocalAccountFilter().IsMatch(probe.Filter))
         {
             errors.Add("Comptes et groupes : lecture limitée aux comptes locaux ou exclue des contrôleurs requise.");
         }
@@ -621,7 +625,9 @@ public static partial class ProbeCatalog
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex ClassPattern();
 
-    [GeneratedRegex(@"LocalAccount\s*=\s*TRUE", RegexOptions.IgnoreCase)]
+    // Prove the local-account predicate, rather than finding its text inside OR, NOT or a string literal.
+    // Only a conjunction of simple comparisons may refine it; quoted values cannot inject operators.
+    [GeneratedRegex(@"\A\s*LocalAccount\s*=\s*TRUE(?:\s+AND\s+[A-Za-z_][A-Za-z0-9_]*\s*(?:=|<>|<=|>=|<|>)\s*(?:TRUE|FALSE|[0-9]+|'[^']*'))*\s*\z", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex LocalAccountFilter();
 
     [GeneratedRegex(@"^[A-Za-z0-9_ ='<>().:{}%\-]*$")]

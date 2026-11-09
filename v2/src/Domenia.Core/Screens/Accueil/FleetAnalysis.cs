@@ -153,7 +153,15 @@ public static class FleetAnalysis
             _ => "Règles non décrites par ce relevé",
         };
 
-        var stateStatus = a.Problems == b.Problems && a.Healthy == b.Healthy ? "Inchangé" : "Modifié";
+        // A partial directory can suppress the score without changing the stored population fingerprints.
+        // Its later availability is not evidence of an improvement in the observed fleet.
+        if ((a.Score is null) != (b.Score is null))
+        {
+            coverageStatus = "Inconnu";
+            coverageText += " ; score non calculé sur un des relevés";
+            limits.Add("Le score n’est pas calculé sur un des relevés : sa disponibilité différente ne prouve pas un changement d’état du parc.");
+        }
+        var stateStatus = a.Problems == b.Problems && a.Healthy == b.Healthy && a.Score == b.Score ? "Inchangé" : "Modifié";
         var stateText = "Avec un problème" + FrenchText.Colon + Arrow(a.Problems, b.Problems) + " · sans problème détecté" + FrenchText.Colon + Arrow(a.Healthy, b.Healthy)
             + " · score" + FrenchText.Colon + (a.Score is null || b.Score is null ? "non calculé sur au moins un relevé" : Arrow(a.Score, b.Score));
         var factors = ImmutableArray.Create(

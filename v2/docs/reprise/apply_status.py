@@ -5,13 +5,19 @@ v2/docs/FEATURES.md (status of each function, remaining work of the partial ones
 Rules: the status file of the page that owns a function wins (features.json "page"; "machine" is in schema.json);
 a transverse function takes the status of the file that claims it. PST-001 stays "abandonne". KEEP lists the functions
 whose former status is kept after a check made at the integration (their declared remainder is in the merged shell)."""
+import argparse
 import collections
 import glob
 import json
 import re
 import sys
 
-ROOT = sys.argv[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('root')
+parser.add_argument('--only', nargs='+', default=[], metavar='ID', help='Update only these feature IDs; preserve other feature blocks.')
+args = parser.parse_args()
+ROOT = args.root
+ONLY = set(args.only)
 FEAT_JSON = f'{ROOT}/v2/docs/features.json'
 FEAT_MD = f'{ROOT}/v2/docs/FEATURES.md'
 OWNER_FILE = {'machine': 'schema'}
@@ -23,6 +29,8 @@ KEEP = {
 features = json.load(open(FEAT_JSON, encoding='utf-8'))
 page_of = {f['id']: f['page'] for f in features}
 before = {f['id']: f['status'] for f in features}
+if ONLY - set(before):
+    parser.error(f'unknown feature IDs: {sorted(ONLY - set(before))}')
 
 claims = collections.defaultdict(dict)   # id -> {file: (status, reste)}
 for path in sorted(glob.glob(f'{ROOT}/v2/docs/status/*.json')):
@@ -38,6 +46,8 @@ after = dict(before)
 reste = {}
 conflicts = []
 for fid, by_file in claims.items():
+    if ONLY and fid not in ONLY:
+        continue
     if fid not in page_of:
         sys.exit(f'unknown id {fid}')
     owner = OWNER_FILE.get(page_of[fid], page_of[fid])
@@ -94,6 +104,11 @@ while i < len(md_lines):
     seen.add(fid)
     out.append(line)
     i += 1
+    if ONLY and fid not in ONLY:
+        while i < len(md_lines) and not md_lines[i].startswith('#### '):
+            out.append(md_lines[i])
+            i += 1
+        continue
     # Up to the status line: keep the blank lines and the notes, except an older note of this script.
     block = []
     while i < len(md_lines) and not re.match(r'^`(a-faire|fait|ameliore|partiel|abandonne)` · ', md_lines[i]):

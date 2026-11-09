@@ -26,6 +26,7 @@ internal static class CriticalTestSelection
         "AutomationCommandTests", "AutomationLocalStoreTests",
         "NativeAcceptanceReadSelectionTests", "NativeAcceptanceGuardTests", "NativeAcceptanceEvidenceTests",
         "CollectionQueueMeasurementsTests", "SqliteSessionMeasurementsTests", "OperationPhaseTests", "FleetMemoryHealthTests", "HomeMemoryCollectionTests", "HomeCollectionScopeTests", "HomeSearchSelectionTests", "HomeQueryDraftTests", "QueryRecordQualityTests", "QueryLibrarySnapshotTests", "QueryLegacyJsonMigrationTests", "QueryImplementationProvenanceTests", "ProbeDeclarationTests", "CimReadSafetyTests", "ProbeFilterTests",
+        "PopulationComparisonTests", "ProbeContractParityTests",
         "PersonalProbeTests", "PersonalProbeNativeTests",
         "PostePersonalProbeTests", "PostePersonalProbeNativeTests",
         "QueryPersonalProbeTests", "QueryPersonalProbeNativeTests",
