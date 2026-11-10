@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Domenia.Ad;
@@ -16,8 +17,15 @@ internal static class AdBoundaryTests
         public Task SaveAsync(DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken token)
             => throw new InvalidOperationException("No census expected.");
         public Task<DirectorySnapshot> SaveObjectsAsync(DirectorySnapshot objects, string? controller, CancellationToken token)
-            => Task.FromResult(directory = directory with { OrganizationalUnits = [.. directory.OrganizationalUnits.Where(old =>
-                !objects.OrganizationalUnits.Any(current => DistinguishedName.AreEqual(old.DistinguishedName, current.DistinguishedName))), .. objects.OrganizationalUnits] });
+        {
+            token.ThrowIfCancellationRequested();
+            var dates = directory.ObjectReadAt ?? directory.OrganizationalUnits.ToImmutableDictionary(ou => ou.ObjectGuid, _ => directory.ReadAt);
+            foreach (var ou in objects.OrganizationalUnits) { dates = dates.SetItem(ou.ObjectGuid, objects.ReadAt); }
+            directory = directory with { OrganizationalUnits = [.. directory.OrganizationalUnits.Where(old =>
+                !objects.OrganizationalUnits.Any(current => DistinguishedName.AreEqual(old.DistinguishedName, current.DistinguishedName))), .. objects.OrganizationalUnits],
+                ObjectReadAt = dates };
+            return Task.FromResult(directory);
+        }
     }
 
     // A recording LDAP transport has no native connection to copy. Native protocol readers in these
