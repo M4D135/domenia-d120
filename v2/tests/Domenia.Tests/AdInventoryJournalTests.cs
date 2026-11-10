@@ -15,7 +15,7 @@ internal static class AdInventoryJournalTests
             var journal = new RecordingJournal(); var copies = 0;
             using var ldap = new AdBoundaryTests.RecordingAdConnection();
             using var source = new AdDirectorySource("test.local", () => @"TEST\reader", TestClock.Fixed(), connection: ldap)
-            { SessionCredentialCopy = () => { copies++; return AdBoundaryTests.NativeSessionCredential(); } };
+            { SessionCredentialCopy = () => { copies++; return new("reader", "TEST", PasswordSecrets.FromText("inventory-journal-test-fixture"), false); } };
             source.AdoptConnection(ldap, Fixtures.Domain,
                 new(new(@"TEST\reader", null, null, "CN=reader," + Fixtures.People), Fixtures.Domain.DomainSid + "-1001",
                     new(RightsLevel.Unknown, "Inconnus", true, "Droits AD distincts."))
@@ -34,7 +34,7 @@ internal static class AdInventoryJournalTests
             Check.False(journal.Lines.Any(line => line.Contains(invalidTarget, StringComparison.Ordinal)), "cible arbitraire absente du journal");
             Check.True(result.Access.Length > 0 && result.Access.All(item => item.Status == SourceStatus.Error && item.Items == 0), "refus explicite avant lecture");
             Check.Equal(mode == "dcom" ? InventoryTransport.Dcom : InventoryTransport.WinRm, result.Transport, "transport sélectionné conservé");
-            Check.Equal(1, copies, "une seule identité choisie, sans autre compte");
+            Check.Equal(1, copies, "une seule identité de connexion choisie, sans autre compte");
             Check.Equal(0, ldap.Calls, "aucune lecture AD implicite");
             Check.Equal(children, NativeReadProcess.Running, "aucun processus ni contact natif sur cible invalide");
         }
