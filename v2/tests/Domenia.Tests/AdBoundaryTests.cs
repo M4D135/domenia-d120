@@ -9,6 +9,17 @@ namespace Domenia.Tests;
 /// <summary>Real-mode boundaries exercised with a recording transport, never a domain or a workstation.</summary>
 internal static class AdBoundaryTests
 {
+    private sealed class OuCache(DirectorySnapshot directory) : IObjectDirectoryCache
+    {
+        public Task<DirectorySnapshot?> ReadAsync(CancellationToken token) => Task.FromResult<DirectorySnapshot?>(directory);
+        public Task<DirectorySnapshot?> ReadKnownAsync(CancellationToken token) => ReadAsync(token);
+        public Task SaveAsync(DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken token)
+            => throw new InvalidOperationException("No census expected.");
+        public Task<DirectorySnapshot> SaveObjectsAsync(DirectorySnapshot objects, string? controller, CancellationToken token)
+            => Task.FromResult(directory = directory with { OrganizationalUnits = [.. directory.OrganizationalUnits.Where(old =>
+                !objects.OrganizationalUnits.Any(current => DistinguishedName.AreEqual(old.DistinguishedName, current.DistinguishedName))), .. objects.OrganizationalUnits] });
+    }
+
     // A recording LDAP transport has no native connection to copy. Native protocol readers in these
     // fixtures are injected too; use an explicit Windows-session identity without any real credential.
     internal static AdministrationIdentity NativeAdministrator => new(AdministrationIdentityState.Administrator, "Administration explicitement confirmée par la fixture LDAP.");
@@ -149,7 +160,7 @@ internal static class AdBoundaryTests
         var dn = "OU=Atelier," + Fixtures.Postes;
         var oldDn = "OU=Ancienne," + Fixtures.Postes;
         DirectoryOu LocalOu(string value, string name) => new(Fixtures.IdOf(value), value, name, null, null, Fixtures.Now, Fixtures.Now, 1);
-        var cache = new AdAccueilTests.FleetCache(Fixtures.Snapshot() with
+        var cache = new OuCache(Fixtures.Snapshot() with
         { OrganizationalUnits = [LocalOu(dn, "Atelier"), LocalOu(oldDn, "Ancienne")] });
         using var connection = new RecordingAdConnection { Ous = [Ou("Atelier")] };
         using var source = new AdDirectorySource("test.local", () => @"TEST\adm", TestClock.Fixed(), connection: connection, localStore: cache);
