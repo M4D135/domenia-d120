@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Domenia.Bridge;
+using Domenia.Core;
 using Domenia.Core.Queries;
+using Domenia.Simulation;
 
 namespace Domenia.Tests;
 
@@ -29,6 +31,41 @@ internal static class RequetesOperationsTests
     {
         var tree = await Ok(bridge, "directory.ou.children", "{\"dn\":null}");
         return tree.GetProperty("children").EnumerateArray().First(c => c.GetProperty("name").GetString() == "Postes").GetProperty("dn").GetString()!;
+    }
+
+    [Test]
+    public static async Task Offline_home_lists_no_widgets_without_a_known_domain_root_and_keeps_explicit_guards()
+    {
+        foreach (var joinedDomain in new string?[] { null, "cnamts.local" })
+        {
+            var log = new RecordingJournal();
+            var decision = ModeResolver.Resolve([], null, () => new DomainJoinInfo(
+                joinedDomain is null ? DomainJoinState.Unknown : DomainJoinState.Joined, joinedDomain));
+            var source = new UnavailableDirectorySource(joinedDomain, () => @"CNAMTS\degun");
+            var context = new EngineContext(decision, source, new MemoryPreferenceStore(), TestClock.Fixed(), log,
+                ScreenReaders.Discover(source, [typeof(SimulatedDirectorySource).Assembly]));
+            var registry = OperationModules.CreateRegistry(context, OperationModules.Discover([typeof(DashboardOperations).Assembly]));
+            var sent = new List<BridgeResponse>();
+            var dispatcher = new BridgeDispatcher(registry, sent.Add, AdmissionGuards.For(context.Mode));
+            async Task<BridgeResponse> Call(string op, string args = "{}")
+            {
+                await dispatcher.HandleAsync("{\"id\":\"offline\",\"op\":\"" + op + "\",\"args\":" + args + "}", CancellationToken.None);
+                return sent.Last(r => r.Id == "offline");
+            }
+
+            var list = SimulatedBridge.Json(await Call("requetes.widget.list"));
+            Check.Equal(JsonValueKind.Array, list.ValueKind, "liste de widgets hors connexion");
+            Check.Equal(0, list.GetArrayLength(), "aucune bibliothèque sans racine de domaine connue");
+            Check.False(log.Lines.Any(l => l.StartsWith("ERREUR ", StringComparison.Ordinal)),
+                "le chargement automatique de l’accueil ne doit pas produire d’incident");
+
+            var invalid = await Call("requetes.widget.list", "{\"unexpected\":true}");
+            Check.Equal("error", invalid.Kind, "arguments inattendus toujours refusés");
+            Check.Equal(DomeniaErrors.ArgumentsInvalid, invalid.Error!.Code, "validation avant le retour vide");
+            var evaluate = await Call("requetes.widget.evaluate", "{\"id\":\"00000000000000000000000000000000\"}");
+            Check.Equal("error", evaluate.Kind, "évaluation explicite toujours refusée sans domaine");
+            Check.Equal(DomeniaErrors.SourceUnavailable, evaluate.Error!.Code, "garde de l’évaluation inchangée");
+        }
     }
 
     [Test]

@@ -765,7 +765,13 @@ public sealed partial class RequetesOperations : IOperationModule
             new OperationDefinition("requetes.widget.list", OperationClass.LocalRead, async (args, _, ct) => await RequetesArgs.Guard(async () =>
             {
                 BridgeArguments.RequireNone(args);
-                var session = await SessionAsync(ct).ConfigureAwait(false);
+                // The home lists widgets even after « Continue offline ». Without a known domain root,
+                // there is no library to list; do not turn this automatic local read into an incident.
+                var raw = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
+                if (raw.Domain?.RootDn is null)
+                    return Array.Empty<object>();
+                var scoped = await WorkingScope.From(context).ApplyAsync(raw, ct).ConfigureAwait(false);
+                var session = new Session(scoped, raw.Domain.RootDn, raw.Domain.DnsName ?? raw.Domain.RootDn);
                 var content = await library.ReadAsync(session.Root, ct).ConfigureAwait(false);
                 PosteLayoutView? posteLayout;
                 try { posteLayout = await PosteBoardLayouts.ReadLatestAsync(context.Preferences, "Computer", ct).ConfigureAwait(false); }
