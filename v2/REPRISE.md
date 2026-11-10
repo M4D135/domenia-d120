@@ -2,14 +2,27 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**10/11/2026 : Domenia 2.1.3 PROD-LIGHT publiée en dernière version sur `65daf42f`, après le go explicite de David. ZIP et téléchargement public vérifiés. Quatre retours de production corrigés ; 3 046 tests C# complets, 1 610 critiques, 221 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Recette sur domaine réel non exécutée.**
+**10/11/2026 : candidat 2.1.4 qualifié automatiquement sur `9bd1fb32`, non publié. 3 051 tests C# complets, 1 636 critiques, 221 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Recette AD à faire. Production publique : 2.1.3.**
 
-## 10/11/2026 — correctif 2.1.4 en préparation
+## 10/11/2026 — qualification automatique du candidat 2.1.4
 
-Retours de production : unités âge/durée en « postes », état Accueil refusé sans OU, OU introuvable après correction
-du compte, inventaire bloqué avant WMI avec compte explicite. Décision de David : le poste décide pour toutes les
-lectures avec l’identité choisie ; écritures toujours soumises à validation. Correctifs et tests sur
-`codex/correctifs-unites-etat-accueil-20261110`. CI et recette domaine non exécutées à cette étape ; aucune publication.
+Quatre retours corrigés : jours/minutes dans les budgets, lecture d’état Accueil sans OU sans erreur,
+recherche des OU persistées sans LDAP au démarrage/après changement de session, et lectures distantes
+laissées au poste avec le compte choisi. David a explicitement étendu cette règle aux comptes saisis ;
+écritures, secrets absents, pauses, cible et génération restent contrôlés. L’arbre fraîchement lu reste
+prioritaire sur les anciennes OU conservées. Schéma 11, révision 2 inchangés.
+
+Qualification [42786153794](https://github.com/M4D135/domenia-d120/actions/runs/42786153794) sur
+`9bd1fb32bcc7850af5e251bb8fd487ee5fd43915` : **3 051/3 051 C# complets**, **1 636/1 636 critiques**,
+**221 contrôles navigateur**, **7 simulations**, 20 captures ; ouverture native hors connexion et fermeture code 0.
+Titre natif : « Accueil — Domenia 2.1.4 ». ZIP **84,268,627 octets**, 788 fichiers,
+SHA-256 `502dbe22e8c7be0213f5be484c4c5575521dffdd98c1c1ff5a5557d1c992ee1b`. Métadonnées, exécutable, somme et absence du nom de labo (UTF-8/UTF-16LE) vérifiés.
+48 contrôles Python locaux réussis ; relecture Spark examinée. Les runs 42784075793 et 42785125363 ont signalé
+un défaut de fixture du nouveau test d’OU (stockage ciblé puis dates par objet) ; corrigé sans affaiblir les gardes produit.
+
+Candidat conservé pour revue, **non publié**. Kit CHECK/LOGIN et recette spécifique WMI/OU préparés hors dépôt.
+Recette sur domaine réel non exécutée ; accès au banc réservé à la coordination de David selon le relais.
+La publication exige encore le go explicite dans le chat. La release publique reste 2.1.3.
 
 ## 10/11/2026 — publication de 2.1.3
 

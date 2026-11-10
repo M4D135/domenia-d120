@@ -1,6 +1,6 @@
 # Domenia 2.1.4 — lectures, périmètre et unités
 
-Candidat en préparation, non publié. Recette manuelle non exécutée.
+Candidat qualifié automatiquement par le run 42786153794, non publié. Recette manuelle sur domaine réel non exécutée.
 Pack attendu : `Domenia_2.1.4_PROD-LIGHT_Windows-x64.zip`, avec `SHA256SUMS.txt`.
 Extraire dans un nouveau dossier, vérifier l’empreinte puis lancer Domenia.exe. Schéma 11, révision 2 inchangés.
 
