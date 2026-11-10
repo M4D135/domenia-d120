@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Security;
@@ -96,8 +97,8 @@ internal static class NativeReadWorkerTests
     [Test]
     public static async Task Native_real_child_disabled_read_is_local_and_process_is_gone_before_quota_returns()
     {
-        var before = NativeReadProcess.Running;
-        var client = new NativeReadClient(Hello, null, default, adaptive: new AdaptiveReadBudget(TimeProvider.System));
+        var before = NativeReadProcess.Running; var journal = new NativeFailureJournal();
+        var client = new NativeReadClient(Hello, null, default, adaptive: new AdaptiveReadBudget(TimeProvider.System), journal: journal);
         try
         {
             var reply = await client.ReadAsync(Query);
@@ -110,6 +111,7 @@ internal static class NativeReadWorkerTests
             client.Dispose();
             Check.True(child.HasExited, "sortie OS confirmée avant retour Dispose");
             Check.Equal(before, NativeReadProcess.Running, "place rendue après sortie");
+            Check.Equal(0, journal.Warnings.Count, "aucune trace d’échec pour deux réponses normales");
         }
         finally { client.Dispose(); }
     }
@@ -117,12 +119,12 @@ internal static class NativeReadWorkerTests
     [Test]
     public static async Task Native_cancellation_kills_a_child_blocked_after_request_and_never_replays_it()
     {
-        var before = NativeReadProcess.Running;
+        var before = NativeReadProcess.Running; var journal = new NativeFailureJournal();
         var adaptive = new AdaptiveReadBudget(TimeProvider.System);
         using var stop = new CancellationTokenSource();
         var id = Guid.NewGuid().ToString("N");
         using var ready = new EventWaitHandle(false, EventResetMode.ManualReset, @"Local\Domenia.NativeFixture." + id);
-        using var client = new NativeReadClient(Hello, null, stop.Token, adaptive: adaptive);
+        using var client = new NativeReadClient(Hello, null, stop.Token, adaptive: adaptive, journal: journal);
         var reading = client.ReadAsync(Query, NativeReadWorkerFixture.Prefix + id);
         Check.True(await Task.Run(() => ready.WaitOne(TimeSpan.FromSeconds(10))), "l’enfant a lu la requête avant annulation");
         using var child = Process.GetProcessById(client.ProcessId!.Value);
@@ -133,6 +135,12 @@ internal static class NativeReadWorkerTests
         Check.Equal(0, adaptive.Snapshot(Hello.Host).Active, "place adaptative rendue après fin physique");
         Check.Equal(0, adaptive.Snapshot(Hello.Host).Failures, "annulation sans pénalité du site");
         await Check.ThrowsAsync<ObjectDisposedException>(() => client.ReadAsync(Query), "aucun redémarrage implicite");
+        var warning = journal.Warnings.Single();
+        Check.Equal(before, journal.RunningAtWarning.Single(), "trace publiée après sortie physique");
+        Check.True(warning.Contains("callerCancellation=True; requestDeadline=False", StringComparison.Ordinal), "annulation appelante distincte du délai");
+        Check.True(warning.Contains("budgetMs=20000;", StringComparison.Ordinal), "budget de la requête, pas celui de la session");
+        CheckWriteBoundary(warning);
+        Check.False(warning.Contains(Hello.Host, StringComparison.Ordinal) || warning.Contains(Query.Query!, StringComparison.Ordinal), "ni cible ni requête dans le journal");
     }
 
     [Test]
@@ -159,16 +167,28 @@ internal static class NativeReadWorkerTests
     public static async Task Native_deadline_stops_the_blocked_process_without_waiting_for_real_time()
     {
         var id = Guid.NewGuid().ToString("N"); var clock = new DeadlineClock(); var adaptive = new AdaptiveReadBudget(clock);
+        var journal = new NativeFailureJournal(); var before = NativeReadProcess.Running;
+        var request = new NativeReadRequest(NativeReadKind.Registry, 3000)
+        { Registry = new(InventoryRegistry.Machine, InventoryRegistry.UpdatePolicy, "WUServer", RegistryMethod.String) };
         using var ready = new EventWaitHandle(false, EventResetMode.ManualReset, @"Local\Domenia.NativeFixture." + id);
-        using var client = new NativeReadClient(Hello, null, default, clock, adaptive);
-        var reading = client.ReadAsync(Query, NativeReadWorkerFixture.Prefix + id);
+        using var client = new NativeReadClient(Hello, null, default, clock, adaptive, journal);
+        var reading = client.ReadAsync(request, NativeReadWorkerFixture.Prefix + id);
         Check.True(await Task.Run(() => ready.WaitOne(TimeSpan.FromSeconds(10))), "requête reçue avant expiration");
         using var child = Process.GetProcessById(client.ProcessId!.Value);
-        clock.Advance(TimeSpan.FromMilliseconds(Query.BudgetMs));
+        clock.Advance(TimeSpan.FromMilliseconds(request.BudgetMs));
         await Check.ThrowsAsync<TimeoutException>(() => reading, "délai déterministe");
         Check.True(child.HasExited, "délai n’est pas une simple fin d’attente du Task");
         Check.Equal(0, adaptive.Snapshot(Hello.Host).Active, "pas de place rendue avant la sortie OS");
         Check.Equal(1, adaptive.Snapshot(Hello.Host).Failures, "délai d’une requête effectivement envoyée mesuré");
+        await Check.ThrowsAsync<ObjectDisposedException>(() => client.ReadAsync(request), "aucun rejeu après délai");
+        var warning = journal.Warnings.Single();
+        Check.Equal(before, journal.RunningAtWarning.Single(), "trace après restitution physique");
+        Check.True(warning.Contains("kind=Registry;", StringComparison.Ordinal) && warning.Contains("budgetMs=3000; elapsedMs=3000; executionMs=3000;", StringComparison.Ordinal), "budget et durées exacts avant nettoyage");
+        Check.True(warning.Contains("callerCancellation=False; requestDeadline=True", StringComparison.Ordinal), "expiration propre sans annulation appelante");
+        Check.True(warning.Contains("exception=System.OperationCanceledException;", StringComparison.Ordinal)
+            || warning.Contains("exception=System.Threading.Tasks.TaskCanceledException;", StringComparison.Ordinal), "exception observée avant conversion en TimeoutException");
+        Check.True(warning.Contains("registry=UpdatePolicy/WUServer.", StringComparison.Ordinal), "appel registre identifié par un libellé fermé");
+        CheckWriteBoundary(warning);
     }
 
     [Test]
@@ -224,14 +244,18 @@ internal static class NativeReadWorkerTests
     public static async Task Native_adaptive_cancel_before_admission_never_starts_a_child_or_penalizes_the_source()
     {
         var adaptive = new AdaptiveReadBudget(TimeProvider.System, 1); using var held = adaptive.Acquire(Hello.Host);
-        var before = NativeReadProcess.Running; using var stop = new CancellationTokenSource();
-        using var client = new NativeReadClient(Hello, null, stop.Token, adaptive: adaptive);
+        var before = NativeReadProcess.Running; var journal = new NativeFailureJournal(); using var stop = new CancellationTokenSource();
+        using var client = new NativeReadClient(Hello, null, stop.Token, adaptive: adaptive, journal: journal);
         var reading = client.ReadAsync(Query); Check.False(reading.IsCompleted, "attente réelle d’admission");
         Check.Null(client.ProcessId, "aucun PID créé avant admission"); stop.Cancel();
         await Check.ThrowsAsync<OperationCanceledException>(() => reading, "annulation de la demande en attente");
         Check.Equal(before, NativeReadProcess.Running, "aucun processus lancé");
         Check.Equal(1, adaptive.Snapshot(Hello.Host).Active, "place tierce toujours détenue");
         Check.Equal(0, adaptive.Snapshot(Hello.Host).Failures, "aucune mesure d’échec inventée");
+        var warning = journal.Warnings.Single();
+        Check.True(warning.Contains("stage=Admission;", StringComparison.Ordinal) && warning.Contains("executionMs=absent;", StringComparison.Ordinal), "attente locale sans exécution native inventée");
+        Check.True(warning.Contains("callerCancellation=True; requestDeadline=False; requestWriteCompleted=False;", StringComparison.Ordinal), "aucun délai ni envoi pendant l’admission");
+        Check.Equal(before, journal.RunningAtWarning.Single(), "aucun enfant au moment de la trace");
     }
 
     [Test]
@@ -299,6 +323,62 @@ internal static class NativeReadWorkerTests
         foreach (var name in new[] { @"\\server\pipe\x", "Domenia.NativeRead...", "Domenia.NativeRead." + new string('x', 32), "" })
         { Check.False(NativeReadWorkerHost.ValidPipeName(name), "nom refusé"); }
         Check.Equal(2, NativeReadWorkerHost.Run([NativeReadWorkerHost.Argument, "bad", "1"]), "pas de connexion pour nom invalide");
+    }
+
+    [Test]
+    public static void Native_failure_evidence_keeps_codes_and_closed_registry_labels_without_payload_or_exception_text()
+    {
+        const string privateText = "DO-NOT-LOG-target-account-query-value";
+        var error = new Win32Exception(5, privateText + "\r\nsecond-line"); error.Data["detail"] = privateText;
+        var clock = new DeadlineClock(); clock.Advance(TimeSpan.FromMilliseconds(125));
+        foreach (var (registry, label) in new (RegistryRequest, string)[]
+        {
+            (new(InventoryRegistry.Machine, InventoryRegistry.UpdatePolicy.ToLowerInvariant(), "wuserver", RegistryMethod.String), "UpdatePolicy/WUServer"),
+            (new(InventoryRegistry.Machine, InventoryRegistry.UpdatePolicy + @"\AU", "UseWUServer", RegistryMethod.Dword), "UpdatePolicy/AU/UseWUServer"),
+            (new(InventoryRegistry.Machine, InventoryRegistry.UpdateInstall, "LastSuccessTime", RegistryMethod.String), "UpdateInstall/LastSuccessTime"),
+            (new(InventoryRegistry.Users, InventoryRegistry.UpdatePolicy, "WUServer", RegistryMethod.String), "Other"),
+            (new(InventoryRegistry.Machine, InventoryRegistry.UpdatePolicy, "WUServer", RegistryMethod.Dword), "Other"),
+            (new(InventoryRegistry.Machine, privateText, privateText, RegistryMethod.String), "Other"),
+        })
+        {
+            var request = new NativeReadRequest(NativeReadKind.Registry, 3000)
+            { Registry = registry, Category = privateText, Namespace = privateText, Query = privateText, ExpectedComputerName = privateText };
+            var evidence = NativeReadFailureEvidence.Capture(InventoryTransport.Dcom, request, NativeReadStage.WorkerStart,
+                0, null, clock, default, default, false, error);
+            var warning = evidence.Format();
+            Check.Equal(125L, evidence.ElapsedMs, "capture au point d’échec");
+            Check.Null(evidence.ExecutionMs, "aucune durée d’exécution inventée");
+            Check.Equal(error.HResult, evidence.HResult, "code original conservé");
+            Check.Equal(5, evidence.NativeErrorCode!.Value, "code Windows original");
+            Check.True(warning.Contains("exception=System.ComponentModel.Win32Exception;", StringComparison.Ordinal)
+                && warning.Contains("win32=0x00000005;", StringComparison.Ordinal), "type et code sans texte arbitraire");
+            Check.True(warning.Contains("registry=" + label + ".", StringComparison.Ordinal), "projection fermée du registre");
+            Check.False(warning.Contains(privateText, StringComparison.Ordinal) || warning.Contains(registry.Key, StringComparison.Ordinal), "aucune charge utile, clé brute, donnée d’exception ou cible");
+            Check.False(warning.Any(char.IsControl), "une seule ligne");
+            Check.True(warning.Length < 900, "trace bornée");
+            clock.Advance(TimeSpan.FromMilliseconds(1000));
+            Check.Equal(warning, evidence.Format(), "nettoyage ultérieur sans modifier les faits capturés");
+            clock = new DeadlineClock(); clock.Advance(TimeSpan.FromMilliseconds(125));
+        }
+    }
+
+    private static void CheckWriteBoundary(string warning)
+    {
+        // The child can signal readiness before the parent's asynchronous write continuation resumes.
+        Check.True(warning.Contains("stage=RequestWrite;", StringComparison.Ordinal)
+            || warning.Contains("stage=ResponseRead;", StringComparison.Ordinal), "frontière réellement atteinte après réception par l’enfant");
+        var completed = warning.Contains("stage=ResponseRead;", StringComparison.Ordinal);
+        Check.True(warning.Contains("requestWriteCompleted=" + completed + ";", StringComparison.Ordinal), "fin de l’écriture distincte de son commencement");
+    }
+
+    private sealed class NativeFailureJournal : ITechnicalJournal
+    {
+        internal List<string> Warnings { get; } = [];
+        internal List<int> RunningAtWarning { get; } = [];
+        public void Trace(string message) { }
+        public void Info(string message) { }
+        public void Error(string message, Exception exception) { }
+        public void Warning(string message) { Warnings.Add(message); RunningAtWarning.Add(NativeReadProcess.Running); }
     }
 
     private sealed class DeadlineClock : TimeProvider

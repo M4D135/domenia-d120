@@ -11,6 +11,7 @@ internal sealed class NativeReadClient : IDisposable
     private readonly CancellationToken token;
     private readonly TimeProvider clock;
     private readonly AdaptiveReadBudget adaptive;
+    private readonly ITechnicalJournal? journal;
     private RemoteProbeCredential? credential;
     private NamedPipeServerStream? pipe;
     private NativeReadProcess? process;
@@ -19,12 +20,13 @@ internal sealed class NativeReadClient : IDisposable
     private readonly IDisposable? resource;
     private bool closed;
     internal int? ProcessId => process?.Id;
-    internal NativeReadClient(NativeReadHello hello, RemoteProbeCredential? credential, CancellationToken token, TimeProvider? clock = null, AdaptiveReadBudget? adaptive = null)
+    internal NativeReadClient(NativeReadHello hello, RemoteProbeCredential? credential, CancellationToken token, TimeProvider? clock = null, AdaptiveReadBudget? adaptive = null, ITechnicalJournal? journal = null)
     {
         NativeIsolationPlan.CheckHello(hello, credential?.Password is not null);
         if (!hello.Session && (credential is not { Session: false } supplied || !string.Equals(hello.Account, supplied.Account, StringComparison.Ordinal)))
         { throw new InvalidDataException("Compte natif non lié à la session demandée."); }
         this.hello = hello; this.token = token; this.clock = clock ?? TimeProvider.System; this.adaptive = adaptive ?? AdaptiveReadBudget.Cim;
+        this.journal = journal;
         borrowedAdmission = WmiReadWorkers.HasPhysicalAdmission;
         site = WmiReadWorkers.SiteAdmission;
         this.credential = credential is null ? null : new(credential.Account, credential.Password?.Copy(), credential.Session);
@@ -44,6 +46,10 @@ internal sealed class NativeReadClient : IDisposable
         long? startupMs = null;
         var outcome = ReadPerformanceOutcome.Failure;
         var sent = false;
+        var requestWriteCompleted = false;
+        var stage = NativeReadStage.Admission;
+        CancellationToken requestDeadline = default;
+        NativeReadFailureEvidence? failure = null;
         IDisposable? admission = null;
         try
         {
@@ -59,9 +65,11 @@ internal sealed class NativeReadClient : IDisposable
             executingAt = clock.GetTimestamp();
             // Waiting for local capacity is not a native query. Start its deadline only after admission.
             using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(request.BudgetMs), clock);
+            requestDeadline = timeout.Token;
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token, timeout.Token);
             if (pipe is null)
             {
+                stage = NativeReadStage.WorkerStart;
                 var startupAt = clock.GetTimestamp();
                 var name = "Domenia.NativeRead." + Guid.NewGuid().ToString("N");
                 pipe = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
@@ -69,7 +77,9 @@ internal sealed class NativeReadClient : IDisposable
                 var reserved = admission;
                 admission = null; // Start now owns admission, including launch failure and confirmed OS exit.
                 process = NativeReadProcess.Start(name, workerMode, reserved);
+                stage = NativeReadStage.PipeConnect;
                 await pipe.WaitForConnectionAsync(deadline.Token).ConfigureAwait(false);
+                stage = NativeReadStage.Handshake;
                 NativeReadProcess.VerifyClient(pipe, process.Id);
                 await NativeReadProtocol.WriteAsync(pipe, hello, NativeReadProtocol.RequestLimit, deadline.Token).ConfigureAwait(false);
                 await NativeReadProtocol.WritePasswordAsync(pipe, credential?.Password, deadline.Token).ConfigureAwait(false);
@@ -77,8 +87,12 @@ internal sealed class NativeReadClient : IDisposable
                 startupMs = ReadPerformance.Milliseconds(clock.GetElapsedTime(startupAt));
             }
             sent = true; started = clock.GetTimestamp();
+            stage = NativeReadStage.RequestWrite;
             await NativeReadProtocol.WriteAsync(pipe, request, NativeReadProtocol.RequestLimit, deadline.Token).ConfigureAwait(false);
+            requestWriteCompleted = true;
+            stage = NativeReadStage.ResponseRead;
             var response = await NativeReadProtocol.ReadAsync<NativeReadReply>(pipe, NativeReadProtocol.ResponseLimit, deadline.Token).ConfigureAwait(false);
+            stage = NativeReadStage.ResponseValidate;
             if (response.Failed) { throw new InvalidDataException("Lecture native non aboutie."); }
             var status = response.Reading?.Status ?? response.Registry?.Status ?? response.User?.Access.Status;
             outcome = response.Trial is { } measuredTrial
@@ -88,12 +102,28 @@ internal sealed class NativeReadClient : IDisposable
                 ? TrialOutcome(trial) : AdaptiveReadBudget.Classify(status), clock.GetElapsedTime(started));
             return response;
         }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested)
-        { if (sent) site?.Report(AdaptiveReadOutcome.Timeout, clock.GetElapsedTime(started)); Dispose(); throw new TimeoutException("Budget de lecture native atteint ; sortie du processus confirmée après fermeture."); }
-        catch { outcome = token.IsCancellationRequested ? ReadPerformanceOutcome.Cancelled : ReadPerformanceOutcome.Failure; if (sent && !token.IsCancellationRequested) site?.Report(false, clock.GetElapsedTime(started)); Dispose(); throw; }
+        catch (OperationCanceledException ex) when (!token.IsCancellationRequested)
+        {
+            failure = NativeReadFailureEvidence.Capture(hello.Transport, request, stage, queuedAt, executingAt,
+                clock, token, requestDeadline, requestWriteCompleted, ex);
+            if (sent) site?.Report(AdaptiveReadOutcome.Timeout, clock.GetElapsedTime(started));
+            Dispose();
+            throw new TimeoutException("Budget de lecture native atteint ; sortie du processus confirmée après fermeture.");
+        }
+        catch (Exception ex)
+        {
+            failure = NativeReadFailureEvidence.Capture(hello.Transport, request, stage, queuedAt, executingAt,
+                clock, token, requestDeadline, requestWriteCompleted, ex);
+            outcome = token.IsCancellationRequested ? ReadPerformanceOutcome.Cancelled : ReadPerformanceOutcome.Failure;
+            if (sent && !token.IsCancellationRequested) site?.Report(false, clock.GetElapsedTime(started));
+            Dispose();
+            throw;
+        }
         finally
         {
             admission?.Dispose();
+            // Facts were captured before cleanup; publish only after the child and admission have been released.
+            if (failure is { } observed) { journal?.Warning(observed.Format()); }
             if (executingAt is { } measuredAt)
                 ReadPerformance.Publish(new(PerformanceMethod(request), request.Kind.ToString(), queueMilliseconds,
                     ReadPerformance.Milliseconds(clock.GetElapsedTime(measuredAt)), outcome) { StartupMs = startupMs });
