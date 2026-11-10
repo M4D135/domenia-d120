@@ -20,7 +20,7 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
 
     // David, 10/11/2026: the workstation grants or refuses reads with the selected identity, including typed accounts.
     // Credential selection, secret availability, pause and generation checks still apply; writes keep admission checks.
-    internal WmiWorkstationReader InventoryReader() => new(source.Clock, configuration: Settings) { ProjectionReused = () => { if (source.AccountContext is { } context) { OperationActivity.From(context).RecordGroupedCimReuse(); } } };
+    internal WmiWorkstationReader InventoryReader() => new(source.Clock, source.AccountContext?.Log, configuration: Settings) { ProjectionReused = () => { if (source.AccountContext is { } context) { OperationActivity.From(context).RecordGroupedCimReuse(); } } };
 
     internal static async Task RequireNetworkIdentityAsync(AdDirectorySource source, string host, CancellationToken token, bool readOnly = false)
     {
