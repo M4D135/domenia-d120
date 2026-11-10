@@ -2,7 +2,20 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**09/11/2026 : parité clôturée : 622 faites, 370 améliorées, aucune partielle ni à faire, PST-001 abandonnée. 2.1.2 qualifiée sur `c2e5edb1` : 3 043 tests C# complets, 1 601 critiques, 218 contrôles navigateur, 7 simulations et login natif hors connexion. ZIP vérifié, publication en attente du go explicite. Production : 2.1.1 sur `7627bd1e`, toujours à valider hors Domain Admins. Relais : [`docs/reprise/RELAIS-CODEX-20261109.md`](docs/reprise/RELAIS-CODEX-20261109.md).**
+**10/11/2026 : Domenia 2.1.2 PROD-LIGHT publiée en dernière version sur `c2e5edb1`, après le go explicite de David. ZIP et téléchargement public vérifiés. Parité : 622 faites, 370 améliorées, aucune partielle ni à faire, PST-001 abandonnée. Qualification : 3 043 tests C# complets, 1 601 critiques, 218 contrôles navigateur, 7 simulations et login natif hors connexion. Recette sur domaine réel toujours à effectuer.**
+
+## 10/11/2026 — publication de 2.1.2
+
+David a répondu « go » à la demande explicite de publier la 2.1.2 qualifiée. La [release v2.1.2](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.2)
+est publiée le 10 novembre à 05:30 UTC, en dernière version ; tag sur `c2e5edb1fe1841821a02e27e2014a6774015c82e`.
+Aucune reconstruction : ZIP exact du run [42701363001](https://github.com/M4D135/domenia-d120/actions/runs/42701363001),
+84 267 433 octets, SHA-256 `b4fd5a59f571db88ae60a4fe612e44bf58230b28c1c1e0302cc79a88b5082a2f`. Empreintes GitHub conformes,
+ZIP et `SHA256SUMS.txt` retéléchargés sans compte (HTTP 200), empreintes identiques. README, `packs/` et description
+sont alignés sur 2.1.2. Les versions 2.1.1 et 2.1.0 restent disponibles.
+
+La qualification du 9 novembre ci-dessous reste celle du commit publié. Les commits de bilan et de publication
+modifient seulement la documentation et le catalogue de téléchargement ; aucune ancienne preuve de LOGIN n’est
+reportée sur cette version. La recette sur domaine réel et hors Domain Admins reste non exécutée ici.
 
 ## 09/11/2026 — clôture PAR-046 et qualification complète de 2.1.2
 

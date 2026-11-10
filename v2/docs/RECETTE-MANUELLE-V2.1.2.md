@@ -1,8 +1,8 @@
 # Domenia 2.1.2 — clôture de la parité et garanties de lecture
 
-Version du 9 novembre 2026. La qualification CI est distincte de la recette utilisateur sur un domaine réel.
+Version qualifiée le 9 novembre 2026, publiée le 10 novembre 2026. La qualification CI est distincte de la recette utilisateur sur un domaine réel.
 
-Un seul ZIP est prévu : `Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip`. L’extraire dans un dossier distinct et vérifier
+Un seul ZIP est publié : `Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip`. L’extraire dans un dossier distinct et vérifier
 son SHA256 avec `SHA256SUMS.txt`. Le runtime .NET est embarqué ; WebView2 est fourni par Evergreen installé ou
 par le pack du Socle extrait dans `wad/runtime/webview2`. Aucun téléchargement automatique.
 

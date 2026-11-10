@@ -1,64 +1,72 @@
 {
   "schema": 2,
   "product": "Domenia",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "platform": "Windows-x64",
-  "source_commit": "7627bd1e50d9b72a255f98b8d980f4496cb59397",
+  "source_commit": "c2e5edb1fe1841821a02e27e2014a6774015c82e",
   "distribution": {
     "channel": "github-release",
-    "tag": "v2.1.1",
-    "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.1",
-    "authorization_date": "2026-11-09",
+    "tag": "v2.1.2",
+    "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.2",
+    "authorization_date": "2026-11-10",
     "method": "manual-publication-of-exact-verified-archives",
     "rebuild_for_publication": false,
-    "release_id": 439322199,
-    "published_at": "2026-11-09T15:44:10Z",
+    "release_id": 439982267,
+    "published_at": "2026-11-10T05:30:00Z",
     "remote_assets_verified": true
   },
   "archives": [
     {
       "edition": "PROD-LIGHT",
-      "filename": "Domenia_2.1.1_PROD-LIGHT_Windows-x64.zip",
-      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.1/Domenia_2.1.1_PROD-LIGHT_Windows-x64.zip",
-      "bytes": 84266401,
-      "sha256": "85d795d75b332a9008de14c235ca81b788d44a4006e510e86c7f6c568689f8b2",
-      "github_asset_id": 728017097,
+      "filename": "Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip",
+      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.2/Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip",
+      "bytes": 84267433,
+      "sha256": "b4fd5a59f571db88ae60a4fe612e44bf58230b28c1c1e0302cc79a88b5082a2f",
+      "github_asset_id": 730240910,
       "github_digest_verified": true
     }
   ],
   "checksums": {
     "filename": "SHA256SUMS.txt",
-    "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.1/SHA256SUMS.txt",
+    "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.2/SHA256SUMS.txt",
     "bytes": 107,
-    "sha256": "a02673f5cefa7cab3574e57ac46a4a11f7bff713853ab9a1d0fefc3a9c19ecd0",
+    "sha256": "0b9bcebba615a95e5f1710d6b564293bdf0067f3b478dab0edb0a73849782986",
     "repository_copy": "packs/SHA256SUMS",
-    "github_asset_id": 728017098,
+    "github_asset_id": 730240916,
     "github_digest_verified": true
   },
   "provenance": {
-    "delivery_ci": "https://github.com/M4D135/domenia-d120/actions/runs/42641992867",
-    "executable_sha256": "882a8d0792a6d5b6e657a4c35e8390421feadd49bd695594201071f0d6ba3405",
+    "delivery_ci": "https://github.com/M4D135/domenia-d120/actions/runs/42701363001",
+    "executable_sha256": "25304074af5eb2e5165ebb2875b1b0a7e81c99d46f692c39055e27037572d3a0",
     "webview2": "evergreen-140.0.3485.54-or-socle-pack",
     "report": "v2/REPRISE.md"
   },
   "qualification": {
-    "scope": "presence-and-windows-session-reads-without-domain-admins",
+    "scope": "parity-closure-population-comparison-and-read-only-probe-contracts",
     "ci": "passed",
     "ci_counts": {
-      "csharp_full_passed": 3028,
-      "csharp_critical_passed": 1586,
+      "csharp_full_passed": 3043,
+      "csharp_critical_passed": 1601,
       "web_critical": 218,
       "simulation_scenarios": 7
     },
     "native_offline_login": "passed",
-    "bench_check": "passed",
+    "bench_check": "not-run",
     "domain_login": "not-run",
     "ad_writes": "not-performed",
     "human_recipe": "pending",
-    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.1.md",
+    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.2.md",
     "non_domain_admin_account": "not-run"
   },
   "previous_releases": [
+    {
+      "tag": "v2.1.1",
+      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.1",
+      "archives_published": true,
+      "archive_sha256": "85d795d75b332a9008de14c235ca81b788d44a4006e510e86c7f6c568689f8b2",
+      "source_commit": "7627bd1e50d9b72a255f98b8d980f4496cb59397",
+      "domain_login": "not-run"
+    },
     {
       "tag": "v2.1.0",
       "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0",

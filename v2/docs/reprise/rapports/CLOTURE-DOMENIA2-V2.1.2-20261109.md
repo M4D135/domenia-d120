@@ -1,4 +1,8 @@
-# Clôture de la parité — Domenia 2.1.2 qualifiée, non publiée
+# Clôture de la parité — qualification de Domenia 2.1.2 du 9 novembre 2026
+
+> Actualisation du 10 novembre 2026 : [2.1.2 publiée](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.2) après le go explicite de David,
+> avec le ZIP et le commit qualifiés ci-dessous. Téléchargement public et SHA-256 vérifiés. Les mentions de
+> non-publication dans le rapport conservent l’état du 9 novembre ; la recette réelle reste à faire.
 
 Demande de David du 9 novembre 2026 : « go tout terminer ». Ce rapport complète la clôture de
 [TRV-111 et TRV-190](TRV-111-TRV-190-20261109.md), déjà intégrée à master et qualifiée sur les tests critiques.
