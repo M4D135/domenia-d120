@@ -35,7 +35,11 @@ public sealed partial class AccueilService
     {
         var status = RefreshStatus();
         if (status.Running || context.Readers.Find<IHomeCampaignRecorder>() is not { } recorder) { return status; }
-        var (_, scope, domain) = await ScopeAsync(token).ConfigureAwait(false);
+        var raw = await context.Directory.GetSessionAsync(token).ConfigureAwait(false);
+        var session = await workingScope.ApplyAsync(raw, token).ConfigureAwait(false);
+        // No selected OU is a normal startup state. Keep the checkpoint until its scope can be matched.
+        if (session.Scope is not { } scope || session.Domain?.RootDn is not { } domain)
+        { return status with { Last = null }; }
         var stored = await recorder.ReadHomeCampaignAsync(token).ConfigureAwait(false);
         if (stored.Plan is { } plan)
         {

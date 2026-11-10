@@ -85,11 +85,11 @@ def make_packages(directory, dev_changes=None, seed=None, version=VERSION, schem
     for kind, files in editions:
         files["package-release.json"] = encoded({
             "version": version, "build": version + "+" + "b" * 64,
-            "dataSchemaVersion": 11, "dataSchemaRevision": schema_revision if schema_revision is not None else (2 if version in ("2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3") else 1), "project": "Domenia",
+            "dataSchemaVersion": 11, "dataSchemaRevision": schema_revision if schema_revision is not None else (2 if version in ("2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4") else 1), "project": "Domenia",
             "architecture": "win-x64", "packageType": kind, "sourceCommit": COMMIT,
             "executableSha256": hashlib.sha256(files["Domenia.exe"]).hexdigest(),
             "dependencies": {".NET": "10.0.13" if production else "fixture", "WebView2": "Evergreen" if kind == "PROD-LIGHT" else "fixture"}})
-        prefix = "wad/" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3") else ""
+        prefix = "wad/" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4") else ""
         files = {name if name == "Domenia.exe" else prefix + name: raw for name, raw in files.items()}
         if contract:
             metadata = json.loads(files[prefix + "package-release.json"])
@@ -204,7 +204,7 @@ class ManualPackageIntegrityCriticalTests(unittest.TestCase):
                 verifier.verify_packages(self.directory, COMMIT, version)
 
     def test_collection_login_corrective_version(self):
-        for version in ("2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3"):
+        for version in ("2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4"):
             with self.subTest(version=version):
                 make_packages(self.directory, version=version)
                 result = verifier.verify_packages(self.directory, COMMIT, version)
@@ -223,7 +223,7 @@ class ManualPackageIntegrityCriticalTests(unittest.TestCase):
             verifier.guard.check_archive(path, "PROD", "2.0.4", COMMIT)
 
     def test_fleet_migration_revision_cannot_be_mislabeled_in_an_otherwise_valid_archive(self):
-        for version, revision in (("2.0.5", 1), ("2.0.6", 1), ("2.0.7", 1), ("2.0.8", 1), ("2.1.0", 1), ("2.1.1", 1), ("2.1.2", 1), ("2.1.3", 1), ("2.0.4", 2)):
+        for version, revision in (("2.0.5", 1), ("2.0.6", 1), ("2.0.7", 1), ("2.0.8", 1), ("2.1.0", 1), ("2.1.1", 1), ("2.1.2", 1), ("2.1.3", 1), ("2.1.4", 1), ("2.0.4", 2)):
             with self.subTest(version=version, revision=revision):
                 make_packages(self.directory, version=version, schema_revision=revision)
                 with self.assertRaises(verifier.guard.Refused):

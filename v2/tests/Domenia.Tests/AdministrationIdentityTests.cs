@@ -76,10 +76,10 @@ internal static partial class AdministrationIdentityTests
     }
 
     [Test]
-    public static async Task A_standard_explicit_account_measures_presence_but_starts_no_inventory_campaign()
+    public static async Task A_standard_explicit_account_runs_presence_and_inventory_campaigns()
     {
         // ICMP and DNS carry no credential: measuring online workstations needs no administration (David, 09/11/2026).
-        // A typed connection account keeps the administration check before WMI.
+        // David, 10/11/2026: a typed connection account is also tried for reads; the workstation decides.
         foreach (var family in new[] { MeasureFamily.Presence, MeasureFamily.Inventory })
         {
             var pc = Fixtures.Computer("PC1"); var probe = new CountingProbe(); var copies = 0;
@@ -100,10 +100,8 @@ internal static partial class AdministrationIdentityTests
             }
             else
             {
-                var error = await Check.ThrowsAsync<DomeniaOperationException>(() => source.RefreshAsync(family,
-                    new(Fixtures.Postes, "Postes", true), CancellationToken.None), "campagne distante refusée");
-                Check.Equal(AdministrationIdentity.Required, error.Code, "voie autre compte explicite");
-                Check.Equal(0, probe.Calls, "aucun WMI envoyé");
+                await source.RefreshAsync(family, new(Fixtures.Postes, "Postes", true), CancellationToken.None);
+                Check.Equal(2, probe.Calls, "ping puis inventaire via le fournisseur de test");
             }
             Check.Equal(0, copies, "aucune identité native copiée");
         }
@@ -130,6 +128,63 @@ internal static partial class AdministrationIdentityTests
             Check.Equal(AdministrationIdentity.Required, write.Code, "voie autre compte explicite");
             Check.Equal(1, copies, "refus avant copie native");
         }
+    }
+
+    [Test]
+    public static async Task Selected_connection_typed_and_temporary_accounts_reach_read_contact_without_an_administration_proof()
+    {
+        foreach (var selection in new[] { "connection", "typed-domain", "typed-local", "temporary-local" })
+        {
+            var pc = Fixtures.Computer("PC1"); var copies = 0;
+            using var ldap = new AdBoundaryTests.RecordingAdConnection();
+            using var source = new AdDirectorySource("test.local", () => @"TEST\reader", TestClock.Fixed(), connection: ldap,
+                localStore: new AdAccueilTests.FleetCache(Fixtures.Snapshot(computers: [pc])))
+            { SessionCredentialCopy = () => { copies++; return new("reader", "TEST", PasswordSecrets.FromText("connection-read-fixture"), false); } };
+            source.AdoptConnection(ldap, Fixtures.Domain,
+                new(new(@"TEST\reader", null, null, "CN=reader," + Fixtures.People), Fixtures.Domain.DomainSid + "-1001",
+                    new(RightsLevel.Unknown, "Inconnus", true, "Droits AD distincts."))
+                { Administration = new(AdministrationIdentityState.Standard, "Aucune preuve d’administration.") }, source.Epoch, false);
+            using var context = new EngineContext(new(AppMode.Directory, ModeReason.Argument, "Test", null, "test.local", []), source,
+                new MemoryPreferenceStore(), source.Clock, new RecordingJournal());
+            var session = await source.GetSessionAsync(CancellationToken.None);
+            var machine = MachineAccountService.From(context);
+            _ = machine.Build(session, pc.DnsHostName!, null);
+            var login = selection.EndsWith("local", StringComparison.Ordinal) ? @"PC1\Admin" : @"TEST\reader";
+            using var secret = PasswordSecrets.FromText("selected-read-fixture");
+            if (selection.StartsWith("typed", StringComparison.Ordinal)) { machine.UseTyped(login, secret.Copy()); }
+            else if (selection == "temporary-local")
+            { machine.AcceptTemporary(session, pc.Name, login, secret.Copy(), MachineLeaseMode.OneShot); }
+
+            var write = await Check.ThrowsAsync<DomeniaOperationException>(() => AdWorkstationAccess.RequireNetworkIdentityAsync(
+                source, pc.DnsHostName!, CancellationToken.None), "les écritures conservent la validation d’administration");
+            Check.Equal(AdministrationIdentity.Required, write.Code, "garde d’écriture conservée");
+            await AdWorkstationAccess.RequireNetworkIdentityAsync(source, pc.DnsHostName!, CancellationToken.None, readOnly: true);
+            using var read = await AdWorkstationAccess.AcquireAsync(source, pc.DnsHostName!, CancellationToken.None, readOnly: true);
+            await read.BeforeContactAsync(source, pc.DnsHostName!, CancellationToken.None);
+            Check.Equal(login, read.Credential.Account, "seul le compte choisi est transmis au lecteur");
+            Check.False(read.Credential.Session, "aucun repli vers la session Windows");
+            Check.NotNull(read.Credential.Password, "secret du compte choisi disponible");
+            Check.Equal(selection == "connection" ? 1 : 0, copies, "aucune copie d’un autre compte");
+            Check.Equal(0, ldap.Calls, "admission locale, sans validation réseau implicite");
+            source.Reset();
+            var stale = await Check.ThrowsAsync<DomeniaOperationException>(() => read.BeforeContactAsync(source, pc.DnsHostName!, CancellationToken.None), "ancien accès invalidé");
+            Check.Equal(AccountAccess.EpochChanged, stale.Code, "garde de session conservée");
+        }
+    }
+
+    [Test]
+    public static async Task A_read_with_an_explicit_connection_still_refuses_a_missing_secret_without_Windows_fallback()
+    {
+        using var ldap = new AdBoundaryTests.RecordingAdConnection();
+        using var source = new AdDirectorySource("test.local", () => @"TEST\reader", TestClock.Fixed(), connection: ldap)
+        { SessionCredentialCopy = AdBoundaryTests.NativeSessionCredential };
+        source.AdoptConnection(ldap, Fixtures.Domain,
+            new(new(@"TEST\reader", null, null, "CN=reader," + Fixtures.People), Fixtures.Domain.DomainSid + "-1001",
+                new(RightsLevel.Unknown, "Inconnus", true, "Droits AD distincts.")), source.Epoch, false);
+        var error = await Check.ThrowsAsync<DomeniaOperationException>(() => AdWorkstationAccess.AcquireAsync(
+            source, "PC1.test.local", CancellationToken.None, readOnly: true), "secret explicite absent");
+        Check.Equal(MachineErrors.PasswordMissing, error.Code, "aucun repli Windows après admission d’une lecture");
+        Check.Equal(0, ldap.Calls, "aucun envoi");
     }
 
     [Test]

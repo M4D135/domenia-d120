@@ -39,7 +39,7 @@ public sealed class AdDirectoryTreeReader : IDirectoryTreeReader, IOrganizationa
         return tree.Root;
     }
 
-    public Task<OuEntry?> FindLocalAsync(string dn, CancellationToken cancellationToken)
+    public async Task<OuEntry?> FindLocalAsync(string dn, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dn);
         cancellationToken.ThrowIfCancellationRequested();
@@ -48,8 +48,16 @@ public sealed class AdDirectoryTreeReader : IDirectoryTreeReader, IOrganizationa
         {
             known = built is { } cached && cached.Epoch == source.Epoch ? cached.Tree : null;
         }
-        // A restored preference must never cause an LDAP read. Opening the picker explicitly populates this index.
-        return Task.FromResult(known?.Find(dn));
+        // A fresh picker result is authoritative, including an OU absent from that result.
+        if (known is not null) { return known.Find(dn); }
+        // Cold start or credential replacement: use persisted OUs without contacting LDAP or warming the picker.
+        var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        if (session.Domain?.RootDn is not { } root) { return null; }
+        var local = await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
+        if (source.Epoch != session.Epoch || !DistinguishedName.AreEqual(local.Directory.Domain.RootDn, root)) { return null; }
+        var tree = OrganizationalUnitTree.Build(local.Directory with { Users = [], Computers = [], Groups = [] }, objectsRead: false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return source.Epoch == session.Epoch ? tree.Find(dn) : null;
     }
 
     public void Dispose() => building.Dispose();

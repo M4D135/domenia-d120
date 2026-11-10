@@ -78,7 +78,7 @@ try {
     if ($source.sourceCommit -cne $record.sourceCommit) { throw 'Inventaire source différent du commit de livraison.' }
     $versionSource = Get-Content -LiteralPath (Join-Path $root 'src\Domenia.Core\ProductInfo.cs') -Raw -Encoding UTF8
     $versions = [regex]::Matches($versionSource, 'DevelopmentVersion = "([0-9A-Za-z.\-]+)"')
-    if ($versions.Count -ne 1 -or $versions[0].Groups[1].Value -cne '2.1.3') { throw 'Version 2.1.3 non déclarée.' }
+    if ($versions.Count -ne 1 -or $versions[0].Groups[1].Value -cne '2.1.4') { throw 'Version 2.1.4 non déclarée.' }
     $version = $versions[0].Groups[1].Value
     $storeSource = Get-Content -LiteralPath (Join-Path $root 'src\Domenia.Store\Sqlite\DomeniaDatabase.cs') -Raw -Encoding UTF8
     if ($storeSource -notmatch 'versions\[0\]\["value"\] != "11"' -or $storeSource -notmatch 'SupportedDataSchemaRevision = 2;') { throw 'Schéma du magasin différent du contrat de livraison 11/2.' }

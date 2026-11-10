@@ -4,6 +4,13 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **10/11/2026 : Domenia 2.1.3 PROD-LIGHT publiée en dernière version sur `65daf42f`, après le go explicite de David. ZIP et téléchargement public vérifiés. Quatre retours de production corrigés ; 3 046 tests C# complets, 1 610 critiques, 221 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Recette sur domaine réel non exécutée.**
 
+## 10/11/2026 — correctif 2.1.4 en préparation
+
+Retours de production : unités âge/durée en « postes », état Accueil refusé sans OU, OU introuvable après correction
+du compte, inventaire bloqué avant WMI avec compte explicite. Décision de David : le poste décide pour toutes les
+lectures avec l’identité choisie ; écritures toujours soumises à validation. Correctifs et tests sur
+`codex/correctifs-unites-etat-accueil-20261110`. CI et recette domaine non exécutées à cette étape ; aucune publication.
+
 ## 10/11/2026 — publication de 2.1.3
 
 Après le go explicite de David, la [release v2.1.3](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.3) a été publiée

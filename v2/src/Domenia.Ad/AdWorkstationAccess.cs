@@ -18,9 +18,8 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
     private bool UsesConnectionIdentity { get; init; }
     private bool TriedByWorkstation { get; init; }
 
-    // David, 09/11/2026: a read with the Windows session identity is tried and the workstation grants or refuses it;
-    // no password is handled. Typed, temporary and explicit connection accounts, and every remote write, keep the check.
-    private static bool WorkstationDecides(bool readOnly, MachineAccountSource origin) => readOnly && origin == MachineAccountSource.Windows;
+    // David, 10/11/2026: the workstation grants or refuses reads with the selected identity, including typed accounts.
+    // Credential selection, secret availability, pause and generation checks still apply; writes keep admission checks.
     internal WmiWorkstationReader InventoryReader() => new(source.Clock, configuration: Settings) { ProjectionReused = () => { if (source.AccountContext is { } context) { OperationActivity.From(context).RecordGroupedCimReuse(); } } };
 
     internal static async Task RequireNetworkIdentityAsync(AdDirectorySource source, string host, CancellationToken token, bool readOnly = false)
@@ -31,7 +30,7 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
         var service = source.AccountContext is { } context ? MachineAccountService.From(context) : null;
         using var selected = service?.InspectCredentialFor(session, host, preview.Generation, preview.Source, preview.Account);
         var origin = selected?.Source ?? (session.Authentication.Method == AuthenticationMethod.ExplicitCredentials ? MachineAccountSource.Connection : MachineAccountSource.Windows);
-        if (!WorkstationDecides(readOnly, origin))
+        if (!readOnly)
             source.RequireAdministration(preview.Epoch, selected?.Account ?? session.Account.Login, host, selected?.Password,
                 origin is MachineAccountSource.Windows or MachineAccountSource.Connection);
         token.ThrowIfCancellationRequested();
@@ -61,7 +60,7 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
             expectedSource: preview?.Source, expectedAccount: preview?.Account);
         var origin = selected?.Source ?? (session.Authentication.Method == AuthenticationMethod.ExplicitCredentials ? MachineAccountSource.Connection : MachineAccountSource.Windows);
         var connectionIdentity = origin is MachineAccountSource.Windows or MachineAccountSource.Connection;
-        var triedByWorkstation = WorkstationDecides(readOnly, origin);
+        var triedByWorkstation = readOnly;
         if (!triedByWorkstation) source.RequireAdministration(session.Epoch, selected?.Account ?? session.Account.Login, host, selected?.Password, connectionIdentity);
         RemoteProbeCredential credential;
         if (origin is MachineAccountSource.Windows or MachineAccountSource.Connection)

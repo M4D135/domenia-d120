@@ -111,6 +111,31 @@ internal static class SettingsRulesTests
     // ---------- Collection settings ----------
 
     [Test]
+    public static void Collection_view_displays_days_and_minutes_without_changing_saved_budget_values()
+    {
+        var stored = CollectionSettingsRules.Read(Json("""{"budgets":{"observationMaxAgeDays":2,"campaignMinutes":75}}"""), []);
+        var roundtrip = CollectionSettingsRules.Read(CollectionSettingsRules.ToJson(stored), []);
+        var view = CollectionSettingsRules.View(roundtrip, [], TestClock.Reference, TestClock.Paris);
+        foreach (var (id, value, unit, singular, plural) in new[]
+        {
+            (CollectionSettingsRules.ObservationMaxAgeDays, 2, "jours", "jour", "jours"),
+            (CollectionSettingsRules.CampaignMinutes, 75, "min", "minute", "minutes"),
+        })
+        {
+            var budget = view.Budgets.Single(b => b.Id == id);
+            Check.Equal(value, budget.Value, "valeur enregistrée inchangée");
+            Check.Equal(unit, budget.Unit, "unité de stockage");
+            Check.Equal(FrenchText.Count(value, singular, plural), budget.ValueLabel, "valeur personnalisée affichée avec son unité");
+            foreach (var choice in budget.Choices.Where(c => c.Value > 0))
+            { Check.Equal(FrenchText.Count(choice.Value, singular, plural), choice.Label, "chaque choix utilise la bonne unité"); }
+        }
+        var campaign = view.Budgets.Single(b => b.Id == CollectionSettingsRules.CampaignMinutes);
+        Check.Equal("Automatique · au plus 24 h", campaign.Choices.Single(c => c.Value == 0).Label, "mode automatique conservé");
+        var concurrency = view.Budgets.Single(b => b.Id == CollectionSettingsRules.Concurrency);
+        Check.Equal(FrenchText.Count(concurrency.Value, "poste", "postes"), concurrency.ValueLabel, "parallélisme toujours en postes");
+    }
+
+    [Test]
     public static void Collection_settings_read_their_defaults_and_drop_what_is_out_of_bounds()
     {
         var warnings = new List<string>();

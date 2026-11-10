@@ -60,6 +60,6 @@ internal static class AdAdministrationIdentity
         // Administrators group, not by assuming this domain is the forest root or trusting any *-519 SID.
         return groups.Contains(domainSid + "-512") || groups.Contains("S-1-5-32-544")
             ? new(AdministrationIdentityState.Administrator, "Appartenance à un groupe d’administration du domaine confirmée. Les droits de chaque poste restent vérifiés à la lecture.")
-            : new(AdministrationIdentityState.Standard, "Lecture de l’annuaire disponible. Pour les fonctions distantes, validez explicitement ce compte sur le poste s’il en est administrateur local, ou choisissez un autre compte. Domain Admins n’est pas requis pour une preuve limitée à ce poste.");
+            : new(AdministrationIdentityState.Standard, "Lecture de l’annuaire disponible. Pour les lectures distantes, chaque poste accepte ou refuse le compte choisi. Les écritures distantes exigent une validation d’administration ; Domain Admins n’est pas requis pour une preuve limitée à un poste.");
     }
 }

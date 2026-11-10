@@ -11,6 +11,25 @@ internal static class AccueilDurablePipelineTests
     private static readonly CancellationToken None = CancellationToken.None;
 
     [Test]
+    public static async Task Local_refresh_status_without_an_OU_keeps_the_checkpoint_for_an_explicit_scope_choice()
+    {
+        var source = new HomePipelineSource { SessionScope = null };
+        var saved = source.Checkpoint(); source.Saved = saved;
+        using var context = source.Context(); var home = AccueilService.From(context);
+        var empty = await home.RefreshStatusAsync(None);
+        Check.False(empty.Running, "aucun lancement à l’ouverture");
+        Check.Null(empty.Last, "aucune reprise affichée sans OU");
+        Check.Equal(saved, source.Saved, "checkpoint conservé sans modification");
+        var error = await Check.ThrowsAsync<DomeniaOperationException>(() => home.PlanRefreshAsync("inventory", None), "la collecte exige toujours une OU");
+        Check.Equal(DomeniaErrors.ScopeTooWide, error.Code, "garde réseau conservée");
+        await WorkingScope.From(context).SetAsync(await source.GetSessionAsync(None), Fixtures.Postes, true, None);
+        var restored = await home.RefreshStatusAsync(None);
+        Check.Equal(saved.Id, restored.Last!.Id, "même campagne retrouvée après choix de l’OU");
+        Check.True(restored.Last.Resumable, "reprise seulement proposée");
+        Check.Equal(0, source.DirectoryCalls + source.PresenceCalls + source.InventoryCalls, "aucune lecture réseau implicite");
+    }
+
+    [Test]
     public static async Task Inventory_after_filtered_ICMP_is_committed_and_resume_keeps_its_frozen_permission()
     {
         var source = new HomePipelineSource { EchoAnswered = false, HoldInventory = new(TaskCreationOptions.RunContinuationsAsynchronously) };
@@ -636,6 +655,7 @@ public sealed class HomePipelineSource : IDirectorySource, IDirectoryRefreshPrep
     internal string CurrentStoreId = StoreId;
     internal long SessionEpoch = 7;
     internal string SessionLogin = @"TEST\operator";
+    internal ScopeSelection? SessionScope = Scope;
     internal TaskCompletionSource? HoldLocalRows;
     internal TaskCompletionSource LocalRowsEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     internal int LocalRowsCalls, RequestedLocalRows;
@@ -648,7 +668,7 @@ public sealed class HomePipelineSource : IDirectorySource, IDirectoryRefreshPrep
         [.. Current.Directory.Computers.Select(QueryComputerIdentity.Of).OrderBy(t => t.Guid)], [], [], [], [], Now, Now, null, false, true);
     public Task<SessionSnapshot> GetSessionAsync(CancellationToken token) => Task.FromResult(new SessionSnapshot(ConnectionState.Connected,
         new("test.local", "TEST", Fixtures.Root), new("DC1.test.local", null), new(SessionLogin, null, null, null),
-        new(AuthenticationMethod.WindowsSession, null, "Fixture"), Scope, new(RightsLevel.Read, "Lecture", false, "Fixture locale"), false,
+        new(AuthenticationMethod.WindowsSession, null, "Fixture"), SessionScope, new(RightsLevel.Read, "Lecture", false, "Fixture locale"), false,
         new(Current.Directory.ReadAt, Current.Directory.ObjectCount, Current.Directory.Complete), SessionEpoch));
     public Task<DirectoryState> ReadLocalAsync(CancellationToken token) => Task.FromResult(Current);
     public bool CanPrepareDirectoryRefresh => true;

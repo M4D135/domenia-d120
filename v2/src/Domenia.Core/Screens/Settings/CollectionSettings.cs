@@ -364,6 +364,8 @@ public static class CollectionSettingsRules
         {
             WidgetMax when value == 0 => "Plafond général",
             CampaignMinutes when value == 0 => "Automatique · au plus 24 h",
+            CampaignMinutes => FrenchText.Count(value, "minute", "minutes"),
+            ObservationMaxAgeDays => FrenchText.Count(value, "jour", "jours"),
             ReadWithoutEcho => value == 1 ? "Autoriser un essai direct" : "Exiger une réponse ICMP",
             CacheMinutes when value == 0 => "Forcer la relecture",
             CacheMinutes => "Au plus " + FrenchText.Count(value, "minute", "minutes"),

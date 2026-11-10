@@ -2,6 +2,16 @@
 
 Chaque décision est datée. Une décision plus récente remplace une décision antérieure sur le même sujet.
 
+## 10 novembre 2026 — lectures distantes avec le compte choisi
+
+Après un blocage d’inventaire avant WMI avec un compte saisi qui fonctionnait dans Domenia 1, David confirme :
+« Oui, laisser le poste décider pour les lectures ». Cette décision étend celle du 9 novembre : les lectures
+avec compte de connexion explicite, compte saisi, compte temporaire ou local sont tentées avec cette seule identité.
+Le poste accepte ou refuse ; aucune appartenance à Domain Admins ni preuve locale préalable n’est exigée pour lire.
+Les secrets absents, comptes suspendus, changements de session et de sélection restent bloquants ; aucun repli
+vers un autre compte. Les écritures distantes conservent leur validation d’administration et leurs plans confirmés.
+Application préparée en 2.1.4 ; qualification sur domaine réel à faire.
+
 ## 10 novembre 2026 — version lisible dans l’interface
 
 David demande une version courte, par exemple « 2.1.3 », sans la longue identité de compilation.

@@ -7,7 +7,7 @@ public sealed record AdministrationIdentity(AdministrationIdentityState State, s
 {
     public bool AllowsRemote => State == AdministrationIdentityState.Administrator;
     public static AdministrationIdentity Unknown { get; } = new(AdministrationIdentityState.Unknown,
-        "Rôle d’administration non confirmé. Lecture de l’annuaire uniquement ; validez un autre compte pour les fonctions distantes.");
+        "Rôle d’administration non confirmé. Chaque poste accepte ou refuse les lectures avec le compte choisi ; les écritures distantes exigent une validation d’administration.");
     public const string Required = "machine.administrationRequired";
     public void EnsureRemote()
     {

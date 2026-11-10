@@ -2,6 +2,15 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
+## Correctifs préparés pour 2.1.4
+
+Les lectures distantes laissent le poste décider pour le compte choisi, y compris un compte saisi. Les écritures
+gardent leur validation préalable. Les OU enregistrées sont recherchées dans la base locale au démarrage et après
+un changement de session, sans LDAP automatique ; un arbre fraîchement lu reste prioritaire. La consultation
+d’état de l’Accueil accepte l’absence d’OU sans erreur et sans démarrer une campagne. Les budgets affichent
+l’âge en jours et la durée de campagne en minutes. Valeurs enregistrées et schéma 11 révision 2 inchangés.
+Version en cours de qualification, non publiée.
+
 ## Correctifs publiés en 2.1.3
 
 Les étapes de l’actualisation restent stables pendant la progression. La consultation « Données et cache » utilise

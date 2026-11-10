@@ -144,6 +144,37 @@ internal static class AdBoundaryTests
     }
 
     [Test]
+    public static async Task Persisted_OUs_restore_working_scope_without_network_and_never_override_a_fresh_picker()
+    {
+        var dn = "OU=Atelier," + Fixtures.Postes;
+        var oldDn = "OU=Ancienne," + Fixtures.Postes;
+        DirectoryOu LocalOu(string value, string name) => new(Fixtures.IdOf(value), value, name, null, null, Fixtures.Now, Fixtures.Now, 1);
+        var cache = new AdAccueilTests.FleetCache(Fixtures.Snapshot() with
+        { OrganizationalUnits = [LocalOu(dn, "Atelier"), LocalOu(oldDn, "Ancienne")] });
+        using var connection = new RecordingAdConnection { Ous = [Ou("Atelier")] };
+        using var source = new AdDirectorySource("test.local", () => @"TEST\adm", TestClock.Fixed(), connection: connection, localStore: cache);
+        using var tree = new AdDirectoryTreeReader(source);
+        Check.NotNull(await tree.FindLocalAsync(dn, CancellationToken.None), "OU persistée retrouvée sans ouvrir le sélecteur");
+        Check.NotNull(await tree.FindLocalAsync(oldDn, CancellationToken.None), "ancienne OU connue localement");
+        Check.Null(await tree.FindLocalAsync("OU=Absente," + Fixtures.Root, CancellationToken.None), "OU absente non inventée");
+        Check.Null(await tree.FindLocalAsync("OU=Atelier,DC=other,DC=local", CancellationToken.None), "autre domaine refusé");
+        var preferences = new MemoryPreferenceStore();
+        await preferences.SetAsync(WorkingScope.PreferenceKey(Fixtures.Root),
+            System.Text.Json.JsonSerializer.SerializeToElement(new { dn, subtree = true }), CancellationToken.None);
+        using var working = new WorkingScope(preferences, tree, new OperationJournal(), source.Clock, new RecordingJournal());
+        var session = await source.GetSessionAsync(CancellationToken.None);
+        Check.Equal(dn, (await working.ApplyAsync(session, CancellationToken.None)).Scope!.Dn, "préférence restaurée depuis la base locale");
+        Check.Equal(0, connection.Calls, "restauration sans LDAP");
+        await tree.RootAsync(CancellationToken.None);
+        var calls = connection.Calls;
+        Check.True(calls > 0, "le sélecteur conserve sa lecture réseau explicite");
+        Check.Null(await tree.FindLocalAsync(oldDn, CancellationToken.None), "OU absente du nouvel arbre non ressuscitée depuis le cache");
+        source.Reset();
+        Check.NotNull(await tree.FindLocalAsync(dn, CancellationToken.None), "index local disponible après changement de session");
+        Check.Equal(calls, connection.Calls, "changement de session sans lecture réseau implicite");
+    }
+
+    [Test]
     public static void Malformed_SIDs_and_absent_identities_are_not_mapped()
     {
         var values = new Dictionary<string, IReadOnlyList<object>>

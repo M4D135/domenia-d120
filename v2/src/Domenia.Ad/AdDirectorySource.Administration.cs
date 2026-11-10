@@ -71,7 +71,7 @@ public sealed partial class AdDirectorySource
         if (!proof.AllowsRemote && AccountContext is { } context)
         {
             var known = KnownDomain;
-            AccountAccess.From(context).RegisterRefusal(CredentialRules.Remote, "Lecture distante : compte administrateur requis", target,
+            AccountAccess.From(context).RegisterRefusal(CredentialRules.Remote, "Action distante : validation d’administration requise", target,
                 "administrationRequired", CredentialRules.AccountKey(login, known?.DnsName, known?.NetbiosName, target), true);
         }
         proof.EnsureRemote();
