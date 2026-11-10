@@ -4,7 +4,9 @@ namespace Domenia.Core;
 public static class ProductInfo
 {
     public const string Name = "Domenia";
-    public const string DevelopmentVersion = "2.1.2";
+    public const string DevelopmentVersion = "2.1.3";
+    /// <summary>Short version for screens; Version retains the full identity for package verification.</summary>
+    public const string DisplayVersion = DevelopmentVersion;
     public static string Version { get; } = QualifyBuild(typeof(ProductInfo).Assembly
         .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
         .Cast<System.Reflection.AssemblyMetadataAttribute>().SingleOrDefault(a => a.Key == "DomeniaBuildIdentity")?.Value);

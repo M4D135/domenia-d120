@@ -2,6 +2,12 @@
 
 Chaque décision est datée. Une décision plus récente remplace une décision antérieure sur le même sujet.
 
+## 10 novembre 2026 — version lisible dans l’interface
+
+David demande une version courte, par exemple « 2.1.3 », sans la longue identité de compilation.
+L’affichage utilise désormais la version produit. L’identifiant complet reste utilisé pour vérifier les packs,
+les contrats de livraison et les journaux, et reste disponible dans la copie des informations techniques.
+
 ## 9 novembre 2026 — le poste décide, pas le groupe Domain Admins
 
 David, en production avec un compte hors Domain Admins : « juste voulu mesurer les postes en ligne ! c quoi ce relogin

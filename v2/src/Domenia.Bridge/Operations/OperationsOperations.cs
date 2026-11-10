@@ -544,7 +544,7 @@ public sealed class OperationsOperations : IOperationModule
             var lines = snapshot.Open.Select(r => new EngineTaskLine(r.Reference,
                 r.Label + " (" + r.Operation + ")" + FrenchText.Colon + r.KindLabel.ToLowerInvariant() + ", depuis " + ActivityRules.Duration(r.DurationMs)
                 + (r.State == TaskState.StopRequested ? ", arrêt demandé" : "") + ". Réf. " + r.Reference)).ToImmutableArray();
-            return new EngineState(Now, ProductInfo.Name, ProductInfo.Version, ".NET " + Environment.Version, Environment.OSVersion.VersionString, Environment.Is64BitProcess, MemoryMb(),
+            return new EngineState(Now, ProductInfo.Name, ProductInfo.DisplayVersion, ".NET " + Environment.Version, Environment.OSVersion.VersionString, Environment.Is64BitProcess, MemoryMb(),
                 simulation ? ModeTexts.SimulationLabel : ModeTexts.DirectoryLabel, session.ReadOnly, writeState, writeTone,
                 context.Receipts.Persistent ? "Fichier des reçus du mode (" + (simulation ? "receipts-simulation.jsonl" : "receipts.jsonl") + ")." : "En mémoire seulement (capture, E2E ou sans dossier de données).",
                 context.Preferences.Persistent ? "Fichier des préférences du mode." : "En mémoire seulement.",

@@ -17,7 +17,7 @@ function identityCard(v, app) {
       <div><h3 class="gradient-text">Domenia 2</h3><span>Administration Active Directory · pack autonome</span></div>
       ${pill(id.mode === 'simulation' ? 'accent' : 'ok', id.modeLabel, { icon: id.mode === 'simulation' ? 'sparkles' : 'server' })}</div>
     ${facts([
-      ['Version', id.version, id.informationalVersion && id.informationalVersion !== id.version ? `Exécutable ${id.informationalVersion}` : ''],
+      ['Version', id.version],
       ['.NET embarqué', id.runtime, `${id.runtimeIdentifier} · ${id.process64 ? 'processus 64 bits' : 'processus 32 bits'}`],
       ['Moteur web', id.webViewModeLabel, [id.webViewVersion ? `WebView2 ${id.webViewVersion}` : '', chromium ? `Chromium ${chromium}` : ''].filter(Boolean).join(' · ')],
       ['Système', id.operatingSystem],
@@ -97,7 +97,7 @@ export function mount(host, sctx) {
     else if (act === 'copy-about' && view) {
       const id = view.identity;
       const lines = [
-        `Domenia ${id.version} (${id.modeLabel})`, `.NET ${id.runtime} · ${id.runtimeIdentifier}`, `${id.webViewModeLabel}${id.webViewVersion ? ` · WebView2 ${id.webViewVersion}` : ''}`,
+        `Domenia ${id.version} (${id.modeLabel})`, ...(id.informationalVersion ? [`Compilation ${id.informationalVersion}`] : []), `.NET ${id.runtime} · ${id.runtimeIdentifier}`, `${id.webViewModeLabel}${id.webViewVersion ? ` · WebView2 ${id.webViewVersion}` : ''}`,
         id.operatingSystem, view.compatibility.text, ...view.components.rows.map((r) => r.display),
       ];
       const ok = await copyText(lines.join('\n'));

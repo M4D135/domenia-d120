@@ -151,12 +151,42 @@ export function createRefresh(o) {
     o.onRunning?.(on);
   }
 
+  // Keep stage nodes (and keyboard focus) across progress events and the one-second follow-up.
   function paintStages(stages, percent) {
-    stagesEl.innerHTML = stages.map((s, n) => {
-      const ss = STAGE_STATE[s.state] ?? STAGE_STATE.waiting;
-      return `<li class="ctl-stage" data-state="${esc(s.state)}" data-j="${n}"><span class="ctl-dot" aria-hidden="true">${s.state === 'running' ? '<span class="k-spin"></span>' : stageGlyph(s)}</span>`
-        + `<div class="ctl-st"><b>${esc(s.label)}</b><span>${esc(s.detail ?? '')}</span>${s.id === 'backup' && s.state === 'done' && s.detail ? `<button class="btn ghost xs ctl-proof" type="button" data-copy-proof="${n}">${glyph('copy')}Copier la preuve</button>` : ''}</div>${pill(ss.tone, ss.label, { size: 'sm', spin: s.state === 'running' })}</li>`;
-    }).join('');
+    const existing = new Map([...stagesEl.children].map(li => [li.dataset.stage, li]));
+    const active = stagesEl.contains(document.activeElement) ? document.activeElement : null;
+    stages.forEach((s, n) => {
+      let li = existing.get(s.id);
+      if (!li) {
+        li = document.createElement('li');
+        li.className = 'ctl-stage'; li.dataset.stage = s.id;
+        li.innerHTML = '<span class="ctl-dot" aria-hidden="true"></span><div class="ctl-st"><b></b><span></span></div>';
+      }
+      existing.delete(s.id);
+      if (li.dataset.state !== s.state) {
+        li.dataset.state = s.state;
+        li.querySelector('.ctl-dot').innerHTML = s.state === 'running' ? '<span class="k-spin"></span>' : stageGlyph(s);
+        const ss = STAGE_STATE[s.state] ?? STAGE_STATE.waiting;
+        const badge = pill(ss.tone, ss.label, { size: 'sm', spin: s.state === 'running' });
+        const previous = li.querySelector('.k-pill');
+        if (previous) previous.outerHTML = badge;
+        else li.insertAdjacentHTML('beforeend', badge);
+      }
+      const label = li.querySelector('.ctl-st b'), detail = li.querySelector('.ctl-st > span');
+      if (label.textContent !== s.label) label.textContent = s.label;
+      if (detail.textContent !== (s.detail ?? '')) detail.textContent = s.detail ?? '';
+      let proof = li.querySelector('[data-copy-proof]');
+      if (s.id === 'backup' && s.state === 'done' && s.detail) {
+        if (!proof) {
+          proof = document.createElement('button'); proof.type = 'button'; proof.className = 'btn ghost xs ctl-proof';
+          proof.innerHTML = `${glyph('copy')}Copier la preuve`; li.querySelector('.ctl-st').append(proof);
+        }
+        proof.dataset.copyProof = String(n);
+      } else proof?.remove();
+      if (stagesEl.children[n] !== li) stagesEl.insertBefore(li, stagesEl.children[n] ?? null);
+    });
+    for (const li of existing.values()) li.remove();
+    if (active?.isConnected && document.activeElement !== active) active.focus({ preventScroll: true });
     paint(stagesEl);
     barEl.setAttribute('aria-valuenow', String(percent));
     progressTo(barEl.firstElementChild, percent / 100);

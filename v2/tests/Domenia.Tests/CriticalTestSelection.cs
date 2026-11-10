@@ -20,7 +20,7 @@ internal static class CriticalTestSelection
         "CollectionAdmissionTests", "CollectionPreferenceContractTests", "CollectionReadRetryTests", "CollectionReadRetryNativeTests", "CollectionCachePolicyTests", "CacheLifetimeTests", "ProbeDefinitionCacheTests", "FicheCacheContractTests", "FicheVisitPolicyTests", "ProbeFailureIntegrationTests", "NativeProgressiveProbeCacheTests", "LocalReadContractsTests", "UserLocalStorageAccessTests", "PosteDetailPersistenceTests", "PosteDetailProjectionTests", "CollectionNetworkPolicyTests", "QueryIdentityCacheTests", "QueryRefreshTests", "QueryRefreshLargeFleetTests",
         "AdministrationIdentityTests", "MachineAdmissionInspectionTests", "RemoteCollectionSettingsTests", "ReadPerformanceTests",
         "QueryTemplateLibraryTests", "QueryInstanceChoiceTests", "AtelierBitLockerWidgetTests", "BitLockerStatusTests", "FleetQueryWidgetTests",
-        "NativeFleetCacheTests", "FleetRowsScaleTests", "QueryCacheScaleTests", "NativeSettingsInspectionTests", "NativeStoragePurgeTests", "SearchOperationsTests",
+        "NativeFleetCacheTests", "FleetRowsScaleTests", "QueryCacheScaleTests", "NativeSettingsInspectionTests", "NativeStoragePurgeTests", "NativeStorageLegacyTests", "SearchOperationsTests",
         "CollectionOneShotAccessTests", "AdRelationProbeTests",
         "RemoteScriptReadTests", "FrozenDirectoryValidationTests", "FleetProbeScaleTests", "CampaignInventoryMergeTests",
         "AutomationCommandTests", "AutomationLocalStoreTests",

@@ -299,7 +299,7 @@ internal static class OperationsOperationsTests
         Check.True(health.GetProperty("providers").EnumerateArray().Single().GetString()!.StartsWith("WMI · 3 cibles", StringComparison.Ordinal), "les trois sondes en erreur");
         Check.True(health.GetProperty("collection").EnumerateArray().Any(c => c.GetString()!.StartsWith("Actions explicites", StringComparison.Ordinal)), "collecte par classe de demande");
         var engine = SimulatedBridge.Json(await bridge.CallAsync("operations.engine"));
-        Check.Equal(ProductInfo.Version, engine.GetProperty("version").GetString(), "version");
+        Check.Equal(ProductInfo.DisplayVersion, engine.GetProperty("version").GetString(), "version courte affichée");
         var rules = SimulatedBridge.Json(await bridge.CallAsync("operations.rules"));
         Check.True(rules.GetProperty("kinds").EnumerateArray().Single(k => k.GetProperty("kind").GetString() == "account.unlock").GetProperty("available").GetBoolean(), "déverrouillage servi");
         Check.Equal(3, rules.GetProperty("lifecycles").GetArrayLength(), "trois séquences");

@@ -43,7 +43,7 @@ internal sealed partial class Composition : IDisposable
 
     public Func<OperationDefinition, BridgeError?> Admission { get; }
 
-    public string WindowTitle => ProductInfo.Name + " " + ProductInfo.Version + (Decision.Mode == AppMode.Simulation ? ModeTexts.WindowTitleSuffix : "");
+    public string WindowTitle => ProductInfo.Name + " " + ProductInfo.DisplayVersion + (Decision.Mode == AppMode.Simulation ? ModeTexts.WindowTitleSuffix : "");
 
     /// <param name="capture">Capture mode: preferences in memory only, so the images never depend on (nor change) the
     /// operator's preferences.</param>

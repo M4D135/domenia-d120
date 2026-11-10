@@ -115,8 +115,8 @@ public sealed class SettingsHostOperations : IOperationModule
                 var (webMode, webVersion) = (facts.WebViewMode ?? "windows", facts.WebViewVersion);
                 var identity = new AboutIdentity(
                     ProductInfo.Name,
+                    ProductInfo.DisplayVersion,
                     ProductInfo.Version,
-                    HostFacts.InformationalVersion(),
                     System.Environment.Version.ToString(),
                     System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier,
                     System.Environment.Is64BitProcess,

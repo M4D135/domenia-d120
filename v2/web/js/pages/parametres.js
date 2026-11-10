@@ -178,8 +178,7 @@ export function render(main, ctx) {
     const host = main.querySelector('[data-slot="chips"]');
     if (!host) return;
     const sim = app?.mode === 'simulation' || app?.webViewRuntime === 'apercu';
-    // The build suffix of the version is shortened in the chip; the full value stays in its tip and in « À propos ».
-    const shown = String(app?.version ?? '').replace(/\+([0-9a-f]{8})[0-9a-f]{8,}$/i, '+$1');
+    const shown = String(app?.version ?? '');
     const chips = [
       `<span class="chip ${sim ? 'info' : 'ok'}" data-j="0">${glyph(sim ? 'sparkles' : 'server')}${esc(sim ? 'Simulation' : 'Annuaire Active Directory')}</span>`,
       app?.version ? `<span class="chip" data-j="1" data-tip="${esc(app.version)}">${glyph('logo')}Domenia ${esc(shown)}</span>` : '',

@@ -122,6 +122,57 @@ internal static class NativeStorageLegacyTests
         await Check.ThrowsAsync<InvalidDataException>(() => setup.Executor.VerifyAsync(plan, None), "preuve altérée refusée");
     }
 
+    [Test]
+    public static async Task Native_storage_summary_ignores_large_payloads_but_legacy_plan_stays_strict()
+    {
+        using var setup = new Setup(); await setup.Initialize(); setup.WriteAll();
+        var payload = new string('x', 300_000);
+        using (var db = new SqliteDatabase(setup.Database.Path, false))
+        {
+            db.Execute("INSERT INTO ad_objects(object_key,object_type,description) VALUES('large','Machine',?1);", payload);
+            db.Execute("INSERT INTO user_machine_links(computer_key,user_login,computer,source) VALUES('pc1','alice','PC1','Saisie manuelle');");
+        }
+        var before = File.ReadAllBytes(setup.Database.Path);
+        var snapshot = await setup.Reader.LocalStoreAsync(None);
+        Check.True(snapshot.Available, "panneau lisible malgré une cellule de plus de 256 Kio");
+        Check.Null(snapshot.Legacy.ReadProblem, "inventaire historique léger disponible");
+        Check.Equal(1L, snapshot.Legacy.TargetRows["ad_objects"], "compte exact sans charger les descriptions");
+        Check.Equal(1L, snapshot.Legacy.Files.Single(x => x.Kind == "Liens").ImportRows, "lien déjà présent déduit du candidat");
+        Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(setup.Database.Path)), "consultation sans mutation de la base");
+        Check.Equal(0, setup.Connection.Calls, "aucune lecture réseau");
+        await Check.ThrowsAsync<InvalidDataException>(() => setup.Plan(), "empreinte complète toujours exigée avant reprise");
+        using var read = new SqliteDatabase(setup.Database.Path, true);
+        Check.Equal(payload, read.Scalar("SELECT description FROM ad_objects WHERE object_key='large';") as string, "contenu conservé sans purge partielle");
+    }
+
+    [Test]
+    public static async Task Native_storage_summary_contains_an_invalid_or_oversized_legacy_marker()
+    {
+        foreach (var details in new[] { "marker=incorrect", new string('x', 300_000) })
+        {
+            using var setup = new Setup(); await setup.Initialize();
+            using (var db = new SqliteDatabase(setup.Database.Path, false))
+            { db.Execute("INSERT INTO sync_state(scope,details,last_sync,base_dn) VALUES('legacy_import',?1,'2026-10-20T12:00:00Z',?2);", details, Fixtures.Root); }
+            var snapshot = await setup.Reader.LocalStoreAsync(None);
+            Check.True(snapshot.Available, "le problème de reprise ne masque pas les données et le cache");
+            Check.True(snapshot.Legacy.ReadProblem is not null, "problème de marqueur explicite");
+            Check.True(LegacyRules.Plan(snapshot.Legacy, "test.local").Blockers.Length > 0, "reprise refusée avec un marqueur illisible");
+        }
+    }
+
+    [Test]
+    public static async Task Native_legacy_plan_still_detects_payload_changes_with_unchanged_counts()
+    {
+        using var setup = new Setup(); await setup.Initialize(); setup.WriteAll();
+        using (var db = new SqliteDatabase(setup.Database.Path, false))
+        { db.Execute("INSERT INTO ad_objects(object_key,object_type,description) VALUES('existing','Machine','Avant');"); }
+        var plan = await setup.Plan();
+        using (var db = new SqliteDatabase(setup.Database.Path, false))
+        { db.Execute("UPDATE ad_objects SET description='Après' WHERE object_key='existing';"); }
+        Check.False((await setup.Executor.CheckAsync(plan, None)).Current, "même nombre de lignes, contenu changé : plan périmé");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => setup.Executor.ExecuteAsync(plan, None), "empreinte stricte inchangée");
+    }
+
     private sealed class Setup : IDisposable
     {
         private TemporaryFolder Folder { get; } = new();

@@ -1,4 +1,6 @@
 import { test, eq, ok } from './harness.mjs';
+import { mount as mountAbout } from '../../web/js/pages/parametres/apropos.js';
+import { mount as mountUpdates } from '../../web/js/pages/parametres/mises-a-jour.js';
 import { createSessionConnection, homePrerequisite, sessionContext, writePreparationAvailable } from '../../web/js/shell/session-flow.js';
 import { render as renderHome } from '../../web/js/pages/accueil.js';
 import { createOuPicker } from '../../web/js/pages/accueil/ou-picker.js';
@@ -382,4 +384,82 @@ test('Recette Accueil : première lecture inconnue et réponse tardive de l’an
     ok(!x.host.querySelector('[data-widget="activeAccounts"] [data-count="111"]'),'résultat tardif retiré');
     ok(x.host.querySelector('h1')?.textContent.includes('Autres'),'titre du nouveau périmètre');
   } finally {old.resolve(obsolete);dispose?.();x.close();}
+});
+
+
+test('Recette actualisation : cartes stables pendant les ticks, transitions et changements d’étapes', async () => {
+  const x=await fixtures();let refresh, tick;
+  const backup={id:'backup',label:'Sauvegarde',detail:'SHA256 '+ 'a'.repeat(64),state:'done'};
+  const directory={id:'directory',label:'Lecture AD',detail:'Lecture en cours',state:'running'};
+  let current={id:'stable-run',label:'Lecture de la base locale',stages:[backup,directory]};
+  const ctx=await context(async op=>op==='accueil.refresh.state'?{running:true,current,last:null}:{},
+    {pulse:{every:(_name,_interval,cb)=>{tick=cb;return ()=>{};}}});
+  try {
+    x.host.innerHTML='<div class="hero-actions"></div><div class="hero-status"></div>';
+    refresh=createRefresh({actions:x.host.firstElementChild,status:x.host.lastElementChild,ctx,scopeOk:()=>true,onFinished:async()=>true});
+    await until(()=>x.host.querySelectorAll('.ctl-stage').length===2,'étapes non affichées');
+    const cards=[...x.host.querySelectorAll('.ctl-stage')], proof=cards[0].querySelector('button'), spinner=cards[1].querySelector('.k-spin');
+    proof.focus();
+    for(let i=0;i<3;i++) {
+      await tick();
+      ok(cards.every((card,n)=>card===x.host.querySelectorAll('.ctl-stage')[n]),'mêmes cartes à chaque seconde');
+      ok(document.activeElement===proof,'focus conservé');
+      ok(cards[1].querySelector('.k-spin')===spinner,'spinner continu');
+      eq(getComputedStyle(cards[1]).animationName,'none','aucun fondu sur la carte');
+      eq(getComputedStyle(cards[0].querySelector('.ctl-dot')).animationName,'none','aucune animation de succès rejouée');
+    }
+    current={...current,stages:[backup,{...directory,state:'done',label:'Annuaire relu',detail:'12 objets enregistrés'}, {id:'presence',label:'Présence',detail:'Un poste',state:'running'}]};
+    await tick();
+    ok(x.host.querySelectorAll('.ctl-stage')[1]===cards[1],'transition sur la même carte');
+    eq(cards[1].dataset.state,'done','état actualisé');
+    ok(cards[1].textContent.includes('12 objets enregistrés')&&cards[1].textContent.includes('Annuaire relu'),'contenu actualisé');
+    ok(!cards[1].querySelector('.k-spin'),'spinner terminé');
+    current={...current,stages:[current.stages[2],{...backup,detail:'SHA256 '+ 'b'.repeat(64)}]};
+    await tick();
+    eq(x.host.querySelectorAll('.ctl-stage').length,2,'étape supprimée');
+    ok(x.host.querySelectorAll('.ctl-stage')[1]===cards[0],'réordre conserve la carte de sauvegarde');
+    eq(proof.dataset.copyProof,'1','copie vise la nouvelle position');
+    ok(document.activeElement===proof,'focus suit le bouton réordonné');
+    ok(cards[0].textContent.includes('b'.repeat(64)),'preuve actualisée');
+    current={...current,id:'second-run',stages:[{...backup,state:'running',detail:'Nouvelle sauvegarde'}]};
+    await tick();
+    ok(!x.host.querySelector('[data-copy-proof]'),'aucune ancienne preuve pour la nouvelle tentative');
+    ok(x.host.querySelector('.ctl-stage .k-spin'),'nouvelle sauvegarde en cours');
+  } finally {refresh?.destroy();x.close();}
+});
+
+test('Recette mises à jour : les encadrés utilisent la largeur disponible en production et en démonstration', async () => {
+  const x=await fixtures('parametres',['pages/parametres.css']);let control;
+  try {
+    for(const demonstration of [false,true]) {
+      control=mountUpdates(x.host,{call:async()=>({demonstration,available:true,busy:false,installedVersion:'2.1.3',folder:'',candidate:null,prepared:false,message:'Choisissez une source',advice:[]}),toast:()=>{}});
+      await until(()=>x.host.querySelector('[data-card="source"] .pr-hint'),'encadré absent');
+      for(const width of [1280,1024,800]) {
+        x.width(width);await delay(40);
+        for(const hint of x.host.querySelectorAll('.pr-hint')) {
+          const text=hint.querySelector('span');ok(text,'texte dans sa colonne');
+          ok(rect(text).width>rect(hint).width*.6,'texte sur la largeur restante');
+          inside(text,hint,'texte contenu dans l’encadré');
+          ok(hint.scrollWidth<=hint.clientWidth+1,'aucun débordement');
+        }
+      }
+      if(!demonstration) await capture('mises-a-jour-encadre-lisible',{},x.host.querySelector('[data-card="source"]'));
+      control.destroy();control=null;
+    }
+  } finally {control?.destroy();x.close();}
+});
+
+
+test('À propos : version courte visible, identité technique réservée à la copie', async () => {
+  const x=await fixtures('parametres',['pages/parametres.css']);let control;
+  try {
+    const view={identity:{version:'2.1.3',informationalVersion:'2.1.3+'+'a'.repeat(64),mode:'annuaire',modeLabel:'Annuaire',runtime:'10.0.14',runtimeIdentifier:'win-x64',process64:true,webViewModeLabel:'WebView2',operatingSystem:'Windows',modeDetail:'Session Windows'},
+      compatibility:{reviewedOn:'2026-11-10',rows:[],documented:[],overall:'unknown',overallLabel:'Non qualifié',text:'Recette à effectuer',tone:'info'},
+      components:{rows:[],summary:'Composants du pack',totalText:'0'},locations:[],commitments:[]};
+    control=mountAbout(x.host,{call:async()=>view,app:()=>({}),toast:()=>{}});
+    await until(()=>x.host.querySelector('[data-card="identity"]'),'identité absente');
+    const text=x.host.querySelector('[data-card="identity"]').textContent;
+    ok(text.includes('2.1.3'),'version lisible');
+    ok(!text.includes('a'.repeat(64))&&!text.includes('Exécutable'),'aucune identité longue ou version répétée');
+  } finally {control?.destroy();x.close();}
 });

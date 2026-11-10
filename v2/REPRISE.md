@@ -4,6 +4,13 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **10/11/2026 : Domenia 2.1.2 PROD-LIGHT publiée en dernière version sur `c2e5edb1`, après le go explicite de David. ZIP et téléchargement public vérifiés. Parité : 622 faites, 370 améliorées, aucune partielle ni à faire, PST-001 abandonnée. Qualification : 3 043 tests C# complets, 1 601 critiques, 218 contrôles navigateur, 7 simulations et login natif hors connexion. Recette sur domaine réel toujours à effectuer.**
 
+## 10/11/2026 — préparation de 2.1.3, retours de production
+
+Quatre défauts signalés sur 2.1.2 : cartes de progression recréées à chaque tick, inspection du stockage déclenchant
+l’empreinte complète de purge, texte d’un encadré dans la colonne d’icône, identité de compilation affichée comme
+version. Corrections sur `codex/correctifs-accueil-stockage-20261110`, tests de régression ajoutés. Les contrôles
+d’écriture et le schéma restent inchangés. Qualification Windows et navigateur en attente ; aucune publication 2.1.3.
+
 ## 10/11/2026 — publication de 2.1.2
 
 David a répondu « go » à la demande explicite de publier la 2.1.2 qualifiée. La [release v2.1.2](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.2)

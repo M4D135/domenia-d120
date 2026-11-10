@@ -574,7 +574,6 @@
 [data-page="accueil"] .ctl-stage {
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: var(--s3); row-gap: var(--s2);
   padding: var(--s3); border-radius: var(--r); border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); background: color-mix(in srgb, var(--bg-sunken) 50%, transparent);
-  animation: cascade-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 70ms);
   transition: transform var(--t) var(--ease-spring);
 }
 [data-page="accueil"] .ctl-stage .k-pill { grid-column: 2; justify-self: start; }
@@ -588,7 +587,7 @@
   background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 [data-page="accueil"] .ctl-dot svg { width: 16px; height: 16px; }
-[data-page="accueil"] .ctl-stage[data-state="done"] .ctl-dot { color: var(--on-brand); background: var(--ok-mark); animation: pop var(--t-slow) var(--ease-spring) both; }
+[data-page="accueil"] .ctl-stage[data-state="done"] .ctl-dot { color: var(--on-brand); background: var(--ok-mark); }
 [data-page="accueil"] .ctl-stage[data-state="failed"] .ctl-dot { color: #fff; background: var(--alert-mark); }
 [data-page="accueil"] .ctl-stage[data-state="partial"] .ctl-dot { color: var(--warn); background: var(--warn-soft); }
 [data-page="accueil"] .ctl-stage[data-state="running"] .ctl-dot { color: var(--info); background: var(--info-soft); }

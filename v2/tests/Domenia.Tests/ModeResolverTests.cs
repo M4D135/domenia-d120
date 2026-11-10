@@ -92,7 +92,8 @@ internal static class ModeResolverTests
         Check.Equal("simulation", simulation.Mode, "mode simulation");
         Check.Equal("Simulation", simulation.ModeLabel, "libellé simulation");
         Check.Equal(ModeTexts.Banner, simulation.Banner, "bannière");
-        Check.Equal(ProductInfo.Version, simulation.Version, "version");
+        Check.Equal(ProductInfo.DisplayVersion, simulation.Version, "version courte affichée");
+        Check.Equal(ProductInfo.DevelopmentVersion, simulation.Version, "aucun identifiant de compilation dans l’interface");
 
         var directory = AppInfoBuilder.Build(ModeResolver.Resolve([], null, Probe(Joined)), "10.0.12", "windows");
         Check.Equal("annuaire", directory.Mode, "mode annuaire");

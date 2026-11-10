@@ -24,7 +24,7 @@ public static class AppInfoBuilder
         var simulation = decision.Mode == AppMode.Simulation;
         return new AppInfo(
             ProductInfo.Name,
-            ProductInfo.Version,
+            ProductInfo.DisplayVersion,
             runtime,
             webViewRuntime,
             simulation ? SimulationModeText : DirectoryModeText,

@@ -24,7 +24,7 @@ public sealed partial class DomeniaDatabase
             using var db = Open(true, cancellationToken: token);
             db.Begin(false); CheckIdentity(db, true);
             var inventory = ReadLegacyInventory(db, token);
-            snapshot = WithLegacySources(snapshot, sources, inventory);
+            snapshot = WithLegacySources(snapshot, sources, new LegacySummary(inventory.Revision, inventory.Counts, inventory.LinkedComputers, inventory.Marker, inventory.ImportedAt));
             var preview = StorageViewBuilder.LegacySimulation(snapshot, domain, clock.LocalTimeZone);
             var draft = StorageWritePlans.LegacyImportDraft(snapshot, domain, previewFingerprint, preview.Fingerprint);
             return draft with { Changes = draft.Changes.Add(new(LegacyStateAttribute, "Contenu des tables historiques", WriteChangeKind.Replace,

@@ -23,7 +23,7 @@ internal sealed class PackageUpdateHost : IDisposable
     private UpdateOffer? offer;
     private PreparedUpdate? prepared;
     private PackageSignatureVerdict? publisher;
-    private string folder = "", source = "folder", installed = ProductInfo.Version;
+    private string folder = "", source = "folder", installed = ProductInfo.DisplayVersion;
     private string? confirmation;
     private DateTimeOffset? expires;
     private int installing;
@@ -172,7 +172,7 @@ internal sealed class PackageUpdateHost : IDisposable
     {
         if (!Demo) { throw new InvalidOperationException("Le retour arrière réel exige la transaction sauvegardée de l’assistant ; aucun binaire n’a été touché."); }
         if (!serial.Wait(0)) { throw new InvalidOperationException("Opération encore en cours."); }
-        try { installed = ProductInfo.Version; ClearPlan(); return Publish("Retour arrière fictif terminé ; aucune base ou installation réelle modifiée."); }
+        try { installed = ProductInfo.DisplayVersion; ClearPlan(); return Publish("Retour arrière fictif terminé ; aucune base ou installation réelle modifiée."); }
         finally { serial.Release(); }
     }
 

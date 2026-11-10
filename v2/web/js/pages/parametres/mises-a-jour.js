@@ -1,4 +1,4 @@
-import { esc, card, facts, notes, sectionHead, paint, errorBlock, size, when, reported } from './common.js';
+import { esc, glyph, card, facts, notes, sectionHead, paint, errorBlock, size, when, reported } from './common.js';
 import { confirmDialog } from '../../kit/dialog.js';
 import { reveal } from '../../ui.js';
 
@@ -15,11 +15,11 @@ export function mount(host, sctx) {
     if (!view) { host.innerHTML = `${sectionHead(HEAD)}${error ? errorBlock(error) : '<p role="status">Lecture de l’état local…</p>'}`; paintContent(); return; }
     const candidate = view.candidate;
     host.innerHTML = `${sectionHead(HEAD)}${error ? errorBlock(error) : ''}
-      ${view.demonstration ? '<p class="pr-hint" role="status"><strong>Démonstration — données fictives.</strong> Les sources, la copie, l’installation et le retour arrière sont simulés dans cet espace.</p>' : ''}
+      ${view.demonstration ? `<p class="pr-hint" role="status">${glyph('info')}<span><strong>Démonstration — données fictives.</strong> Les sources, la copie, l’installation et le retour arrière sont simulés dans cet espace.</span></p>` : ''}
       <div class="pr-grid">${card({ id: 'source', title: 'Source et version', iconName: 'download', body:
         `${facts([['Version installée', view.installedVersion], ['Dossier de diffusion', view.folder || 'Non configuré']])}
         <div class="pr-actions">${button('folder-pick', 'Choisir le dossier', !view.available)}${button('folder', 'Rechercher dans le dossier', !view.available || !view.folder)}${button('local', 'Sélectionner un ZIP PROD', !view.available)}</div>
-        <p class="pr-hint">Un dossier de diffusion contient le ZIP PROD et SHA256SUMS.txt. L’accès utilise la session Windows et reste en lecture seule.</p>` })}
+        <p class="pr-hint">${glyph('info')}<span>Un dossier de diffusion contient le ZIP PROD et SHA256SUMS.txt. L’accès utilise la session Windows et reste en lecture seule.</span></p>` })}
       ${card({ id: 'candidate', title: 'Pack proposé', iconName: 'shield', body: candidate
         ? `${facts([['Version', candidate.version], ['Source', candidate.provenance], ['Archive', candidate.fileName], ['Taille', size(candidate.bytes)], ['SHA-256 publié', candidate.sha256]])}
           <div class="pr-actions">${button('prepare', view.demonstration ? 'Simuler la préparation' : 'Copier et vérifier', !view.available, !view.prepared)}</div>`
