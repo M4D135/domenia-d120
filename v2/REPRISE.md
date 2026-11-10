@@ -2,14 +2,33 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**10/11/2026 : Domenia 2.1.2 PROD-LIGHT publiée en dernière version sur `c2e5edb1`, après le go explicite de David. ZIP et téléchargement public vérifiés. Parité : 622 faites, 370 améliorées, aucune partielle ni à faire, PST-001 abandonnée. Qualification : 3 043 tests C# complets, 1 601 critiques, 218 contrôles navigateur, 7 simulations et login natif hors connexion. Recette sur domaine réel toujours à effectuer.**
+**10/11/2026 : Domenia 2.1.3 qualifiée sur `65daf42f`, non publiée ; quatre retours de production corrigés. 3 046 tests C# complets, 1 610 critiques, 221 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Version publique : 2.1.2. Publication 2.1.3 en attente du go explicite de David ; recette sur domaine réel non exécutée.**
 
-## 10/11/2026 — préparation de 2.1.3, retours de production
+## 10/11/2026 — qualification de 2.1.3, retours de production
 
-Quatre défauts signalés sur 2.1.2 : cartes de progression recréées à chaque tick, inspection du stockage déclenchant
-l’empreinte complète de purge, texte d’un encadré dans la colonne d’icône, identité de compilation affichée comme
-version. Corrections sur `codex/correctifs-accueil-stockage-20261110`, tests de régression ajoutés. Les contrôles
-d’écriture et le schéma restent inchangés. Qualification Windows et navigateur en attente ; aucune publication 2.1.3.
+Quatre corrections demandées par David sur 2.1.2 : cartes de progression stables à chaque tick, consultation
+« Données et cache » découplée de l’empreinte complète de purge, texte de l’encadré de mise à jour dans sa colonne,
+version courte dans l’interface. `LegacySummary` ne contient aucune empreinte ; les plans de modification
+conservent `ReadLegacyInventory` complet. Schéma 11, révision 2 inchangés. Identité technique conservée pour
+les contrôles de livraison et la copie de diagnostic.
+
+Qualification [42772371612](https://github.com/M4D135/domenia-d120/actions/runs/42772371612) sur
+`65daf42f3637eeea2f60e0a2ba150bef686a37a3` : 3 046/3 046 tests C# complets, 1 610/1 610 critiques,
+221/221 contrôles navigateur, 7 scénarios de simulation ; démarrage hors connexion et fermeture native code 0.
+Le titre natif relevé est « Accueil — Domenia 2.1.3 ». Vingt captures générées ; l’encadré de mise à jour et
+la progression ont été inspectés visuellement sur le Mac. 48 tests Python Mac réussis.
+
+ZIP `Domenia_2.1.3_PROD-LIGHT_Windows-x64.zip`, 84,268,232 octets, 788 fichiers, SHA-256
+`583f1de66d0b2e2385291224472b9bd784180ba781302390683bd38a20e6a74c`. Métadonnées, exécutable et empreintes concordent ; nom du domaine de labo absent des fichiers
+en UTF-8 et UTF-16LE. Artefacts préparés hors dépôt dans le dossier de livraison 2.1.3 du cockpit.
+
+Premier passage [42771114372](https://github.com/M4D135/domenia-d120/actions/runs/42771114372) : un test ajouté
+préparait une reprise déjà interdite par sa base de départ. Fixture corrigée pour modifier un lien admissible
+à compte constant ; tous les contrôles passent sur le second commit. Relecture du Spark vérifiée contre les fichiers.
+Le produit n’a pas été modifié pour contourner ce test.
+
+**Non publié.** La publication attend le go explicite de David. README, catalogue public et description restent
+à 2.1.2 jusque-là. Aucun test sur domaine réel ni recette humaine annoncés ; aucune connexion ou transport AD modifiés.
 
 ## 10/11/2026 — publication de 2.1.2
 
