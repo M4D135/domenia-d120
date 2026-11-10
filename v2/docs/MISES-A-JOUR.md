@@ -1,13 +1,13 @@
 # Mises à jour et diffusion de Domenia 2
 
-État de développement : les contrôles décrits sont implémentés ; la recette critique des archives finales et la publication restent à consigner dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
+Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
-## Correctifs qualifiés en 2.1.3
+## Correctifs publiés en 2.1.3
 
 Les étapes de l’actualisation restent stables pendant la progression. La consultation « Données et cache » utilise
 un inventaire léger ; les plans de modification gardent leur empreinte complète. Les encadrés de mise à jour
 utilisent la largeur disponible. La version affichée est courte (2.1.3) ; l’identité complète reste dans les
-preuves techniques. Qualification automatique réussie ; publication en attente du go de David, détails dans REPRISE.md.
+preuves techniques. Qualification automatique réussie ; version publiée le 10 novembre 2026 après le go de David, détails dans REPRISE.md.
 
 ## Pack de production
 

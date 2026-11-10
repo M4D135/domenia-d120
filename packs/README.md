@@ -1,17 +1,17 @@
-# Packs Windows Domenia 2.1.2
+# Packs Windows Domenia 2.1.3
 
-Une seule édition est publiée : **PROD-LIGHT**. 2.1.2 clôture les derniers points de parité, renforce les comparaisons de populations et les contrôles des contrats de sondes. Le schéma des données reste inchangé.
+Une seule édition est publiée : **PROD-LIGHT**. 2.1.3 corrige le clignotement des étapes, la consultation du stockage, la largeur des encadrés de mise à jour et l’affichage de la version. Le schéma des données reste inchangé.
 
-Source : [`c2e5edb1`](https://github.com/M4D135/domenia-d120/commit/c2e5edb1fe1841821a02e27e2014a6774015c82e). [Release v2.1.2](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.2), publiée le 10 novembre 2026.
+Source : [`65daf42f`](https://github.com/M4D135/domenia-d120/commit/65daf42f3637eeea2f60e0a2ba150bef686a37a3). [Release v2.1.3](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.3), publiée le 10 novembre 2026.
 
 | Pack | Archive | Octets | SHA256 |
 | --- | --- | ---: | --- |
-| **PROD-LIGHT** | [Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip](https://github.com/M4D135/domenia-d120/releases/download/v2.1.2/Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip) | 84267433 | `b4fd5a59f571db88ae60a4fe612e44bf58230b28c1c1e0302cc79a88b5082a2f` |
+| **PROD-LIGHT** | [Domenia_2.1.3_PROD-LIGHT_Windows-x64.zip](https://github.com/M4D135/domenia-d120/releases/download/v2.1.3/Domenia_2.1.3_PROD-LIGHT_Windows-x64.zip) | 84268232 | `583f1de66d0b2e2385291224472b9bd784180ba781302390683bd38a20e6a74c` |
 
-[SHA256SUMS.txt](https://github.com/M4D135/domenia-d120/releases/download/v2.1.2/SHA256SUMS.txt) : copie identique dans `packs/SHA256SUMS`. [`manifest.json`](manifest.json) décrit la provenance et les limites. Le ZIP a été retéléchargé sans compte avec la même empreinte.
+[SHA256SUMS.txt](https://github.com/M4D135/domenia-d120/releases/download/v2.1.3/SHA256SUMS.txt) : copie identique dans `packs/SHA256SUMS`. [`manifest.json`](manifest.json) décrit la provenance et les limites. Le ZIP a été retéléchargé sans compte avec la même empreinte.
 
 PROD-LIGHT utilise WebView2 Evergreen x64 (140.0.3485.54 ou ultérieur) déjà installé sur le poste. À défaut, il utilise le [pack WebView2 du Socle](https://github.com/M4D135/socle-windows/releases/tag/webview2-156.0.4314.42) extrait dans `wad`. Le runtime .NET est inclus.
 
-[Qualification CI](https://github.com/M4D135/domenia-d120/actions/runs/42701363001) : 3 043 tests C# complets, 1 601 critiques, 218 contrôles navigateur, 7 simulations et parcours natif hors connexion réussis. La [recette manuelle](../v2/docs/RECETTE-MANUELLE-V2.1.2.md) sur domaine réel reste à effectuer ; aucune ancienne preuve de banc n’est appliquée à ce ZIP.
+[Qualification CI](https://github.com/M4D135/domenia-d120/actions/runs/42772371612) : 3 046 tests C# complets, 1 610 critiques, 221 contrôles navigateur, 7 simulations et parcours natif hors connexion réussis. La [recette manuelle](../v2/docs/RECETTE-MANUELLE-V2.1.3.md) sur domaine réel reste à effectuer ; aucune ancienne preuve de banc n’est appliquée à ce ZIP.
 
-Les releases [v2.1.1](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.1) et [v2.1.0](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0) restent disponibles. Les packs 2.0.x ne sont plus publiés : le dépôt a été recréé le 09/11/2026.
+Les releases [v2.1.2](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.2), [v2.1.1](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.1) et [v2.1.0](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0) restent disponibles. Les packs 2.0.x ne sont plus publiés : le dépôt a été recréé le 09/11/2026.

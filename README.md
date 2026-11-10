@@ -5,19 +5,19 @@ base locale, inventaire, tableaux de bord et opérations contrôlées.
 
 **La version active est Domenia v2, dans [`v2/`](v2/), sur la branche principale `master`.**
 
-## Télécharger Domenia 2.1.2
+## Télécharger Domenia 2.1.3
 
-Dernière version : **2.1.2**, construite depuis [`c2e5edb1`](https://github.com/M4D135/domenia-d120/commit/c2e5edb1fe1841821a02e27e2014a6774015c82e). Une seule édition est publiée, **PROD-LIGHT**.
+Dernière version : **2.1.3**, construite depuis [`65daf42f`](https://github.com/M4D135/domenia-d120/commit/65daf42f3637eeea2f60e0a2ba150bef686a37a3). Une seule édition est publiée, **PROD-LIGHT**.
 
 | Pack | Téléchargement direct |
 | --- | --- |
-| **PROD-LIGHT** | [Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip](https://github.com/M4D135/domenia-d120/releases/download/v2.1.2/Domenia_2.1.2_PROD-LIGHT_Windows-x64.zip) (84 Mo) |
-| **Sources** | [Sources exactes de 2.1.2](https://github.com/M4D135/domenia-d120/archive/refs/tags/v2.1.2.zip) |
-| Empreintes | [SHA256SUMS.txt](https://github.com/M4D135/domenia-d120/releases/download/v2.1.2/SHA256SUMS.txt) |
+| **PROD-LIGHT** | [Domenia_2.1.3_PROD-LIGHT_Windows-x64.zip](https://github.com/M4D135/domenia-d120/releases/download/v2.1.3/Domenia_2.1.3_PROD-LIGHT_Windows-x64.zip) (84 Mo) |
+| **Sources** | [Sources exactes de 2.1.3](https://github.com/M4D135/domenia-d120/archive/refs/tags/v2.1.3.zip) |
+| Empreintes | [SHA256SUMS.txt](https://github.com/M4D135/domenia-d120/releases/download/v2.1.3/SHA256SUMS.txt) |
 
-[Release v2.1.2](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.2) · [provenance du pack](packs/README.md) · [recette manuelle](v2/docs/RECETTE-MANUELLE-V2.1.2.md) · [mises à jour](v2/docs/MISES-A-JOUR.md).
+[Release v2.1.3](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.3) · [provenance du pack](packs/README.md) · [recette manuelle](v2/docs/RECETTE-MANUELLE-V2.1.3.md) · [mises à jour](v2/docs/MISES-A-JOUR.md).
 
-SHA-256 du ZIP : `b4fd5a59f571db88ae60a4fe612e44bf58230b28c1c1e0302cc79a88b5082a2f`.
+SHA-256 du ZIP : `583f1de66d0b2e2385291224472b9bd784180ba781302390683bd38a20e6a74c`.
 
 ## Installation
 
@@ -25,25 +25,28 @@ Extraire le ZIP dans un nouveau dossier, vérifier son SHA-256 avec `SHA256SUMS.
 
 PROD-LIGHT utilise WebView2 Evergreen Microsoft x64 déjà installé sur le poste, à partir de **140.0.3485.54**. À défaut, il utilise le [pack WebView2 du Socle](https://github.com/M4D135/socle-windows/releases/tag/webview2-156.0.4314.42) extrait dans `wad`. Sans l’un ni l’autre, un message propose les deux solutions ; rien n’est téléchargé.
 
-Le schéma de données ne change pas : une base de 2.0.5 à 2.1.1 s’ouvre telle quelle. Un poste en PROD 2.0.8 doit extraire ce ZIP à la main, car une mise à jour ne change pas d’édition. Conserver la version précédente localement.
+Le schéma de données ne change pas : une base de 2.0.5 à 2.1.2 s’ouvre telle quelle. Un poste en PROD 2.0.8 doit extraire ce ZIP à la main, car une mise à jour ne change pas d’édition. Conserver la version précédente localement.
 
-## Nouveautés de 2.1.2
+## Nouveautés de 2.1.3
 
-- **Comparaisons de populations.** Une description absente reste inconnue. L’apparition ou la disparition d’un score donne une comparaison limitée avec sa raison ; sa seule disponibilité ne prouve ni stabilité ni amélioration.
-- **Contrats des sondes.** Les contrôles de comptes et groupes ignorent la casse, les filtres de comptes locaux doivent réellement restreindre la lecture et les sous-espaces interdits sont refusés. Lecture CIM seule, aucune méthode ni écriture, collecte lourde explicitement demandée.
-- **Réglages effectifs.** PAR-046 est clôturé sur les raccordements L16/L02 et leurs tests existants. Le délai des commandes distantes est appliqué par appel natif, de 1 à 300 secondes (défaut 10), sans terminer artificiellement un appel COM ni déclencher de rejeu.
+- **Actualisation stable.** Les cartes de progression gardent leurs éléments et le focus pendant les mises à jour ; elles ne clignotent plus à chaque seconde.
+- **Données et cache.** La consultation utilise un inventaire léger et ne déclenche plus le contrôle complet de purge sur les cellules volumineuses. Les vérifications des plans de modification restent intactes.
+- **Mises à jour lisibles.** Le texte des encadrés utilise la largeur de la carte en production comme en démonstration.
+- **Version courte.** L’interface affiche **2.1.3**. L’identité de compilation reste disponible pour les contrôles techniques.
+
+Les comparaisons de populations, les contrats de sondes et la clôture de parité de 2.1.2 sont conservés.
 
 Le catalogue compte 622 fonctions faites, 370 améliorées, aucune partielle ni à faire ; PST-001 reste abandonnée sur décision de David.
 
 2.1.1 avait supprimé le contrôle préalable de Domain Admins pour le ping et les lectures distantes avec l’identité de la session Windows. Un compte saisi et toute écriture distante gardent leur validation.
 
-## Validation de 2.1.2
+## Validation de 2.1.3
 
-[Run CI hébergé](https://github.com/M4D135/domenia-d120/actions/runs/42701363001) sur le commit publié, sous Windows (windows-2025) :
+[Run CI hébergé](https://github.com/M4D135/domenia-d120/actions/runs/42772371612) sur le commit publié, sous Windows (windows-2025) :
 
 - compilation Windows ;
-- suite C# complète, 3 043 tests, dont les 1 601 critiques ;
-- 218 contrôles critiques du navigateur et 7 scénarios de simulation ;
+- suite C# complète, 3 046 tests, dont les 1 610 critiques ;
+- 221 contrôles critiques du navigateur et 7 scénarios de simulation ;
 - démarrage du ZIP avec WebView2 Evergreen ;
 - connexion native jusqu’à l’Accueil hors connexion, puis fermeture propre.
 
@@ -59,5 +62,5 @@ Le workflow de compilation Windows suit les changements de `v2/` sur `master`. L
 
 ## Historique
 
-Le dépôt a été recréé le 09/11/2026 : les packs 2.0.x ne sont plus publiés. Les releases [v2.1.1](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.1) et [v2.1.0](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0) restent disponibles.
+Le dépôt a été recréé le 09/11/2026 : les packs 2.0.x ne sont plus publiés. Les releases [v2.1.2](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.2), [v2.1.1](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.1) et [v2.1.0](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.0) restent disponibles.
 Les dossiers racine `dev/`, `DOC/`, `guides/` et `validation/` contiennent la v1 (PowerShell 5.1 et WPF), conservée comme historique.

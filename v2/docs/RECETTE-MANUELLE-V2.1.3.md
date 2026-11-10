@@ -1,6 +1,6 @@
 # Domenia 2.1.3 — correctifs des retours de production
 
-Version qualifiée automatiquement le 10 novembre 2026. Publication en attente du go de David ; recette utilisateur non exécutée. Preuves dans REPRISE.md.
+Version qualifiée automatiquement et publiée le 10 novembre 2026 après le go de David. Recette utilisateur non exécutée. Preuves dans REPRISE.md.
 
 Pack attendu : `Domenia_2.1.3_PROD-LIGHT_Windows-x64.zip`, accompagné de `SHA256SUMS.txt`.
 Extraire dans un dossier distinct, contrôler l’empreinte et lancer Domenia.exe. .NET est embarqué ; WebView2

@@ -2,7 +2,18 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**10/11/2026 : Domenia 2.1.3 qualifiée sur `65daf42f`, non publiée ; quatre retours de production corrigés. 3 046 tests C# complets, 1 610 critiques, 221 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Version publique : 2.1.2. Publication 2.1.3 en attente du go explicite de David ; recette sur domaine réel non exécutée.**
+**10/11/2026 : Domenia 2.1.3 PROD-LIGHT publiée en dernière version sur `65daf42f`, après le go explicite de David. ZIP et téléchargement public vérifiés. Quatre retours de production corrigés ; 3 046 tests C# complets, 1 610 critiques, 221 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Recette sur domaine réel non exécutée.**
+
+## 10/11/2026 — publication de 2.1.3
+
+Après le go explicite de David, la [release v2.1.3](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.3) a été publiée
+le 10 novembre à 07:33 UTC (08:33, heure de Paris), en dernière version, tag sur `65daf42f3637eeea2f60e0a2ba150bef686a37a3`.
+Aucune reconstruction : ZIP exact du run [42772371612](https://github.com/M4D135/domenia-d120/actions/runs/42772371612),
+84 268 232 octets, SHA-256 `583f1de66d0b2e2385291224472b9bd784180ba781302390683bd38a20e6a74c`.
+Les empreintes GitHub correspondent ; ZIP et sommes retéléchargés sans compte (HTTP 200), empreintes identiques.
+README, `packs/` et description sont alignés sur 2.1.3 ; les anciennes releases sont conservées.
+
+La qualification ci-dessous reste attachée à la source du ZIP. La recette sur domaine réel reste non exécutée.
 
 ## 10/11/2026 — qualification de 2.1.3, retours de production
 
@@ -27,8 +38,8 @@ préparait une reprise déjà interdite par sa base de départ. Fixture corrigé
 à compte constant ; tous les contrôles passent sur le second commit. Relecture du Spark vérifiée contre les fichiers.
 Le produit n’a pas été modifié pour contourner ce test.
 
-**Non publié.** La publication attend le go explicite de David. README, catalogue public et description restent
-à 2.1.2 jusque-là. Aucun test sur domaine réel ni recette humaine annoncés ; aucune connexion ou transport AD modifiés.
+Au terme de la qualification, la publication attendait le go de David ; il a été reçu et appliqué dans la section ci-dessus.
+Aucun test sur domaine réel ni recette humaine annoncés ; aucune connexion ou transport AD modifiés.
 
 ## 10/11/2026 — publication de 2.1.2
 
