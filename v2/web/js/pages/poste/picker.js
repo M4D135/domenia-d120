@@ -144,6 +144,7 @@ export function renderPicker(main, ctx) {
       if (!alive) return;
       grid.setError(errorText(err, 'Liste indisponible.'), { retry: () => load(text) });
       main.querySelector('[data-slot="stats"]').innerHTML = failure(err, { retry: null });
+      main.querySelector('[data-slot="summary"]').textContent = 'Liste non chargée. Le panneau ci-dessus indique la cause et permet de réessayer.';
     }
   }
   const search = debounce(() => load(searchInput.value.trim()), 220);

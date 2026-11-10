@@ -2,6 +2,7 @@ import { test, eq, ok, throws } from './harness.mjs';
 import { createPageLoader, validatePages, checkShell, preparePages } from '../../web/js/shell/page-preflight.js';
 import { createRouter } from '../../web/js/router.js';
 import { sessionMark } from '../../web/js/shell/store.js';
+import { renderPicker } from '../../web/js/pages/poste/picker.js';
 
 test('Démarrage : modules invalides jamais acceptés, imports partagés et aucun rendu au précontrôle', async () => {
   let reads = 0; let renders = 0;
@@ -52,6 +53,41 @@ async function until(predicate) {
   const deadline = performance.now() + 5000;
   while (!predicate()) { if (performance.now() > deadline) throw new Error('Jalon de test non reçu en cinq secondes.'); await wait(20); }
 }
+test('Démarrage : le refus de la liste Poste termine l’attente et seule une reprise explicite relit la liste', async () => {
+  const oldHash = location.hash; const oldMotion = document.documentElement.dataset.motion;
+  document.documentElement.dataset.motion = 'reduced';
+  const host = document.createElement('div'); host.innerHTML = '<nav></nav><main tabindex="-1"></main>'; document.body.append(host);
+  const main = host.querySelector('main'); const ready = []; const errors = []; let listCalls = 0;
+  history.replaceState(null, '', '#/poste');
+  const router = createRouter({ main, nav: host.querySelector('nav'), pages: [{ id: 'poste', label: 'Poste' }],
+    context: () => ({ call: async operation => {
+      if (operation === 'poste.host') return { openReadsConsole: false };
+      if (operation !== 'poste.list') throw new Error('Appel inattendu : ' + operation);
+      if (++listCalls === 1) throw Object.assign(new Error('Connexion au domaine requise.'), { code: 'ad.notConnected' });
+      return { rows: [], scope: null, summary: 'Base locale seulement.' };
+    } }), onReady: page => ready.push(page.id), onError: (_, id) => errors.push(id),
+    loadPage: async () => ({ own: true, mod: { render: renderPicker } }),
+  });
+  try {
+    await router.start(); await until(() => ready.length === 1);
+    eq(ready, ['poste'], 'écran en erreur prêt sans faux délai de deux minutes');
+    eq(errors, [], 'aucun second incident de préparation');
+    eq(listCalls, 1, 'aucun réessai automatique');
+    ok(!main.querySelector('.skeleton, [aria-busy="true"]'), 'attente terminée malgré le refus');
+    ok(main.querySelector('[data-slot="grid"] [role="alert"]')?.textContent.includes('Connexion au domaine requise.'), 'vraie erreur encore lisible');
+    const retry = main.querySelector('[data-slot="grid"] [data-act="retry"]');
+    ok(retry, 'reprise explicite proposée'); retry.click();
+    await until(() => listCalls === 2 && !main.querySelector('.skeleton, [aria-busy="true"]'));
+    eq(listCalls, 2, 'une seule lecture supplémentaire après le clic');
+    ok(!main.querySelector('[data-slot="grid"] [role="alert"]'), 'ancienne erreur remplacée par le résultat');
+    ok(main.querySelector('[data-slot="summary"]').textContent.includes('0 poste'), 'résumé du succès vide affiché');
+  } finally {
+    router.destroy(); host.remove(); history.replaceState(null, '', oldHash || location.pathname);
+    delete document.documentElement.dataset.ready;
+    if (oldMotion === undefined) delete document.documentElement.dataset.motion; else document.documentElement.dataset.motion = oldMotion;
+  }
+});
+
 test('Navigation : une préparation lente libère la transition et un refus périmé reste silencieux', async () => {
   const oldHash = location.hash; const oldMotion = document.documentElement.dataset.motion; const oldTransition = document.startViewTransition;
   document.documentElement.dataset.motion = 'full';

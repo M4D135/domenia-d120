@@ -23,6 +23,50 @@ internal static class AdInventoryRelationTests
     }
 
     [Test]
+    public static async Task Unconfirmed_inventory_preserves_native_failure_evidence_but_discards_all_payloads()
+    {
+        using var folder = new TemporaryFolder(); var (db, source, ldap) = await AdRelationDirectoryTests.Open(folder);
+        using var owned = source; Directory(ldap);
+        const string nativeDetail = "Lecture native non reçue ; fermeture du processus demandée. Aucun rejeu automatique.";
+        var nativeFailure = new SourceAccess(InventoryCategories.System, SourceStatus.Interrupted, nativeDetail, 1255, 1, InventoryTransport.WinRm)
+        { RetryFailure = CollectionReadFailure.Cancelled };
+        var refused = new SourceAccess(InventoryCategories.Services, SourceStatus.Refused, "Accès aux services refusé.", 31, 0, InventoryTransport.Dcom)
+        { AuthenticationRejected = true, RetryFailure = CollectionReadFailure.CredentialRejected };
+        var native = EmptyUnconfirmedInventory() with
+        {
+            System = new("Fabricant", "Ne doit pas être attribué", null, [], null, 100, 1, null, @"TEST\alice"),
+            Console = new(@"TEST\alice", Fixtures.Now),
+            Volumes = [new("C:", null, "NTFS", 100, 40)],
+            Access = [nativeFailure, refused, new(InventoryCategories.Volumes, SourceStatus.Partial, "Volume reçu sans identité.", 43, 1, InventoryTransport.WinRm)],
+        };
+        var calls = 0;
+        var result = await new AdRelationsReader(source).InventoryAsync(Fixtures.Computer("PC1"), WorkstationReading.Survey, null,
+            CancellationToken.None, injected: (_, _) => { calls++; return Task.FromResult(native); });
+        Check.Equal(1, calls, "aucun nouvel essai pour obtenir une identité");
+        Check.Equal(nativeFailure with { Items = 0 }, result.Value.Access.Single(row => row.Category == InventoryCategories.System),
+            "refus natif, durée, transport et cause de reprise conservés exactement");
+        Check.Equal(refused, result.Value.Access.Single(row => row.Category == InventoryCategories.Services),
+            "refus d’authentification conservé sans être masqué par l’identité");
+        var partial = result.Value.Access.Single(row => row.Category == InventoryCategories.Volumes);
+        Check.Equal(SourceStatus.Unavailable, partial.Status, "réponse partielle non attribuable au poste");
+        Check.Contains("Identité Windows non confirmée", partial.Detail, "motif du rejet des valeurs reçues");
+        Check.Equal(0, partial.Items, "aucun élément qualifié");
+        Check.Null(result.Value.System, "données système non identifiées écartées");
+        Check.Null(result.Value.Console, "aucune console déduite");
+        Check.Equal(0, result.Value.Volumes.Length, "volume non identifié écarté");
+        Check.Equal(0L, (await db.ReadRelationsAsync(CancellationToken.None)).Total, "aucune relation publiée");
+        Check.True(result.Denied, "le refus reste un refus");
+    }
+
+    private static InventorySnapshot EmptyUnconfirmedInventory() => new(
+        Computer: "PC1", CollectedAt: Fixtures.Now, Deep: false, DurationMs: 1255, Transport: InventoryTransport.WinRm, Access: [],
+        Os: null, System: null, Bios: null, Processors: [], MemoryModules: [], MemoryArray: null, Memory: null, Volumes: [], PhysicalDisks: [],
+        BitLocker: [], Tpm: null, SecureBoot: null, Network: [], Firewall: [], Antivirus: [], Defender: null, Hotfixes: [], Updates: null,
+        Software: [], Startup: [], Services: [], Devices: [], Displays: [], Batteries: [], UnsignedDrivers: [], Sessions: [], LocalAdmins: [],
+        Shares: [], Printers: [], PendingReboot: null, ClockSkewSeconds: null, ClockAgainstController: false, Site: null, Proxy: null,
+        Processes: [], SystemEvents: [], Tasks: [], Certificates: [], Connections: []);
+
+    [Test]
     public static async Task Full_inventory_qualifies_its_own_console_without_an_extra_machine_read()
     {
         using var folder = new TemporaryFolder(); var (db, source, ldap) = await AdRelationDirectoryTests.Open(folder); using var owned = source; Directory(ldap); var reads = 0;

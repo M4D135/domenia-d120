@@ -78,11 +78,18 @@ public sealed partial class AdRelationsReader
             { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Identité Windows différente du poste attendu ; inventaire écarté."); }
             if (captured.ReportedName is null)
             {
-                foreach (var row in captured.Access)
+                // Discard every payload without losing the native refusal/timeout that explains the missing identity.
+                const string unconfirmed = "Identité Windows non confirmée ; données non attribuées au poste.";
+                var originalAccess = captured.Access;
+                captured = captured.WithStatus(originalAccess.Select(row => row.Category), SourceStatus.Unavailable, unconfirmed) with
                 {
-                    captured = captured.WithStatus([row.Category], row.Status is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial ? SourceStatus.Unavailable : row.Status,
-                        "Identité Windows non confirmée ; données non attribuées au poste.");
-                }
+                    Access = [.. originalAccess.Select(row => row with
+                    {
+                        Status = row.Status is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial ? SourceStatus.Unavailable : row.Status,
+                        Detail = row.Status is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial ? unconfirmed : row.Detail,
+                        Items = 0,
+                    })],
+                };
             }
             if (awaitPhysicalCompletion && stop.IsCancellationRequested)
             {

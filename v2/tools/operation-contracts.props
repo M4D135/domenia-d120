@@ -1,11 +1,11 @@
 <Project>
   <!-- Explicit reviewed pins. Regenerate only after review; builds never update this file. -->
   <PropertyGroup>
-    <DomeniaOperationRegistryFingerprint>83128344fec1e0f6b4c268c206aa4dab0d19a7e4437a1c6633a36392ef8e0b90</DomeniaOperationRegistryFingerprint>
+    <DomeniaOperationRegistryFingerprint>0dedff0b00729546ea0a8af1cc77b06f827304386f8ab591721faa75685282c3</DomeniaOperationRegistryFingerprint>
   </PropertyGroup>
   <ItemGroup>
-    <AssemblyMetadata Include="DomeniaOperationRegistry" Value="83128344fec1e0f6b4c268c206aa4dab0d19a7e4437a1c6633a36392ef8e0b90" />
-    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)operation-contracts.json" ExpectedSha256="B3DB764148E74D885AF2588C923551BB13FF09600709238EB90472A29D289DC3" />
+    <AssemblyMetadata Include="DomeniaOperationRegistry" Value="0dedff0b00729546ea0a8af1cc77b06f827304386f8ab591721faa75685282c3" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)operation-contracts.json" ExpectedSha256="38214DAF3B56FAB65E3E317B92EE5ACF398F0639CBF5CACD2CE3F70E550EE4FC" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../Directory.Build.props" ExpectedSha256="A11C387EC587735C0C90CDB21763452BFE0AA1BA744BA7C4E6B364DEF8E97722" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../NuGet.config" ExpectedSha256="5684CA8BEE23135CB14C3AED9239B13E7C3FDCBFCA9B517D1C01B053AAD27357" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../global.json" ExpectedSha256="FB1F3883533D06B1A983C5A277035A38720CCDDE66AA6E1A53BEC332290D64F8" />
@@ -121,7 +121,7 @@
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Ad/Screens/AdRelationsReader.Console.cs" ExpectedSha256="7FF987EB56DDA7EF3D95B47AAA940E5E83961BE0B2404B4C66E34F44FC2BDA4B" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Ad/Screens/AdRelationsReader.Harvest.cs" ExpectedSha256="D808A06EB4E351FCB13FEDF58F8D43724AC530F20C0CC418D82C02C74BDE328C" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Ad/Screens/AdRelationsReader.Import.cs" ExpectedSha256="9D19795A6672CA530770F52E2B643103195F40286C3427D6C9ED2E69F71957AE" />
-    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Ad/Screens/AdRelationsReader.Inventory.cs" ExpectedSha256="64C75F478BFE2D06B24C7901A95374D5E2659E79CEF268903D46B2649B6F83D3" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Ad/Screens/AdRelationsReader.Inventory.cs" ExpectedSha256="9D22DB293059864BC25818085DD1609D472E67B0F5735B17EB49FD361303583A" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Ad/Screens/AdRelationsReader.Orphans.cs" ExpectedSha256="0A8099F417A24FB7AF2AD78073ABB79233F453B753783073CDA9F8A9145F1721" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Ad/Screens/AdRelationsReader.Probe.cs" ExpectedSha256="0AEEB720F093FCB2688795D70AE40638F66B57D185B71103B58ECF52609408E0" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Ad/Screens/AdRelationsReader.Sweep.cs" ExpectedSha256="311862A4DECE10B95E27BF260332E4A19A2CAD8AE329048E20BF84624C11B4B7" />
