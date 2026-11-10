@@ -165,10 +165,10 @@ internal static class NativeStorageLegacyTests
     {
         using var setup = new Setup(); await setup.Initialize(); setup.WriteAll();
         using (var db = new SqliteDatabase(setup.Database.Path, false))
-        { db.Execute("INSERT INTO ad_objects(object_key,object_type,description) VALUES('existing','Machine','Avant');"); }
+        { db.Execute("INSERT INTO user_machine_links(computer_key,user_login,computer,source) VALUES('pc1','before','PC1','Saisie manuelle');"); }
         var plan = await setup.Plan();
         using (var db = new SqliteDatabase(setup.Database.Path, false))
-        { db.Execute("UPDATE ad_objects SET description='Après' WHERE object_key='existing';"); }
+        { db.Execute("UPDATE user_machine_links SET user_login='after' WHERE computer_key='pc1';"); }
         Check.False((await setup.Executor.CheckAsync(plan, None)).Current, "même nombre de lignes, contenu changé : plan périmé");
         await Check.ThrowsAsync<DomeniaOperationException>(() => setup.Executor.ExecuteAsync(plan, None), "empreinte stricte inchangée");
     }
