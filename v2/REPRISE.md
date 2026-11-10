@@ -2,7 +2,76 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**10/11/2026 : candidat 2.1.4 qualifié automatiquement sur `9bd1fb32`, non publié. 3 051 tests C# complets, 1 636 critiques, 221 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Recette AD à faire. Production publique : 2.1.3.**
+**10/11/2026 : second candidat 2.1.4 qualifié automatiquement sur `c7943575`, intégré dans `master`, non publié. 3 053 tests C# complets, 1 636 critiques, 222 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Recette native partielle : CHECK/LOGIN réussis, DCOM reçoit 13/27 sources et 46 lignes puis s'interrompt sans cause native précise ; WinRM ne reçoit aucune donnée. Production publique : 2.1.3.**
+
+## 10/11/2026 — trois corrections issues de la recette réelle de 2.1.4
+
+David a demandé la recette AD avant publication et autorisé la coordination avec le chat VM. Le premier
+candidat `9bd1fb32` a passé CHECK et LOGIN natifs, avec connexion AD par l'identité Windows du compte
+administrateur choisi. Ces scripts ne vérifiaient toutefois pas l'absence d'incident automatique de fond.
+La recette complémentaire a confirmé trois défauts :
+
+- L'Accueil hors connexion appelait `requetes.widget.list` sans racine de domaine connue et créait un incident.
+  Cette seule liste locale renvoie maintenant un tableau vide ; les validations d'arguments et d'évaluation restent actives.
+- Après le refus normal de la liste Poste hors connexion, le résumé gardait un squelette. Le routeur attendait
+  120 secondes puis annonçait à tort une erreur de préparation. Le résumé termine désormais cette attente ;
+  seule une reprise explicite relit la liste.
+- Un inventaire sans identité Windows confirmée remplaçait les détails et durées de tous les accès par un message
+  générique. Il conserve désormais ces preuves d'échec tout en écartant toutes les données non confirmées.
+
+Le premier inventaire produit sur la cible unique du banc a reçu **0 source sur 27**, zéro ligne et aucune identité
+confirmée ; le statut technique `Succeeded` du handler ne constitue donc pas une qualification WMI. Un contrôle
+Windows indépendant a ensuite échoué à créer la session WinRM (HRESULT `0x80338012`, aucune requête envoyée)
+et reçu l'identité exacte par DCOM en une requête. Ce contrôle ne qualifie pas le produit. Le compte choisi possède
+un jeton élevé effectivement mesuré ; le niveau réel de l'ancien processus produit n'avait pas été relevé et
+`RunLevel Limited` ne permet pas de le déduire. Aucun service, pare-feu, droit ou objet AD n'a été modifié.
+
+Les trois corrections et leurs régressions sont qualifiées sur `c7943575ab7de9858e6b5635d4d5e6f3e163bdad`,
+[CI complète 42839534095](https://github.com/M4D135/domenia-d120/actions/runs/42839534095) :
+**3 053/3 053 C# complets**, **1 636/1 636 critiques**, **222 contrôles navigateur**, **7 simulations**, 20 captures,
+démarrage natif hors connexion et fermeture code 0. Les deux nouveaux tests C# et le nouveau test navigateur
+de préparation Poste sont explicitement présents dans les journaux réussis. Le premier run 42834836383 a
+refusé un registre d'empreintes périmé avant compilation ; le registre a été régénéré. Le run intermédiaire
+42835112610 a été annulé après les étapes C# réussies pour qualifier les trois correctifs ensemble.
+
+ZIP **84 269 138 octets**, 788 fichiers, SHA-256
+`6950ec144a6e735ec7c8ca137cbcca88a7164ad3e07d0db2af3b3609e3629662`. Source, exécutable, sommes et absence
+du nom de labo vérifiés. Schéma 11, révision 2 inchangés. Nouveau kit et ISO séparés, neuf fichiers identiques
+après montage en lecture seule ; les anciens supports et toutes leurs preuves restent conservés.
+
+CHECK puis LOGIN uniques du nouveau candidat ont réussi sur un dossier neuf, dans la session Windows
+existante : parcours hors connexion puis connexion AD avec l'identité Windows, deux fermetures normales code 0.
+Les PID, dates de création et SHA de l'exécutable sont reliés aux jetons réellement élevés, mesurés sans les modifier.
+Les 91 lignes du journal de cette séquence ne contiennent aucune erreur ni `source.unavailable` et trois listes de
+widgets réussies ; les preuves originales ont été copiées et vérifiées par taille/SHA.
+
+La recette manuelle a ensuite observé Poste hors connexion avec son cache existant pendant plus de 170 secondes,
+sans squelette persistant ni nouvel incident. Le cache empêchait de reproduire le refus initial ; le profil n'a pas
+été effacé ou déplacé. Le nouveau test navigateur du vrai routeur couvre ce chemin de refus en CI.
+
+Les deux inventaires explicites sur le même poste, avec le même compte et son jeton réellement mesuré, donnent :
+
+- Automatique/WinRM : **0/27 sources**, zéro ligne, aucune identité confirmée. La durée et le détail d'arrêt sont
+  désormais conservés, mais ce détail ne contient pas la cause native précise.
+- DCOM explicitement choisi : **13/27 sources**, **46 lignes**, identité du poste confirmée. La lecture s'arrête
+  à la source « Mises à jour » (registre d'inventaire, 4 895 ms) ; les 14 sources restantes ne sont pas qualifiées.
+  Le journal mesure 16 624 ms de collecte et 19 130 ms jusqu'à la dernière publication et la fin réelle, ce qui
+  ne prouve pas une expiration du plafond global nominal de 55 secondes. Le budget effectif de l'appel,
+  le type et le code de l'échec natif ne sont pas consignés ; sa cause reste indéterminée.
+
+La source Sessions indique un nom non confirmé et reste écartée, distinctement de l'identité générale reçue.
+Le titre natif « Aucun poste sélectionné » et le menu contextuel resté affiché sont conservés comme anomalies
+d'interface, jamais utilisés pour attester la cible. La préférence Automatique est restaurée et enregistrée,
+le produit est fermé normalement, sortie 0. Les **206 fichiers** du manifeste final (journaux originaux,
+captures, actions, scripts exacts et contrôleurs) ont été copiés et vérifiés par taille/SHA.
+Après cette revue, la VM a été arrêtée normalement et son admission libérée ; disque, supports et preuves
+conservés, autre invité inchangé. Aucune collecte supplémentaire n'a été lancée.
+
+Cette recette prouve une réception réelle en DCOM, **pas un inventaire complet ni une qualification globale**.
+L'arrêt natif partiel reste à expliquer ; aucune publication n'est préparée comme prête sur cette seule preuve.
+Le compte saisi et le cas hors Domain Admins ne sont pas qualifiés par ce test administrateur. La restauration
+OU, le clignotement pendant une lecture OU et la ligne V1 volumineuse ne sont pas encore exercés sur le banc.
+**Aucune release 2.1.4 publiée : recette puis go explicite de David restent nécessaires.**
 
 ## 10/11/2026 — qualification automatique du candidat 2.1.4
 

@@ -1,10 +1,16 @@
 # Domenia 2.1.4 — lectures, périmètre et unités
 
-Candidat qualifié automatiquement par le run 42786153794, non publié. Recette manuelle sur domaine réel non exécutée.
+Second candidat `c7943575` qualifié automatiquement par le run 42839534095, non publié. Recette native partielle
+le 10 novembre : CHECK/LOGIN réussis, données DCOM reçues (13/27 sources, 46 lignes) puis arrêt natif sans cause
+précise consignée ; WinRM ne reçoit aucune donnée. [Bilan et limites](../REPRISE.md).
 Pack attendu : `Domenia_2.1.4_PROD-LIGHT_Windows-x64.zip`, avec `SHA256SUMS.txt`.
 Extraire dans un nouveau dossier, vérifier l’empreinte puis lancer Domenia.exe. Schéma 11, révision 2 inchangés.
 
 ## Points à vérifier
+
+Les cases ci-dessous ne sont pas toutes qualifiées par le banc administrateur. Le compte saisi hors Domain Admins,
+les scénarios OU et la restauration après correction du compte restent non exécutés nativement. Les valeurs jours/minutes
+et leur persistance ont été observées sur le premier candidat ; leurs tests automatiques passent sur le second.
 
 - Paramètres → Budgets réseau : âge des observations en jours (dont 1 jour), campagne en minutes ; automatique reste
   « au plus 24 h ». Enregistrer un choix et rouvrir : la valeur et son unité restent cohérentes.
