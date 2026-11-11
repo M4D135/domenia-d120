@@ -88,6 +88,13 @@ internal static class NativeReadProtocol
         var instance = new WmiInstance(new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["Caption"] = "Windows", ["BuildNumber"] = 26100u });
         var reply = new NativeReadReply(Reading: new CimReading("Système", SourceStatus.Ok, "1 instance lue", 1, [instance]));
         _ = JsonSerializer.Deserialize<NativeReadReply>(JsonSerializer.SerializeToUtf8Bytes(reply, Json), Json);
+        // Registry reads go through their own request and reply types: on the bench of 11/11/2026 (2 vCPU already busy), the
+        // first registry request of a fresh reading process stayed unanswered past its 3 s budget.
+        var registry = new NativeReadRequest(NativeReadKind.Registry, 1)
+        { Registry = new RegistryRequest(InventoryRegistry.Machine, InventoryRegistry.WindowsVersion, "DisplayVersion", RegistryMethod.String) };
+        _ = JsonSerializer.Deserialize<NativeReadRequest>(JsonSerializer.SerializeToUtf8Bytes(registry, Json), Json);
+        var value = new NativeReadReply(Registry: new RegistryReading(SourceStatus.Ok, true, "24H2", "Valeur lue", 1));
+        _ = JsonSerializer.Deserialize<NativeReadReply>(JsonSerializer.SerializeToUtf8Bytes(value, Json), Json);
     }
 
     internal static async Task WriteAsync<T>(Stream stream, T value, int limit, CancellationToken token)

@@ -15,6 +15,7 @@ import './home-search.test.mjs';
 import './operations-trace.test.mjs';
 import './rechercher-reconciliation-reads.test.mjs';
 import './facts.test.mjs';
+import './render-software.test.mjs';
 // Runs every test module of the shell and writes the report in the page (and in data-result for an automated reader).
 import { run } from './harness.mjs';
 import './recette-ui.test.mjs';

@@ -120,6 +120,11 @@
 :root[data-motion="reduced"] .aurora, :root[data-motion="reduced"] .orb { animation: none !important; }
 :root[data-motion="reduced"] .reveal { opacity: 1; transform: none; filter: none; }
 :root[data-motion="reduced"] .tilt { transform: none !important; }
+/* Display without graphics acceleration (boot.js): looping animations repaint through the processor at every frame, and the
+   aurora under the glass surfaces re-blurs them. Loops stop after one pass and the aurora stays still; one-shot entrances
+   and transitions follow the operator's choice. */
+:root[data-render="software"] *, :root[data-render="software"] *::before, :root[data-render="software"] *::after { animation-iteration-count: 1 !important; }
+:root[data-render="software"] .aurora, :root[data-render="software"] .orb { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   :root[data-motion="system"] *, :root[data-motion="system"] *::before, :root[data-motion="system"] *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
   :root[data-motion="system"] .reveal { opacity: 1; transform: none; filter: none; }

@@ -158,8 +158,10 @@ export function mount(host, sctx) {
     const windowsReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const m = document.documentElement.dataset.motion;
     const effective = m === 'reduced' || (m === 'system' && windowsReduced) ? 'réduites' : 'riches';
-    el.innerHTML = `${glyph(effective === 'riches' ? 'zap' : 'pause')}<span>Animations ${effective} en ce moment · Windows ${windowsReduced ? 'demande' : 'ne demande pas'} des animations réduites.</span>`;
-    host.querySelector('.pr-motion-demo')?.classList.toggle('still', effective !== 'riches');
+    // boot.js: without graphics acceleration, looping animations stop after one pass whatever the choice.
+    const software = document.documentElement.dataset.render === 'software';
+    el.innerHTML = `${glyph(effective === 'riches' ? 'zap' : 'pause')}<span>Animations ${effective} en ce moment · Windows ${windowsReduced ? 'demande' : 'ne demande pas'} des animations réduites.${software ? ' Affichage sans accélération graphique : les animations en boucle s’arrêtent après un passage pour ne pas occuper le processeur.' : ''}</span>`;
+    host.querySelector('.pr-motion-demo')?.classList.toggle('still', effective !== 'riches' || software);
   };
 
   draw();
