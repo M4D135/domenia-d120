@@ -39,13 +39,14 @@ Trial("V4 two arguments, Kerberos", Kerberos, false);
 // A refused connection, as on a workstation without a WinRM listener (bench of 11/11/2026: Identify failed in 0x80338012
 // after about 4.2 s). Port 5999 has no listener on the runner; nothing is changed. The product reads on thread-pool threads
 // while its STA main thread is blocked: reproduce that and bound each trial so a blocked call is reported, not waited on.
+// Negotiate: off the domain, Kerberos is refused on the client (0x8033810C) before any connection is attempted.
 const string Closed = "http://localhost:5999/wsman";
 var sta = new Thread(() =>
 {
-    Timed("C1 closed port, Enumerate first, Timeout 10 s", Closed, 10000, false, 1);
-    Timed("C2 closed port, Identify then Enumerate, Timeout 10 s", Closed, 10000, true, 1);
-    Timed("C3 closed port, Enumerate first, Timeout 3 s", Closed, 3000, false, 1);
-    Timed("C4 closed port, two Enumerate on one session, Timeout 10 s", Closed, 10000, false, 2);
+    Timed("C1 closed port, Enumerate first, Timeout 10 s", Closed, 10000, false, 1, Negotiate);
+    Timed("C2 closed port, Identify then Enumerate, Timeout 10 s", Closed, 10000, true, 1, Negotiate);
+    Timed("C3 closed port, Enumerate first, Timeout 3 s", Closed, 3000, false, 1, Negotiate);
+    Timed("C4 closed port, two Enumerate on one session, Timeout 10 s", Closed, 10000, false, 2, Negotiate);
     Timed("C5 open port, Identify then Enumerate, Timeout 10 s (Negotiate)", Url, 10000, true, 1, Negotiate);
 });
 sta.SetApartmentState(ApartmentState.STA);
