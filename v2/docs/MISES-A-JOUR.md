@@ -11,7 +11,9 @@ d’état de l’Accueil accepte l’absence d’OU sans erreur et sans démarre
 l’âge en jours et la durée de campagne en minutes. En mode Automatique, l’inventaire lit d’abord par WMI / DCOM,
 comme Domenia 1 ; un poste injoignable en DCOM est relu une seule fois par WinRM s’il est autorisé. Le choix
 « CIM / WinRM » reste exclusif. Une source plus lente que son délai est marquée « Interrompu » sans arrêter les
-suivantes ; la lecture des pilotes dispose de 20 secondes. Le délai distant configuré (45 s par défaut) ne coupe plus
+suivantes ; une requête restée sans réponse au-delà de son délai arrête son processus de lecture et les sources
+suivantes sont lues par un processus neuf (deux fois au plus par lecture). La lecture des pilotes dispose de
+20 secondes, celle du mode de Defender de 10 secondes. Le délai distant configuré (45 s par défaut) ne coupe plus
 une lecture qui annonce son propre budget : l’inventaire rapide garde ses 55 s, le complet 150 s, et les logiciels,
 services, diagnostic et sondes leur durée annoncée. Un arrêt de la lecture native consigne au journal la
 phase et le code d’erreur du processus de lecture. En WinRM, un poste sans écouteur est dit « injoignable » au lieu

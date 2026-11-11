@@ -799,7 +799,7 @@ public sealed partial class WmiWorkstationReader
         const string defenderNs = @"root\Microsoft\Windows\Defender";
         var status = session.Read(InventoryCategories.Antivirus, defenderNs,
             "SELECT AntivirusEnabled, RealTimeProtectionEnabled, BehaviorMonitorEnabled, AntivirusSignatureAge, QuickScanAge, FullScanAge, AMProductVersion FROM MSFT_MpComputerStatus", 1, CimBudgets.Query);
-        var mode = status.Instances.Count > 0 ? session.Read(InventoryCategories.Antivirus, defenderNs, "SELECT AMRunningMode FROM MSFT_MpComputerStatus", 1, TimeSpan.FromSeconds(3)) : null;
+        var mode = status.Instances.Count > 0 ? session.Read(InventoryCategories.Antivirus, defenderNs, "SELECT AMRunningMode FROM MSFT_MpComputerStatus", 1, CimBudgets.Query) : null;
         AddAccess(access, session, InventoryCategories.Antivirus, [products, status, .. mode is null ? Array.Empty<CimReading>() : [mode]]);
         token.ThrowIfCancellationRequested();
         var instance = status.Instances.FirstOrDefault();

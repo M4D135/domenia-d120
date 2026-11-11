@@ -196,6 +196,36 @@ internal static class NativeReadWorkerTests
     }
 
     [Test]
+    public static async Task Native_request_silent_past_its_deadline_hands_the_next_sources_to_a_fresh_child_a_bounded_number_of_times()
+    {
+        // Bench of 11/11/2026: one Defender query silent past its deadline stopped the child and the 14 sources after it were lost.
+        var id = Guid.NewGuid().ToString("N"); var clock = new DeadlineClock(); var journal = new NativeFailureJournal();
+        using var ready = new EventWaitHandle(false, EventResetMode.ManualReset, @"Local\Domenia.NativeFixture." + id);
+        using var session = new CimSession("PCR" + id[..8], TimeSpan.FromMinutes(5), clock, journal)
+        { NativeWorkerMode = NativeReadWorkerFixture.Prefix + id, NativeClock = clock };
+        string[] classes = ["Win32_BIOS", "Win32_Processor", "Win32_OperatingSystem", "Win32_ComputerSystemProduct"];
+        for (var attempt = 0; attempt <= CimSession.NativeRestartLimit; attempt++)
+        {
+            ready.Reset();
+            var query = "SELECT Name FROM " + classes[attempt];
+            var reading = Task.Run(() => session.Read("Fixture", @"root\cimv2", query, 1, TimeSpan.FromSeconds(3), allowProjectionReuse: false));
+            Check.True(await Task.Run(() => ready.WaitOne(TimeSpan.FromSeconds(10))), "requête reçue par le processus de lecture");
+            clock.Advance(TimeSpan.FromSeconds(3) + CimBudgets.GiveUpMargin);
+            var result = await reading;
+            Check.Equal(SourceStatus.Interrupted, result.Status, "requête sans réponse dite interrompue, jamais rejouée");
+            var fresh = attempt < CimSession.NativeRestartLimit;
+            Check.Equal(fresh, result.Detail.Contains("processus neuf", StringComparison.Ordinal), fresh ? "la suite est confiée à un processus neuf" : "plafond de processus neufs atteint");
+        }
+        Check.Equal(CimSession.NativeRestartLimit, journal.Infos.Count(line => line.Contains("processus neuf", StringComparison.Ordinal)), "chaque processus neuf est consigné");
+        ready.Reset();
+        var after = session.Read("Fixture", @"root\cimv2", "SELECT Name FROM " + classes[^1], 1, TimeSpan.FromSeconds(3), allowProjectionReuse: false);
+        Check.False(ready.WaitOne(0), "au-delà du plafond, aucun processus n’est lancé");
+        Check.Equal(SourceStatus.Interrupted, after.Status, "source suivante dite non lue");
+        Check.Contains("Lecture native non reçue", after.Detail, "aucun nouvel appel après le plafond");
+        Check.Equal(CimSession.NativeRestartLimit + 1, journal.Warnings.Count, "un relevé par processus arrêté, aucun pour la source non envoyée");
+    }
+
+    [Test]
     public static async Task Native_physical_limit_queues_the_thirteenth_child_until_a_real_process_exits()
     {
         Check.Equal(0, NativeReadProcess.Running, "précondition : aucune fuite de processus d’un test précédent");
@@ -380,7 +410,8 @@ internal static class NativeReadWorkerTests
         internal List<string> Warnings { get; } = [];
         internal List<int> RunningAtWarning { get; } = [];
         public void Trace(string message) { }
-        public void Info(string message) { }
+        internal List<string> Infos { get; } = [];
+        public void Info(string message) => Infos.Add(message);
         public void Error(string message, Exception exception) { }
         public void Warning(string message) { Warnings.Add(message); RunningAtWarning.Add(NativeReadProcess.Running); }
     }
