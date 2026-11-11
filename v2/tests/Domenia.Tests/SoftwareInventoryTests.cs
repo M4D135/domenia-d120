@@ -41,6 +41,18 @@ internal static class SoftwareInventoryTests
     }
 
     [Test]
+    public static async Task Software_unreachable_registry_keeps_the_code_in_its_detail()
+    {
+        // Bench of 11/11/2026 (WinRM, workstation without a listener): « Injoignable » was shown without its code.
+        var reader = Reader(_ => throw new System.Runtime.InteropServices.COMException("PRIVATE-FAULT", unchecked((int)0x80338012)));
+        var result = await reader.ReadSoftwareAsync("PC1", new(false, false, false), CancellationToken.None);
+        var machine = result.Access.Single(a => a.Scope == "Machine");
+        Check.Equal(SourceStatus.Unreachable, machine.Status, "poste injoignable");
+        Check.True(machine.Detail.Contains("Premier échec : poste injoignable par CIM (0x80338012).", StringComparison.Ordinal), "code du premier échec");
+        Check.False(machine.Detail.Contains("PRIVATE-FAULT", StringComparison.Ordinal), "jamais le message du fournisseur");
+    }
+
+    [Test]
     public static async Task Software_filters_updates_in_both_views_and_does_not_guess_an_unread_filter()
     {
         var reader = Reader(r => r.Method == RegistryMethod.Keys ? new(0, new[] { "Normal", "Update", "Child", "Component", "Unknown" })

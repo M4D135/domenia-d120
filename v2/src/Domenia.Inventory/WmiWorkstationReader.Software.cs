@@ -77,10 +77,12 @@ public sealed partial class WmiWorkstationReader
         internal bool Incomplete;
         internal bool AuthenticationRejected;
         internal readonly List<SourceStatus> Failures = [];
+        /// <summary>Detail of the first failed read, with its code (bench of 11/11/2026: « Injoignable » without 0x80338012).</summary>
+        internal string? FirstFailure;
         internal void Observe(RegistryReading reading)
         {
             if (reading.Answered) { Answered++; }
-            if (!reading.Answered || reading.Status == SourceStatus.Partial) { Failures.Add(reading.Status); }
+            if (!reading.Answered || reading.Status == SourceStatus.Partial) { Failures.Add(reading.Status); FirstFailure ??= reading.Detail; }
             AuthenticationRejected |= reading.AuthenticationRejected;
         }
         internal SourceStatus Status(int count)
@@ -160,7 +162,8 @@ public sealed partial class WmiWorkstationReader
         {
             var count = entries.Count(e => e.Scope == scope);
             access.Add(ScopeAccess(scope, state.Status(count), count, detail + " " + state.Scanned + " clé(s) parcourue(s), plafond " + PosteSoftware.KeyCap + "."
-                + (state.Incomplete || state.Failures.Count > 0 ? " Lecture incomplète : plafond, arrêt ou valeurs non lues." : "")));
+                + (state.Incomplete || state.Failures.Count > 0 ? " Lecture incomplète : plafond, arrêt ou valeurs non lues." : "")
+                + (state.FirstFailure is { Length: > 0 } first ? " Premier échec : " + first.TrimEnd('.') + "." : "")));
             result = result with { AuthenticationRejected = result.AuthenticationRejected || state.AuthenticationRejected }; Publish();
         }
         var machine = new SoftwareScopeState();

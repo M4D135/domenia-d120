@@ -28,6 +28,27 @@ internal static class PreferenceAtomicUpdateTests
     }
 
     [Test]
+    public static async Task Configuration_read_writes_a_pending_choice_first_and_refuses_only_while_it_cannot()
+    {
+        // Bench of 11/11/2026: at startup the interface read found a choice still waiting for the write gate and was refused.
+        using var folder = new TemporaryFolder(); var path = folder.File("preferences.json");
+        using var prefs = new FilePreferenceStore(path, new RecordingJournal());
+        await prefs.SetAsync("poste.computerLayout", JsonSerializer.SerializeToElement("disk"), None);
+        using (var held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            await Check.ThrowsAsync<IOException>(() => prefs.SetAsync("poste.computerLayout", JsonSerializer.SerializeToElement("pending"), None), "écriture refusée, choix gardé en mémoire");
+            var refused = await Check.ThrowsAsync<IOException>(() => prefs.ReadConfigurationAsync(None), "lecture refusée tant que le choix ne peut pas être écrit");
+            Check.True(refused.Message.Contains("attendent leur enregistrement", StringComparison.Ordinal), "message de l’attente");
+        }
+        var snapshot = await prefs.ReadConfigurationAsync(None);
+        Check.True(snapshot.Values.TryGetValue("poste.computerLayout", out var stored) && stored.GetString() == "pending", "choix en attente écrit avant la lecture");
+        Check.True(File.ReadAllText(path).Contains("\"pending\"", StringComparison.Ordinal), "document du disque à jour");
+        await prefs.SetAsync("other.choice", JsonSerializer.SerializeToElement(true), None);
+        var after = await prefs.ReadConfigurationAsync(None);
+        Check.True(after.Values.ContainsKey("other.choice") && after.Values["poste.computerLayout"].GetString() == "pending", "écritures suivantes normales");
+    }
+
+    [Test]
     public static async Task Pending_local_choice_and_cancelled_update_are_preserved_without_replacement()
     {
         using var folder = new TemporaryFolder(); var path = folder.File("preferences.json");

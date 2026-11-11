@@ -17,7 +17,10 @@ composant WinRM ou WMI), sans contact avec le poste. Sur le poste de banc, ce pr
 la première source et, en WinRM, dépassait avec le refus de 4 s le délai de la requête (borne propre de 12 s, durée
 consignée à chaque démarrage). Le mode Automatique garde l’ordre DCOM d’abord. Valeurs enregistrées et schéma 11
 révision 2 inchangés. Sur le poste de banc, l’inventaire rapide en Automatique lit désormais les 27 sources par DCOM en
-48,9 s (19 sur 27 avant le plafond de 55 s en 2.1.4 ; Système en 1 s au lieu de 9,5 s).
+48,9 s (19 sur 27 avant le plafond de 55 s en 2.1.4 ; Système en 1 s au lieu de 9,5 s). « Logiciels installés »
+indique le code du premier échec de lecture du registre. Au démarrage, la lecture de la configuration d’interface
+écrit d’abord un choix encore en attente au lieu d’être refusée (« Des préférences attendent leur enregistrement ») ;
+la configuration du pack est de nouveau proposée dès ce démarrage.
 Banc administrateur conforme (poste sans écouteur WinRM) ; lecture WinRM réussie non observée sur le banc. Candidat
 non publié.
 
