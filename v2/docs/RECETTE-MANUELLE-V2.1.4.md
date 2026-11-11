@@ -1,7 +1,7 @@
 # Domenia 2.1.4 — lectures, périmètre et unités
 
-Candidat qualifié automatiquement, non publié. Le 10 novembre, l’inventaire en mode Automatique ne lisait rien d’un
-poste sans WinRM, et une requête DCOM lente arrêtait toute la lecture. Ce candidat lit en DCOM d’abord et isole les
+Version qualifiée automatiquement et publiée le 11 novembre 2026 après le go de David. Le 10 novembre, l’inventaire en mode Automatique ne lisait rien d’un
+poste sans WinRM, et une requête DCOM lente arrêtait toute la lecture. Cette version lit en DCOM d’abord et isole les
 sources lentes. [Bilan et limites](../REPRISE.md).
 Pack attendu : `Domenia_2.1.4_PROD-LIGHT_Windows-x64.zip`, avec `SHA256SUMS.txt`.
 Extraire dans un nouveau dossier, vérifier l’empreinte puis lancer Domenia.exe. Schéma 11, révision 2 inchangés.

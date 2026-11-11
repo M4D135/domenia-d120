@@ -2,7 +2,7 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
-## Candidat 2.1.4 qualifié automatiquement
+## Correctifs publiés en 2.1.4
 
 Les lectures distantes laissent le poste décider pour le compte choisi, y compris un compte saisi. Les écritures
 gardent leur validation préalable. Les OU enregistrées sont recherchées dans la base locale au démarrage et après
@@ -23,8 +23,8 @@ source en 0x80070057 ; le mode Automatique lit en DCOM. Dans une fenêtre étroi
 haut masque le raccourci puis le libellé au lieu de déborder. Le titre de la fenêtre nomme le poste, l’objet ou le
 sujet ouvert au lieu de « Aucune sélection ». Valeurs enregistrées et schéma 11 révision 2 inchangés.
 Qualification automatique réussie. Banc du 11 novembre : inventaire rapide en Automatique par DCOM, 19 sources sur 27
-avant le plafond de 55 s sur le poste de banc, sans arrêt du processus de lecture ; détails dans REPRISE.md.
-Candidat non publié.
+avant le plafond de 55 s sur le poste de banc, sans arrêt du processus de lecture. Version publiée le 11 novembre
+2026 après le go de David, détails dans REPRISE.md.
 
 ## Correctifs publiés en 2.1.3
 
