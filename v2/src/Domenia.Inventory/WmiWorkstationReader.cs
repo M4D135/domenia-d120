@@ -320,7 +320,7 @@ public sealed partial class WmiWorkstationReader
         {
             var opened = Session(host, budget, token, credential, required);
             opened.ForceCapabilities = reading == WorkstationReading.Full;
-            if (advancing is not null) { opened.QueryCompleted = advancing.Completed; }
+            if (advancing is not null) { opened.QueryCompleted = advancing.Completed; opened.NativeStarting = advancing.StartingProcess; }
             return opened;
         }
     }

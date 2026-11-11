@@ -226,6 +226,31 @@ internal static class NativeReadWorkerTests
     }
 
     [Test]
+    public static async Task Native_process_start_pauses_the_owner_idle_ceiling_until_ready_and_never_the_query()
+    {
+        // Bench of 11/11/2026: the inventory idle ceiling cut the start of the fresh reading process after a silent query.
+        var id = Guid.NewGuid().ToString("N"); var clock = new DeadlineClock();
+        using var ready = new EventWaitHandle(false, EventResetMode.ManualReset, @"Local\Domenia.NativeFixture." + id);
+        var started = 0; var ended = 0;
+        using var session = new CimSession("PCS" + id[..8], TimeSpan.FromMinutes(5), clock)
+        { NativeWorkerMode = NativeReadWorkerFixture.Prefix + id, NativeClock = clock };
+        session.NativeStarting = () => { Interlocked.Increment(ref started); return new CountingScope(() => Interlocked.Increment(ref ended)); };
+        var reading = Task.Run(() => session.Read("Fixture", @"root\cimv2", "SELECT Name FROM Win32_BIOS", 1, TimeSpan.FromSeconds(3), allowProjectionReuse: false));
+        Check.True(await Task.Run(() => ready.WaitOne(TimeSpan.FromSeconds(10))), "requête reçue par le processus de lecture");
+        Check.Equal(1, Volatile.Read(ref started), "un démarrage, une pause");
+        Check.Equal(1, Volatile.Read(ref ended), "pause close dès le processus prêt, avant l’envoi de la requête");
+        clock.Advance(TimeSpan.FromSeconds(3) + CimBudgets.GiveUpMargin);
+        var result = await reading;
+        Check.Equal(SourceStatus.Interrupted, result.Status, "la requête muette reste bornée par son propre délai");
+        Check.Equal(1, Volatile.Read(ref started), "aucune pause pendant la requête");
+    }
+
+    private sealed class CountingScope(Action ended) : IDisposable
+    {
+        public void Dispose() => ended();
+    }
+
+    [Test]
     public static async Task Native_physical_limit_queues_the_thirteenth_child_until_a_real_process_exits()
     {
         Check.Equal(0, NativeReadProcess.Running, "précondition : aucune fuite de processus d’un test précédent");

@@ -24,7 +24,7 @@ public sealed partial class CimSession
         cancellationToken.ThrowIfCancellationRequested();
         if (nativeStopped || OutOfBudget) { throw new TimeoutException(); }
         native ??= new(new(Host, Transport, NativeMilliseconds(), credential is null or { Session: true },
-            credential is { Session: false } ? credential.Account : null, ReadsEnabled, RegistryEnabled), credential, cancellationToken, NativeClock, journal: journal);
+            credential is { Session: false } ? credential.Account : null, ReadsEnabled, RegistryEnabled), credential, cancellationToken, NativeClock, journal: journal, starting: NativeStarting);
         return native.ReadAsync(request, NativeWorkerMode).GetAwaiter().GetResult();
     }
 

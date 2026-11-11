@@ -4,47 +4,47 @@
   "operations": [
     {
       "name": "DnsReverseLookup",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "LegacyMigration",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "LocalIndexRead",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "LocalStore",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "ParkSharedSync",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "StorageBackup",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "StorageIntegrity",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "StorageMaintenance",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "StoragePurge",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "StorageRetention",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     },
     {
       "name": "StorageUsage",
-      "implementationSha256": "ee1c7048e9dc3abbd52439cd5c4ce195a49c9b8a089aebd864277792fcc91362"
+      "implementationSha256": "13bb8eca6aa5f8ecf35579cf0d9ef0d5a5727b444ca67cc2e8e9c3bde6cc8aa8"
     }
   ],
   "files": [
@@ -1558,7 +1558,7 @@
     },
     {
       "path": "src/Domenia.Core/Execution/ReadProgressDeadline.cs",
-      "sha256": "ec588e0a921ad588049591991cfad7658235fdb96a485a8853de231fe5d9e1c5"
+      "sha256": "177e3c9f947b27490c85219bf264a6e4999436a414d16611d9a4e0b7bdf9ff00"
     },
     {
       "path": "src/Domenia.Core/Execution/RuntimeResources.cs",
@@ -3254,7 +3254,7 @@
     },
     {
       "path": "src/Domenia.Inventory/CimSession.Isolation.cs",
-      "sha256": "4b8e239077fa98a948b115d25730f5ff51fcdd3440b003af42d2df3ef15f4d32"
+      "sha256": "fef2986204ada301b03bbf243642246e719a782ee782fa974b9b0310046a4206"
     },
     {
       "path": "src/Domenia.Inventory/CimSession.LocalAdmins.cs",
@@ -3282,7 +3282,7 @@
     },
     {
       "path": "src/Domenia.Inventory/CimSession.cs",
-      "sha256": "fb65bd0aabf61a2ca06cca2e49e8afcafcf3d587282e4f6b6320e013ad01f073"
+      "sha256": "64c70cfccd7d5948ec53edf6166e46bb4efcb889ef1425954bc96e75d5a4c476"
     },
     {
       "path": "src/Domenia.Inventory/Domenia.Inventory.csproj",
@@ -3294,7 +3294,7 @@
     },
     {
       "path": "src/Domenia.Inventory/NativeReadClient.cs",
-      "sha256": "185d4bee7ee6b682661b49a29a367a392e4e3478d1b68af5ec19385febd046e4"
+      "sha256": "997f29c7147d094716d968310117333822b48e7a2a7339f1b9c65b756f52e492"
     },
     {
       "path": "src/Domenia.Inventory/NativeReadCompletion.cs",
@@ -3314,7 +3314,7 @@
     },
     {
       "path": "src/Domenia.Inventory/NativeReadProgress.cs",
-      "sha256": "e43b2c57b1d3485bcc98113f50e577cf259296bce0c32aebee6d5d65a94834c2"
+      "sha256": "0f957f151ac653af0301753f50ac4a0ad87c8cb068a2e795d3b2e42a6aa2cf5e"
     },
     {
       "path": "src/Domenia.Inventory/NativeReadProtocol.cs",
@@ -3450,7 +3450,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiFleetProbeReader.cs",
-      "sha256": "6c209902636e56eb4ba9cb1ed52179e0722386b954cddb8e951563d548959f43"
+      "sha256": "e08e61aba4f77565e6d3384ffd6bcb3755d8445e31c5810163e0f1d058310882"
     },
     {
       "path": "src/Domenia.Inventory/WmiInstance.cs",
@@ -3474,7 +3474,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationProbe.cs",
-      "sha256": "df5a3a58aced6682835d50700e697afd9226c05c78188aad0db3e5c23d2da0c0"
+      "sha256": "4133d8838b87759941bd8c1a7571b29f0e304a9d4cc04c46e91c600856a74ebe"
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationReader.Diagnostics.cs",
@@ -3502,7 +3502,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationReader.Probes.cs",
-      "sha256": "dc5042bfd4416b7de7b77dbb9a52753420704b28f3ed07d90949748b69102a3e"
+      "sha256": "27fd202ef8188cc623fdeef8156e6cffffd559212e4ff269133e1500f99baea3"
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationReader.Queries.cs",
@@ -3518,7 +3518,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationReader.cs",
-      "sha256": "ce259f9176d234cf47e6510ee5080cee25d589e027277e283abec8a2b3e743db"
+      "sha256": "ad5504b9fbf19f4109d732a6f59594551423864beded452988a5ea2608256378"
     },
     {
       "path": "src/Domenia.Inventory/WorkstationPresenceReader.cs",
@@ -4313,5 +4313,5 @@
       "sha256": "007401e48cfc7f324a4fdf9b55afad48e601f8672913a25401e003be7eac4fd3"
     }
   ],
-  "fingerprint": "afbad5a626e73d52f2ed0f233b5b1bd37d881809e4e3725dc77226edbf0a588f"
+  "fingerprint": "e1b475a04ef570234fde323957e4f8af766251f110f5436833e2da206104749f"
 }

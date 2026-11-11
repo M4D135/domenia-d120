@@ -68,6 +68,8 @@ public sealed partial class CimSession : IDisposable
         (projectionScope?.For(Host, Transport, credential) ?? projections)?.CompleteProjection(ns, original, expanded);
     internal Func<string, string, TimeSpan, IEnumerable<WmiInstance>>? ReadOverride { get; init; }
     internal Action? QueryCompleted { get; set; }
+    /// <summary>Called when a reading process starts; the scope it returns ends once that process is ready or has failed.</summary>
+    internal Func<IDisposable?>? NativeStarting { get; set; }
     internal bool ReadsEnabled { get; init; } = true;
     internal bool RegistryEnabled { get; init; } = true;
 

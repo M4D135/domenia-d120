@@ -82,7 +82,7 @@ public sealed class WmiWorkstationProbe : IConfiguredWorkstationFactsProbe, IWor
             Volatile.Write(ref progressState, advancing);
             using var session = SessionFactory?.Invoke(host, budget, advancing.Token) ?? new CimSession(host, budget, clock, journal, advancing.Token, owned,
                 configuration?.ReadCimTransport ?? InventoryTransport.Dcom);
-            session.QueryCompleted = advancing.Completed;
+            session.QueryCompleted = advancing.Completed; session.NativeStarting = advancing.StartingProcess;
             var readings = new Dictionary<string, CimReading>(StringComparer.Ordinal);
             DateTimeOffset? memoryAt = null;
             void Read(string id, string query)

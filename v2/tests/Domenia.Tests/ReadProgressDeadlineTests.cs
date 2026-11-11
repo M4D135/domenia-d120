@@ -67,6 +67,65 @@ internal static class ReadProgressDeadlineTests
         });
         clock.Advance(TimeSpan.FromSeconds(10)); deadline.Snapshot();
     }
+    [Test]
+    public static void A_paused_process_start_is_neither_progress_nor_inactivity_and_the_total_still_runs()
+    {
+        // Bench of 11/11/2026: after a silent query, the start of the fresh reading process was cut by the 25 s idle limit
+        // and the 22 sources after it were lost. The start is excluded from inactivity, never credited as progress.
+        var clock = new Clock();
+        using (var deadline = new ReadProgressDeadline(clock, TimeSpan.FromSeconds(25), TimeSpan.FromSeconds(55)))
+        {
+            clock.Advance(TimeSpan.FromSeconds(15));
+            var pause = deadline.PauseInactivity();
+            clock.Advance(TimeSpan.FromSeconds(12));
+            var starting = deadline.Snapshot();
+            Check.Null(starting.StopReason, "démarrage du processus de lecture hors inactivité");
+            Check.Equal(TimeSpan.FromSeconds(15), starting.Idle, "le démarrage ne compte pas comme silence");
+            pause.Dispose(); pause.Dispose();
+            var resumed = deadline.Snapshot();
+            Check.Equal(0L, resumed.Received, "le démarrage ne compte pas comme travail");
+            Check.Equal(TimeSpan.FromSeconds(15), resumed.Idle, "inactivité reprise là où elle était, une seule fois");
+            clock.Advance(TimeSpan.FromSeconds(9) + TimeSpan.FromMilliseconds(900));
+            Check.Null(deadline.Snapshot().StopReason, "24,9 s d’inactivité réelle");
+            clock.Advance(TimeSpan.FromMilliseconds(100));
+            Check.Contains("sans nouvelle", deadline.Snapshot().StopReason, "limite d’inactivité inchangée après le démarrage");
+            Check.True(deadline.Token.IsCancellationRequested, "arrêt demandé");
+        }
+
+        clock = new Clock();
+        using (var deadline = new ReadProgressDeadline(clock, TimeSpan.FromSeconds(25), TimeSpan.FromSeconds(55)))
+        {
+            using var pause = deadline.PauseInactivity();
+            clock.Advance(TimeSpan.FromSeconds(55));
+            Check.Equal("Plafond total atteint", deadline.Snapshot().StopReason, "le plafond total court pendant le démarrage");
+            Check.True(deadline.Token.IsCancellationRequested, "arrêt au plafond même en démarrage");
+        }
+
+        clock = new Clock();
+        using (var deadline = new ReadProgressDeadline(clock, TimeSpan.FromSeconds(25), TimeSpan.FromSeconds(55)))
+        {
+            clock.Advance(TimeSpan.FromSeconds(25));
+            using var pause = deadline.PauseInactivity();
+            clock.Advance(TimeSpan.FromSeconds(1));
+            Check.Contains("sans nouvelle", deadline.Snapshot().StopReason, "une pause ne réanime pas une lecture déjà arrêtée");
+            Check.True(deadline.Token.IsCancellationRequested, "arrêt conservé");
+        }
+
+        clock = new Clock();
+        using (var deadline = new ReadProgressDeadline(clock, TimeSpan.FromSeconds(25), TimeSpan.FromSeconds(55)))
+        {
+            var first = deadline.PauseInactivity(); var second = deadline.PauseInactivity();
+            clock.Advance(TimeSpan.FromSeconds(30));
+            first.Dispose();
+            clock.Advance(TimeSpan.FromSeconds(10));
+            Check.Null(deadline.Snapshot().StopReason, "pause tenue tant qu’un démarrage reste en cours");
+            second.Dispose();
+            Check.Equal(TimeSpan.Zero, deadline.Snapshot().Idle, "aucune inactivité comptée pendant les démarrages");
+            clock.Advance(TimeSpan.FromSeconds(15));
+            Check.Equal("Plafond total atteint", deadline.Snapshot().StopReason, "plafond total de 55 s inchangé");
+        }
+    }
+
     private sealed class Clock : TimeProvider
     {
         private DateTimeOffset now = TestClock.Reference;

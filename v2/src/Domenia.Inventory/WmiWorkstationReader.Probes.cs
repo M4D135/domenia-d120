@@ -36,7 +36,7 @@ public sealed partial class WmiWorkstationReader
             using var advancing = new NativeReadProgress(clock, budget, inventory: false, stop.Token);
             Volatile.Write(ref progressState, advancing);
             using var session = Session(host, budget, advancing.Token, owned);
-            session.QueryCompleted = advancing.Completed;
+            session.QueryCompleted = advancing.Completed; session.NativeStarting = advancing.StartingProcess;
             var identity = session.Read("identity", Cimv2, "SELECT Name, DNSHostName, Domain FROM Win32_ComputerSystem", 1, TimeSpan.FromSeconds(3), allowProjectionReuse: false);
             var name = identity.Status == SourceStatus.Ok ? identity.Instances.SingleOrDefault()?.Text("Name") : null;
             var confirmed = identity.HostIdentity?.State == NativeIdentityState.Confirmed;

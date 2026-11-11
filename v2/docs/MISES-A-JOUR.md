@@ -15,7 +15,9 @@ affiche désormais son code, en DCOM comme en WinRM. Le démarrage du processus 
 de la première requête et comprend sa préparation : chargement local du chemin de lecture (sérialisation, règles WQL,
 composant WinRM ou WMI), sans contact avec le poste. Sur le poste de banc, ce premier passage coûtait jusqu’à 9,5 s à
 la première source et, en WinRM, dépassait avec le refus de 4 s le délai de la requête (borne propre de 12 s, durée
-consignée à chaque démarrage). Le mode Automatique garde l’ordre DCOM d’abord. Valeurs enregistrées et schéma 11
+consignée à chaque démarrage). Ce démarrage, y compris celui d’un processus neuf après une requête restée sans réponse,
+ne compte pas non plus dans le délai sans nouvelle donnée de l’inventaire (25 s) ; le plafond total est inchangé. Le
+mode Automatique garde l’ordre DCOM d’abord. Valeurs enregistrées et schéma 11
 révision 2 inchangés. Sur le poste de banc, l’inventaire rapide en Automatique lit désormais les 27 sources par DCOM en
 48,9 s (19 sur 27 avant le plafond de 55 s en 2.1.4 ; Système en 1 s au lieu de 9,5 s). « Logiciels installés »
 indique le code du premier échec de lecture du registre. Au démarrage, la lecture de la configuration d’interface

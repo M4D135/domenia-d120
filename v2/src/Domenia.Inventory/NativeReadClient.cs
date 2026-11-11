@@ -12,6 +12,7 @@ internal sealed class NativeReadClient : IDisposable
     private readonly TimeProvider clock;
     private readonly AdaptiveReadBudget adaptive;
     private readonly ITechnicalJournal? journal;
+    private readonly Func<IDisposable?>? starting;
     private RemoteProbeCredential? credential;
     private NamedPipeServerStream? pipe;
     private NativeReadProcess? process;
@@ -21,13 +22,13 @@ internal sealed class NativeReadClient : IDisposable
     private NativeReadDiagnostics.ExitObservation? childExit;
     private bool closed;
     internal int? ProcessId => process?.Id;
-    internal NativeReadClient(NativeReadHello hello, RemoteProbeCredential? credential, CancellationToken token, TimeProvider? clock = null, AdaptiveReadBudget? adaptive = null, ITechnicalJournal? journal = null)
+    internal NativeReadClient(NativeReadHello hello, RemoteProbeCredential? credential, CancellationToken token, TimeProvider? clock = null, AdaptiveReadBudget? adaptive = null, ITechnicalJournal? journal = null, Func<IDisposable?>? starting = null)
     {
         NativeIsolationPlan.CheckHello(hello, credential?.Password is not null);
         if (!hello.Session && (credential is not { Session: false } supplied || !string.Equals(hello.Account, supplied.Account, StringComparison.Ordinal)))
         { throw new InvalidDataException("Compte natif non lié à la session demandée."); }
         this.hello = hello; this.token = token; this.clock = clock ?? TimeProvider.System; this.adaptive = adaptive ?? AdaptiveReadBudget.Cim;
-        this.journal = journal;
+        this.journal = journal; this.starting = starting;
         borrowedAdmission = WmiReadWorkers.HasPhysicalAdmission;
         site = WmiReadWorkers.SiteAdmission;
         this.credential = credential is null ? null : new(credential.Account, credential.Password?.Copy(), credential.Session);
@@ -72,6 +73,8 @@ internal sealed class NativeReadClient : IDisposable
             if (pipe is null)
             {
                 using var startup = new CancellationTokenSource(CimBudgets.WorkerStartup, clock);
+                // Neither progress nor silence of the workstation: the owner's idle ceiling is paused up to the handshake.
+                using var pausedIdle = starting?.Invoke();
                 requestDeadline = startup.Token;
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token, startup.Token);
                 stage = NativeReadStage.WorkerStart;

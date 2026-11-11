@@ -3,7 +3,8 @@ using Domenia.Core;
 namespace Domenia.Inventory;
 
 /// <summary>One native worker's read deadline. UI notifications, cached data and request admission never credit it.
-/// The existing total ceiling is unchanged; the D1 idle ceiling is 25 s for inventory and 20 s for probes alone.</summary>
+/// The existing total ceiling is unchanged; the D1 idle ceiling is 25 s for inventory and 20 s for probes alone. Starting a
+/// reading process (bounded by <see cref="CimBudgets.WorkerStartup"/>) neither credits nor consumes the idle ceiling.</summary>
 internal sealed class NativeReadProgress : IDisposable
 {
     private readonly ReadProgressDeadline deadline;
@@ -29,6 +30,14 @@ internal sealed class NativeReadProgress : IDisposable
 
     internal CancellationToken Token { get; }
     internal ReadProgressState Snapshot() => deadline.Snapshot();
+
+    /// <summary>Scope of one reading process start, up to its ready handshake: excluded from the idle ceiling only.</summary>
+    internal IDisposable? StartingProcess()
+    {
+        if (Volatile.Read(ref closed) != 0 || Token.IsCancellationRequested) { return null; }
+        try { return deadline.PauseInactivity(); }
+        catch (ObjectDisposedException) when (Volatile.Read(ref closed) != 0) { return null; }
+    }
 
     internal static string Stopped(NativeReadProgress? progress, string fallback)
     {
