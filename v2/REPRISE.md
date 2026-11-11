@@ -2,7 +2,77 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**10/11/2026 : second candidat 2.1.4 qualifié automatiquement sur `c7943575`, intégré dans `master`, non publié. 3 053 tests C# complets, 1 636 critiques, 222 contrôles navigateur, 7 simulations et démarrage natif hors connexion réussis. Recette native partielle : CHECK/LOGIN réussis, DCOM reçoit 13/27 sources et 46 lignes puis s'interrompt sans cause native précise ; WinRM ne reçoit aucune donnée. Production publique : 2.1.3.**
+**11/11/2026 : candidat 2.1.4 `911131a` qualifié en CI, non publié. En Automatique, l'inventaire lit par DCOM (19/27 sources avant le plafond de 55 s sur le poste de banc, sans arrêt du processus de lecture) ; le pont ne coupe plus les lectures à 45 s ; titre de fenêtre et barre de recherche corrigés. Limite connue : « CIM / WinRM » échoue sur chaque source en 0x80070057, cause non établie. Production publique : 2.1.3.**
+
+## 11/11/2026 — inventaire DCOM d'abord, délai du pont, processus neuf, limite WinRM
+
+Reprise du travail laissé par Codex (`11e837d`, diagnostic du processus de lecture natif). Chaîne sur
+`codex/inventaire-dcom-auto-20261111`, au-dessus de `master` (`33e6938`) :
+
+- `24c5126`, `6cd0dfb`, `050dc2a`, `01dded0` : en Automatique, l'inventaire lit d'abord par WMI / DCOM comme
+  Domenia 1 ; un poste injoignable en DCOM est relu une seule fois par WinRM s'il est autorisé. « CIM / WinRM »
+  reste exclusif ; les écritures gardent leur transport. Le délai du parent laisse 2 s de marge au délai propre
+  de la requête : une source lente est « Interrompu » sans arrêter les suivantes. Pilotes : 20 s. La clé des
+  lectures partagées porte le transport de lecture et le repli. Textes des réglages, rapport et guides alignés.
+- `929eac7` : la zone de recherche de la barre du haut masque « Ctrl K » puis le libellé quand elle rétrécit
+  (signalé par David sur le banc).
+- `6ee18fd` : le pont coupait toute lecture de poste au délai distant (45 s), avant les 55 s de l'inventaire
+  rapide, et jetait le résultat partiel (`network.timeout`). Une opération qui borne elle-même sa lecture
+  (inventaire, logiciels, services, diagnostic, sondes) déclare `OwnBudget` ; le pont lui laisse ce budget
+  plus 15 s. Le titre de fenêtre nomme le poste, l'objet ou le sujet ouvert (`setTarget` n'était jamais appelé).
+- `eb4db60` : en WinRM, WSMan.Automation remonte E_INVALIDARG sous forme d'`ArgumentException` ; seuls les
+  `catch (COMException)` existaient, y compris autour de la lecture du WSManFault, et le processus de lecture
+  mourait. `WsmanReadChannel.ComFailure` qualifie ces échecs avec leur code ; 0x80338012 est « Injoignable ».
+- `29a0f52` : une requête restée sans réponse au-delà de son délai (DCOM n'honore pas toujours le sien) arrête son
+  processus sans rejeu ; les sources suivantes sont lues par un processus neuf, deux fois au plus par session et dans
+  son budget (`CimSession.NativeRestartLimit`). La requête `AMRunningMode` de Defender reçoit 10 s au lieu de 3 s.
+- `265b6ed` : une « erreur CIM » affiche son HRESULT (ou statut WMI), jamais le texte du serveur ; 0x80338126 est
+  « Injoignable » comme 0x80338012.
+- `911131a` : les lectures WinRM filtrées en WQL visent la ressource de l'espace de noms entier (`…/root/cimv2/*`).
+  Hypothèse non confirmée par le banc (voir ci-dessous).
+- Fiches, notes de version et recette corrigées pour dire la limite WinRM observée.
+
+Banc (coordinateur VM, session Windows ouverte par David, poste DOMENIA) sur le kit `01dded0c` :
+
+- A, Automatique : DCOM, **19/27 sources** en 42,5 s, aucun repli WinRM ; arrêt par le `network.timeout`
+  du pont à 45 s (corrigé dans `6ee18fd`).
+- B, « CIM / WinRM » : 0/27 en 0,7 s ; une seule ligne `Lecture native interrompue` : `stage=ResponseRead`,
+  `EndOfStreamException`, `childPhase=Execute`, `childType=System.ArgumentException`, `childHresult=0x80070057`,
+  `childExitCode=0x00000002` (corrigé dans `eb4db60`). Fermeture code 0, aucun processus restant.
+
+Banc sur le kit `eb4db60c` : A en Automatique, **12/27** — la requête `AMRunningMode` (3 s) rendue à 7,8 s a fait
+arrêter le processus (`requestDeadline=True`) et les 14 sources suivantes étaient « Lecture native non reçue »
+(corrigé dans `29a0f52`). Titre relevé : « Poste · DOMENIA — Domenia 2.1.4 ». B en « CIM / WinRM » : plus de
+processus mort ni de « non reçue » ; 27 sources « En échec · erreur CIM (COMException) » sans code (code ajouté dans
+`265b6ed`).
+
+Banc sur le kit `265b6edd` : A en Automatique, **19/27** par DCOM en 55,1 s. Aucun processus arrêté, aucune série
+« non reçue », Antivirus lu 3/3. Le plafond de 55 s de l'inventaire rapide est consommé par quatre sources lentes de
+ce poste (Système 9,5 s, BitLocker 7,1 s, Affichage 13,1 s, Pilotes non signés 13,4 s) ; les 7 dernières
+(Partages, Imprimantes, Sessions, Redémarrage, Administrateurs locaux, Site AD, Logiciels) sont « Interrompu » avec
+« Plafond total atteint » : arrêt borné et dit. Ordre des sources inchangé (ordre de Domenia 1).
+
+Banc sur le kit `265b6edd`, B en « CIM / WinRM » : 0/27 en 16,2 s ; 25 sources « En échec · erreur CIM
+(COMException 0x80070057) » après de vrais échanges (jusqu'à 6 s), Sessions et Logiciels sans code ; aucune ligne
+`Lecture native interrompue`. Kit `911131af` (ressource `…/*`), B seul : même résultat, 0/27 en 7,9 s, 0x80070057 sur
+les 25 mêmes sources, seul Système prend 6,6 s. **Limite connue : la lecture WinRM échoue encore ; la cause de
+0x80070057 n'est pas établie** (`Fault` convertit un `WSManFault Code="87"` en 0x80070057 ; reste à consigner
+l'étape exacte de l'appel WSMan et l'origine du code). Le mode Automatique lit en DCOM.
+
+Qualifications CI de livraison (`windows-2025`), toutes vertes : [42995224066](https://github.com/M4D135/domenia-d120/actions/runs/42995224066)
+(`eb4db60`, 3 063 C#, 1 643 critiques), [43003645978](https://github.com/M4D135/domenia-d120/actions/runs/43003645978)
+(`265b6ed`, 3 064 / 1 644), [43011668594](https://github.com/M4D135/domenia-d120/actions/runs/43011668594)
+(`911131a`, 3 065 / 1 644), 222 contrôles navigateur et 7 simulations à chaque fois ; ZIP sans le nom de labo.
+Les runs de `929eac7`, `6ee18fd` et `29a0f52` ont été annulés au profit du candidat suivant.
+
+Originaux du banc (coordinateur) : `outputs/domenia-214-{01dded0c,eb4db60c,265b6edd,911131af}/manual/` dans le
+dossier de travail Codex du 02/11. Aucun Defender, pare-feu, WinRM, droit ou AD modifié ; aucun artefact supprimé ;
+session Windows ouverte par David conservée, fermetures code 0 sans processus restant.
+
+Pistes ouvertes : (1) diagnostic WinRM (étape et origine du code) avant toute nouvelle hypothèse ; (2) sur un poste
+lent, Affichage et Pilotes non signés consomment le plafond de l'inventaire rapide avant Sessions, Administrateurs
+locaux et Logiciels : les lire en dernier changerait l'ordre de Domenia 1 (décision de David).
+Candidat **non publié** ; la publication exige le go explicite de David dans le chat.
 
 ## 10/11/2026 — trois corrections issues de la recette réelle de 2.1.4
 

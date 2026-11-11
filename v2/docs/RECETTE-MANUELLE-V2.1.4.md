@@ -26,8 +26,8 @@ et leur persistance ont été observées sur le premier candidat ; leurs tests a
 - Paramètres → Lectures distantes : « Transport CIM » affiche « Automatique : DCOM, puis WinRM si DCOM est
   injoignable ». Inventaire rapide d’un poste joignable en DCOM : transport DCOM et sources lues ; une source lente
   est marquée « Interrompu » et les suivantes sont lues.
-- Avec « CIM / WinRM » sur un poste sans WinRM : échec qualifié, aucun repli DCOM caché ; le journal technique
-  indique la phase et le code de l’arrêt.
+- Avec « CIM / WinRM » : aucun repli DCOM caché et aucun arrêt du processus de lecture ; chaque source en échec
+  affiche son code. Limite connue au 11 novembre : sur le banc, chaque source échoue encore en 0x80070057.
 
 Noter chaque résultat avec l’empreinte du ZIP ; ne déclarer aucun succès sans observation. Ne modifier ni AD,
 ni services, pare-feu ou stratégies pour cette recette. Le banc de qualification passe par David.
