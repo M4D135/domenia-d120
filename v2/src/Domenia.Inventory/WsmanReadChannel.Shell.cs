@@ -60,7 +60,7 @@ internal sealed partial class WsmanReadChannel
         public string Receive(TimeSpan timeout, string input) => (string)owner.Session(timeout).Invoke(ShellNamespace + "/Receive", shell!, input, 0);
         public void Delete(TimeSpan timeout, string shellId)
         {
-            if (owner.connection is null || owner.refused is not null) { throw new COMException("Fermeture de shell non confirmée."); }
+            if (owner.connection is null || owner.sessionFailure is not null) { throw new COMException("Fermeture de shell non confirmée."); }
             if (shell is null)
             {
                 shell = ((dynamic)owner.automation!).CreateResourceLocator(ShellResource);
@@ -146,7 +146,7 @@ internal sealed partial class WsmanReadChannel
             if (created)
             {
                 cleanup = false;
-                if (shellId is not null && refused is null)
+                if (shellId is not null && sessionFailure is null)
                 {
                     try { wire.Delete(TimeSpan.FromSeconds(2), shellId); cleanup = true; }
                     catch (Exception ex) when (ComFailure(ex) is not null) { /* Returned explicitly as CleanupComplete=false; no hidden retry or new shell. */ }

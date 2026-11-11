@@ -28,8 +28,8 @@ finally:
 
 FORMAT = "Domenia.CiBrowserEvidence/1"
 SCOPE = "UI-simulation-smoke"
-AUTHORIZED_VERSIONS = frozenset({"2.0.0", "2.0.1", "2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4"})
-COLLECTION_VERSIONS = frozenset({"2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4"})
+AUTHORIZED_VERSIONS = frozenset({"2.0.0", "2.0.1", "2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5"})
+COLLECTION_VERSIONS = frozenset({"2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5"})
 CORRECTIVE_VERSIONS = frozenset({"2.0.1"}) | COLLECTION_VERSIONS
 REQUIRED = frozenset({"accueil/actualiser-ou", "accueil/catalogue-widgets", "fiche/modifier-description",
                       "operations/releve-reprise", "parametres/collecte-fenetre", "synchro/parc-partage"})
@@ -46,13 +46,13 @@ COLLECTION_CAPTURES = CORRECTIVE_CAPTURES | frozenset({
     "comptes-domaine-lecture-incomplete", "comptes-domaine-mesure-affichee",
 })
 # From 2.0.8: a presence stage left incomplete by a transient cause (field report on 2.0.7); earlier evidence never had it.
-PRESENCE_VERSIONS = frozenset({"2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4"})
+PRESENCE_VERSIONS = frozenset({"2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5"})
 PRESENCE_CAPTURES = COLLECTION_CAPTURES | frozenset({"actualisation-incomplete"})
 
 
 def recipe_captures(version):
     """Exact capture names the browser recipe of this version emits."""
-    if version in {"2.1.3", "2.1.4"}:
+    if version in {"2.1.3", "2.1.4", "2.1.5"}:
         return PRESENCE_CAPTURES | frozenset({"mises-a-jour-encadre-lisible"})
     if version in PRESENCE_VERSIONS:
         return PRESENCE_CAPTURES

@@ -275,7 +275,7 @@ internal static partial class PackageLifecycleTests
     [Test]
     public static void Qualified_identity_and_schema_reject_reused_builds_downgrades_and_malformed_metadata()
     {
-        Check.Equal("2.1.4", ProductInfo.QualifyBuild(null), "version stable déclarée identifiable");
+        Check.Equal("2.1.5", ProductInfo.QualifyBuild(null), "version stable déclarée identifiable");
         var identity = ProductInfo.DevelopmentVersion + "+" + new string('a', 64);
         Check.Equal(identity, ProductInfo.QualifyBuild(identity), "identité compilée exacte");
         Check.Throws<InvalidDataException>(() => ProductInfo.QualifyBuild(ProductInfo.DevelopmentVersion + "+short"), "pas d’identité ressemblante");

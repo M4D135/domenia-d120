@@ -18,7 +18,7 @@
     <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
     <Company>Domenia</Company>
     <Product>Domenia</Product>
-    <Version>2.1.4</Version>
+    <Version>2.1.5</Version>
     <NeutralLanguage>fr-FR</NeutralLanguage>
   </PropertyGroup>
   <PropertyGroup Condition="'$(DomeniaBuildIdentity)' != ''">

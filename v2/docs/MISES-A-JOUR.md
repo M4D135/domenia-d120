@@ -2,6 +2,19 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
+## Candidat 2.1.5 qualifié automatiquement
+
+Le choix « CIM / WinRM » ouvre de nouveau la session WinRM. En 2.1.4, la session ouverte avec l’identité de la session
+Windows était refusée avant tout échange (E_INVALIDARG) : chaque source échouait en 0x80070057. La session s’ouvre
+désormais sans argument d’options vide. Les réponses WinRM sont lues comme les lectures DCOM : projections renvoyées
+en fragment XML, dates CIM converties au format DMTF, références des sessions ouvertes rendues en chemins WMI.
+Sur un poste sans écouteur WinRM (cas par défaut de Windows 11), la première source rend « Injoignable » avec son code
+(0x80338012) et les suivantes échouent aussitôt avec le même code, sans nouvelle tentative de connexion : chaque
+reconnexion coûtait environ 4 s et l’inventaire s’arrêtait sur son délai sans nouvelle donnée. Un poste injoignable
+affiche désormais son code, en DCOM comme en WinRM. Le mode Automatique (DCOM d’abord) est inchangé. Valeurs
+enregistrées et schéma 11 révision 2 inchangés.
+Banc administrateur en cours ; candidat non publié.
+
 ## Correctifs publiés en 2.1.4
 
 Les lectures distantes laissent le poste décider pour le compte choisi, y compris un compte saisi. Les écritures

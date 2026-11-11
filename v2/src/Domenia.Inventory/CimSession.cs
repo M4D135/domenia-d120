@@ -311,10 +311,12 @@ public sealed partial class CimSession : IDisposable
         _ => null,
     };
 
-    private static string Detail(Exception exception, SourceStatus status) => status switch
+    /// <summary>An unreachable workstation keeps its numeric code: 0x80338012 (no WinRM listener) and 0x800706BA (RPC) call
+    /// for different actions, and the recipe asks for the code (bench of 11/11/2026).</summary>
+    internal static string Detail(Exception exception, SourceStatus status) => status switch
     {
         SourceStatus.Refused => "accès refusé par le poste",
-        SourceStatus.Unreachable => "poste injoignable par CIM",
+        SourceStatus.Unreachable => "poste injoignable par CIM" + (Code(exception) is { Length: > 0 } code ? " (" + code.TrimStart() + ")" : ""),
         SourceStatus.Unavailable => "classe ou espace de noms absent sur le poste",
         SourceStatus.Interrupted => "délai dépassé sur cette source",
         _ => "erreur CIM (" + exception.GetType().Name + Code(exception) + ")",

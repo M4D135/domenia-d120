@@ -25,7 +25,8 @@ internal sealed partial class WsmanReadChannel : IDisposable
     private object? automation;
     private object? options;
     private object? connection;
-    private int? refused;
+    /// <summary>Code of a failure that ends this session: no later call reconnects (see <see cref="EndsSession"/>).</summary>
+    private int? sessionFailure;
 
     internal WsmanReadChannel(string host, RemoteProbeCredential? credential, TimeProvider clock, CancellationToken token)
     {
@@ -37,7 +38,7 @@ internal sealed partial class WsmanReadChannel : IDisposable
     private dynamic Session(TimeSpan remaining)
     {
         token.ThrowIfCancellationRequested();
-        if (refused is int failure) { throw new COMException("Session WinRM déjà refusée ; aucun nouvel essai.", failure); }
+        if (sessionFailure is int failure) { throw new COMException("Session WinRM déjà en échec ; aucun nouvel essai.", failure); }
         if (remaining <= TimeSpan.Zero) { throw new TimeoutException(); }
         if (connection is null)
         {
@@ -253,11 +254,19 @@ internal sealed partial class WsmanReadChannel : IDisposable
         _ => null,
     };
 
+    /// <summary>A refusal, or a workstation that cannot be reached at all, ends the session. WSMan.Automation reconnects on
+    /// every call and a refused connection costs about 4 s each time, whatever the session Timeout (bench and hosted-runner
+    /// replay of 11/11/2026: no listener on 5985, 0x80338012 in 4.0 to 4.2 s, a 3 s Timeout not honoured). Repeating it for
+    /// each source pushed the inventory past its « no new data » limit; later calls now fail at once with the same code.
+    /// An operation timeout (0x80338029) or an absent class stays local to its source.</summary>
+    internal static bool EndsSession(int code) => code == unchecked((int)0x80070005) || WindowsAuthenticationErrors.IsRejected(code)
+        || code == unchecked((int)0x80338012) || code == unchecked((int)0x80338126);
+
     private COMException Fault(COMException original)
     {
         COMException Outcome(int code)
         {
-            if (code == unchecked((int)0x80070005) || WindowsAuthenticationErrors.IsRejected(code)) { refused = code; }
+            if (EndsSession(code)) { sessionFailure = code; }
             return new COMException("Lecture WinRM refusée ou indisponible.", code);
         }
         // WinRM wraps native authentication failures in WSManFault; use its numeric code, never its server-supplied text.

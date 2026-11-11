@@ -10,6 +10,19 @@ internal static class WinRmInventoryTests
     private const string Registry = WsmanReadChannel.Prefix + "root/default/StdRegProv";
 
     [Test]
+    public static void Winrm_unreachable_or_refused_workstation_ends_the_session_while_a_slow_source_does_not()
+    {
+        // Bench of 11/11/2026: no listener on 5985, every reconnection cost about 4 s and the inventory ran past its limit.
+        Check.True(WsmanReadChannel.EndsSession(unchecked((int)0x80338012)), "aucun écouteur WinRM : plus de reconnexion");
+        Check.True(WsmanReadChannel.EndsSession(unchecked((int)0x80338126)), "poste injoignable par WinRM : plus de reconnexion");
+        Check.True(WsmanReadChannel.EndsSession(unchecked((int)0x80070005)), "accès refusé : aucun nouvel essai");
+        Check.True(WsmanReadChannel.EndsSession(unchecked((int)0x8007052E)), "authentification refusée : aucun nouvel essai");
+        Check.False(WsmanReadChannel.EndsSession(unchecked((int)0x80338029)), "délai d’une opération : les sources suivantes restent lues");
+        Check.False(WsmanReadChannel.EndsSession(unchecked((int)0x80041010)), "classe absente : propre à sa source");
+        Check.False(WsmanReadChannel.EndsSession(unchecked((int)0x803380FB)), "ressource refusée : propre à sa requête");
+    }
+
+    [Test]
     public static void Winrm_wql_enumeration_targets_the_namespace_wildcard_and_keeps_the_class_check_on_instances()
     {
         // Hosted runner of 11/11/2026: a class resource with a WQL filter is refused (0x803380FB); the namespace resource answers.
