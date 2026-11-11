@@ -2,7 +2,19 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**11/11/2026 : candidat 2.1.4 `911131a` qualifié en CI, non publié. En Automatique, l'inventaire lit par DCOM (19/27 sources avant le plafond de 55 s sur le poste de banc, sans arrêt du processus de lecture) ; le pont ne coupe plus les lectures à 45 s ; titre de fenêtre et barre de recherche corrigés. Limite connue : « CIM / WinRM » échoue sur chaque source en 0x80070057, cause non établie. Production publique : 2.1.3.**
+**11/11/2026 : Domenia 2.1.4 PROD-LIGHT publiée en dernière version sur `6d8dbfd7`, après le go explicite de David. ZIP et téléchargement public vérifiés. En Automatique, l'inventaire lit par DCOM (19/27 sources avant le plafond de 55 s sur le poste de banc, sans arrêt du processus de lecture) ; le pont ne coupe plus les lectures à 45 s ; titre de fenêtre et barre de recherche corrigés. 3 065 tests C# complets, 1 644 critiques, 222 contrôles navigateur, 7 simulations réussis. Limite connue : « CIM / WinRM » échoue sur chaque source en 0x80070057, cause non établie.**
+
+## 11/11/2026 — publication de 2.1.4
+
+Après le go explicite de David, la [release v2.1.4](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.4) a été publiée le 11 novembre à
+13:10 UTC (14:10, heure de Paris), en dernière version, tag sur `6d8dbfd75141d3cdb6f4ffda4464c3ae868c1b80`. Aucune reconstruction : ZIP exact du run
+[43023042342](https://github.com/M4D135/domenia-d120/actions/runs/43023042342), 84 280 069 octets, SHA-256 `21ef429327e063bd15d80baf4257d810617c8b3a3da79dca68b6a031e8c2385a`.
+Les empreintes GitHub correspondent ; ZIP et sommes retéléchargés sans compte (HTTP 200), empreintes identiques.
+README, `packs/` et description sont alignés sur 2.1.4 ; les anciennes releases sont conservées. `master` avancé en
+avance rapide sur la branche `codex/inventaire-dcom-auto-20261111`, sans réécriture.
+
+Le commit publié ne diffère de `911131a` que par la documentation (`fd68f8e`, `6d8dbfd7`) ; la qualification et le banc
+ci-dessous restent attachés à cette source produit. La recette utilisateur complète reste non exécutée.
 
 ## 11/11/2026 — inventaire DCOM d'abord, délai du pont, processus neuf, limite WinRM
 
@@ -72,7 +84,7 @@ session Windows ouverte par David conservée, fermetures code 0 sans processus r
 Pistes ouvertes : (1) diagnostic WinRM (étape et origine du code) avant toute nouvelle hypothèse ; (2) sur un poste
 lent, Affichage et Pilotes non signés consomment le plafond de l'inventaire rapide avant Sessions, Administrateurs
 locaux et Logiciels : les lire en dernier changerait l'ordre de Domenia 1 (décision de David).
-Candidat **non publié** ; la publication exige le go explicite de David dans le chat.
+Au terme de la qualification, la publication attendait le go de David ; il a été reçu et appliqué dans la section ci-dessus.
 
 ## 10/11/2026 — trois corrections issues de la recette réelle de 2.1.4
 
