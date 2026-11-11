@@ -126,6 +126,10 @@ public sealed partial class CimSession
             cancellationToken.ThrowIfCancellationRequested();
             if (OutOfBudget || clock.GetElapsedTime(begin) >= allowed) { throw new TimeoutException(); }
             if (reply.Code is 2 or 3) { return new(SourceStatus.Empty, false, null, "Clé ou valeur absente.", Duration()); }
+            // StdRegProv answers 1 for a value missing from an existing key (2 for a missing key). Bench of 11/11/2026 (DCOM):
+            // SiteName and the optional values of each Uninstall key were read as failures, and the 31 installed programs
+            // were all set aside. A key listing has no value name: its code 1 stays a failure.
+            if (reply.Code == 1 && request.Name is not null) { return new(SourceStatus.Empty, false, null, "Valeur absente.", Duration()); }
             if (reply.Code != 0)
             {
                 var rejected = WindowsAuthenticationErrors.IsRejected(unchecked((int)(0x80070000U | reply.Code)));

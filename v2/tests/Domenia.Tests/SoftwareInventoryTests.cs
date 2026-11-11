@@ -41,6 +41,37 @@ internal static class SoftwareInventoryTests
     }
 
     [Test]
+    public static async Task Software_keeps_a_program_whose_optional_values_are_absent_as_StdRegProv_reports_them()
+    {
+        // Bench of 11/11/2026 (DCOM): StdRegProv answers 1 for a value missing from an existing key, 2 for a missing key.
+        // SystemComponent, ReleaseType and ParentKeyName are absent on an ordinary program: 31 keys gave no program.
+        var reader = Reader(r => r.Method == RegistryMethod.Keys ? new(0, new[] { "App" })
+            : r.Name is "SystemComponent" or "ReleaseType" or "ParentKeyName" or "InstallLocation" ? new(1, null) : Product(r));
+        var result = await reader.ReadSoftwareAsync("PC1", new(false, false, false), CancellationToken.None);
+        Check.Equal(2, result.Entries.Length, "programme conservé dans les deux vues");
+        var machine = result.Access.Single(a => a.Scope == "Machine");
+        Check.Equal(SourceStatus.Ok, machine.Status, "valeurs facultatives absentes : lecture complète");
+        Check.False(machine.Detail.Contains("Premier échec", StringComparison.Ordinal), "aucun échec inventé");
+        Check.Null(result.Entries[0].Location, "valeur absente non inventée");
+        var listing = Reader(r => r.Method == RegistryMethod.Keys ? new(1, null) : Product(r));
+        var failed = (await listing.ReadSoftwareAsync("PC1", new(false, false, false), CancellationToken.None)).Access.Single(a => a.Scope == "Machine");
+        Check.True(failed.Detail.Contains("Premier échec : Le fournisseur de registre a refusé la lecture (code 1).", StringComparison.Ordinal), "liste des clés en code 1 : échec conservé");
+    }
+
+    [Test]
+    public static void Registry_value_absent_from_an_existing_key_is_empty_and_a_listing_code_1_stays_a_failure()
+    {
+        using var session = new CimSession("PC1", TimeSpan.FromSeconds(30), TestClock.Fixed()) { RegistryOverride = (_, _) => new(1, null) };
+        var site = session.ReadRegistry(new(InventoryRegistry.Machine, InventoryRegistry.Netlogon, "SiteName", RegistryMethod.String));
+        Check.Equal(SourceStatus.Empty, site.Status, "site configuré absent : valeur absente, pas un échec");
+        Check.True(site.Answered && !site.Found, "réponse reçue, aucune valeur");
+        var keys = session.ReadRegistry(new(InventoryRegistry.Machine, InventoryRegistry.Uninstall, null, RegistryMethod.Keys));
+        Check.Equal(SourceStatus.Error, keys.Status, "liste des clés : code 1 reste un échec");
+        var missing = new CimSession("PC1", TimeSpan.FromSeconds(30), TestClock.Fixed()) { RegistryOverride = (_, _) => new(2, null) };
+        using (missing) { Check.Equal(SourceStatus.Empty, missing.ReadRegistry(new(InventoryRegistry.Machine, InventoryRegistry.Uninstall, null, RegistryMethod.Keys)).Status, "clé absente inchangée"); }
+    }
+
+    [Test]
     public static async Task Software_unreachable_registry_keeps_the_code_in_its_detail()
     {
         // Bench of 11/11/2026 (WinRM, workstation without a listener): « Injoignable » was shown without its code.
