@@ -15,8 +15,8 @@ export function mount(host, ctx) {
   function draw() {
     host.innerHTML = `<header class="pr-section-head"><h2>Lectures distantes</h2><p>Choisissez comment Domenia lit vos postes. Enregistrer ces réglages ne lance aucune collecte.</p></header>
       <form data-remote-settings><section class="card"><h3>Lectures directes</h3>${checkbox('useCim')}${checkbox('useWinRm')}${checkbox('useRemoteRegistry')}
-      ${choices('directMode', 'Transport CIM', [['auto', 'Automatique selon les transports autorisés'], ['dcom', 'WMI / DCOM'], ['winrm', 'CIM / WinRM']])}
-      <p>Automatique privilégie WinRM lorsqu’il est autorisé, sinon DCOM. Un refus d’identifiants suspend le compte ; aucun autre compte n’est essayé.</p></section>
+      ${choices('directMode', 'Transport CIM', [['auto', 'Automatique : DCOM, puis WinRM si DCOM est injoignable'], ['dcom', 'WMI / DCOM'], ['winrm', 'CIM / WinRM']])}
+      <p>Automatique lit en WMI / DCOM, comme Domenia 1 ; un poste injoignable en DCOM est relu une seule fois par WinRM s’il est autorisé. Les modifications distantes utilisent WinRM lorsqu’il est autorisé. Un refus d’identifiants suspend le compte ; aucun autre compte n’est essayé.</p></section>
       <section class="card"><h3>Collectes ponctuelles</h3><p>Désactivées par défaut. Après activation, Domenia peut déposer un script temporaire, le lancer et récupérer son résultat. Chaque exécution et son nettoyage sont suivis dans la base locale.</p>
       ${checkbox('allowRemoteArtifacts')}
       <fieldset data-transient-options><legend>Méthodes autorisées</legend>${checkbox('useTaskFallback')}${checkbox('usePsExecFallback')}${checkbox('useWmiProcess')}${checkbox('useWinRmScript')}
