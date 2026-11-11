@@ -4,6 +4,22 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **12/11/2026 : Domenia 2.1.5 qualifiée (banc administrateur conforme sur `af201b1`) et publiée après le go de David. « CIM / WinRM » ouvre de nouveau la session (fin du 0x80070057), lit les réponses WinRM comme DCOM et, sur un poste sans écouteur, rend « Injoignable (0x80338012) » sans aucune source « Interrompu » ; en Automatique, 27/27 sources par DCOM en 26,4 s sur le poste de banc, logiciels installés de nouveau lus ; sans accélération graphique, l'interface n'occupe plus le processeur au repos. 3 075 tests C# complets, 1 647 critiques, 225 contrôles navigateur, 7 simulations réussis. Limite : lecture WinRM réussie non observée sur le banc (poste sans écouteur).**
 
+## 12/11/2026 — publication de 2.1.5
+
+Après le go de David (« go tout terminer »), la [release v2.1.5](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.5)
+a été publiée le 11 novembre à 23:27 UTC (12 novembre, 00:27 à Paris), en dernière version. Le tag pointe sur
+`9282893d6e5bc4409ca2f4e369c57f37a7f5bfb7`. Aucune reconstruction : le ZIP est celui du run
+[43116714568](https://github.com/M4D135/domenia-d120/actions/runs/43116714568) sur ce commit, 84 285 266 octets,
+SHA-256 `d435e21033ca144bf5ba31c43aa5ce76caa538fa8f9cc19faa1d70a925541a9a`, Domenia.exe `2861d574…`, sans le nom de labo.
+Les empreintes GitHub correspondent. Le ZIP et `SHA256SUMS.txt` ont été retéléchargés sans compte (HTTP 200), avec des
+empreintes identiques. README, `packs/` et `manifest.json` sont alignés sur 2.1.5 ; les anciennes releases sont
+conservées. `master` est avancé en avance rapide sur la branche `claude/diagnostic-winrm-20261111`, sans réécriture.
+
+Le commit publié ne diffère de `af201b1`, source du kit de banc conforme `af201b18`, que par la documentation
+(`9282893`). Dans le ZIP, seuls les assemblages Domenia (identité de compilation), les manifestes du pack et les deux
+guides changent ; l'interface web et les dépendances sont identiques à l'octet. La recette utilisateur complète et une
+lecture WinRM réussie sur un poste où WinRM est actif restent à faire.
+
 ## 11/11/2026 — 2.1.5 : session WinRM, poste sans écouteur, premier passage du lecteur, charge de l’interface
 
 Diagnostic en lecture seule sur des runners hébergés `windows-2025` (workflow `domenia-v2-diagnostic-winrm.yml`,
