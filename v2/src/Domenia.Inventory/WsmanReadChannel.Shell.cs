@@ -112,9 +112,9 @@ internal sealed partial class WsmanReadChannel
             {
                 if (frames >= 4096) { throw new XmlException("Trop de fragments WinRM."); }
                 try { response = wire.Receive(Left(), receive.ToString(SaveOptions.DisableFormatting)); }
-                catch (COMException ex)
+                catch (Exception ex) when (ComFailure(ex) is { } com)
                 {
-                    var error = Fault(ex);
+                    var error = Fault(com);
                     // MS-WSMV Receive may time out while the same command is still running: resume only its output.
                     if (error.HResult == unchecked((int)0x80338029)) { continue; }
                     throw error;
@@ -133,9 +133,9 @@ internal sealed partial class WsmanReadChannel
                 break;
             }
         }
-        catch (COMException ex)
+        catch (Exception ex) when (ComFailure(ex) is { } com)
         {
-            var error = Fault(ex); status = CimSession.Classify(error) ?? SourceStatus.Error;
+            var error = Fault(com); status = CimSession.Classify(error) ?? SourceStatus.Error;
             rejected = Domenia.Core.WindowsAuthenticationErrors.IsRejected(error.HResult);
         }
         catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or XmlException or DecoderFallbackException or FormatException)
@@ -149,7 +149,7 @@ internal sealed partial class WsmanReadChannel
                 if (shellId is not null && refused is null)
                 {
                     try { wire.Delete(TimeSpan.FromSeconds(2), shellId); cleanup = true; }
-                    catch (COMException) { /* Returned explicitly as CleanupComplete=false; no hidden retry or new shell. */ }
+                    catch (Exception ex) when (ComFailure(ex) is not null) { /* Returned explicitly as CleanupComplete=false; no hidden retry or new shell. */ }
                 }
             }
         }

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Xml;
 using Domenia.Core.Poste;
 using Domenia.Inventory;
 
@@ -84,8 +85,24 @@ internal static class CimInventoryTests
         Check.Equal<SourceStatus?>(SourceStatus.Refused, CimSession.Classify(new COMException("hidden", unchecked((int)0x80070005))), "accès refusé");
         Check.Equal<SourceStatus?>(SourceStatus.Refused, CimSession.Classify(new COMException("hidden", unchecked((int)0x8007052E))), "authentification refusée");
         Check.Equal<SourceStatus?>(SourceStatus.Unreachable, CimSession.Classify(new COMException("hidden", unchecked((int)0x800706BA))), "RPC indisponible");
+        Check.Equal<SourceStatus?>(SourceStatus.Unreachable, CimSession.Classify(new COMException("hidden", unchecked((int)0x80338012))), "WinRM sans écouteur");
         Check.Equal<SourceStatus?>(SourceStatus.Error, CimSession.Classify(new COMException("hidden", unchecked((int)0x80004005))), "autre erreur");
         Check.Null(CimSession.Classify(new InvalidOperationException()), "erreur de programmation propagée");
+    }
+
+    [Test]
+    public static void WinRm_com_failure_keeps_its_code_whatever_managed_type_carries_it()
+    {
+        // Bench of 11/11/2026: an E_INVALIDARG of WSMan.Automation surfaced as an ArgumentException and stopped the reader.
+        Check.Equal<int?>(unchecked((int)0x80070057), WsmanReadChannel.ComFailure(new ArgumentException("hidden"))?.HResult, "E_INVALIDARG qualifié");
+        var denied = WsmanReadChannel.ComFailure(new UnauthorizedAccessException("hidden"));
+        Check.Equal<int?>(unchecked((int)0x80070005), denied?.HResult, "E_ACCESSDENIED qualifié");
+        Check.Equal<SourceStatus?>(SourceStatus.Refused, CimSession.Classify(denied!), "un accès refusé reste un refus");
+        var native = new COMException("hidden", unchecked((int)0x80338012));
+        Check.True(ReferenceEquals(native, WsmanReadChannel.ComFailure(native)), "COMException conservée telle quelle");
+        Check.Null(WsmanReadChannel.ComFailure(new TimeoutException()), "un délai n’est pas un échec COM");
+        Check.Null(WsmanReadChannel.ComFailure(new OperationCanceledException()), "un arrêt n’est pas un échec COM");
+        Check.Null(WsmanReadChannel.ComFailure(new XmlException("hidden")), "une réponse illisible garde son propre traitement");
     }
 
     [Test]

@@ -301,6 +301,8 @@ public sealed partial class CimSession : IDisposable
         // RPC server unavailable, call failed, network errors: the workstation did not answer the CIM bind.
         System.Runtime.InteropServices.COMException ex when ex.HResult == unchecked((int)0x80070005) || WindowsAuthenticationErrors.IsRejected(ex.HResult) => SourceStatus.Refused,
         System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x800706BA) or unchecked((int)0x800706BE) or unchecked((int)0x80070035) } => SourceStatus.Unreachable,
+        // WinRM: the client cannot connect to the destination (no listener on 5985, service stopped, port filtered).
+        System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80338012) } => SourceStatus.Unreachable,
         System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80338029) } => SourceStatus.Interrupted,
         System.Runtime.InteropServices.COMException => SourceStatus.Error,
         TimeoutException => SourceStatus.Interrupted,

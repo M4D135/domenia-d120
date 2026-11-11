@@ -72,7 +72,7 @@ internal sealed partial class WsmanReadChannel : IDisposable
         try
         {
             try { enumerator = Session(Left()).Enumerate(resource, query, WqlDialect, 0); }
-            catch (COMException ex) { throw Fault(ex); }
+            catch (Exception ex) when (ComFailure(ex) is { } com) { throw Fault(com); }
             while (true)
             {
                 string xml;
@@ -82,7 +82,7 @@ internal sealed partial class WsmanReadChannel : IDisposable
                     if (((dynamic)enumerator).AtEndOfStream) { break; }
                     xml = ((dynamic)enumerator).ReadItem();
                 }
-                catch (COMException ex) { throw Fault(ex); }
+                catch (Exception ex) when (ComFailure(ex) is { } com) { throw Fault(com); }
                 yield return ParseInstance(xml, resource, plan.Properties);
             }
         }
@@ -92,7 +92,7 @@ internal sealed partial class WsmanReadChannel : IDisposable
     internal void Identify(TimeSpan timeout)
     {
         try { CheckIdentify((string)Session(timeout).Identify(0)); }
-        catch (COMException ex) { throw Fault(ex); }
+        catch (Exception ex) when (ComFailure(ex) is { } com) { throw Fault(com); }
     }
 
     internal static void CheckIdentify(string xml)
@@ -130,7 +130,7 @@ internal sealed partial class WsmanReadChannel : IDisposable
             var xml = (string)Session(Left()).Invoke(method, locator, input.ToString(SaveOptions.DisableFormatting), 0);
             return ParseRegistry(xml, resource, method, request.Method);
         }
-        catch (COMException ex) { throw Fault(ex); }
+        catch (Exception ex) when (ComFailure(ex) is { } com) { throw Fault(com); }
         finally { Release(locator); }
     }
 
@@ -180,6 +180,18 @@ internal sealed partial class WsmanReadChannel : IDisposable
         return XElement.Load(reader, LoadOptions.None);
     }
 
+    /// <summary>A WSMan.Automation call fails as a COMException or, for some HRESULTs, as the managed type the runtime maps it
+    /// to (E_INVALIDARG: ArgumentException, E_ACCESSDENIED: UnauthorizedAccessException). Both keep the numeric code; nothing
+    /// else inside the guarded COM calls throws these types. Bench of 11/11/2026: reading the fault of a refused connection
+    /// raised E_INVALIDARG, which escaped as an ArgumentException and stopped the reading process.</summary>
+    internal static COMException? ComFailure(Exception exception) => exception switch
+    {
+        COMException com => com,
+        ArgumentException or UnauthorizedAccessException or InvalidCastException or NotImplementedException
+            => new COMException("Lecture WinRM refusée ou indisponible.", exception.HResult),
+        _ => null,
+    };
+
     private COMException Fault(COMException original)
     {
         COMException Outcome(int code)
@@ -198,7 +210,7 @@ internal sealed partial class WsmanReadChannel : IDisposable
                 { return Outcome(unchecked((int)(code < 65536 ? 0x80070000U | code : code))); }
             }
         }
-        catch (Exception ex) when (ex is COMException or XmlException) { /* Keep the original numeric outcome if the fault itself is unreadable. */ }
+        catch (Exception ex) when (ex is XmlException || ComFailure(ex) is not null) { /* Keep the original numeric outcome if the fault itself is unreadable. */ }
         return Outcome(original.HResult);
     }
 

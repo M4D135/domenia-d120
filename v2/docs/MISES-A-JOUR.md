@@ -14,7 +14,8 @@ comme Domenia 1 ; un poste injoignable en DCOM est relu une seule fois par WinRM
 suivantes ; la lecture des pilotes dispose de 20 secondes. Le délai distant configuré (45 s par défaut) ne coupe plus
 une lecture qui annonce son propre budget : l’inventaire rapide garde ses 55 s, le complet 150 s, et les logiciels,
 services, diagnostic et sondes leur durée annoncée. Un arrêt de la lecture native consigne au journal la
-phase et le code d’erreur du processus de lecture. Dans une fenêtre étroite, la zone de recherche de la barre du
+phase et le code d’erreur du processus de lecture. En WinRM, un poste sans écouteur est dit « injoignable » au lieu
+d’arrêter le processus de lecture sur une erreur de paramètre. Dans une fenêtre étroite, la zone de recherche de la barre du
 haut masque le raccourci puis le libellé au lieu de déborder. Le titre de la fenêtre nomme le poste, l’objet ou le
 sujet ouvert au lieu de « Aucune sélection ». Valeurs enregistrées et schéma 11 révision 2 inchangés.
 Qualification automatique réussie (détails dans REPRISE.md). Candidat non publié ; recette sur domaine réel à faire.
