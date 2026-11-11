@@ -17,7 +17,9 @@ suivantes sont lues par un processus neuf (deux fois au plus par lecture). La le
 une lecture qui annonce son propre budget : l’inventaire rapide garde ses 55 s, le complet 150 s, et les logiciels,
 services, diagnostic et sondes leur durée annoncée. Un arrêt de la lecture native consigne au journal la
 phase et le code d’erreur du processus de lecture. En WinRM, un poste sans écouteur est dit « injoignable » au lieu
-d’arrêter le processus de lecture sur une erreur de paramètre ; une erreur CIM affiche son code numérique. Dans une fenêtre étroite, la zone de recherche de la barre du
+d’arrêter le processus de lecture sur une erreur de paramètre ; une erreur CIM affiche son code numérique. Les lectures WinRM
+filtrées en WQL visent l’espace de noms entier, seule forme acceptée par WS-Management (elles échouaient toutes en
+0x80070057). Dans une fenêtre étroite, la zone de recherche de la barre du
 haut masque le raccourci puis le libellé au lieu de déborder. Le titre de la fenêtre nomme le poste, l’objet ou le
 sujet ouvert au lieu de « Aucune sélection ». Valeurs enregistrées et schéma 11 révision 2 inchangés.
 Qualification automatique réussie (détails dans REPRISE.md). Candidat non publié ; recette sur domaine réel à faire.

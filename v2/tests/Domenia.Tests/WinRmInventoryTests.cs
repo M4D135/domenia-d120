@@ -10,6 +10,17 @@ internal static class WinRmInventoryTests
     private const string Registry = WsmanReadChannel.Prefix + "root/default/StdRegProv";
 
     [Test]
+    public static void Winrm_wql_enumeration_targets_the_namespace_wildcard_and_keeps_the_class_check_on_instances()
+    {
+        // Bench of 11/11/2026: a class resource with a WQL filter made every WinRM read answer 0x80070057 (error 87).
+        Check.Equal(WsmanReadChannel.Prefix + "root/cimv2/*", WsmanReadChannel.EnumerationResource(@"root\cimv2"), "WQL sur l’espace de noms entier");
+        Check.Equal(WsmanReadChannel.Prefix + "root/Microsoft/Windows/Defender/*", WsmanReadChannel.EnumerationResource(@"root\Microsoft\Windows\Defender"), "espace de noms imbriqué");
+        var xml = "<p:Win32_ComputerSystem xmlns:p='" + Resource + "'><p:Name>PC1</p:Name></p:Win32_ComputerSystem>";
+        Check.Equal("PC1", WsmanReadChannel.ParseInstance(xml, Resource, ["Name"]).Text("Name"), "instance rendue sous sa classe");
+        Refused(() => WsmanReadChannel.ParseInstance(xml.Replace(Resource, WsmanReadChannel.EnumerationResource(@"root\cimv2"), StringComparison.Ordinal), Resource, ["Name"]));
+    }
+
+    [Test]
     public static void Winrm_xml_retains_only_selected_values_with_nulls_arrays_and_no_nested_objects()
     {
         var xml = "<p:Win32_ComputerSystem xmlns:p='" + Resource + "' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'>"

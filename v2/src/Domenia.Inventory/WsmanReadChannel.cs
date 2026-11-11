@@ -71,7 +71,7 @@ internal sealed partial class WsmanReadChannel : IDisposable
         object? enumerator = null;
         try
         {
-            try { enumerator = Session(Left()).Enumerate(resource, query, WqlDialect, 0); }
+            try { enumerator = Session(Left()).Enumerate(EnumerationResource(ns), query, WqlDialect, 0); }
             catch (Exception ex) when (ComFailure(ex) is { } com) { throw Fault(com); }
             while (true)
             {
@@ -88,6 +88,11 @@ internal sealed partial class WsmanReadChannel : IDisposable
         }
         finally { Release(enumerator); }
     }
+
+    /// <summary>WS-Management accepts a WQL filter only on the namespace-wide resource (« winrm enumerate wmicimv2/* -filter »);
+    /// a class resource with a WQL filter is refused with error 87 (bench of 11/11/2026: every WinRM read answered
+    /// 0x80070057). Instances still come back under their class resource, which ParseInstance checks.</summary>
+    internal static string EnumerationResource(string ns) => Prefix + ns.Replace('\\', '/') + "/*";
 
     internal void Identify(TimeSpan timeout)
     {
