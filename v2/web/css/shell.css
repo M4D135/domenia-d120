@@ -147,6 +147,11 @@ button.live:hover { background: var(--bg-hover); }
 .shell > .topbar, .shell > .sim-banner { min-width: 0; }
 .topbar .search-trigger { min-width: 0; }
 .topbar .search-trigger kbd { flex: none; white-space: nowrap; }
+/* Squeezed by the other slots, the field drops the shortcut first, then the label, and keeps its magnifier inside its own
+   border (11/11/2026: « Ctrl K » overflowed a narrow field). Control+K stays declared and works at every width. */
+.topbar .search-trigger { container-type: inline-size; min-width: 42px; overflow: hidden; }
+@container (max-width: 260px) { .search-trigger kbd { display: none; } }
+@container (max-width: 130px) { .search-trigger span { display: none; } .search-trigger svg { margin-inline: auto; } }
 .mode-chip .dot { --tone: var(--info-mark); }
 .mode-chip[data-mode="preview"] { color: var(--accent-text); background: color-mix(in srgb, var(--brand-2) 14%, var(--accent-soft)); }
 .mode-chip[data-mode="preview"] .dot { --tone: var(--brand-2); }

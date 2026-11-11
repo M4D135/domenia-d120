@@ -12,7 +12,8 @@ l’âge en jours et la durée de campagne en minutes. En mode Automatique, l’
 comme Domenia 1 ; un poste injoignable en DCOM est relu une seule fois par WinRM s’il est autorisé. Le choix
 « CIM / WinRM » reste exclusif. Une source plus lente que son délai est marquée « Interrompu » sans arrêter les
 suivantes ; la lecture des pilotes dispose de 20 secondes. Un arrêt de la lecture native consigne au journal la
-phase et le code d’erreur du processus de lecture. Valeurs enregistrées et schéma 11 révision 2 inchangés.
+phase et le code d’erreur du processus de lecture. Dans une fenêtre étroite, la zone de recherche de la barre du
+haut masque le raccourci puis le libellé au lieu de déborder. Valeurs enregistrées et schéma 11 révision 2 inchangés.
 Qualification automatique réussie (détails dans REPRISE.md). Candidat non publié ; recette sur domaine réel à faire.
 
 ## Correctifs publiés en 2.1.3
