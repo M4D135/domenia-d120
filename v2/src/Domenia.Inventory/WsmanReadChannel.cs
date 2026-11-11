@@ -284,6 +284,22 @@ internal sealed partial class WsmanReadChannel : IDisposable
         return Outcome(original.HResult);
     }
 
+    /// <summary>Loads WSMan.Automation, the late-bound COM binder and the XML reader once per reading process, during its
+    /// startup (see <see cref="NativeReadWarmup"/>). Activation is local: no session is created and nothing is sent; only the
+    /// automation object's own Error property is read, then the object is released.</summary>
+    internal static void Prime()
+    {
+        object? automation = null;
+        try
+        {
+            automation = Activator.CreateInstance(Type.GetTypeFromProgID("WSMan.Automation", throwOnError: true)!)!;
+            _ = ((dynamic)automation).Error;
+        }
+        finally { Release(automation); }
+        var resource = Prefix + "root/cimv2/Win32_OperatingSystem";
+        _ = ParseInstance("<p:Win32_OperatingSystem xmlns:p=\"" + resource + "\"><p:Caption>Windows</p:Caption></p:Win32_OperatingSystem>", resource, ["Caption"]);
+    }
+
     public void Dispose()
     {
         // Native credential options are released after the connection; no managed password string is ever made.

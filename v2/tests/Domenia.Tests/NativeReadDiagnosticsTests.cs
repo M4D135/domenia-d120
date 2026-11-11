@@ -11,6 +11,27 @@ namespace Domenia.Tests;
 internal static class NativeReadDiagnosticsTests
 {
     [Test]
+    public static void Reading_process_warmup_is_local_repeatable_and_has_its_own_phase()
+    {
+        // Bench of 11/11/2026: the cold path of a fresh reading process (9.5 s for the first DCOM source) plus a 4.2 s
+        // WinRM refusal passed the first request's deadline. The preparation runs in the startup bound, in memory only.
+        NativeReadProtocol.Prime();
+        NativeReadProtocol.Prime();
+        NativeReadWarmup.Run(InventoryTransport.Dcom);
+        NativeReadWarmup.Run(InventoryTransport.WinRm);
+        var frame = NativeReadDiagnostics.Capture(NativeReadDiagnostics.Phase.Warmup, new System.Runtime.InteropServices.COMException("PRIVATE-WARMUP", unchecked((int)0x80040154)));
+        Check.Equal(frame, NativeReadDiagnostics.TryParse(NativeReadDiagnostics.Encode(frame)), "phase de préparation transportée");
+        string? path = null;
+        foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+            for (DirectoryInfo? current = new(start); current is not null && path is null; current = current.Parent)
+                foreach (var candidate in new[] { Path.Combine(current.FullName, "v2", "src"), Path.Combine(current.FullName, "src") })
+                    if (File.Exists(Path.Combine(candidate, "Domenia.Inventory", "NativeReadWarmup.cs"))) { path = Path.Combine(candidate, "Domenia.Inventory", "NativeReadWarmup.cs"); break; }
+        var source = File.ReadAllText(path ?? throw new TestFailureException("Source de la préparation introuvable."));
+        foreach (var contact in new[] { ".Connect(", ".Get(", "CreateSession", "Enumerate(", "Identify(", "Dns.", "Socket" })
+        { Check.False(source.Contains(contact, StringComparison.Ordinal), "aucun contact dans la préparation : " + contact); }
+    }
+
+    [Test]
     public static async Task Child_diagnostic_keeps_only_bounded_facts_and_rejects_arbitrary_stderr()
     {
         var error = new Win32Exception(5, "PRIVATE-DIAGNOSTIC-MESSAGE");

@@ -73,6 +73,23 @@ internal static class NativeReadProtocol
         return options;
     }
 
+    private static int primed;
+
+    /// <summary>Builds the serializer metadata of the request and reply graphs once per process, before any request budget
+    /// runs: the parent primes while its child starts, the child during its own startup. Bench of 11/11/2026: the first
+    /// source of a fresh reading process took 9.5 s against 0.15 s for the same queries read directly, and in WinRM that
+    /// cold cost plus a 4.2 s refusal passed the request's deadline. In memory only; nothing leaves the process.</summary>
+    internal static void Prime()
+    {
+        if (Interlocked.Exchange(ref primed, 1) != 0) { return; }
+        var request = new NativeReadRequest(NativeReadKind.Query, 1)
+        { Category = "Système", Namespace = @"root\cimv2", Query = "SELECT Caption FROM Win32_OperatingSystem", MaxItems = 1 };
+        _ = JsonSerializer.Deserialize<NativeReadRequest>(JsonSerializer.SerializeToUtf8Bytes(request, Json), Json);
+        var instance = new WmiInstance(new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["Caption"] = "Windows", ["BuildNumber"] = 26100u });
+        var reply = new NativeReadReply(Reading: new CimReading("Système", SourceStatus.Ok, "1 instance lue", 1, [instance]));
+        _ = JsonSerializer.Deserialize<NativeReadReply>(JsonSerializer.SerializeToUtf8Bytes(reply, Json), Json);
+    }
+
     internal static async Task WriteAsync<T>(Stream stream, T value, int limit, CancellationToken token)
     {
         // The bounded stream rejects during serialization, before a large response can allocate an unbounded buffer.

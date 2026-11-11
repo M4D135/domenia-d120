@@ -1,11 +1,11 @@
 <Project>
   <!-- Explicit reviewed pins. Regenerate only after review; builds never update this file. -->
   <PropertyGroup>
-    <DomeniaOperationRegistryFingerprint>f8974bec35c95814b88404374c1d9217a0ec8d34de3db5a4f039c32f362bcb94</DomeniaOperationRegistryFingerprint>
+    <DomeniaOperationRegistryFingerprint>77803309d9336f6e4bf9a1feff0b7d65d209ae94d985152117c792a98fd8193b</DomeniaOperationRegistryFingerprint>
   </PropertyGroup>
   <ItemGroup>
-    <AssemblyMetadata Include="DomeniaOperationRegistry" Value="f8974bec35c95814b88404374c1d9217a0ec8d34de3db5a4f039c32f362bcb94" />
-    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)operation-contracts.json" ExpectedSha256="9D4D9ACD1344E517481398EEA66600571DAB6125475F23EBA68EF7EDBB30F525" />
+    <AssemblyMetadata Include="DomeniaOperationRegistry" Value="77803309d9336f6e4bf9a1feff0b7d65d209ae94d985152117c792a98fd8193b" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)operation-contracts.json" ExpectedSha256="5B0EBA1D59C4C75712967D68EFE591E14572F06B8C738CB40069702A05E4327F" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../Directory.Build.props" ExpectedSha256="1B2391D7927544E25289C2EC27C0668A2820F496B9F8739352B662763892DCF3" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../NuGet.config" ExpectedSha256="5684CA8BEE23135CB14C3AED9239B13E7C3FDCBFCA9B517D1C01B053AAD27357" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../global.json" ExpectedSha256="FB1F3883533D06B1A983C5A277035A38720CCDDE66AA6E1A53BEC332290D64F8" />
@@ -817,14 +817,15 @@
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/CimSession.cs" ExpectedSha256="FB65BD0AABF61A2CA06CCA2E49E8AFCAFCF3D587282E4F6B6320E013AD01F073" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/Domenia.Inventory.csproj" ExpectedSha256="F0DB00340FDFC9F8F2B24722E339FC83DBC2830033D97DBAD13BDDB7CC2E5E26" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeIsolationPlan.cs" ExpectedSha256="8E49CEF9EC8CA098905777C2CE1F49BBE741E94600B121BA8985B19C9B27F060" />
-    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadClient.cs" ExpectedSha256="C6F52461ACEEDF2810989BDAF0AD128A0B6F5AB728C56C3C974EFE1A1452240F" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadClient.cs" ExpectedSha256="185D4BEE7EE6B682661B49A29A367A392E4E3478D1B68AF5EC19385FEBD046E4" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadCompletion.cs" ExpectedSha256="30C686F3E79A5418CF280AFF2AFB95B87A4DFF6635259918C8E47DAFC5716564" />
-    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadDiagnostics.cs" ExpectedSha256="298E9B1973092B1877C786AC6ED95DC3E4C75B30B3A495A9A32F63B592FD5A2F" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadDiagnostics.cs" ExpectedSha256="4F57A80299BBC29878BF0D4CDB76DC39350422B48C7A57A71FF3015AFEFF657E" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadFailureEvidence.cs" ExpectedSha256="2CCC0B9FB60FC2AADD73741A06CED9C0FB60A36EB6206E9A7CA94BACB8BB318C" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadProcess.cs" ExpectedSha256="7058909F8F47CA9FE5E09E5DC0C1EDA37D836A3075C33DBAB525EC868694B30F" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadProgress.cs" ExpectedSha256="E43B2C57B1D3485BCC98113F50E577CF259296BCE0C32AEBEE6D5D65A94834C2" />
-    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadProtocol.cs" ExpectedSha256="8F3D0A82DE19500CA5646D8507738103E7C04D03F2C667A5111AAA7B07A2D1AD" />
-    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadWorkerHost.cs" ExpectedSha256="CB2409F73A426BD6914B270B2B69177346D6575AFFC600A169D5A6AA3327C35D" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadProtocol.cs" ExpectedSha256="A66D675A1357872AE3C9D7D80DE6ABD8C6D8F8844A8CCDF538607612242BD85B" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadWarmup.cs" ExpectedSha256="AD77165B15B078EC0D1EE0E7E2252C71F7C9FC674AC9E8DE298C681AE3277DFE" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/NativeReadWorkerHost.cs" ExpectedSha256="2F276A180781D2649BD64AB2582CEFBD6F2EF9B23C56263C0CC700955E95D468" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/RemoteNetworkIdentity.cs" ExpectedSha256="1E154C487F66EF7FC11AABE9744A2314F25BE843EEF52A2EDE3A45E940305B9F" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/RemoteProgramSafety.cs" ExpectedSha256="E11DD60A8FB5A6739CECEE6FF0352BF148DEFD6C1E77AFDC835B6FFA158AC696" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/RemotePsExecBinary.cs" ExpectedSha256="4B74A6A050DBADCA1ADDCF2D3F28B8F49DC53A618B1AAB48952AEF8653BE3BFB" />
@@ -878,7 +879,7 @@
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/WsmanReadChannel.Inventory.cs" ExpectedSha256="E3B187BCC7ACD276F05713DE1302DB640E76DF11C067FB282BE21B99C9AFEB1A" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/WsmanReadChannel.Metadata.cs" ExpectedSha256="EEBED3E5D2EC7916C907FADE9E30F2C17D330148AD7923974958E8829C1CD11A" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/WsmanReadChannel.Shell.cs" ExpectedSha256="76589DFB28818B9199F54E84C7855DD3BEB624FDB4B043751D9C0662D03E5AAF" />
-    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/WsmanReadChannel.cs" ExpectedSha256="008717A17F0EA2DA27D65CA79AED01921B6B7481F5DE4362A0588A6AAC93DA77" />
+    <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Inventory/WsmanReadChannel.cs" ExpectedSha256="D4A6D7DFF19441DF75ACFFF7A4BDE120A631391D06C317C4869CA7E088A79A5D" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Simulation/DemonstrationClock.cs" ExpectedSha256="979A558279C83C50A6090C8885AE9572E6C0C60607C676CC34B9AF0400FDF0EE" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Simulation/Domenia.Simulation.csproj" ExpectedSha256="FF4A84EB6018CAF6751A3E1723574CC306A64BFDD6FDD7350D6B5BED583AC4E3" />
     <DomeniaPinnedSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Simulation/FrenchNames.cs" ExpectedSha256="4DC1779ECD52B8D6BAD02FB1973CA2221136B6B54F7353D239201DB808ADB946" />
@@ -1083,7 +1084,7 @@
       <DomeniaCurrentSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Engine/**/*.cs;$(MSBuildThisFileDirectory)../src/Domenia.Engine/**/*.csproj" Exclude="$(MSBuildThisFileDirectory)../src/Domenia.Engine/**/bin/**;$(MSBuildThisFileDirectory)../src/Domenia.Engine/**/obj/**" />
       <DomeniaCurrentSource Include="$(MSBuildThisFileDirectory)../src/Domenia.Simulation/**/*.cs;$(MSBuildThisFileDirectory)../src/Domenia.Simulation/**/*.csproj" Exclude="$(MSBuildThisFileDirectory)../src/Domenia.Simulation/**/bin/**;$(MSBuildThisFileDirectory)../src/Domenia.Simulation/**/obj/**" />
     </ItemGroup>
-    <Error Condition="'@(DomeniaCurrentSource->Count())' != '1062'" Text="Fermeture des sources modifiée : ajout ou retrait non revu. Mettre à jour explicitement le registre avant compilation." />
+    <Error Condition="'@(DomeniaCurrentSource->Count())' != '1063'" Text="Fermeture des sources modifiée : ajout ou retrait non revu. Mettre à jour explicitement le registre avant compilation." />
     <GetFileHash Files="@(DomeniaPinnedSource)" Algorithm="SHA256" HashEncoding="hex">
       <Output TaskParameter="Items" ItemName="DomeniaMeasuredSource" />
     </GetFileHash>

@@ -43,6 +43,9 @@ public static class NativeReadWorkerHost
         using var credential = hello.Session ? null : new RemoteProbeCredential(hello.Account!, password!.Copy(), false);
         // Set only after the pipe's actual server PID and the fixed session have been qualified.
         IsWorker = true;
+        // Before the handshake and before this session's budget starts: the parent bounds startup on its own clock.
+        diagnostic.Current = NativeReadDiagnostics.Phase.Warmup;
+        NativeReadWarmup.Run(hello.Transport);
         stop.CancelAfter(TimeSpan.FromMilliseconds(hello.BudgetMs));
         diagnostic.Current = NativeReadDiagnostics.Phase.CreateSession;
         using var session = new CimSession(hello.Host, TimeSpan.FromMilliseconds(hello.BudgetMs), TimeProvider.System,

@@ -11,7 +11,7 @@ internal static class NativeReadDiagnostics
     internal const int MaxFrameBytes = 512;
     private const int MaxTypeLength = 256;
 
-    internal enum Phase { Startup, Connect, VerifyPeer, ReadHello, ReadPassword, ValidateHello, CreateSession, Handshake, RequestRead, ValidateRequest, Execute, ReplyWrite }
+    internal enum Phase { Startup, Connect, VerifyPeer, ReadHello, ReadPassword, ValidateHello, Warmup, CreateSession, Handshake, RequestRead, ValidateRequest, Execute, ReplyWrite }
     internal sealed class Context { internal Phase Current { get; set; } = Phase.Startup; }
     internal sealed record Frame(Phase Stage, string ExceptionType, int HResult, int? Win32Code);
     internal sealed record ExitObservation(Frame? Failure, int ExitCode, bool ParentTerminationRequested)

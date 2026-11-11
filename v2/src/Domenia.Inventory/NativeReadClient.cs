@@ -82,6 +82,8 @@ internal sealed class NativeReadClient : IDisposable
                 var reserved = admission;
                 admission = null; // Start now owns admission, including launch failure and confirmed OS exit.
                 process = NativeReadProcess.Start(name, workerMode, reserved);
+                // While the child starts: the reply of the first request is then read without building serializer metadata.
+                NativeReadProtocol.Prime();
                 stage = NativeReadStage.PipeConnect;
                 await pipe.WaitForConnectionAsync(deadline.Token).ConfigureAwait(false);
                 stage = NativeReadStage.Handshake;
@@ -90,7 +92,8 @@ internal sealed class NativeReadClient : IDisposable
                 await NativeReadProtocol.WritePasswordAsync(pipe, credential?.Password, deadline.Token).ConfigureAwait(false);
                 if (!await NativeReadProtocol.ReadAsync<bool>(pipe, 32, deadline.Token).ConfigureAwait(false)) { throw new InvalidDataException("Processus natif non prêt."); }
                 startupMs = ReadPerformance.Milliseconds(clock.GetElapsedTime(startupAt));
-                if (startupMs > 2000) { journal?.Info(FormattableString.Invariant($"Processus de lecture natif prêt en {startupMs} ms (transport {hello.Transport}).")); }
+                var ready = FormattableString.Invariant($"Processus de lecture natif prêt en {startupMs} ms (transport {hello.Transport}, préparation comprise).");
+                if (startupMs > 2000) { journal?.Info(ready); } else { journal?.Trace(ready); }
             }
             NativeReadReply response;
             using (var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(request.BudgetMs) + CimBudgets.GiveUpMargin, clock))

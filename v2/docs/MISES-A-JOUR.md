@@ -12,8 +12,11 @@ Sur un poste sans écouteur WinRM (cas par défaut de Windows 11), la première 
 (0x80338012) et les suivantes échouent aussitôt avec le même code, sans nouvelle tentative de connexion : chaque
 reconnexion coûtait environ 4 s et l’inventaire s’arrêtait sur son délai sans nouvelle donnée. Un poste injoignable
 affiche désormais son code, en DCOM comme en WinRM. Le démarrage du processus de lecture ne compte plus dans le délai
-de la première requête : sur un poste lent, il en consommait l’essentiel (borne propre de 12 s, durée consignée au-delà
-de 2 s). Le mode Automatique (DCOM d’abord) est inchangé. Valeurs enregistrées et schéma 11 révision 2 inchangés.
+de la première requête et comprend sa préparation : chargement local du chemin de lecture (sérialisation, règles WQL,
+composant WinRM ou WMI), sans contact avec le poste. Sur le poste de banc, ce premier passage coûtait jusqu’à 9,5 s à
+la première source et, en WinRM, dépassait avec le refus de 4 s le délai de la requête (borne propre de 12 s, durée
+consignée à chaque démarrage). Le mode Automatique (DCOM d’abord) est inchangé. Valeurs enregistrées et schéma 11
+révision 2 inchangés.
 Banc administrateur en cours ; candidat non publié.
 
 ## Correctifs publiés en 2.1.4
