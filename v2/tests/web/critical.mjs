@@ -15,6 +15,7 @@ import './home-search.test.mjs';
 import './operations-trace.test.mjs';
 import './rechercher-reconciliation-reads.test.mjs';
 import './facts.test.mjs';
+import './render-software.test.mjs';
 // Deliberately selected release checks. This is not the complete browser suite.
 import { run } from './harness.mjs';
 import './recette-ui.test.mjs';
