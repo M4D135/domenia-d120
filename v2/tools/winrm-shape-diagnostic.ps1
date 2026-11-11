@@ -71,7 +71,7 @@ function Property-Shapes([string]$xml) {
         if ($child.GetAttribute('nil', 'http://www.w3.org/2001/XMLSchema-instance') -in @('true', '1')) { $kind = 'nil' }
         else {
             $inner = @($child.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element })
-            if ($inner.Count -gt 0) { $kind = 'elements ' + (($inner | ForEach-Object { $_.NamespaceURI + ' | ' + $_.LocalName + ' = ' + (Pattern $_.InnerText) }) -join ' ; ') }
+            if ($inner.Count -gt 0) { $kind = 'elements ' + (($child.SelectNodes('.//*') | ForEach-Object { $names = @($_.Attributes | ForEach-Object { $_.LocalName + '=' + (Pattern $_.Value) }) -join ','; $_.NamespaceURI + ' | ' + $_.LocalName + ' [' + $names + ']' + ' = ' + (Pattern $(if ($_.HasChildNodes -and $_.FirstChild.NodeType -eq [System.Xml.XmlNodeType]::Text) { $_.FirstChild.Value } else { '' })) }) -join ' ; ') }
         }
         $key = $child.LocalName
         if ($shapes.Contains($key)) { $shapes[$key] = 'repeated: ' + $kind } else { $shapes[$key] = $kind }
