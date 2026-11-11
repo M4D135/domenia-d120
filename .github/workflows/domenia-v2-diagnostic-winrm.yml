@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/domenia-v2-diagnostic-winrm.yml'
       - 'v2/tools/winrm-shape-diagnostic.ps1'
+      - 'v2/tools/winrm-dynamic-diagnostic.ps1'
   workflow_dispatch:
 
 permissions:
@@ -28,3 +29,6 @@ jobs:
 
       - name: Essayer les formes d’appel contre localhost
         run: ./v2/tools/winrm-shape-diagnostic.ps1 -OutFile "$env:RUNNER_TEMP/winrm-shape.json"
+
+      - name: Rejouer les appels C# dynamiques du produit contre localhost
+        run: ./v2/tools/winrm-dynamic-diagnostic.ps1 -WorkDir "$env:RUNNER_TEMP/winrm-dynamic"
