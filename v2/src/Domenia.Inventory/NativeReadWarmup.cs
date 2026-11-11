@@ -2,6 +2,7 @@ using System.Management;
 using System.Runtime.InteropServices;
 using System.Xml;
 using Domenia.Core;
+using Domenia.Core.Poste;
 using Domenia.Core.Queries.Wmi;
 using Microsoft.CSharp.RuntimeBinder;
 
