@@ -12,6 +12,9 @@ namespace Domenia.Inventory;
 internal sealed partial class WsmanReadChannel : IDisposable
 {
     internal const string Prefix = "http://schemas.microsoft.com/wbem/wsman/1/wmi/";
+    internal const string WsmanNamespace = "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd";
+    private const string AddressingNamespace = "http://schemas.xmlsoap.org/ws/2004/08/addressing";
+    private const string CimCommonNamespace = "http://schemas.dmtf.org/wbem/wscim/1/common";
     private const string WqlDialect = "http://schemas.microsoft.com/wbem/wsman/1/WQL";
     private const int Kerberos = 524288;
     private const int ExplicitCredential = 4096;
@@ -53,7 +56,10 @@ internal sealed partial class WsmanReadChannel : IDisposable
                     finally { Marshal.ZeroFreeBSTR(secret); }
                     flags |= ExplicitCredential;
                 }
-                connection = ((dynamic)automation).CreateSession("http://" + host + ":5985/wsman", flags, options);
+                // A late-bound null connectionOptions is refused with E_INVALIDARG: every WinRM read with the session identity failed
+                // in 0x80070057 before any exchange (bench and hosted-runner replay of 11/11/2026). Omit the argument instead.
+                var endpoint = "http://" + host + ":5985/wsman";
+                connection = options is null ? ((dynamic)automation).CreateSession(endpoint, flags) : ((dynamic)automation).CreateSession(endpoint, flags, options);
             }
             catch { Dispose(); throw; }
         }
@@ -90,8 +96,8 @@ internal sealed partial class WsmanReadChannel : IDisposable
     }
 
     /// <summary>WS-Management accepts a WQL filter only on the namespace-wide resource (« winrm enumerate wmicimv2/* -filter »);
-    /// a class resource with a WQL filter is refused with error 87 (bench of 11/11/2026: every WinRM read answered
-    /// 0x80070057). Instances still come back under their class resource, which ParseInstance checks.</summary>
+    /// a class resource with a WQL filter is refused (0x803380FB on a hosted runner, 11/11/2026). A projection comes back as
+    /// an XmlFragment, « SELECT * » under its class resource; ParseInstance accepts both.</summary>
     internal static string EnumerationResource(string ns) => Prefix + ns.Replace('\\', '/') + "/*";
 
     internal void Identify(TimeSpan timeout)
@@ -139,17 +145,24 @@ internal sealed partial class WsmanReadChannel : IDisposable
         finally { Release(locator); }
     }
 
+    /// <summary>An instance is either the class element in its resource namespace (« SELECT * ») or, for a WQL projection on the
+    /// namespace resource, a WS-Management XmlFragment whose properties are unqualified (hosted runner, 11/11/2026). The fragment
+    /// carries no class identity: the class is the one of the query the server filtered. Anything else is refused.</summary>
     internal static WmiInstance ParseInstance(string xml, string resource, IReadOnlyCollection<string> properties)
     {
         var root = ParseXml(xml);
-        if (root.Name.NamespaceName != resource || root.Name.LocalName != resource[(resource.LastIndexOf('/') + 1)..]) { throw new XmlException("Identité de projection WinRM inattendue."); }
+        var separator = resource.LastIndexOf('/');
+        string children;
+        if (root.Name == XName.Get("XmlFragment", WsmanNamespace)) { children = ""; }
+        else if (root.Name.NamespaceName == resource && root.Name.LocalName == resource[(separator + 1)..]) { children = resource; }
+        else { throw new XmlException("Identité de projection WinRM inattendue."); }
         var allowed = properties.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (var group in root.Elements().GroupBy(e => e.Name.LocalName, StringComparer.OrdinalIgnoreCase))
         {
             if (!allowed.Contains(group.Key)) { continue; } // Unrequested data, including secrets, is never retained.
-            if (group.Count() > 2048 || group.Any(e => e.Name.NamespaceName != resource)) { throw new XmlException("Projection WinRM invalide."); }
-            var array = group.Select(Value).ToArray();
+            if (group.Count() > 2048 || group.Any(e => e.Name.NamespaceName != children)) { throw new XmlException("Projection WinRM invalide."); }
+            var array = group.Select(e => Value(e, resource[..(separator + 1)])).ToArray();
             values[group.Key] = array.Length == 1 ? array[0] : array;
         }
         return new(values);
@@ -164,17 +177,60 @@ internal sealed partial class WsmanReadChannel : IDisposable
         if (code != 0) { return new(code, null); }
         var field = kind == RegistryMethod.Keys ? "sNames" : kind == RegistryMethod.Dword ? "uValue" : "sValue";
         var elements = root.Elements(XName.Get(field, resource)).Take(2049).ToArray();
-        if (kind is RegistryMethod.Keys or RegistryMethod.Strings) { return new(0, elements.Select(Value).Where(v => v is not null).Cast<string>().ToArray()); }
+        if (kind is RegistryMethod.Keys or RegistryMethod.Strings) { return new(0, elements.Select(e => Value(e)).Where(v => v is not null).Cast<string>().ToArray()); }
         if (elements.Length != 1) { throw new XmlException("Valeur de registre WinRM illisible."); }
         var text = Value(elements[0]);
         if (kind == RegistryMethod.Dword) { return uint.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? new(0, number) : new(0, null); }
         return new(0, text);
     }
 
-    private static string? Value(XElement element)
+    /// <summary>Text of one property. Two structured forms are rendered as their DCOM text: a CIM date (« Datetime » in ISO 8601)
+    /// becomes the DMTF string the readers parse, and a reference (an endpoint reference in the queried namespace) becomes the
+    /// relative WMI path « Class.Key="value" ». Any other nested content is refused.</summary>
+    private static string? Value(XElement element, string? namespaceResource = null)
     {
-        if (element.HasElements || element.Value.Length > 32768) { throw new XmlException("Valeur WinRM hors limites."); }
+        if (element.HasElements)
+        {
+            return (namespaceResource is null ? null : Datetime(element) ?? Reference(element, namespaceResource))
+                ?? throw new XmlException("Valeur WinRM hors limites.");
+        }
+        if (element.Value.Length > 32768) { throw new XmlException("Valeur WinRM hors limites."); }
         return (string?)element.Attribute(XName.Get("nil", "http://www.w3.org/2001/XMLSchema-instance")) is "true" or "1" ? null : element.Value;
+    }
+
+    private static string? Datetime(XElement element)
+    {
+        var parts = element.Elements().ToArray();
+        if (parts.Length != 1 || parts[0].Name.LocalName != "Datetime" || parts[0].Name.NamespaceName is not ("" or CimCommonNamespace)
+            || parts[0].HasElements || parts[0].Value.Length > 40) { return null; }
+        var text = parts[0].Value.Trim();
+        // Only an explicit offset is a point in time; a date without one would be read in the reader's own zone.
+        if (!(text.EndsWith('Z') || (text.Length > 6 && text[^6] is '+' or '-'))
+            || !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value)) { return null; }
+        var minutes = (int)value.Offset.TotalMinutes;
+        return value.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) + "."
+            + (value.Ticks % TimeSpan.TicksPerSecond / 10).ToString("D6", CultureInfo.InvariantCulture)
+            + (minutes < 0 ? "-" : "+") + Math.Abs(minutes).ToString("D3", CultureInfo.InvariantCulture);
+    }
+
+    private static string? Reference(XElement element, string namespaceResource)
+    {
+        var parameters = element.Element(XName.Get("ReferenceParameters", AddressingNamespace));
+        var uri = (string?)parameters?.Element(XName.Get("ResourceURI", WsmanNamespace));
+        var selectors = parameters?.Element(XName.Get("SelectorSet", WsmanNamespace))?.Elements().ToArray();
+        if (element.Elements().Any(e => e.Name.NamespaceName != AddressingNamespace || e.Name.LocalName is not ("Address" or "ReferenceParameters"))
+            || uri is null || !uri.StartsWith(namespaceResource, StringComparison.Ordinal) || selectors is not { Length: > 0 and <= 4 }) { return null; }
+        var className = uri[namespaceResource.Length..];
+        if (className.Length is 0 or > 128 || !className.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')) { return null; }
+        var keys = new List<string>();
+        foreach (var selector in selectors)
+        {
+            var name = (string?)selector.Attribute("Name");
+            if (selector.Name != XName.Get("Selector", WsmanNamespace) || selector.HasElements || name is not { Length: > 0 and <= 64 }
+                || !name.All(char.IsAsciiLetter) || selector.Value.Length > 512) { return null; }
+            keys.Add(name + "=\"" + selector.Value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"");
+        }
+        return className + "." + string.Join(',', keys);
     }
 
     private static XElement ParseXml(string xml)
@@ -187,8 +243,8 @@ internal sealed partial class WsmanReadChannel : IDisposable
 
     /// <summary>A WSMan.Automation call fails as a COMException or, for some HRESULTs, as the managed type the runtime maps it
     /// to (E_INVALIDARG: ArgumentException, E_ACCESSDENIED: UnauthorizedAccessException). Both keep the numeric code; nothing
-    /// else inside the guarded COM calls throws these types. Bench of 11/11/2026: reading the fault of a refused connection
-    /// raised E_INVALIDARG, which escaped as an ArgumentException and stopped the reading process.</summary>
+    /// else inside the guarded COM calls throws these types. Bench of 11/11/2026: CreateSession raised E_INVALIDARG, which
+    /// escaped as an ArgumentException and stopped the reading process.</summary>
     internal static COMException? ComFailure(Exception exception) => exception switch
     {
         COMException com => com,
