@@ -210,7 +210,8 @@ internal static class RuntimeConfigurationTests
         foreach (var (name, budget) in new[] { ("poste.processes", Domenia.Inventory.CimBudgets.Processes), ("poste.events", Domenia.Inventory.CimBudgets.Events),
             ("poste.quickDiag", Domenia.Inventory.CimBudgets.QuickDiagnostic), ("poste.lastUser.detect", Domenia.Inventory.CimBudgets.LastUser) })
         {
-            Check.True(operations[name].OwnBudget is not null || budget + Domenia.Inventory.CimBudgets.GiveUpMargin < TimeSpan.FromSeconds(remote),
+            // The first query of a reading process may also wait for its start (CimBudgets.WorkerStartup).
+            Check.True(operations[name].OwnBudget is not null || budget + Domenia.Inventory.CimBudgets.GiveUpMargin + Domenia.Inventory.CimBudgets.WorkerStartup < TimeSpan.FromSeconds(remote),
                 name + " tient dans le délai distant par défaut");
         }
     }

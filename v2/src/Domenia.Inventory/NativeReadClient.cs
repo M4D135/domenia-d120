@@ -64,13 +64,16 @@ internal sealed class NativeReadClient : IDisposable
             site?.RequireContinuation();
             if (pipe is null && !borrowedAdmission) { queueMilliseconds += ReadPerformance.Milliseconds(clock.GetElapsedTime(queuedAt)); }
             executingAt = clock.GetTimestamp();
-            // Waiting for local capacity is not a native query. Start its deadline only after admission. The child's own
-            // query delay answers « Interrompu » for one source; only a child silent past that margin is stopped.
-            using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(request.BudgetMs) + CimBudgets.GiveUpMargin, clock);
-            requestDeadline = timeout.Token;
-            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token, timeout.Token);
+            // Waiting for local capacity is not a native query, and neither is starting the reading process: on the bench
+            // workstation a cold start took several seconds and ate the first query's budget, so a WinRM refusal answered
+            // in 4 s was cut as « sans réponse » (11/11/2026). Startup has its own bound; the query deadline starts once the
+            // child is ready. The child's own query delay answers « Interrompu » for one source; only a child silent past
+            // that margin is stopped.
             if (pipe is null)
             {
+                using var startup = new CancellationTokenSource(CimBudgets.WorkerStartup, clock);
+                requestDeadline = startup.Token;
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token, startup.Token);
                 stage = NativeReadStage.WorkerStart;
                 var startupAt = clock.GetTimestamp();
                 var name = "Domenia.NativeRead." + Guid.NewGuid().ToString("N");
@@ -87,13 +90,20 @@ internal sealed class NativeReadClient : IDisposable
                 await NativeReadProtocol.WritePasswordAsync(pipe, credential?.Password, deadline.Token).ConfigureAwait(false);
                 if (!await NativeReadProtocol.ReadAsync<bool>(pipe, 32, deadline.Token).ConfigureAwait(false)) { throw new InvalidDataException("Processus natif non prêt."); }
                 startupMs = ReadPerformance.Milliseconds(clock.GetElapsedTime(startupAt));
+                if (startupMs > 2000) { journal?.Info(FormattableString.Invariant($"Processus de lecture natif prêt en {startupMs} ms (transport {hello.Transport}).")); }
             }
-            sent = true; started = clock.GetTimestamp();
-            stage = NativeReadStage.RequestWrite;
-            await NativeReadProtocol.WriteAsync(pipe, request, NativeReadProtocol.RequestLimit, deadline.Token).ConfigureAwait(false);
-            requestWriteCompleted = true;
-            stage = NativeReadStage.ResponseRead;
-            var response = await NativeReadProtocol.ReadAsync<NativeReadReply>(pipe, NativeReadProtocol.ResponseLimit, deadline.Token).ConfigureAwait(false);
+            NativeReadReply response;
+            using (var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(request.BudgetMs) + CimBudgets.GiveUpMargin, clock))
+            using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(token, timeout.Token))
+            {
+                requestDeadline = timeout.Token;
+                sent = true; started = clock.GetTimestamp();
+                stage = NativeReadStage.RequestWrite;
+                await NativeReadProtocol.WriteAsync(pipe, request, NativeReadProtocol.RequestLimit, deadline.Token).ConfigureAwait(false);
+                requestWriteCompleted = true;
+                stage = NativeReadStage.ResponseRead;
+                response = await NativeReadProtocol.ReadAsync<NativeReadReply>(pipe, NativeReadProtocol.ResponseLimit, deadline.Token).ConfigureAwait(false);
+            }
             stage = NativeReadStage.ResponseValidate;
             if (response.Failed) { throw new InvalidDataException("Lecture native non aboutie."); }
             var status = response.Reading?.Status ?? response.Registry?.Status ?? response.User?.Access.Status;

@@ -90,6 +90,11 @@ public static class CimBudgets
     /// <summary>Extra time granted to a WMI call to end by its own delay before the read is given up.</summary>
     public static readonly TimeSpan GiveUpMargin = TimeSpan.FromSeconds(2);
 
+    /// <summary>Start of one reading process, up to its ready handshake. It is not part of the first query's delay: a cold
+    /// start on the bench workstation took several seconds (11/11/2026). Bridge rule: a read budget plus GiveUpMargin plus
+    /// this bound stays under the default remote delay (45 s).</summary>
+    public static readonly TimeSpan WorkerStartup = TimeSpan.FromSeconds(12);
+
     /// <summary>Win32_Service is read once, 500 instances at most (docs/ops/poste.md § 8.2).</summary>
     public const int ServicesCap = 500;
 
