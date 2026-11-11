@@ -8,7 +8,11 @@ Les lectures distantes laissent le poste décider pour le compte choisi, y compr
 gardent leur validation préalable. Les OU enregistrées sont recherchées dans la base locale au démarrage et après
 un changement de session, sans LDAP automatique ; un arbre fraîchement lu reste prioritaire. La consultation
 d’état de l’Accueil accepte l’absence d’OU sans erreur et sans démarrer une campagne. Les budgets affichent
-l’âge en jours et la durée de campagne en minutes. Valeurs enregistrées et schéma 11 révision 2 inchangés.
+l’âge en jours et la durée de campagne en minutes. En mode Automatique, l’inventaire lit d’abord par WMI / DCOM,
+comme Domenia 1 ; un poste injoignable en DCOM est relu une seule fois par WinRM s’il est autorisé. Le choix
+« CIM / WinRM » reste exclusif. Une source plus lente que son délai est marquée « Interrompu » sans arrêter les
+suivantes ; la lecture des pilotes dispose de 20 secondes. Un arrêt de la lecture native consigne au journal la
+phase et le code d’erreur du processus de lecture. Valeurs enregistrées et schéma 11 révision 2 inchangés.
 Qualification automatique réussie (détails dans REPRISE.md). Candidat non publié ; recette sur domaine réel à faire.
 
 ## Correctifs publiés en 2.1.3

@@ -1,8 +1,8 @@
 # Domenia 2.1.4 — lectures, périmètre et unités
 
-Second candidat `c7943575` qualifié automatiquement par le run 42839534095, non publié. Recette native partielle
-le 10 novembre : CHECK/LOGIN réussis, données DCOM reçues (13/27 sources, 46 lignes) puis arrêt natif sans cause
-précise consignée ; WinRM ne reçoit aucune donnée. [Bilan et limites](../REPRISE.md).
+Candidat qualifié automatiquement, non publié. Le 10 novembre, l’inventaire en mode Automatique ne lisait rien d’un
+poste sans WinRM, et une requête DCOM lente arrêtait toute la lecture. Ce candidat lit en DCOM d’abord et isole les
+sources lentes. [Bilan et limites](../REPRISE.md).
 Pack attendu : `Domenia_2.1.4_PROD-LIGHT_Windows-x64.zip`, avec `SHA256SUMS.txt`.
 Extraire dans un nouveau dossier, vérifier l’empreinte puis lancer Domenia.exe. Schéma 11, révision 2 inchangés.
 
@@ -23,6 +23,11 @@ et leur persistance ont été observées sur le premier candidat ; leurs tests a
 - Sur un poste qui refuse la lecture, vérifier le refus qualifié et le compte utilisé ; aucun autre compte essayé.
   Ne pas provoquer d’échecs de mot de passe répétés. Les écritures continuent d’exiger leur validation et confirmation.
 - Une campagne interrompue est seulement proposée à la reprise : aucun lancement automatique à l’ouverture.
+- Paramètres → Lectures distantes : « Transport CIM » affiche « Automatique : DCOM, puis WinRM si DCOM est
+  injoignable ». Inventaire rapide d’un poste joignable en DCOM : transport DCOM et sources lues ; une source lente
+  est marquée « Interrompu » et les suivantes sont lues.
+- Avec « CIM / WinRM » sur un poste sans WinRM : échec qualifié, aucun repli DCOM caché ; le journal technique
+  indique la phase et le code de l’arrêt.
 
 Noter chaque résultat avec l’empreinte du ZIP ; ne déclarer aucun succès sans observation. Ne modifier ni AD,
 ni services, pare-feu ou stratégies pour cette recette. Le banc de qualification passe par David.
