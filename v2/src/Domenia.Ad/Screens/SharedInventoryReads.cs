@@ -10,6 +10,8 @@ internal sealed record InventoryReadKey(Guid ObjectGuid, string Dn, DateTimeOffs
     WorkstationReading Reading, string CredentialGeneration, bool Cim, bool Registry, bool WinRm)
 {
     public InventoryTransport SelectedTransport { get; init; } = WinRm ? InventoryTransport.WinRm : InventoryTransport.Dcom;
+    /// <summary>An Automatic read may be read again once through WinRM: it is never shared with a DCOM-only read.</summary>
+    public bool WinRmFallback { get; init; }
 }
 
 internal sealed class SharedInventoryReads

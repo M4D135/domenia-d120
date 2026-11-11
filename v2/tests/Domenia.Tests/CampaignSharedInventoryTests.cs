@@ -28,7 +28,8 @@ internal static class CampaignSharedInventoryTests
             using var account = await AdWorkstationAccess.AcquireAsync(fixture.Source, fixture.Computer.DnsHostName!, CancellationToken.None);
             var key = new InventoryReadKey(fixture.Computer.ObjectGuid, fixture.Computer.DistinguishedName.ToUpperInvariant(), fixture.Computer.WhenCreated,
                 fixture.Computer.DnsHostName!.ToUpperInvariant(), WorkstationReading.Survey, account.SharingGeneration,
-                account.Settings.UseCim, account.Settings.UseRemoteRegistry, account.Settings.Options.UseWinRm);
+                account.Settings.UseCim, account.Settings.UseRemoteRegistry, account.Settings.Options.UseWinRm)
+                { SelectedTransport = account.Settings.ReadCimTransport, WinRmFallback = account.Settings.ReadsFallBackToWinRm };
             other = SharedInventoryReads.For(fixture.Source).ReadAsync(key, (_, _) => throw new InvalidOperationException("Un second worker ne doit pas démarrer."), null, CancellationToken.None);
             ldapBeforeStop = fixture.Ldap.Calls;
             await stop.CancelAsync(); await StillOwned(campaign);

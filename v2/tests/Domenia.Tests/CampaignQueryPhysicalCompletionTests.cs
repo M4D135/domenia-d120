@@ -244,7 +244,7 @@ internal static class CampaignQueryPhysicalCompletionTests
             SessionFactory = (host, budget, token) =>
             {
                 Token = token;
-                return new(host, budget, Clock, cancellationToken: token, credential: Credential, transport: settings?.SelectedCimTransport ?? InventoryTransport.Dcom)
+                return new(host, budget, Clock, cancellationToken: token, credential: Credential, transport: settings?.ReadCimTransport ?? InventoryTransport.Dcom)
                 {
                     MetadataOverride = (_, _, _, _) => { Interlocked.Increment(ref MetadataCalls); return [Property("Name", true), Property("Model"), Property("TotalPhysicalMemory"), Property("LoadPercentage")]; },
                     MetadataShellOverride = (kind, ns, className, _) =>
