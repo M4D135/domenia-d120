@@ -1,0 +1,30 @@
+name: Domenia v2 — diagnostic des formes d’appel WinRM
+
+# Read-only experiment on a disposable hosted runner: it never changes WinRM, listeners, TrustedHosts or the firewall.
+on:
+  push:
+    branches: ['claude/diagnostic-winrm-20261111']
+    paths:
+      - '.github/workflows/domenia-v2-diagnostic-winrm.yml'
+      - 'v2/tools/winrm-shape-diagnostic.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shapes:
+    name: Windows · formes d’appel WSMan en lecture seule
+    runs-on: windows-2025
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Récupérer le commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Essayer les formes d’appel contre localhost
+        run: ./v2/tools/winrm-shape-diagnostic.ps1 -OutFile "$env:RUNNER_TEMP/winrm-shape.json"
