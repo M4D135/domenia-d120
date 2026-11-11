@@ -2,7 +2,107 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**11/11/2026 : Domenia 2.1.4 PROD-LIGHT publiée en dernière version sur `6d8dbfd7`, après le go explicite de David. ZIP et téléchargement public vérifiés. En Automatique, l'inventaire lit par DCOM (19/27 sources avant le plafond de 55 s sur le poste de banc, sans arrêt du processus de lecture) ; le pont ne coupe plus les lectures à 45 s ; titre de fenêtre et barre de recherche corrigés. 3 065 tests C# complets, 1 644 critiques, 222 contrôles navigateur, 7 simulations réussis. Limite connue : « CIM / WinRM » échoue sur chaque source en 0x80070057, cause non établie.**
+**11/11/2026 : candidat Domenia 2.1.5 qualifié (CI 43065379788) et banc administrateur conforme sur `ccd833c`, non publié. « CIM / WinRM » ouvre de nouveau la session (fin du 0x80070057), lit les réponses WinRM comme DCOM et, sur un poste sans écouteur, rend « Injoignable (0x80338012) » sans aucune source « Interrompu » ; en Automatique, 27/27 sources par DCOM en 48,9 s sur le poste de banc. 3 069 tests C# complets, 1 645 critiques, 222 contrôles navigateur, 7 simulations réussis. Publication en attente du go de David ; dernière version publiée : 2.1.4 (`6d8dbfd7`). Limite : lecture WinRM réussie non observée sur le banc (poste sans écouteur).**
+
+## 11/11/2026 — candidat 2.1.5 : session WinRM, poste sans écouteur, premier passage du lecteur
+
+Diagnostic en lecture seule sur des runners hébergés `windows-2025` (workflow `domenia-v2-diagnostic-winrm.yml`,
+branche `claude/diagnostic-winrm-20261111`, aucun réglage du poste modifié) : runs
+[43031252661](https://github.com/M4D135/domenia-d120/actions/runs/43031252661),
+[43031660340](https://github.com/M4D135/domenia-d120/actions/runs/43031660340),
+[43032008143](https://github.com/M4D135/domenia-d120/actions/runs/43032008143),
+[43032268130](https://github.com/M4D135/domenia-d120/actions/runs/43032268130).
+
+- **Cause** : `WsmanReadChannel` ouvrait la session par un appel tardif `CreateSession(url, flags, null)`.
+  WSMan.Automation refuse ce troisième argument nul (`ArgumentException`, E_INVALIDARG) avant tout échange ; chaque
+  source échouait donc en 0x80070057. L'appel à deux arguments, ou avec un objet d'options réel, ouvre la session.
+- Session ouverte, la lecture avait trois écarts : avec une projection, WinRM répond par un `XmlFragment` (espace
+  WS-Management) aux propriétés non qualifiées, que le lecteur rejetait ; les dates arrivent en `<Datetime>` ISO, les
+  références (sessions ouvertes) en EPR, les tableaux en éléments répétés et les valeurs absentes en `xsi:nil`. La
+  ressource de classe avec filtre WQL reste refusée (0x803380FB) : la ressource `…/*` est la bonne.
+- `aaceff2` : session ouverte sans argument nul ; fragments lus ; dates rendues au format DMTF et références en chemins
+  WMI relatifs, comme les lectures DCOM. Deux tests ajoutés. CI
+  [43032775255](https://github.com/M4D135/domenia-d120/actions/runs/43032775255) verte : 3 067 tests C#, 1 644
+  critiques, 222 contrôles navigateur, 7 simulations.
+
+Banc sur le kit `aaceff2e` (coordinateur VM, session Windows ouverte par David, poste DOMENIA), B seul en
+« CIM / WinRM » : **plus aucun 0x80070057 ni autre code, la session s'ouvre, mais 0/27 en 34,2 s**. La première
+requête (Win32_OperatingSystem, budget 10 s) reste sans réponse à 17,3 s : son processus est arrêté sans rejeu. Le
+processus neuf (1/2) rend Carte mère « Injoignable » à 7,6 s et voit une lecture de registre (budget 3 s) annulée à
+8,9 s ; le délai sans nouvelle donnée (34,1 s) interrompt ensuite les 25 autres sources. Aucun hôte de shell WinRM
+restant, fermeture code 0, « Automatique » restauré et relu. Originaux : `outputs/domenia-214-aaceff2e/manual/`.
+
+Mesure en lecture seule sur le banc, dans la session de David (tâche Interactive, jeton Limited) :
+`tools/winrm-bench-timing.ps1` (`de40f26`) rejoue les appels de Domenia, chaque essai dans son propre processus. DCOM
+répond en 0,1 à 0,2 s ; WSMan.Automation (Kerberos, nom DNS du poste) et `New-CimSession` WSMan échouent dès
+Identify en **0x80338012 après 4,2 s**, à chaque essai : **le poste de banc n'a pas d'écouteur WinRM** (cas par défaut
+de Windows 11). L'attendu « la plupart des sources lues » ne pouvait pas être tenu sur ce poste ; aucune lecture
+WinRM réussie n'y a été observée. Rejeu sur runner hébergé sans écouteur (port fermé,
+[43042750901](https://github.com/M4D135/domenia-d120/actions/runs/43042750901)) : Enumerate échoue de même en 4,0 s,
+un `Timeout` de 3 s n'est pas tenu, et chaque appel suivant sur la même session se reconnecte (4 s de plus). Répété
+pour chaque source, cela menait au délai sans nouvelle donnée. Les deux interruptions du banc sont aussi arrivées 4 à
+5 s après le délai du parent (17,3 s pour 10 + 2 s, 8,9 s pour 3 + 2 s) : lenteur propre à ce poste, déjà visible en
+DCOM (Système 9,5 s contre 0,2 s en lecture directe), non corrigée ici.
+
+`d2d8f2e` : 0x80338012 et 0x80338126 mettent fin à la session WinRM du processus de lecture comme un refus
+(`WsmanReadChannel.EndsSession`) ; les appels suivants échouent aussitôt avec le même code. « Injoignable » affiche
+son code, en DCOM comme en WinRM. Tests ajoutés.
+
+`d2d8f2e` porte aussi la version à 2.1.5 (notes, recette [RECETTE-MANUELLE-V2.1.5](docs/RECETTE-MANUELLE-V2.1.5.md),
+contrats d'opération). CI de livraison [43043750481](https://github.com/M4D135/domenia-d120/actions/runs/43043750481) verte :
+3 068 tests C#, 1 644 critiques, 222 contrôles navigateur, 7 simulations ; ZIP `ab60ed83…`, sans le nom de labo.
+
+Bancs B (« CIM / WinRM », poste sans écouteur) sur `d2d8f2ed` puis `2087fb5d` (même coordinateur, A non fait selon la
+procédure, « Automatique » restauré et relu, fermeture code 0, aucun processus restant) : toujours **0/27, tout
+« Interrompu »**. La première requête WinRM (Système, budget 10 s) reste sans réponse à 18,3 s puis 13,2 s ; le processus
+neuf reste muet (7,3 s ; 14,5 s coupé par le délai sans nouvelle donnée). `2087fb5` sortait le démarrage du processus
+de lecture du délai de la requête (borne propre de 12 s) : aucune ligne « prêt » au-delà de 2 s, l'hypothèse du
+démarrage seul est réfutée.
+
+Mesure v2 sur le banc (`winrm-bench-timing.ps1` `65f9e36`, état relevé : service WinRM arrêté, rien sur 5985) : Identify
+ou Enumerate en premier, STA ou MTA, Timeout 10 ou 30 s, toutes les formes Kerberos échouent en 0x80338012 en 4,2 s,
+Negotiate en 0x803380E5 en 0,1 s ; aucune attente. Le poste n'explique donc pas l'écart. En 2.1.4 (kit `265b6edd`, A),
+la première source DCOM, Système, coûtait déjà 9,5 s contre 0,15 s en lecture directe, les suivantes 0,1 à 0,5 s
+(hors classes lentes) : **coût de premier passage du processus de lecture** (chargement et compilation du chemin de
+lecture d'un kit neuf), compté dans le délai de la première requête. En WinRM, ce coût plus le refus de 4,2 s dépassait
+les 12 s accordés.
+
+`320c5e0` : préparation du processus de lecture pendant son démarrage, avant la poignée de main et avant tout budget
+(`NativeReadWarmup` : sérialiseur IPC, règles WQL, WSMan.Automation et liant COM tardif en WinRM, types System.Management
+en DCOM ; aucun contact réseau, test de source à l'appui) ; le parent prépare son sérialiseur pendant ce démarrage ;
+durée consignée à chaque démarrage. `ccd833c` corrige l'espace de noms manquant de `320c5e0`. CI de livraison
+[43065379788](https://github.com/M4D135/domenia-d120/actions/runs/43065379788) verte : 3 069 tests C#, 1 645 critiques,
+222 contrôles navigateur, 7 simulations ; ZIP `fc65c1227f04e42ed8322066fa38f813d7c3cfea354b9a3182b3ad2bb1acc085`
+(84 281 959 octets), Domenia.exe `47fd09f7…`, sans le nom de labo.
+
+**Banc conforme sur le kit `ccd833c1`** (coordinateur VM, session Windows ouverte par David, jeton élevé, ISO
+`D215_CCD833C1`, 138 originaux vérifiés par leurs empreintes, `outputs/domenia-214-ccd833c1/`) :
+
+- B, « CIM / WinRM » : **0/27 en 12,7 s, aucune source « Interrompu »**. Processus de lecture prêt en 7 612 ms,
+  préparation comprise (moins de 2 s sans elle) : c'est le coût de premier passage, désormais hors délai de la requête.
+  Système rend ensuite « Injoignable (0x80338012) » à 12,2 s ; les 26 autres sources finissent en 0 à 10 ms
+  (« Injoignable » avec le code, ou « Non tenté » : « Non relu : protocole CIM inaccessible… »). Sessions : « Nom du
+  poste non confirmé » (garde d'identité, Système non lu). Aucun « processus neuf », aucun 0x80070057, aucun processus
+  restant.
+- A, « Automatique » : **27/27 par DCOM en 48,9 s** (2.1.4 : 19/27 avant le plafond de 55 s). Prêt en 641 ms ; Système
+  lu en 1 045 ms (9,5 s en 2.1.4), BitLocker en 103 ms (7,1 s) ; aucun repli WinRM, aucune ATTENTION ni ERREUR
+  pendant l'inventaire.
+- « Automatique » restauré et relu, fermeture code 0, aucun processus restant.
+
+Limites et écarts relevés :
+- **Lecture WinRM réussie non observée sur le banc** : le poste n'a pas d'écouteur et l'activer est exclu. Elle n'est
+  couverte que par le rejeu sur runner hébergé (session Negotiate ouverte, fragments lus) et par les tests ; à vérifier
+  sur un poste où WinRM est actif.
+- Logiciels installés, en WinRM sur poste sans écouteur : « Injoignable » avec le détail du registre (« 0 clé(s)
+  parcourue(s) »), sans le code 0x80338012. Libellé à compléter.
+- Au démarrage, avant B : ATTENTION puis ERREUR `settings.configuration.interface`, IOException « Des préférences
+  attendent leur enregistrement ; reprenez l'aperçu ensuite. » Cause : `FilePreferenceStore.ReadConfigurationAsync`
+  refuse la lecture quand un `SetAsync` a mis un choix en mémoire et attend encore le verrou d'écriture ; l'interface
+  affiche alors « Configuration distribuée non appliquée » et ne propose pas la configuration du pack à ce démarrage.
+  Course préexistante, code inchangé depuis 2.0.8 (donc présente en 2.1.4), vue une fois sur les bancs ; non corrigée
+  dans 2.1.5. Les réglages ont été enregistrés et relus normalement ensuite.
+
+Non publié : la publication attend le go de David.
 
 ## 11/11/2026 — publication de 2.1.4
 

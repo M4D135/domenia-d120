@@ -16,11 +16,17 @@ Extraire dans un nouveau dossier, vérifier l’empreinte puis lancer Domenia.ex
   Les dates (démarrage, installation), les tableaux (adresses IP) et les sessions ouvertes sont renseignés.
 - Avec « CIM / WinRM » et un compte saisi autorisé sur le poste : même lecture ; un poste qui refuse affiche son code
   et le compte utilisé, sans essai d’un autre compte.
-- Sur un poste sans WinRM (Windows 11 sans écouteur, cas par défaut) : chaque source « Injoignable » avec
-  0x80338012, la première en quelques secondes, les suivantes aussitôt ; aucune source « Interrompu » par le délai
-  sans nouvelle donnée, aucun 0x80070057.
+- Sur un poste sans WinRM (Windows 11 sans écouteur, cas par défaut) : la première source « Injoignable » avec
+  0x80338012 après le démarrage du processus de lecture (environ 12 s sur le poste de banc, dont 7,6 s de démarrage),
+  les suivantes aussitôt, « Injoignable » ou « Non tenté » (« Non relu : protocole CIM inaccessible… ») ; aucune
+  source « Interrompu », aucun 0x80070057.
 - Un poste éteint ou injoignable en DCOM affiche lui aussi son code (par exemple 0x800706BA).
 - Remettre « Automatique » après l’essai et relire la valeur.
+
+Banc administrateur du 11/11/2026 (poste de banc sans écouteur WinRM, ZIP `fc65c122…`, source `ccd833c`) : le premier
+et le quatrième point sont observés (Automatique : 27/27 sources par DCOM en 48,9 s ; « CIM / WinRM » : 0/27 en 12,7 s,
+aucune source « Interrompu »). Les lectures WinRM réussies (deuxième et troisième points) n’ont pas pu y être observées :
+elles restent à vérifier sur un poste où WinRM est actif.
 
 Noter chaque résultat avec l’empreinte du ZIP ; ne déclarer aucun succès sans observation. Ne modifier ni AD,
 ni services, pare-feu, WinRM ou stratégies pour cette recette. Le banc de qualification passe par David.
