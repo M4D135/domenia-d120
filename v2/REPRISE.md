@@ -2,9 +2,9 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**11/11/2026 : candidat Domenia 2.1.5 qualifié (CI 43065379788) et banc administrateur conforme sur `ccd833c`, non publié. « CIM / WinRM » ouvre de nouveau la session (fin du 0x80070057), lit les réponses WinRM comme DCOM et, sur un poste sans écouteur, rend « Injoignable (0x80338012) » sans aucune source « Interrompu » ; en Automatique, 27/27 sources par DCOM en 48,9 s sur le poste de banc. 3 069 tests C# complets, 1 645 critiques, 222 contrôles navigateur, 7 simulations réussis. Publication en attente du go de David ; dernière version publiée : 2.1.4 (`6d8dbfd7`). Limite : lecture WinRM réussie non observée sur le banc (poste sans écouteur).**
+**12/11/2026 : Domenia 2.1.5 qualifiée (banc administrateur conforme sur `af201b1`) et publiée après le go de David. « CIM / WinRM » ouvre de nouveau la session (fin du 0x80070057), lit les réponses WinRM comme DCOM et, sur un poste sans écouteur, rend « Injoignable (0x80338012) » sans aucune source « Interrompu » ; en Automatique, 27/27 sources par DCOM en 26,4 s sur le poste de banc, logiciels installés de nouveau lus ; sans accélération graphique, l'interface n'occupe plus le processeur au repos. 3 075 tests C# complets, 1 647 critiques, 225 contrôles navigateur, 7 simulations réussis. Limite : lecture WinRM réussie non observée sur le banc (poste sans écouteur).**
 
-## 11/11/2026 — candidat 2.1.5 : session WinRM, poste sans écouteur, premier passage du lecteur
+## 11/11/2026 — 2.1.5 : session WinRM, poste sans écouteur, premier passage du lecteur, charge de l’interface
 
 Diagnostic en lecture seule sur des runners hébergés `windows-2025` (workflow `domenia-v2-diagnostic-winrm.yml`,
 branche `claude/diagnostic-winrm-20261111`, aucun réglage du poste modifié) : runs
@@ -89,20 +89,66 @@ durée consignée à chaque démarrage. `ccd833c` corrige l'espace de noms manqu
   pendant l'inventaire.
 - « Automatique » restauré et relu, fermeture code 0, aucun processus restant.
 
+Bancs suivants sur le même poste (coordinateur VM, session Windows ouverte par David, jeton élevé, B puis A, un geste
+« Inventaire rapide » chacun, aucun rejeu ; originaux vérifiés par leurs empreintes sous `outputs/domenia-214-<kit>/`) :
+
+- `be1e9c6` (préférences en attente écrites avant la lecture de la configuration ; code du premier échec dans
+  « Logiciels installés ») : B conforme (Système « Injoignable (0x80338012) » à 10,4 s), **A non conforme, 5/27**. La
+  2e requête de Mémoire (Win32_PhysicalMemoryArray, 0,3 s sur `ccd833c1`) reste sans réponse 14,8 s ; son processus est
+  arrêté sans rejeu, puis le démarrage du processus neuf est coupé à 9 s par le délai sans nouvelle donnée (25 s) et
+  les 22 sources suivantes sont perdues.
+- `404a667` : le démarrage d'un processus de lecture (borné à 12 s) ne compte plus dans ce délai, sans en être
+  crédité ; le plafond total reste. Banc `404a667d` : **B non conforme, 0/27**. Une lecture de registre WinRM (budget
+  3 s) reste sans réponse 5,8 s, le processus neuf met 10,9 s à démarrer et les minuteries partent en retard.
+- Mesure de charge sans inventaire (`404a667d-cpu`) : au repos sur le poste DOMENIA (2 vCPU, sans carte graphique),
+  Domenia consommait 7,1 à 8,6 s de processeur par 5 s avec les animations « Riches », dont environ 5 s pour le
+  processus GPU de WebView2. Avec « Réduites », la consommation tombe à 1,1 à 1,4 s, et elle revient dès qu'on remet
+  « Riches ». Les animations en boucle (aurore floutée sous les surfaces vitrées, anneaux, reflets) étaient
+  redessinées par le processeur à chaque image : c'est la cause commune des lenteurs du poste de banc depuis 2.1.4
+  (Système 9,5 s, requêtes et démarrages hors délai).
+- `bd4197e` (et `1d0a122` pour ses tests dans la sélection critique) : sans accélération graphique, mesurée au
+  démarrage par WebGL, les animations en boucle s'arrêtent après un passage et l'aurore reste immobile. Le choix
+  Animations est conservé et Paramètres > Apparence l'indique. Le démarrage du processus de lecture prépare aussi une
+  lecture du registre. Banc `bd4197e7` : charge au repos de 0,8 à 0,9 s par 5 s ; **B conforme** (0/27 en 5,7 s,
+  Système à 5,0 s) ; **A conforme, 27/27 en 27,7 s**. Écart relevé : « Logiciels installés » rend 0 élément pour
+  31 clés (« code 1 ») et « Site AD » 1 requête sur 2.
+- `af201b1` : StdRegProv rend 1 pour une valeur absente d'une clé existante et 2 pour une clé absente. Le code 1 était
+  compté comme un échec : les valeurs facultatives de chaque clé Uninstall (SystemComponent, ReleaseType, ParentKeyName)
+  écartaient chaque programme, déjà en 2.1.4. Une valeur absente est désormais lue comme absente ; une liste de clés
+  en code 1 reste un échec. CI de livraison [43108295722](https://github.com/M4D135/domenia-d120/actions/runs/43108295722)
+  verte : 3 075 tests C#, 1 647 critiques, 225 contrôles navigateur, 7 simulations.
+
+**Banc conforme sur le kit `af201b18`** (ISO `D215_AF201B18`, ZIP `287fd2b81ae7e24ae5e96e8bf3a3792f34406934ec468168c22e7150bd6a64ca`,
+168 originaux vérifiés, `outputs/domenia-214-af201b18/`). Avant l'inventaire, aucune ATTENTION ni ERREUR dans le
+journal depuis le lancement. La charge au repos reste entre 0,7 et 1,1 s par 5 s.
+
+- B, « CIM / WinRM » : **0/27 en 5,6 s, aucune source « Interrompu »**. Le processus de lecture est prêt en
+  1 145 ms, puis Système rend « Injoignable (0x80338012) » à 5,4 s. Huit sources sont « Injoignable » avec ce
+  code, les 18 autres « Non tenté » (« Non relu : protocole CIM inaccessible… »). Il n'y a ni 0x80070057 ni
+  processus restant.
+- A, « Automatique » : **27/27 par DCOM en 26,4 s**. Le processus est prêt en 777 ms et Système est lu en 1,2 s.
+  « Logiciels installés » est lu avec 4 éléments pour 31 clés, sans échec ; « Site AD » lit 2 requêtes sur 2. Il
+  n'y a eu ni repli WinRM, ni processus neuf, ni ATTENTION ou ERREUR.
+- À la fin, Animations est sur « Riches » et Transport CIM sur « Automatique », relus. Fermeture avec le code 0,
+  aucun processus restant.
+
 Limites et écarts relevés :
 - **Lecture WinRM réussie non observée sur le banc** : le poste n'a pas d'écouteur et l'activer est exclu. Elle n'est
   couverte que par le rejeu sur runner hébergé (session Negotiate ouverte, fragments lus) et par les tests ; à vérifier
   sur un poste où WinRM est actif.
-- Logiciels installés, en WinRM sur poste sans écouteur : « Injoignable » avec le détail du registre (« 0 clé(s)
-  parcourue(s) »), sans le code 0x80338012. Libellé à compléter.
-- Au démarrage, avant B : ATTENTION puis ERREUR `settings.configuration.interface`, IOException « Des préférences
-  attendent leur enregistrement ; reprenez l'aperçu ensuite. » Cause : `FilePreferenceStore.ReadConfigurationAsync`
-  refuse la lecture quand un `SetAsync` a mis un choix en mémoire et attend encore le verrou d'écriture ; l'interface
-  affiche alors « Configuration distribuée non appliquée » et ne propose pas la configuration du pack à ce démarrage.
-  Course préexistante, code inchangé depuis 2.0.8 (donc présente en 2.1.4), vue une fois sur les bancs ; non corrigée
-  dans 2.1.5. Les réglages ont été enregistrés et relus normalement ensuite.
-
-Non publié : la publication attend le go de David.
+- Relevés sur `ccd833c1`, corrigés par `be1e9c6` et observés sur les bancs suivants : « Logiciels installés »
+  donne le code du premier échec (0x80338012 en WinRM sur poste sans écouteur). La course au démarrage est aussi
+  corrigée : ATTENTION puis ERREUR `settings.configuration.interface`, « Des préférences attendent leur
+  enregistrement », quand un choix attendait encore le verrou d'écriture. Plus aucune ATTENTION ni ERREUR au
+  démarrage sur `bd4197e7` et `af201b18`.
+- En Automatique, trois sources restent « Lu en partie », comme en 2.1.4 :
+  - Affichage : 2 requêtes sur 3 ;
+  - Imprimantes : états non fournis par le pilote ;
+  - Sessions : repli CIM sans état actif ou déconnecté.
+  Pilotes non signés prend environ 12 s. Ce sont des limites du poste ou de la source, sans changement dans 2.1.5.
+- La détection du rendu sans accélération repose sur WebGL (contexte refusé en rendu dégradé, ou pilote SwiftShader,
+  WARP ou « Basic Render »). Une machine dont WebGL est désactivé par stratégie est traitée de même : les animations
+  en boucle s'arrêtent, le reste de l'interface est inchangé.
 
 ## 11/11/2026 — publication de 2.1.4
 

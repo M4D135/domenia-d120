@@ -2,7 +2,7 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
-## Candidat 2.1.5 qualifié automatiquement
+## Correctifs publiés en 2.1.5
 
 Le choix « CIM / WinRM » ouvre de nouveau la session WinRM. En 2.1.4, la session ouverte avec l’identité de la session
 Windows était refusée avant tout échange (E_INVALIDARG) : chaque source échouait en 0x80070057. La session s’ouvre
@@ -11,20 +11,32 @@ en fragment XML, dates CIM converties au format DMTF, références des sessions 
 Sur un poste sans écouteur WinRM (cas par défaut de Windows 11), la première source rend « Injoignable » avec son code
 (0x80338012) et les suivantes échouent aussitôt avec le même code, sans nouvelle tentative de connexion : chaque
 reconnexion coûtait environ 4 s et l’inventaire s’arrêtait sur son délai sans nouvelle donnée. Un poste injoignable
-affiche désormais son code, en DCOM comme en WinRM. Le démarrage du processus de lecture ne compte plus dans le délai
-de la première requête et comprend sa préparation : chargement local du chemin de lecture (sérialisation, règles WQL,
-composant WinRM ou WMI), sans contact avec le poste. Sur le poste de banc, ce premier passage coûtait jusqu’à 9,5 s à
-la première source et, en WinRM, dépassait avec le refus de 4 s le délai de la requête (borne propre de 12 s, durée
-consignée à chaque démarrage). Ce démarrage, y compris celui d’un processus neuf après une requête restée sans réponse,
-ne compte pas non plus dans le délai sans nouvelle donnée de l’inventaire (25 s) ; le plafond total est inchangé. Le
-mode Automatique garde l’ordre DCOM d’abord. Valeurs enregistrées et schéma 11
-révision 2 inchangés. Sur le poste de banc, l’inventaire rapide en Automatique lit désormais les 27 sources par DCOM en
-48,9 s (19 sur 27 avant le plafond de 55 s en 2.1.4 ; Système en 1 s au lieu de 9,5 s). « Logiciels installés »
-indique le code du premier échec de lecture du registre. Au démarrage, la lecture de la configuration d’interface
-écrit d’abord un choix encore en attente au lieu d’être refusée (« Des préférences attendent leur enregistrement ») ;
-la configuration du pack est de nouveau proposée dès ce démarrage.
-Banc administrateur conforme (poste sans écouteur WinRM) ; lecture WinRM réussie non observée sur le banc. Candidat
-non publié.
+affiche désormais son code, en DCOM comme en WinRM.
+
+Le démarrage du processus de lecture ne compte plus dans le délai de la première requête et comprend sa préparation :
+chargement local du chemin de lecture (sérialisation, règles WQL, composant WinRM ou WMI, lecture du registre), sans
+contact avec le poste. Sur le poste de banc, ce premier passage coûtait jusqu’à 9,5 s à la première source et, en
+WinRM, dépassait avec le refus de 4 s le délai de la requête (borne propre de 12 s, durée consignée à chaque
+démarrage). Ce démarrage, y compris celui d’un processus neuf après une requête restée sans réponse, ne compte pas non
+plus dans le délai sans nouvelle donnée de l’inventaire (25 s) ; le plafond total est inchangé. Le mode Automatique
+garde l’ordre DCOM d’abord.
+
+Sans accélération graphique (machine virtuelle sans carte graphique, certaines sessions à distance), les animations en
+boucle s’arrêtent après un passage et l’aurore du fond reste immobile : au repos, elles occupaient jusqu’à 1,7 des
+2 cœurs du poste de banc et retardaient la lecture du poste. Le choix Animations est conservé ; Paramètres > Apparence
+l’indique.
+
+Une valeur de registre absente d’une clé existante (code 1 du fournisseur de registre WMI) est lue comme absente et
+non plus comme un échec : en 2.1.4, les valeurs facultatives de chaque clé de désinstallation écartaient chaque
+programme (0 logiciel pour 31 clés sur le poste de banc) et « Site AD » ne lisait qu’une requête sur deux.
+« Logiciels installés » indique aussi le code du premier échec de lecture du registre. Au démarrage, la lecture de la
+configuration d’interface écrit d’abord un choix encore en attente au lieu d’être refusée (« Des préférences attendent
+leur enregistrement ») ; la configuration du pack est de nouveau proposée dès ce démarrage.
+
+Valeurs enregistrées et schéma 11 révision 2 inchangés. Sur le poste de banc, l’inventaire rapide en Automatique lit
+les 27 sources par DCOM en 26,4 s (19 sur 27 avant le plafond de 55 s en 2.1.4 ; Système en 1,2 s au lieu de 9,5 s),
+dont 4 logiciels. Banc administrateur conforme (poste sans écouteur WinRM) ; lecture WinRM réussie non observée sur le
+banc, à vérifier sur un poste où WinRM est actif.
 
 ## Correctifs publiés en 2.1.4
 
