@@ -24,6 +24,9 @@ public sealed class BridgeDispatcher(OperationRegistry registry, Action<BridgeRe
     /// <summary>Largest message accepted from the page; larger ones are refused before parsing.</summary>
     public const int MaxMessageLength = 1_048_576;
 
+    /// <summary>Beyond its own budget, a self-bounded read gets this long to stop by itself and record what it read.</summary>
+    internal static readonly TimeSpan OwnBudgetMargin = TimeSpan.FromSeconds(15);
+
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = false };
 
     /// <summary>Handles one raw JSON message. Never throws: malformed or unknown requests are answered with an error.</summary>
@@ -154,6 +157,9 @@ public sealed class BridgeDispatcher(OperationRegistry registry, Action<BridgeRe
             if (admission?.Invoke(definition) is BridgeError changed) { throw new BridgeOperationException(changed.Code, changed.Message); }
             token.ThrowIfCancellationRequested();
             var readSeconds = registry.QueueTiming.ReadSeconds(definition.Name);
+            // A self-bounded read keeps its announced budget, plus the time to stop, release and record its partial result.
+            if (readSeconds is int configured && definition.OwnBudget is { } own)
+                readSeconds = Math.Max(configured, (int)Math.Ceiling((own + OwnBudgetMargin).TotalSeconds));
             if (origin.Priority == OperationPriority.Background) readSeconds = Math.Min(readSeconds ?? int.MaxValue, BridgeScheduling.Budget(definition.Scheduling!.Provider).TimeoutSeconds);
             // Logical cancellation asks the actual reader to stop; its physical reservation survives until real completion.
             using var deadline = definition.Class == OperationClass.NetworkRead && readSeconds is int seconds

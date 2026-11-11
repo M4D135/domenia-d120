@@ -20,6 +20,9 @@ public sealed record OperationDefinition(string Name, OperationClass Class, Oper
     public bool Foreground => Priority != OperationPriority.Background && ActivityRules.IsForeground(Name, OperationTracking.KindOf(Class));
     /// <summary>Trusted server-side scheduling declaration. Missing metadata keeps immediate admission; page input cannot select a priority.</summary>
     public OperationScheduling? Scheduling { get; init; }
+    /// <summary>Longest run the handler bounds itself to (its announced reader budget). The configured delay of a network read
+    /// never stops it before that budget: the reader stops on its own and keeps what it read (bench of 11/11/2026).</summary>
+    public TimeSpan? OwnBudget { get; init; }
     /// <summary>Server opt-in for the closed directory reads reviewed for sharing. No result cache or write sharing.</summary>
     public bool ShareRead { get; init; }
     /// <summary>Trusted local qualification for target-bound reads. Null observation means execute independently, without sharing.</summary>

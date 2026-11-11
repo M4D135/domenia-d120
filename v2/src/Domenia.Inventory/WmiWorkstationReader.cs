@@ -150,7 +150,7 @@ public sealed partial class WmiWorkstationReader
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
-            journal?.Info("Lecture de " + host + " abandonnée : budget dépassé (" + reading + ").");
+            journal?.Info("Lecture de " + host + (cancellationToken.IsCancellationRequested ? " arrêtée par l’appelant (" : " abandonnée : budget dépassé (") + reading + ").");
             return Interrupted(Volatile.Read(ref latest), reading, NativeReadProgress.Stopped(Volatile.Read(ref progressState), "Lecture arrêtée ou budget atteint."));
         }
         finally { DisposeAfter(work, stop); }

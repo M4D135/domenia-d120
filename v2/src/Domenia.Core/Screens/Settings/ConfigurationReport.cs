@@ -141,7 +141,7 @@ public static class ConfigurationRules
         N("Async", "TreeTimeoutSeconds", "Délai de l’arborescence", 30, 5, 300, "Délai de lecture d’un niveau d’arborescence.", ConfigUse.Applied),
         N("Async", "SearchTimeoutSeconds", "Inactivité d’une recherche", 120, 10, 900, "Délai sans nouvelle page LDAP ; une recherche en progression conserve son plafond global de 900 secondes.", ConfigUse.Applied),
         N("Async", "ObjectTimeoutSeconds", "Délai d’une fiche", 35, 5, 300, "Délai de lecture d’un objet.", ConfigUse.Applied),
-        N("Async", "RemoteTimeoutSeconds", "Délai d’une lecture distante", 45, 5, 600, "Délai d’une lecture sur un poste.", ConfigUse.Applied),
+        N("Async", "RemoteTimeoutSeconds", "Délai d’une lecture distante", 45, 5, 600, "Délai d’une lecture sur un poste. Une lecture qui annonce son propre budget (inventaire, logiciels, services, diagnostic, sondes) le garde.", ConfigUse.Applied),
         N("Async", "WriteSoftTimeoutSeconds", "Écriture : délai d’alerte", 90, 10, 600, "Au-delà, l’écriture est signalée lente (jamais interrompue).", ConfigUse.Applied),
         N("Async", "WriteHardTimeoutSeconds", "Écriture : alerte prolongée", 300, 30, 1800, "Seuil d’alerte prolongée : reçu d’envoi conservé et issue en attente, sans arrêt forcé, libération du canal ni rejeu.", ConfigUse.Applied),
 

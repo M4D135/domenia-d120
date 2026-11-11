@@ -11,9 +11,12 @@ d’état de l’Accueil accepte l’absence d’OU sans erreur et sans démarre
 l’âge en jours et la durée de campagne en minutes. En mode Automatique, l’inventaire lit d’abord par WMI / DCOM,
 comme Domenia 1 ; un poste injoignable en DCOM est relu une seule fois par WinRM s’il est autorisé. Le choix
 « CIM / WinRM » reste exclusif. Une source plus lente que son délai est marquée « Interrompu » sans arrêter les
-suivantes ; la lecture des pilotes dispose de 20 secondes. Un arrêt de la lecture native consigne au journal la
+suivantes ; la lecture des pilotes dispose de 20 secondes. Le délai distant configuré (45 s par défaut) ne coupe plus
+une lecture qui annonce son propre budget : l’inventaire rapide garde ses 55 s, le complet 150 s, et les logiciels,
+services, diagnostic et sondes leur durée annoncée. Un arrêt de la lecture native consigne au journal la
 phase et le code d’erreur du processus de lecture. Dans une fenêtre étroite, la zone de recherche de la barre du
-haut masque le raccourci puis le libellé au lieu de déborder. Valeurs enregistrées et schéma 11 révision 2 inchangés.
+haut masque le raccourci puis le libellé au lieu de déborder. Le titre de la fenêtre nomme le poste, l’objet ou le
+sujet ouvert au lieu de « Aucune sélection ». Valeurs enregistrées et schéma 11 révision 2 inchangés.
 Qualification automatique réussie (détails dans REPRISE.md). Candidat non publié ; recette sur domaine réel à faire.
 
 ## Correctifs publiés en 2.1.3

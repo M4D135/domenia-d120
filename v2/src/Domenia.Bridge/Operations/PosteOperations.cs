@@ -31,6 +31,12 @@ public sealed partial class PosteOperations : IOperationModule
     private static readonly FrozenStringSet ExportKinds = new(["inventaire", "logiciels", "logiciels-inventaire", "services", "processus", "sessions", "evenements", "wmi", "sondes", "diagnostic", "secrets"]);
     private static readonly FrozenStringSet ExportParts = new(["lignes", "sources", "liste"]);
 
+    /// <summary>Largest reader budgets (CimBudgets): full inventory, software with the profiles, services, every probe.</summary>
+    internal static readonly TimeSpan InventoryBudget = TimeSpan.FromSeconds(150);
+    internal static readonly TimeSpan SoftwareBudget = TimeSpan.FromSeconds(200);
+    internal static readonly TimeSpan ServicesBudget = TimeSpan.FromSeconds(90);
+    internal static readonly TimeSpan ProbesBudget = TimeSpan.FromSeconds(300);
+
     public string Screen => "poste";
 
     public IEnumerable<OperationDefinition> CreateOperations(EngineContext context)
@@ -64,6 +70,9 @@ public sealed partial class PosteOperations : IOperationModule
 
         OperationDefinition Network(string name, OperationHandler handler, string description) =>
             new(name, OperationClass.NetworkRead, handler, description, ServedInSimulation: true);
+        // Reads whose reader stops on its own budget (docs/ops/poste.md § 8.3), longer than the configured remote delay.
+        OperationDefinition Bounded(string name, TimeSpan budget, OperationHandler handler, string description) =>
+            Network(name, handler, description) with { OwnBudget = budget };
 
         var operations = new List<OperationDefinition>
         {
@@ -136,7 +145,7 @@ public sealed partial class PosteOperations : IOperationModule
                 await Reader().LiveAsync(Dn(args, []).Dn, ct).ConfigureAwait(false),
                 "État en direct : présence, durée de fonctionnement, utilisateur connecté."),
 
-            Network("poste.inventory", async (args, bridge, ct) =>
+            Bounded("poste.inventory", InventoryBudget, async (args, bridge, ct) =>
             {
                 var dn = Dn(args, ["deep"]);
                 var deep = OptionalBool(dn.Values, "deep") ?? false;
@@ -180,7 +189,7 @@ public sealed partial class PosteOperations : IOperationModule
                 return Task.FromResult<object?>(new { stopped = stopped.Select(KindName).ToImmutableArray(), text });
             }, "Arrête un relevé du poste ouvert (un type : inventaire, sondes, diagnostic ou détection) ; ce qui est déjà lu est gardé."),
 
-            Network("poste.software", async (args, _, ct) =>
+            Bounded("poste.software", SoftwareBudget, async (args, _, ct) =>
             {
                 var dn = Dn(args, ["perUser", "store", "updates"]);
                 var request = new SoftwareRequest(OptionalBool(dn.Values, "perUser") ?? false, OptionalBool(dn.Values, "store") ?? false, OptionalBool(dn.Values, "updates") ?? false);
@@ -200,7 +209,7 @@ public sealed partial class PosteOperations : IOperationModule
                 return memory is null ? null : new { memory.Latest, memory.LastUsable, memory.Display, memory.Notice };
             }, "Dernière tentative et relevé détaillé conservé ; aucune lecture réseau."),
 
-            Network("poste.services", async (args, _, ct) =>
+            Bounded("poste.services", ServicesBudget, async (args, _, ct) =>
                 await Reader().ServicesAsync(Dn(args, []).Dn, ct).ConfigureAwait(false),
                 "Services du poste (Win32_Service, 500 au plus), lecture seule."),
 
@@ -239,7 +248,7 @@ public sealed partial class PosteOperations : IOperationModule
                 }
             }, "Sessions ouvertes lues juste avant un redémarrage, résumées pour le panneau (une lecture impossible est dite, jamais tue)."),
 
-            Network("poste.diagnostic", async (args, bridge, ct) =>
+            Bounded("poste.diagnostic", TimeSpan.FromSeconds(PosteDiagnostics.BudgetSeconds), async (args, bridge, ct) =>
             {
                 var dn = Dn(args, []);
                 var result = await Collect(session, dn.Dn, CollectionKind.Diagnostic, Now(), ct, token => Reader().DiagnosticAsync(dn.Dn, Progress(bridge), token)).ConfigureAwait(false);
@@ -304,7 +313,7 @@ public sealed partial class PosteOperations : IOperationModule
                 return PosteProbeDetails.Build(store, info, page, context.Clock.LocalTimeZone, Now(), OptionalInt(dn.Values, "pageSize", 1, 500) ?? PosteProbeDetails.PageSize);
             }, "Valeurs enregistrées d’une sonde du poste, De 1 à 500 lignes par page ; n’interroge jamais le poste."),
 
-            Network("poste.probes.collect", async (args, bridge, ct) =>
+            Bounded("poste.probes.collect", ProbesBudget, async (args, bridge, ct) =>
             {
                 var dn = Dn(args, ["probes"]);
                 ImmutableArray<string> wanted = dn.Values.TryGetValue("probes", out var probes) && probes.ValueKind == JsonValueKind.Array

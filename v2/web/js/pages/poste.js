@@ -170,6 +170,8 @@ function renderConsole(main, ctx, params) {
     }
     if (!alive) return;
     rememberRecent({ dn: state.dn, name: state.data.computer.name });
+    // The window title names the open workstation (« Poste · PC-0042 »), not « Aucun poste sélectionné » (bench of 11/11/2026).
+    ctx.setTarget?.(state.data.computer.name);
     main.innerHTML = `<div class="page ps-page">
       <section class="ps-hero reveal" data-slot="hero">
         <span class="glow-ring hero-ring" aria-hidden="true"></span>

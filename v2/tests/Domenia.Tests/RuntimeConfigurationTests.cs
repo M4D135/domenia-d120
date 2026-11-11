@@ -162,6 +162,60 @@ internal static class RuntimeConfigurationTests
     }
 
     [Test]
+    public static async Task Self_bounded_workstation_read_is_not_cut_by_the_remote_delay_before_its_own_budget()
+    {
+        // Bench of 11/11/2026: the 45 s remote delay stopped a 55 s quick inventory at its drivers and discarded its partial result.
+        var clock = new RuntimeSecurityPolicyTests.Clock();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responses = new System.Collections.Concurrent.ConcurrentQueue<BridgeResponse>();
+        var definition = new OperationDefinition("poste.inventory", OperationClass.NetworkRead, async (_, _, token) =>
+        {
+            using var observe = token.Register(() => cancelled.TrySetResult());
+            entered.TrySetResult(); await release.Task;
+            token.ThrowIfCancellationRequested(); return null;
+        }, "Inventaire de test") { Scheduling = new(OperationPriority.Explicit, OperationProvider.Directory, []), OwnBudget = TimeSpan.FromSeconds(55) };
+        var registry = new OperationRegistry([definition], clock, _ => Task.FromResult(new BridgeSessionStamp("account", "source")),
+            queueTiming: QueueTiming.From(Config("""{"Async":{"RemoteTimeoutSeconds":45}}""").Report));
+        using var dispatcher = new BridgeDispatcher(registry, responses.Enqueue);
+        var request = dispatcher.HandleAsync("""{"id":"inventory","op":"poste.inventory","args":{}}""", None);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            clock.Advance(TimeSpan.FromSeconds(45));
+            Check.False(cancelled.Task.IsCompleted, "le délai distant configuré ne coupe pas une lecture bornée par son propre budget");
+            clock.Advance(TimeSpan.FromSeconds(55) + BridgeDispatcher.OwnBudgetMargin - TimeSpan.FromSeconds(45) - TimeSpan.FromSeconds(1));
+            Check.False(cancelled.Task.IsCompleted, "le lecteur garde son budget et le temps de consigner son résultat partiel");
+            clock.Advance(TimeSpan.FromSeconds(1));
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally { release.TrySetResult(); }
+        await request.WaitAsync(TimeSpan.FromSeconds(5));
+        Check.Equal("network.timeout", responses.Single(r => r.Error is not null).Error!.Code, "filet de sécurité conservé au-delà du budget propre");
+    }
+
+    [Test]
+    public static void Workstation_reads_declare_at_least_the_budget_their_reader_applies()
+    {
+        var bridge = new SimulatedBridge();
+        var operations = new PosteOperations().CreateOperations(bridge.Context).ToDictionary(o => o.Name, StringComparer.Ordinal);
+        TimeSpan Own(string name) => operations[name].OwnBudget ?? TimeSpan.Zero;
+        Check.True(Own("poste.inventory") >= Domenia.Inventory.CimBudgets.FullInventory, "inventaire complet : 150 s");
+        Check.True(Own("poste.software") >= Domenia.Inventory.CimBudgets.SoftwareWithProfiles, "logiciels avec profils : 200 s");
+        Check.True(Own("poste.services") >= Domenia.Inventory.CimBudgets.Services, "services : 90 s");
+        Check.True(Own("poste.diagnostic") >= Domenia.Inventory.WmiWorkstationReader.Budget(Domenia.Inventory.WorkstationReading.Diagnostic), "diagnostic : 45 s");
+        Check.True(Own("poste.probes.collect") >= Domenia.Inventory.CimBudgets.ProbesFor(int.MaxValue), "toutes les sondes : 300 s");
+        var remote = QueueTiming.Default.RemoteSeconds;
+        foreach (var (name, budget) in new[] { ("poste.processes", Domenia.Inventory.CimBudgets.Processes), ("poste.events", Domenia.Inventory.CimBudgets.Events),
+            ("poste.quickDiag", Domenia.Inventory.CimBudgets.QuickDiagnostic), ("poste.lastUser.detect", Domenia.Inventory.CimBudgets.LastUser) })
+        {
+            Check.True(operations[name].OwnBudget is not null || budget + Domenia.Inventory.CimBudgets.GiveUpMargin < TimeSpan.FromSeconds(remote),
+                name + " tient dans le délai distant par défaut");
+        }
+    }
+
+    [Test]
     public static void Read_trace_switch_only_adds_bounded_provider_details_and_never_removes_the_final_summary()
     {
         foreach (var enabled in new[] { false, true })

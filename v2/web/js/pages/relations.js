@@ -319,6 +319,7 @@ export function render(main, ctx) {
       const res = await ctx.call('relations.subject', { ref: clean });
       if (!app.alive || my !== subjectRequest) return;
       subjectTab.show(res);
+      ctx.setTarget?.(res.subject.name || res.subject.login);
       const recent = readRecent().filter((r) => r.dn.toLowerCase() !== res.subject.dn.toLowerCase());
       recent.unshift({ dn: res.subject.dn, login: res.subject.login, kind: res.subject.kind });
       writeRecent(recent);
@@ -328,12 +329,14 @@ export function render(main, ctx) {
     } catch (err) {
       if (!app.alive || my !== subjectRequest) return;
       subjectTab.failed(clean, err);
+      ctx.setTarget?.(null);
     }
   }
 
   function clear() {
     subjectRef = null;
     subjectRequest++;
+    ctx.setTarget?.(null);
     remember({ sujet: null, vue: null });
     subjectTab?.landing();
     paintHero();
@@ -529,6 +532,7 @@ export function render(main, ctx) {
     work = null;
     subjectRef = null;
     subjectRequest++;
+    ctx.setTarget?.(null);
     remember({ sujet: null, vue: null, onglet: null, a: null, b: null });
     subjectTab?.landing();
     compareTab?.reset();

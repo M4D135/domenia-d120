@@ -186,6 +186,7 @@ export function render(main, ctx) {
     S.header = null;
     S.tabs = null;
     S.sheet = null;
+    ctx.setTarget?.(null);
     page.dataset.kind = 'error';
     headHost.innerHTML = '';
     bodyHost.innerHTML = `<section class="card fi-card fi-fatal fi-replaced" role="alert">
@@ -215,6 +216,7 @@ export function render(main, ctx) {
     S.header = null;
     S.tabs = null;
     S.sheet = null;
+    ctx.setTarget?.(null);
     page.dataset.kind = 'error';
     headHost.innerHTML = '';
     bodyHost.innerHTML = `<section class="card fi-card fi-fatal">${failure(err, { title: err?.code === 'fiche.unknown' ? 'Objet introuvable' : 'Fiche illisible' })}
@@ -229,6 +231,7 @@ export function render(main, ctx) {
   function show(sheet, { again = false, quiet = false } = {}) {
     const previous = S.sheet;
     S.sheet = sheet;
+    ctx.setTarget?.(sheet.identity.name);
     if (S.live && !S.workflowsMounted && (sheet.identity.kind === 'user' || S.params.compenser)) {
       S.workflowsMounted = true;
       mountWorkflows(page.querySelector('.fi-workflows-host'), S);
