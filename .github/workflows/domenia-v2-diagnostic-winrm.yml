@@ -8,6 +8,7 @@ on:
       - '.github/workflows/domenia-v2-diagnostic-winrm.yml'
       - 'v2/tools/winrm-shape-diagnostic.ps1'
       - 'v2/tools/winrm-dynamic-diagnostic.ps1'
+      - 'v2/tools/winrm-bench-timing.ps1'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +27,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+
+      - name: Vérifier le script de mesure du banc (Kerberos échoue hors domaine)
+        run: |
+          ./v2/tools/winrm-bench-timing.ps1 -ComputerName $env:COMPUTERNAME -OutFile "$env:RUNNER_TEMP/winrm-bench-timing.json" -TrialSeconds 30
+          Get-Content -LiteralPath "$env:RUNNER_TEMP/winrm-bench-timing.json" -Raw
 
       - name: Essayer les formes d’appel contre localhost
         run: ./v2/tools/winrm-shape-diagnostic.ps1 -OutFile "$env:RUNNER_TEMP/winrm-shape.json"
