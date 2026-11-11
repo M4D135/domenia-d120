@@ -301,8 +301,9 @@ public sealed partial class CimSession : IDisposable
         // RPC server unavailable, call failed, network errors: the workstation did not answer the CIM bind.
         System.Runtime.InteropServices.COMException ex when ex.HResult == unchecked((int)0x80070005) || WindowsAuthenticationErrors.IsRejected(ex.HResult) => SourceStatus.Refused,
         System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x800706BA) or unchecked((int)0x800706BE) or unchecked((int)0x80070035) } => SourceStatus.Unreachable,
-        // WinRM: the client cannot connect to the destination (no listener on 5985, service stopped, port filtered).
-        System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80338012) } => SourceStatus.Unreachable,
+        // WinRM: the client cannot connect to the destination, or cannot complete the operation (no listener on 5985,
+        // service stopped, port filtered).
+        System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80338012) or unchecked((int)0x80338126) } => SourceStatus.Unreachable,
         System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80338029) } => SourceStatus.Interrupted,
         System.Runtime.InteropServices.COMException => SourceStatus.Error,
         TimeoutException => SourceStatus.Interrupted,
@@ -316,7 +317,16 @@ public sealed partial class CimSession : IDisposable
         SourceStatus.Unreachable => "poste injoignable par CIM",
         SourceStatus.Unavailable => "classe ou espace de noms absent sur le poste",
         SourceStatus.Interrupted => "délai dépassé sur cette source",
-        _ => "erreur CIM (" + exception.GetType().Name + ")",
+        _ => "erreur CIM (" + exception.GetType().Name + Code(exception) + ")",
+    };
+
+    /// <summary>Numeric code of a CIM failure, never its translated or server-supplied text (bench of 11/11/2026: a WinRM
+    /// failure said only « COMException », without the code needed to tell a missing listener from a refused call).</summary>
+    internal static string Code(Exception exception) => exception switch
+    {
+        ManagementException management => " 0x" + ((int)management.ErrorCode).ToString("X8", System.Globalization.CultureInfo.InvariantCulture),
+        System.Runtime.InteropServices.COMException com => " 0x" + com.HResult.ToString("X8", System.Globalization.CultureInfo.InvariantCulture),
+        _ => "",
     };
 
     private static TimeSpan Bound(TimeSpan requested) => requested < TimeSpan.FromMilliseconds(200) ? TimeSpan.FromMilliseconds(200) : requested > CimBudgets.Maximum ? CimBudgets.Maximum : requested;

@@ -86,6 +86,9 @@ internal static class CimInventoryTests
         Check.Equal<SourceStatus?>(SourceStatus.Refused, CimSession.Classify(new COMException("hidden", unchecked((int)0x8007052E))), "authentification refusée");
         Check.Equal<SourceStatus?>(SourceStatus.Unreachable, CimSession.Classify(new COMException("hidden", unchecked((int)0x800706BA))), "RPC indisponible");
         Check.Equal<SourceStatus?>(SourceStatus.Unreachable, CimSession.Classify(new COMException("hidden", unchecked((int)0x80338012))), "WinRM sans écouteur");
+        Check.Equal<SourceStatus?>(SourceStatus.Unreachable, CimSession.Classify(new COMException("hidden", unchecked((int)0x80338126))), "WinRM ne peut pas joindre le poste");
+        Check.Equal(" 0x80070057", CimSession.Code(new COMException("hidden", unchecked((int)0x80070057))), "code COM gardé sans texte");
+        Check.Equal("", CimSession.Code(new InvalidOperationException("hidden")), "aucun code inventé");
         Check.Equal<SourceStatus?>(SourceStatus.Error, CimSession.Classify(new COMException("hidden", unchecked((int)0x80004005))), "autre erreur");
         Check.Null(CimSession.Classify(new InvalidOperationException()), "erreur de programmation propagée");
     }
