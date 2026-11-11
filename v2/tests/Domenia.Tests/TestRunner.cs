@@ -77,6 +77,7 @@ internal static class TestRunner
         if (args.Length > 0 && args[0] == HostShutdownTests.FixtureArgument) return await HostShutdownTests.RunFixtureAsync(args).ConfigureAwait(false);
         if (Domenia.Inventory.NativeReadWorkerHost.IsRequested(args)) { return Domenia.Inventory.NativeReadWorkerHost.Run(args); }
         if (NativeReadWorkerFixture.IsRequested(args)) { return await NativeReadWorkerFixture.RunAsync(args).ConfigureAwait(false); }
+        if (NativeReadDiagnosticFixture.IsRequested(args)) { return await NativeReadDiagnosticFixture.RunAsync(args).ConfigureAwait(false); }
         if (args.Length > 0 && args[0] == "--native-acceptance") { return await NativeAcceptance.RunAsync(args).ConfigureAwait(false); }
         if (args.Length > 1 || args.Length == 1 && (args[0].Length is 0 or > 128 || args[0].Any(char.IsControl)))
         { Console.Error.WriteLine("Sélection invalide : aucun argument, un filtre de nom ou --critical."); return 2; }

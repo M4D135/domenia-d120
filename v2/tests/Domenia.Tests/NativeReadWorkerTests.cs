@@ -138,6 +138,8 @@ internal static class NativeReadWorkerTests
         var warning = journal.Warnings.Single();
         Check.Equal(before, journal.RunningAtWarning.Single(), "trace publiée après sortie physique");
         Check.True(warning.Contains("callerCancellation=True; requestDeadline=False", StringComparison.Ordinal), "annulation appelante distincte du délai");
+        Check.Contains("parentTerminationRequested=True", warning, "terminaison parent observée, distincte d’une sortie spontanée");
+        Check.Contains("childType=absent", warning, "aucune exception enfant inventée pour un enfant bloqué terminé");
         Check.True(warning.Contains("budgetMs=20000;", StringComparison.Ordinal), "budget de la requête, pas celui de la session");
         CheckWriteBoundary(warning);
         Check.False(warning.Contains(Hello.Host, StringComparison.Ordinal) || warning.Contains(Query.Query!, StringComparison.Ordinal), "ni cible ni requête dans le journal");

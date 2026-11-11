@@ -18,6 +18,7 @@ internal sealed class NativeReadClient : IDisposable
     private AdaptiveReadBudget.Lease? site;
     private readonly bool borrowedAdmission;
     private readonly IDisposable? resource;
+    private NativeReadDiagnostics.ExitObservation? childExit;
     private bool closed;
     internal int? ProcessId => process?.Id;
     internal NativeReadClient(NativeReadHello hello, RemoteProbeCredential? credential, CancellationToken token, TimeProvider? clock = null, AdaptiveReadBudget? adaptive = null, ITechnicalJournal? journal = null)
@@ -123,7 +124,11 @@ internal sealed class NativeReadClient : IDisposable
         {
             admission?.Dispose();
             // Facts were captured before cleanup; publish only after the child and admission have been released.
-            if (failure is { } observed) { journal?.Warning(observed.Format()); }
+            if (failure is { } observed)
+            {
+                journal?.Warning(observed.Format() + " " + (childExit?.Format()
+                    ?? "childPhase=absent; childType=absent; childHresult=absent; childWin32=absent; childExitCode=absent; parentTerminationRequested=absent."));
+            }
             if (executingAt is { } measuredAt)
                 ReadPerformance.Publish(new(PerformanceMethod(request), request.Kind.ToString(), queueMilliseconds,
                     ReadPerformance.Milliseconds(clock.GetElapsedTime(measuredAt)), outcome) { StartupMs = startupMs });
@@ -168,6 +173,7 @@ internal sealed class NativeReadClient : IDisposable
         if (closed) { return; }
         // Keep both the secret and the physical slot until exit was observed, even when the reply pipe failed.
         process?.Stop();
+        if (process?.ExitObservation is { } observedExit) { childExit = observedExit; }
         try { pipe?.Dispose(); }
         finally
         {
