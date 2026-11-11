@@ -61,7 +61,7 @@ public static class TransportPolicy
         ArgumentNullException.ThrowIfNull(settings);
         var basis = Build(new TransportSettings(settings.UseCim, settings.Options.UseWinRm, settings.UsePsExecFallback,
             settings.UseTaskFallback, "Réglages de collecte effectifs : configuration et préférences locales"), consentActive, consentTarget, consentUntil);
-        var selected = settings.SelectedCimTransport;
+        var selected = settings.ReadCimTransport;
         var direct = settings.UseCim;
         var transient = settings.AllowsTransient;
         var mode = settings.TransientMode == "automatic"
@@ -78,8 +78,9 @@ public static class TransportPolicy
             "cimDcom" => row with { State = direct && selected == InventoryTransport.Dcom ? "Sélectionné" : "Non sélectionné",
                 StateTone = direct && selected == InventoryTransport.Dcom ? Tone.Ok : Tone.Off,
                 Rule = "Lectures directes sans changement du poste. Les essais explicites de compte utilisent DCOM et sont bloqués en mode WinRM exclusif." },
-            "cimWsman" => row with { Usage = "Lectures directes CIM", State = direct && selected == InventoryTransport.WinRm ? "Sélectionné" : "Non sélectionné",
-                StateTone = direct && selected == InventoryTransport.WinRm ? Tone.Ok : Tone.Off },
+            "cimWsman" => row with { Usage = "Lectures directes CIM", State = direct && selected == InventoryTransport.WinRm ? "Sélectionné"
+                    : direct && settings.ReadsFallBackToWinRm ? "Repli de l’inventaire si DCOM est injoignable" : "Non sélectionné",
+                StateTone = direct && selected == InventoryTransport.WinRm ? Tone.Ok : direct && settings.ReadsFallBackToWinRm ? Tone.Info : Tone.Off },
             "adminShare" => row with { Usage = "Dépôt temporaire pour collecte ponctuelle ou intervention",
                 State = transient ? mode : consentActive ? "Intervention consentie uniquement" : "Inactif sans autorisation explicite",
                 StateTone = transient || consentActive ? Tone.Info : Tone.Off,

@@ -64,8 +64,9 @@ internal sealed class NativeReadClient : IDisposable
             site?.RequireContinuation();
             if (pipe is null && !borrowedAdmission) { queueMilliseconds += ReadPerformance.Milliseconds(clock.GetElapsedTime(queuedAt)); }
             executingAt = clock.GetTimestamp();
-            // Waiting for local capacity is not a native query. Start its deadline only after admission.
-            using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(request.BudgetMs), clock);
+            // Waiting for local capacity is not a native query. Start its deadline only after admission. The child's own
+            // query delay answers « Interrompu » for one source; only a child silent past that margin is stopped.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(request.BudgetMs) + CimBudgets.GiveUpMargin, clock);
             requestDeadline = timeout.Token;
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token, timeout.Token);
             if (pipe is null)

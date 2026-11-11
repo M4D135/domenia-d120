@@ -95,6 +95,7 @@ public sealed partial class WmiWorkstationReader
     private readonly TimeProvider clock;
     public Action? ProjectionReused { get; init; }
     private readonly InventoryTransport transport;
+    private readonly bool winRmFallback;
     private readonly bool readsEnabled;
     private readonly bool registryEnabled;
     private readonly ITechnicalJournal? journal;
@@ -107,7 +108,8 @@ public sealed partial class WmiWorkstationReader
     {
         ArgumentNullException.ThrowIfNull(clock);
         this.clock = clock;
-        transport = configuration?.SelectedCimTransport ?? (useWinRm ? InventoryTransport.WinRm : InventoryTransport.Dcom);
+        transport = configuration?.ReadCimTransport ?? (useWinRm ? InventoryTransport.WinRm : InventoryTransport.Dcom);
+        winRmFallback = configuration is { ReadsFallBackToWinRm: true } && transport == InventoryTransport.Dcom;
         readsEnabled = configuration?.UseCim ?? true;
         registryEnabled = configuration?.UseRemoteRegistry ?? true;
         this.journal = journal;
@@ -277,27 +279,56 @@ public sealed partial class WmiWorkstationReader
             ? new NativeReadProgress(clock, Budget(reading), inventory: true, cancellationToken) : null;
         observeProgress?.Invoke(advancing);
         var token = advancing?.Token ?? cancellationToken;
-        using var session = Session(host, Budget(reading), token, credential);
-        session.ForceCapabilities = reading == WorkstationReading.Full;
-        if (advancing is not null) { session.QueryCompleted = advancing.Completed; }
-        var access = new List<SourceAccess>();
-        var snapshot = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, session.Transport);
-        var plan = Steps(reading);
-        for (var index = 0; index < plan.Count; index++)
+        var session = Open(Budget(reading), null);
+        try
         {
-            if (reading == WorkstationReading.Diagnostic && index > 0 && snapshot.HostIdentity?.State != NativeIdentityState.Confirmed)
-            { return snapshot.WithStatus(Categories(reading).Skip(1), SourceStatus.Unavailable, "Identité Windows non confirmée ; sources restantes non contactées."); }
+            var access = new List<SourceAccess>();
+            var snapshot = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, session.Transport);
+            var plan = Steps(reading);
+            var fellBack = false;
+            for (var index = 0; index < plan.Count; index++)
+            {
+                if (reading == WorkstationReading.Diagnostic && index > 0 && snapshot.HostIdentity?.State != NativeIdentityState.Confirmed)
+                { return snapshot.WithStatus(Categories(reading).Skip(1), SourceStatus.Unavailable, "Identité Windows non confirmée ; sources restantes non contactées."); }
+                if (token.IsCancellationRequested || session.OutOfBudget) { return Interrupted(snapshot, reading, NativeReadProgress.Stopped(advancing, "Lecture arrêtée ou budget atteint.")); }
+                progress?.Report(new PosteProgress(index, plan.Count, plan[index].Label));
+                try { snapshot = plan[index].Run(session, snapshot, access, token); }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { return Interrupted(snapshot with { CimQueriesIssued = session.QueriesIssued }, reading, NativeReadProgress.Stopped(advancing, "Lecture arrêtée.")); }
+                if (index == 0 && !fellBack && FallsBackToWinRm(session, access))
+                {
+                    // Domenia 1 order: DCOM first, then WinRM once when the DCOM bind found no RPC endpoint. Nothing was
+                    // read and nothing was refused, so this is not a replay; an authentication refusal never falls back.
+                    fellBack = true;
+                    journal?.Info("Lecture de " + host + " : DCOM injoignable, repli unique sur WinRM (mode Automatique).");
+                    session.Dispose();
+                    session = Open(Budget(reading) - clock.GetElapsedTime(started), InventoryTransport.WinRm);
+                    access.Clear();
+                    snapshot = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, session.Transport);
+                    index = -1;
+                    continue;
+                }
+                snapshot = snapshot with { DurationMs = (int)clock.GetElapsedTime(started).TotalMilliseconds, Access = [.. access], CimQueriesIssued = session.QueriesIssued };
+                publish(snapshot);
+            }
             if (token.IsCancellationRequested || session.OutOfBudget) { return Interrupted(snapshot, reading, NativeReadProgress.Stopped(advancing, "Lecture arrêtée ou budget atteint.")); }
-            progress?.Report(new PosteProgress(index, plan.Count, plan[index].Label));
-            try { snapshot = plan[index].Run(session, snapshot, access, token); }
-            catch (OperationCanceledException) when (token.IsCancellationRequested) { return Interrupted(snapshot with { CimQueriesIssued = session.QueriesIssued }, reading, NativeReadProgress.Stopped(advancing, "Lecture arrêtée.")); }
-            snapshot = snapshot with { DurationMs = (int)clock.GetElapsedTime(started).TotalMilliseconds, Access = [.. access], CimQueriesIssued = session.QueriesIssued };
-            publish(snapshot);
+            progress?.Report(new PosteProgress(plan.Count, plan.Count, "Lecture terminée"));
+            return snapshot;
         }
-        if (token.IsCancellationRequested || session.OutOfBudget) { return Interrupted(snapshot, reading, NativeReadProgress.Stopped(advancing, "Lecture arrêtée ou budget atteint.")); }
-        progress?.Report(new PosteProgress(plan.Count, plan.Count, "Lecture terminée"));
-        return snapshot;
+        finally { session.Dispose(); }
+
+        CimSession Open(TimeSpan budget, InventoryTransport? required)
+        {
+            var opened = Session(host, budget, token, credential, required);
+            opened.ForceCapabilities = reading == WorkstationReading.Full;
+            if (advancing is not null) { opened.QueryCompleted = advancing.Completed; }
+            return opened;
+        }
     }
+
+    /// <summary>Automatic mode only: every line of the first source says the DCOM endpoint did not answer.</summary>
+    private bool FallsBackToWinRm(CimSession session, List<SourceAccess> access) => winRmFallback
+        && session.Transport == InventoryTransport.Dcom && !session.AuthenticationRejected
+        && access.Count > 0 && access.TrueForAll(line => line.Status == SourceStatus.Unreachable && !line.AuthenticationRejected);
 
     /// <summary>The sources of one scope, in reading order (Domenia 1 worker order, quick first and deep last).</summary>
     private static List<Step> Steps(WorkstationReading reading) => reading switch

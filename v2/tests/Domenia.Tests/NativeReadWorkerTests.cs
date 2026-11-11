@@ -178,6 +178,8 @@ internal static class NativeReadWorkerTests
         Check.True(await Task.Run(() => ready.WaitOne(TimeSpan.FromSeconds(10))), "requête reçue avant expiration");
         using var child = Process.GetProcessById(client.ProcessId!.Value);
         clock.Advance(TimeSpan.FromMilliseconds(request.BudgetMs));
+        Check.False(reading.IsCompleted, "le délai propre de l’enfant garde sa marge avant l’arrêt");
+        clock.Advance(CimBudgets.GiveUpMargin);
         await Check.ThrowsAsync<TimeoutException>(() => reading, "délai déterministe");
         Check.True(child.HasExited, "délai n’est pas une simple fin d’attente du Task");
         Check.Equal(0, adaptive.Snapshot(Hello.Host).Active, "pas de place rendue avant la sortie OS");
@@ -185,7 +187,7 @@ internal static class NativeReadWorkerTests
         await Check.ThrowsAsync<ObjectDisposedException>(() => client.ReadAsync(request), "aucun rejeu après délai");
         var warning = journal.Warnings.Single();
         Check.Equal(before, journal.RunningAtWarning.Single(), "trace après restitution physique");
-        Check.True(warning.Contains("kind=Registry;", StringComparison.Ordinal) && warning.Contains("budgetMs=3000; elapsedMs=3000; executionMs=3000;", StringComparison.Ordinal), "budget et durées exacts avant nettoyage");
+        Check.True(warning.Contains("kind=Registry;", StringComparison.Ordinal) && warning.Contains("budgetMs=3000; elapsedMs=5000; executionMs=5000;", StringComparison.Ordinal), "budget et durées exacts avant nettoyage");
         Check.True(warning.Contains("callerCancellation=False; requestDeadline=True", StringComparison.Ordinal), "expiration propre sans annulation appelante");
         Check.True(warning.Contains("exception=System.OperationCanceledException;", StringComparison.Ordinal)
             || warning.Contains("exception=System.Threading.Tasks.TaskCanceledException;", StringComparison.Ordinal), "exception observée avant conversion en TimeoutException");

@@ -41,7 +41,7 @@ public sealed class WmiFleetProbeReader(TimeProvider clock)
             using var advancing = new NativeReadProgress(clock, budget, inventory: false, stop.Token);
             Volatile.Write(ref progressState, advancing);
             using var session = SessionFactory?.Invoke(host, budget, advancing.Token) ?? new CimSession(host, budget, clock, cancellationToken: advancing.Token, credential: owned,
-                transport: configuration?.SelectedCimTransport ?? InventoryTransport.Dcom);
+                transport: configuration?.ReadCimTransport ?? InventoryTransport.Dcom);
             session.QueryCompleted = advancing.Completed;
             CimReading? identity = null;
             var personal = definitions.Any(d => d.Origin == "Personnalisée");

@@ -119,7 +119,7 @@ public sealed partial class WmiWorkstationReader
 
     private static InventorySnapshot ReadDrivers(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
     {
-        var read = session.Read(InventoryCategories.Drivers, Cimv2, "SELECT DeviceName, DriverProviderName, DriverVersion FROM Win32_PnPSignedDriver WHERE IsSigned=False", 200);
+        var read = session.Read(InventoryCategories.Drivers, Cimv2, "SELECT DeviceName, DriverProviderName, DriverVersion FROM Win32_PnPSignedDriver WHERE IsSigned=False", 200, CimBudgets.Drivers);
         AddAccess(access, session, InventoryCategories.Drivers, read); token.ThrowIfCancellationRequested();
         return current with { UnsignedDrivers = [.. read.Instances.Select(r => new DriverInfo(r.Text("DeviceName") ?? "Pilote non identifié", r.Text("DriverProviderName"), r.Text("DriverVersion")))] };
     }

@@ -37,7 +37,7 @@ public sealed partial class AdPosteReader
         if (rejected || inventory?.Access.Any(a => a.Status == SourceStatus.Refused) == true) { access.Refused(host, "poste.diagnostic", rejected); }
         var confirmed = inventory is not null && WorkstationIdentity.Matches(local.Computer, inventory.ReportedName, inventory.HostIdentity);
         var foreign = inventory?.ReportedName is not null && !confirmed;
-        var transport = PosteLabels.TransportLabel(inventory?.Transport ?? access.Settings.SelectedCimTransport);
+        var transport = PosteLabels.TransportLabel(inventory?.Transport ?? access.Settings.ReadCimTransport);
         var system = inventory?.Access.FirstOrDefault(a => a.Category == InventoryCategories.System);
         Add(new("Session CIM", rejected ? "REFUSE" : foreign ? "ERREUR" : confirmed ? "OK" : busy ? "INCONNU" : Code(system?.Status), transport, system?.DurationMs ?? 0,
             foreign ? "Le nom Windows ne correspond pas au compte AD ; autres accès authentifiés suspendus." : confirmed ? "Nom Windows relu et conforme au compte ordinateur ; les autres sources sont qualifiées séparément." : busy ? "Des lectures natives précédentes se terminent encore ; aucun nouvel essai envoyé." : system?.Detail ?? "Non tenté : arrêt avant la lecture CIM."));

@@ -148,7 +148,7 @@ public sealed class AdQueryWorkshopReader(AdDirectorySource source) : IQueryWork
                     .Select(p => new CimProjection(p.Namespace, probeSelects[p.Id].CanonicalQuery, p.Mode == "First" ? 1 : 500))
                     .Concat(selection.Inventory ? WmiWorkstationReader.SurveyProjections : [])
                     .Concat(selection.DetailReads.Select(d => new CimProjection(d.Namespace, d.CanonicalQuery, d.Limit)));
-                using var sharedProjections = access is null ? null : new CimProjectionScope(access.Computer.DnsHostName!, access.Machine.Settings.SelectedCimTransport,
+                using var sharedProjections = access is null ? null : new CimProjectionScope(access.Computer.DnsHostName!, access.Machine.Settings.ReadCimTransport,
                     access.Machine.Credential, projections, access.EnsureCurrent,
                     () => { if (source.AccountContext is { } metrics) { OperationActivity.From(metrics).RecordGroupedCimReuse(); } });
                 if (selection.Presence)

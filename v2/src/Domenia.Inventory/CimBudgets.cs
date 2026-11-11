@@ -84,6 +84,9 @@ public static class CimBudgets
     /// <summary>Delay of one query when the caller does not name one.</summary>
     public static readonly TimeSpan Query = TimeSpan.FromSeconds(10);
 
+    /// <summary>Win32_PnPSignedDriver asks every driver in turn: the bench needed more than the default 10 s on 11/11/2026.</summary>
+    public static readonly TimeSpan Drivers = TimeSpan.FromSeconds(20);
+
     /// <summary>Extra time granted to a WMI call to end by its own delay before the read is given up.</summary>
     public static readonly TimeSpan GiveUpMargin = TimeSpan.FromSeconds(2);
 

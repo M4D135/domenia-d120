@@ -27,6 +27,26 @@ internal static class RemoteCollectionSettingsTests
     }
 
     [Test]
+    public static void Automatic_reads_start_with_DCOM_while_remote_writes_keep_their_transport()
+    {
+        // Bench of 11/11/2026: Automatic read 0 of 27 sources through WinRM from a workstation whose DCOM answered.
+        var automatic = PosteConfiguration.Parse("{}"u8);
+        Check.Equal("auto", automatic.DirectMode, "mode par défaut");
+        Check.Equal(InventoryTransport.Dcom, automatic.ReadCimTransport, "lectures : DCOM d’abord, comme Domenia 1");
+        Check.True(automatic.ReadsFallBackToWinRm, "WinRM autorisé : repli de l’inventaire seulement");
+        Check.Equal(InventoryTransport.WinRm, automatic.SelectedCimTransport, "écritures distantes inchangées");
+        var exclusive = automatic with { DirectMode = "winrm" };
+        Check.Equal(InventoryTransport.WinRm, exclusive.ReadCimTransport, "WinRM exclusif choisi");
+        Check.False(exclusive.ReadsFallBackToWinRm || (automatic with { DirectMode = "dcom" }).ReadsFallBackToWinRm, "aucun repli hors Automatique");
+        var noWinRm = PosteConfiguration.Parse(Encoding.UTF8.GetBytes("{\"Remote\":{\"UseWinRM\":false}}"));
+        Check.Equal(InventoryTransport.Dcom, noWinRm.ReadCimTransport, "WinRM désactivé : DCOM");
+        Check.False(noWinRm.ReadsFallBackToWinRm, "WinRM désactivé : aucun repli");
+        var rows = TransportPolicy.Build(automatic, false, null).Rows.ToDictionary(r => r.Id);
+        Check.Equal("Sélectionné", rows["cimDcom"].State, "Automatique affiche DCOM sélectionné");
+        Check.Equal("Repli de l’inventaire si DCOM est injoignable", rows["cimWsman"].State, "repli WinRM annoncé tel quel");
+    }
+
+    [Test]
     public static async Task Accounts_transport_table_uses_the_saved_selection_and_distinguishes_transient_launchers()
     {
         var bridge = new SimulatedBridge(); using var context = bridge.Context;

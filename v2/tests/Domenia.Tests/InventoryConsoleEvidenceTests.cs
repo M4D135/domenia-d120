@@ -25,6 +25,50 @@ internal static class InventoryConsoleEvidenceTests
     }
 
     [Test]
+    public static async Task Automatic_inventory_falls_back_to_WinRM_once_only_when_the_DCOM_endpoint_is_unreachable()
+    {
+        var automatic = PosteConfiguration.Parse("{}"u8);
+        var unreachable = new System.Runtime.InteropServices.COMException("Serveur RPC indisponible simulé", unchecked((int)0x800706BA));
+        var computer = Row(("Name", "PC1"), ("DNSHostName", "PC1"), ("Domain", "test.local"));
+        async Task<(InventorySnapshot Value, List<InventoryTransport> Opened)> Run(PosteConfiguration settings, Exception dcom, bool winRmAnswers = true)
+        {
+            var clock = TestClock.Fixed(); var opened = new List<InventoryTransport>();
+            var reader = new WmiWorkstationReader(clock, configuration: settings)
+            {
+                SessionFactory = (host, budget, token) =>
+                {
+                    var transport = opened.Count == 0 ? InventoryTransport.Dcom : InventoryTransport.WinRm; opened.Add(transport);
+                    return new(host, budget, clock, cancellationToken: token, transport: transport)
+                    {
+                        RegistryOverride = (_, _) => new(2, null),
+                        ReadOverride = (_, query, _) => transport == InventoryTransport.Dcom || !winRmAnswers ? throw dcom
+                            : query.Contains("Win32_ComputerSystem", StringComparison.Ordinal) ? [computer] : [],
+                    };
+                },
+            };
+            return (await reader.ReadAsync("PC1.test.local", WorkstationReading.Survey, null, CancellationToken.None), opened);
+        }
+
+        var (fallback, opened) = await Run(automatic, unreachable);
+        Check.Equal(2, opened.Count, "DCOM injoignable : une seule session WinRM ouverte ensuite");
+        Check.Equal(InventoryTransport.WinRm, fallback.Transport, "transport réel annoncé");
+        Check.Equal("PC1", fallback.ReportedName!, "identité reçue par WinRM");
+        Check.True(fallback.Access.All(a => a.Transport == InventoryTransport.WinRm), "aucune ligne DCOM mêlée au résultat WinRM");
+
+        var (twice, openedTwice) = await Run(automatic, unreachable, winRmAnswers: false);
+        Check.Equal(2, openedTwice.Count, "repli unique, jamais de boucle");
+        Check.Equal(SourceStatus.Unreachable, twice.StatusOf(InventoryCategories.System), "WinRM injoignable dit tel quel");
+
+        var (refused, openedRefused) = await Run(automatic, new UnauthorizedAccessException("Refus simulé"));
+        Check.Equal(1, openedRefused.Count, "un refus DCOM ne bascule jamais sur WinRM");
+        Check.Equal(SourceStatus.Refused, refused.StatusOf(InventoryCategories.System), "refus conservé");
+
+        var (exclusive, openedExclusive) = await Run(automatic with { DirectMode = "dcom" }, unreachable);
+        Check.Equal(1, openedExclusive.Count, "DCOM choisi : aucun repli");
+        Check.Equal(SourceStatus.Unreachable, exclusive.StatusOf(InventoryCategories.System), "injoignable conservé");
+    }
+
+    [Test]
     public static async Task Inventory_console_requires_a_well_typed_field_even_when_the_system_category_answered()
     {
         var rows = new[] { Row(("Name", "PC1"), ("DNSHostName", "PC1"), ("Domain", "test.local")), Row(("Name", "PC1"), ("DNSHostName", "PC1"), ("Domain", "test.local"), ("UserName", 42)), Row(("Name", "PC1"), ("DNSHostName", "PC1"), ("Domain", "test.local"), ("UserName", "")),

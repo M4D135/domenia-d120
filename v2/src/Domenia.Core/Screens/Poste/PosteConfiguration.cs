@@ -25,8 +25,14 @@ public sealed record PosteConfiguration(ConfigurationFileState State, string? Pr
     public int CommandTimeoutSeconds { get; init; } = 10;
     public int AutomaticTargetLimit { get; init; } = 20;
     public bool AllowsTransient => AllowRemoteArtifacts && (UseTaskFallback || UsePsExecFallback || UseWmiProcess || UseWinRmScript);
+    /// <summary>Transport of the remote writes (Domenia 1 sends them through WinRM when it is allowed).</summary>
     public InventoryTransport SelectedCimTransport => DirectMode == "dcom" ? InventoryTransport.Dcom
         : Options.UseWinRm ? InventoryTransport.WinRm : InventoryTransport.Dcom;
+    /// <summary>Transport of the direct CIM reads: DCOM first, as Domenia 1 opens them; WinRM only when chosen exclusively
+    /// (bench of 11/11/2026: Automatic read nothing from a workstation without a WinRM listener).</summary>
+    public InventoryTransport ReadCimTransport => DirectMode == "winrm" ? InventoryTransport.WinRm : InventoryTransport.Dcom;
+    /// <summary>Automatic mode: an inventory whose DCOM bind is unreachable is read once through WinRM, as Domenia 1 does.</summary>
+    public bool ReadsFallBackToWinRm => DirectMode == "auto" && Options.UseWinRm;
 
     public static PosteConfiguration Defaults { get; } = new(ConfigurationFileState.Absent, null,
         new(true, false, "Réveil désactivé (Features.WakeOnLan).", [], 300, PosteRemote.RestartMinutes, null,

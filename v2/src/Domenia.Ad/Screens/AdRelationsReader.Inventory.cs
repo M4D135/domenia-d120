@@ -49,7 +49,7 @@ public sealed partial class AdRelationsReader
             {
                 var key = new InventoryReadKey(expected.ObjectGuid, expected.DistinguishedName.ToUpperInvariant(), expected.WhenCreated,
                     host.ToUpperInvariant(), scope, access.SharingGeneration, access.Settings.UseCim, access.Settings.UseRemoteRegistry, access.Settings.Options.UseWinRm)
-                    { SelectedTransport = access.Settings.SelectedCimTransport };
+                    { SelectedTransport = access.Settings.ReadCimTransport };
                 var shared = await SharedInventoryReads.For(source).ReadAsync(key,
                     async (updates, cancellation) =>
                     {

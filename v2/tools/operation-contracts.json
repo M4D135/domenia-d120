@@ -4,47 +4,47 @@
   "operations": [
     {
       "name": "DnsReverseLookup",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "LegacyMigration",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "LocalIndexRead",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "LocalStore",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "ParkSharedSync",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "StorageBackup",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "StorageIntegrity",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "StorageMaintenance",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "StoragePurge",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "StorageRetention",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     },
     {
       "name": "StorageUsage",
-      "implementationSha256": "6f3176065f5edb98b95cae3e7c624e6daa8427cf4a87d20a963371f20a0cc5bf"
+      "implementationSha256": "570380869db70f1c1a30950084aaa92e4a53a08f407212680353d5402ff73af3"
     }
   ],
   "files": [
@@ -382,7 +382,7 @@
     },
     {
       "path": "src/Domenia.Ad/Screens/AdPosteReader.FullDiagnostic.cs",
-      "sha256": "9164128776bbabe15ef46d5f95c42c7853e36dd6e510b175506b6a525955a4df"
+      "sha256": "e20112cdbc95834ecdd921c4ed4b67f9feef85ce988d107cab04c9942dc6f72a"
     },
     {
       "path": "src/Domenia.Ad/Screens/AdPosteReader.Laps.cs",
@@ -462,7 +462,7 @@
     },
     {
       "path": "src/Domenia.Ad/Screens/AdQueryWorkshopReader.cs",
-      "sha256": "6cf0812e0802b8f669ac7ff45ce756beab019cb48e3ee45d32310f4f6d37ce7a"
+      "sha256": "ba20e294fdebe0ac309a8170da3b11be2b22f216bb54eb548fcab7860b3f920b"
     },
     {
       "path": "src/Domenia.Ad/Screens/AdRelationAbsence.cs",
@@ -510,7 +510,7 @@
     },
     {
       "path": "src/Domenia.Ad/Screens/AdRelationsReader.Inventory.cs",
-      "sha256": "9d22db293059864bc25818085dd1609d472e67b0f5735b17eb49fd361303583a"
+      "sha256": "b2da8e2a04f58e59dc9c0ed33f3412dcf8eb861dae78248fbca916bdf81964d5"
     },
     {
       "path": "src/Domenia.Ad/Screens/AdRelationsReader.Orphans.cs",
@@ -1802,7 +1802,7 @@
     },
     {
       "path": "src/Domenia.Core/Screens/Accounts/Access/TransportPolicy.cs",
-      "sha256": "bb2fa814e9ae5661b2c4ee3351f818aaf4a53423e911204b55020e1e141a95cc"
+      "sha256": "4504a3ae8897cb60ce71a3ab15a11110f38b7c480f969c40f201f5c0cc1002dd"
     },
     {
       "path": "src/Domenia.Core/Screens/Accounts/Access/WindowsAuthenticationErrors.cs",
@@ -2326,7 +2326,7 @@
     },
     {
       "path": "src/Domenia.Core/Screens/Poste/PosteConfiguration.cs",
-      "sha256": "989e88ceb2f050fc22ef2536a39b660c580464ee4c1da73887c5f9f1199d1e41"
+      "sha256": "832fd04944e72659ce0594598849022288bbd6f6796c8a1654c97abd7869e082"
     },
     {
       "path": "src/Domenia.Core/Screens/Poste/PosteDetailCache.cs",
@@ -3222,7 +3222,7 @@
     },
     {
       "path": "src/Domenia.Inventory/CimBudgets.cs",
-      "sha256": "ca7d0b8514c7e690aeb9eedf4dd968b6d1254fd704e79d68b93ad1c676ac3165"
+      "sha256": "03396ce2bd88f1b51669a18355d4c24d1f6f5b3e30905a88bf19d4e89a00a213"
     },
     {
       "path": "src/Domenia.Inventory/CimProjectionScope.cs",
@@ -3294,7 +3294,7 @@
     },
     {
       "path": "src/Domenia.Inventory/NativeReadClient.cs",
-      "sha256": "9a6e9bbae69925ac803c0fede5813845238f31d19c2269efc50ccbe9100e0e24"
+      "sha256": "9c24d4a6d8366b82cf52c6e65b0b768a5147da24423b26ed237f28901080ea82"
     },
     {
       "path": "src/Domenia.Inventory/NativeReadCompletion.cs",
@@ -3446,7 +3446,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiFleetProbeReader.cs",
-      "sha256": "c6d4d984c8e1ba335b8ba1038a7796cc4df014bb91ff1d433cbe2a7fdbc71d9d"
+      "sha256": "6c209902636e56eb4ba9cb1ed52179e0722386b954cddb8e951563d548959f43"
     },
     {
       "path": "src/Domenia.Inventory/WmiInstance.cs",
@@ -3454,7 +3454,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiLogonSessionsReader.cs",
-      "sha256": "0025a4e76bbb65323f3044ab8d9fb58a2fdd5a83cf26d8086d988491eb9311ba"
+      "sha256": "0ec9b6c1197cf091d2c310beb1dd17d473f85d27b821c3867984adcf7fd26b27"
     },
     {
       "path": "src/Domenia.Inventory/WmiMachineAccessProbe.LocalAdministration.cs",
@@ -3470,7 +3470,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationProbe.cs",
-      "sha256": "471bef707f491299031db59872ee09e6884b40a64a23ef8809afb3205fa0486e"
+      "sha256": "df5a3a58aced6682835d50700e697afd9226c05c78188aad0db3e5c23d2da0c0"
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationReader.Diagnostics.cs",
@@ -3486,7 +3486,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationReader.Extras.cs",
-      "sha256": "2a176ef4d8ae89702f2df5d43ada39c8af1165f33296c9e112efc24e84293b94"
+      "sha256": "8b1ff1aa62233033daa173a2f96ed0e817ed9e5e189802e3d27dfe9918c65f27"
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationReader.LastUser.cs",
@@ -3514,7 +3514,7 @@
     },
     {
       "path": "src/Domenia.Inventory/WmiWorkstationReader.cs",
-      "sha256": "351b946bb20ce8cd0f03f5fd39d377df0c912ec136174a56f62e034e7d1bfea9"
+      "sha256": "eab6fd29896f7d88876ac2cf3f40dfe913d60a33d7c8e7fd8a89cdd5f70e44cf"
     },
     {
       "path": "src/Domenia.Inventory/WorkstationPresenceReader.cs",
@@ -4309,5 +4309,5 @@
       "sha256": "007401e48cfc7f324a4fdf9b55afad48e601f8672913a25401e003be7eac4fd3"
     }
   ],
-  "fingerprint": "947dc51870f2563ae4666124b498df8d0e2c0d229bf89255661cffd8ed274311"
+  "fingerprint": "a1dd350cb0c019a63a303a8369f57d9f153c19740ede49237761abb355f0b089"
 }
