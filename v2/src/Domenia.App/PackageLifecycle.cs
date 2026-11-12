@@ -28,6 +28,9 @@ internal sealed record PackageLifecyclePlan(string Action, string Target, string
 internal sealed record PackageLifecycleResult(string Action, string Target, string Transaction, string? ActiveIdentity, IReadOnlyList<string> Preserved)
 {
     public bool HealthConfirmed { get; init; }
+    /// <summary>Set only by an automatic rollback: why the new code was not confirmed.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Failure { get; init; }
 }
 
 /// <summary>Portable, local code delivery. The caller runs from another verified package. No database, credential,

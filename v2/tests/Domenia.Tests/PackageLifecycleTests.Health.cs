@@ -52,6 +52,22 @@ internal static partial class PackageLifecycleTests
         Check.Equal("operator configuration exact", File.ReadAllText(configuration), "réglages conservés octet pour octet");
         Check.Equal(dataHash, Hash(externalData), "base réelle non ouverte ni restaurée");
         Check.True(File.Exists(Path.Combine(fixture.Storage, result.Transaction, "health", "outcome-1.json")), "bilan de retour conservé");
+        // Recette des binaires 2.1.7 : un retour automatique ne disait pas pourquoi le nouveau code n’était pas confirmé.
+        Check.True(result.Failure?.Contains("Accusé de santé absent, périmé ou incompatible", StringComparison.Ordinal) == true, "cause du retour rendue");
+        using var outcome = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(fixture.Storage, result.Transaction, "health", "outcome-1.json")));
+        Check.Equal(result.Failure, outcome.RootElement.GetProperty("reason").GetString(), "cause conservée dans le bilan de retour");
+    }
+
+    [Test]
+    public static void Health_failure_reason_is_bounded_single_line_and_keeps_the_inner_cause()
+    {
+        var reason = PackageHealthReceipt.Describe(new PackageHealthException("Contrôle de santé non confirmé ; enfant terminé.", true,
+            new IOException("Document de contrôle non chargé\r\n(OperationCanceled)." + new string('x', 2000))));
+        Check.True(reason.StartsWith("PackageHealthException : Contrôle de santé non confirmé", StringComparison.Ordinal)
+            && reason.Contains("IOException : Document de contrôle non chargé", StringComparison.Ordinal), "cause intérieure gardée");
+        Check.False(reason.Any(char.IsControl), "une seule ligne");
+        Check.True(reason.Length <= 601, "longueur bornée");
+        Check.Equal(null, PackageHealthReceipt.Bound("  "), "aucune cause vide");
     }
 
     [Test]

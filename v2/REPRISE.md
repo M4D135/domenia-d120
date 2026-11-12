@@ -24,6 +24,15 @@ Le premier passage (run 43219420270) a relevé trois défauts dans les binaires 
 - une restauration vers 2.1.5 avec une configuration écrite sur place produisait une installation que 2.1.5 refuse au
   démarrage (« Composant hors manifeste »).
 
+Le passage suivant (run 43225208232, candidat `f33f651`) a atteint les commandes `livraison`, mais la mise à jour
+revenait aux anciens binaires, code 3, sans cause. La sonde de santé (`PackageUpdateHealthProbe`) appelle
+`NavigateToString`, dont la navigation porte une adresse `data:text/html…` ; son filtre annulait tout ce qui n’était pas
+`about:blank`. Le document de contrôle ne se chargeait donc jamais, et toute mise à jour échouait de la même façon,
+depuis Paramètres comme par la ligne de commande. Aucun banc n’avait observé ce contrôle réussir : les tests C# le
+remplacent par un faux contrôle. Le filtre admet désormais cette seule navigation. L’enfant de santé transmet sa cause
+d’échec au parent, sans valeur d’autorisation. Le retour automatique la rend dans `Failure`, dans `reason` du bilan
+`outcome-N.json` et dans la fenêtre de mise à jour.
+
 Correctifs 2.1.7 : erreurs de lecture et de format traitées par la commande de contrôle ; route `livraison` réservée
 avant la grammaire d’automatisation ; aperçu et exécution d’une restauration vers une version antérieure à 2.1.6
 refusés, avant toute modification, tant que `wad/Domenia.settings.seed.json` (ou un fichier homonyme à la racine) est

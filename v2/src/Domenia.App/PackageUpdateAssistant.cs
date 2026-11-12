@@ -103,7 +103,10 @@ internal static class PackageUpdateAssistant
             progress("Sauvegarde vérifiée, remplacement du code et contrôle de santé…");
             var result = await Task.Run(() => delivery.Update(target, launch.Confirmation, CancellationToken.None)).ConfigureAwait(false);
             if (!result.HealthConfirmed)
-            { return new(3, "La mise à jour a échoué. Les anciens binaires ont été restaurés et vérifiés ; les données n’ont pas été restaurées.\nTransaction : " + result.Transaction, target, File.Exists(Path.Combine(target, "Domenia.exe"))); }
+            {
+                return new(3, "La mise à jour a échoué. Les anciens binaires ont été restaurés et vérifiés ; les données n’ont pas été restaurées."
+                    + (result.Failure is { } failure ? "\nCause : " + failure : "") + "\nTransaction : " + result.Transaction, target, File.Exists(Path.Combine(target, "Domenia.exe")));
+            }
             return new(0, "Paquet installé et contrôle local du runtime / de l’affichage confirmé. La base et la session réelle seront ouvertes seulement par votre prochain lancement.\nTransaction : " + result.Transaction, target, true);
         });
     }
@@ -114,6 +117,22 @@ internal static class PackageUpdateAssistant
         using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         pipe.ConnectAsync(limit.Token).GetAwaiter().GetResult(); PackageUpdateChannel.VerifyServer(pipe, parentId);
         var request = PackageUpdateChannel.ReadAsync<PackageHealthRequest>(pipe, limit.Token).GetAwaiter().GetResult();
+#pragma warning disable CA1031 // The waiting parent must learn why; the failure is rethrown and this child exits with code 2.
+        try { return RunHealth(request, parentId, pipe, limit.Token); }
+        catch (Exception error)
+        {
+            // A failure receipt never authorizes anything: the parent refuses it, waits for this exit and rolls back.
+            var failure = new PackageHealthReceipt(1, request.Transaction, request.ManifestSha256, "", Environment.ProcessId,
+                ProductInfo.Version, "", false, false) { Failure = PackageHealthReceipt.Describe(error) };
+            try { PackageUpdateChannel.SendAsync(pipe, failure, limit.Token).GetAwaiter().GetResult(); }
+            catch (Exception notSent) { Console.Error.WriteLine("Échec de santé non transmis : " + notSent.GetType().Name + "."); }
+            throw;
+        }
+#pragma warning restore CA1031
+    }
+
+    private static int RunHealth(PackageHealthRequest request, int parentId, NamedPipeClientStream pipe, CancellationToken token)
+    {
         using var parent = Process.GetProcessById(parentId);
         var parentRoot = PackageLifecycleFiles.Root(Path.GetDirectoryName(parent.MainModule?.FileName) ?? "");
         PackageUpdateChannel.VerifyImage(parent, parentRoot);
@@ -126,7 +145,7 @@ internal static class PackageUpdateAssistant
         var probe = PackageUpdateHealthProbe.Run(request, ownPack);
         var receipt = new PackageHealthReceipt(1, request.Transaction, request.ManifestSha256, request.Nonce, Environment.ProcessId,
             ProductInfo.Version, probe.BrowserVersion, probe.DocumentLoaded, probe.ScriptReady);
-        PackageUpdateChannel.SendAsync(pipe, receipt, limit.Token).GetAwaiter().GetResult();
+        PackageUpdateChannel.SendAsync(pipe, receipt, token).GetAwaiter().GetResult();
         return 0;
     }
 
@@ -146,11 +165,13 @@ internal static class PackageUpdateAssistant
             await PackageUpdateChannel.SendAsync(pipe, request, limit.Token).ConfigureAwait(false);
             var receipt = await PackageUpdateChannel.ReadAsync<PackageHealthReceipt>(pipe, limit.Token).ConfigureAwait(false);
             if (receipt.ProcessId != child.Id) { throw new InvalidDataException("Accusé d’un autre processus de santé."); }
+            var reason = PackageHealthReceipt.Bound(receipt.Failure);
             await child.WaitForExitAsync(limit.Token).ConfigureAwait(false);
             var code = child.ExitCode;
             stopped = await job.StopAndConfirmAsync(child).ConfigureAwait(false);
             if (!stopped) { throw new PackageHealthException("Fin des processus de santé non confirmée ; preuves conservées.", false); }
-            if (code != 0) { throw new PackageHealthException("Le contrôle de santé s’est terminé en échec.", true); }
+            if (code != 0 || reason is not null)
+            { throw new PackageHealthException("Le contrôle de santé s’est terminé en échec" + (reason is null ? "." : " : " + reason), true); }
             return receipt;
         }
 #pragma warning disable CA1031 // All failures after child creation must carry the physical-end fact, including unexpected native errors.

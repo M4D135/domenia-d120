@@ -57,19 +57,29 @@ internal static class PackageUpdateHealthProbe
                     core.PermissionRequested += (_, e) => e.State = CoreWebView2PermissionState.Deny;
                     core.NewWindowRequested += (_, e) => e.Handled = true;
                     core.DownloadStarting += (_, e) => e.Cancel = true;
-                    core.NavigationStarting += (_, e) => e.Cancel = e.Uri != "about:blank";
+                    // NavigateToString starts a data: navigation (only Source then reads about:blank). Admit that single
+                    // own document; every other navigation stays cancelled. Until 2.1.6 this check cancelled it too, so the
+                    // real health check never confirmed and each update rolled back.
+                    var ownDocument = false;
+                    core.NavigationStarting += (_, e) =>
+                    {
+                        var own = !ownDocument && e.Uri.StartsWith("data:text/html", StringComparison.Ordinal);
+                        ownDocument |= own;
+                        e.Cancel = !own && e.Uri != "about:blank";
+                    };
                     core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
                     core.WebResourceRequested += (_, e) => e.Response = environment.CreateWebResourceResponse(null, 403, "Contrôle local uniquement", "Content-Type: text/plain");
-                    var loaded = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    core.NavigationCompleted += (_, e) => loaded.TrySetResult(e.IsSuccess);
+                    var loaded = new TaskCompletionSource<CoreWebView2WebErrorStatus?>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    core.NavigationCompleted += (_, e) => loaded.TrySetResult(e.IsSuccess ? null : e.WebErrorStatus);
                     core.NavigateToString("<!doctype html><html lang=\"fr\"><meta charset=\"utf-8\"><title>Domenia</title><body><p id=\"health\">Contrôle local du moteur d’affichage</p></body></html>");
-                    if (!await loaded.Task.WaitAsync(timeout.Token).ConfigureAwait(true)) { throw new IOException("Document de contrôle non chargé."); }
+                    if (await loaded.Task.WaitAsync(timeout.Token).ConfigureAwait(true) is { } status)
+                    { throw new IOException("Document de contrôle non chargé (" + status + ")."); }
                     var script = await core.ExecuteScriptAsync("document.readyState === 'complete' && document.getElementById('health')?.textContent === 'Contrôle local du moteur d’affichage' && (6 * 7) === 42")
                         .WaitAsync(timeout.Token).ConfigureAwait(true);
                     if (!JsonSerializer.Deserialize<bool>(script)) { throw new IOException("Exécution JavaScript non confirmée."); }
                     Result = new(environment.BrowserVersionString, true, true);
                 }
-                catch (Exception error) { Failure = error.GetType().Name; }
+                catch (Exception error) { Failure = PackageHealthReceipt.Describe(error); }
 #pragma warning restore CA1031
                 finally { if (!IsDisposed) Close(); }
             };

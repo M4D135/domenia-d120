@@ -4,6 +4,11 @@ Les contrôles de livraison sont implémentés ; les preuves de chaque version p
 
 ## En préparation pour 2.1.7 (non publié)
 
+Une mise à jour aboutit de nouveau, depuis Paramètres comme par `livraison appliquer`. Le contrôle de santé du nouveau code
+annulait sa propre page de vérification : chaque mise à jour revenait aux anciens binaires (code 3) sans en donner la
+raison. Le contrôle charge désormais cette page et refuse toute autre navigation. Un retour automatique indique sa cause,
+dans le message et dans le bilan de la transaction.
+
 Les commandes de maintenance `Domenia.exe livraison …` (aperçu et application d’une mise à jour, reprise,
 restauration, désinstallation) fonctionnent de nouveau : depuis 2.0.8, la ligne de commande d’automatisation les
 interceptait et répondait « Commande inconnue ». La mise à jour depuis Paramètres n’était pas touchée. Une restauration

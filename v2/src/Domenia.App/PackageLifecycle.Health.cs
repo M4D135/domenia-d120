@@ -7,7 +7,28 @@ namespace Domenia.App;
 internal sealed record PackageHealthRequest(int Format, string Target, string Transaction, string TransactionDirectory,
     string ManifestSha256, string JournalSha256, string Nonce, string Attempt);
 internal sealed record PackageHealthReceipt(int Format, string Transaction, string ManifestSha256, string Nonce,
-    int ProcessId, string Build, string BrowserVersion, bool DocumentLoaded, bool ScriptReady);
+    int ProcessId, string Build, string BrowserVersion, bool DocumentLoaded, bool ScriptReady)
+{
+    private const int FailureLength = 600;
+
+    /// <summary>Why a health child failed: product messages only, never a confirmation. Absent on success.</summary>
+    public string? Failure { get; init; }
+
+    internal static string Describe(Exception error)
+    {
+        var parts = new List<string>();
+        for (var current = error; current is not null && parts.Count < 4; current = current.InnerException)
+        { parts.Add(current.GetType().Name + " : " + current.Message); }
+        return Bound(string.Join(" ← ", parts)) ?? error.GetType().Name;
+    }
+
+    internal static string? Bound(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) { return null; }
+        var clean = new string(text.Select(c => char.IsControl(c) ? ' ' : c).ToArray()).Trim();
+        return clean.Length <= FailureLength ? clean : clean[..FailureLength] + "…";
+    }
+}
 
 /// <summary>A failed private health child may permit rollback only after its real termination was observed.</summary>
 internal sealed class PackageHealthException(string message, bool childExited, Exception? inner = null) : IOException(message, inner)
@@ -106,9 +127,10 @@ internal sealed partial class PackageLifecycle
         var folder = Path.Combine(transaction, "health"); paths.PrivateDirectory(folder); ValidateHealthFolder(paths, folder);
         var number = Enumerable.Range(1, HealthAttempts).FirstOrDefault(n => !PackageLifecycleFiles.Exists(Path.Combine(folder, $"outcome-{n}.json")));
         if (number == 0) { throw new IOException("Preuves de retour déjà présentes ; résultat conservé, bilan à relire."); }
+        var reason = PackageHealthReceipt.Describe(failure);
         PackageLifecycleFiles.WriteNew(Path.Combine(folder, $"outcome-{number}.json"), JsonSerializer.SerializeToUtf8Bytes(new
         { format = 1, transaction = journal.Id, action = "rolledBack", activeIdentity = journal.OldIdentity,
-            failure = failure.GetType().Name, databaseRestored = false, at = clock.GetUtcNow() }, Json));
-        return restored with { Action = "rolledBack", HealthConfirmed = false };
+            failure = failure.GetType().Name, reason, databaseRestored = false, at = clock.GetUtcNow() }, Json));
+        return restored with { Action = "rolledBack", HealthConfirmed = false, Failure = reason };
     }
 }

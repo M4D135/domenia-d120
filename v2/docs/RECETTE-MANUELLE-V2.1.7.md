@@ -9,6 +9,10 @@ Extraire dans un nouveau dossier, vérifier l’empreinte puis lancer Domenia.ex
 
 ## Points à vérifier
 
+- Mise à jour d’une installation 2.1.5 ou 2.1.6 par `livraison appliquer`, puis depuis Paramètres : action `updated`,
+  contrôle de santé confirmé (`HealthConfirmed` vrai), démarrage de la nouvelle version. Jusqu’en 2.1.6, le contrôle de
+  santé annulait sa page de vérification et chaque mise à jour revenait aux anciens binaires (code 3), sans cause.
+  Un retour automatique donne maintenant sa cause (`Failure`, et « Cause : » dans la fenêtre de mise à jour).
 - `Domenia.exe livraison apercu <installation>` depuis un pack extrait à part rend un plan JSON avec sa valeur
   `Confirmation`. De 2.0.8 à 2.1.6, cette commande répondait « Commande inconnue », comme toutes les commandes
   `livraison` de reprise, restauration et désinstallation.
