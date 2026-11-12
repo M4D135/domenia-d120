@@ -2,6 +2,16 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
+## En préparation pour 2.1.7 (non publié)
+
+Les commandes de maintenance `Domenia.exe livraison …` (aperçu et application d’une mise à jour, reprise,
+restauration, désinstallation) fonctionnent de nouveau : depuis 2.0.8, la ligne de commande d’automatisation les
+interceptait et répondait « Commande inconnue ». La mise à jour depuis Paramètres n’était pas touchée. Une restauration
+vers une version antérieure à 2.1.6 est refusée, avant toute modification, tant qu’une configuration par défaut est
+écrite sur place : ces versions refusent tout fichier absent de leur manifeste et ne démarreraient pas. Déplacer
+`wad/Domenia.settings.seed.json` hors du dossier, puis relancer l’aperçu. `Domenia.exe --check-settings-seed` rend le
+code 2 pour un fichier invalide au lieu de s’arrêter sur une erreur.
+
 ## Correctifs publiés en 2.1.6
 
 « Définir comme configuration par défaut » écrit désormais un seul fichier, `wad/Domenia.settings.seed.json`, dans le
@@ -125,6 +135,8 @@ Un échec après remplacement peut restaurer les anciens **binaires** lorsque la
 ## Reprise et retour à la version précédente
 
 Conserver le dossier frère `.<installation>.domenia-lifecycle` et l’identifiant de transaction du bilan. Depuis un paquet vérifié distinct de la cible, les commandes `livraison apercu-reprise <cible> <transaction>` ou `livraison apercu-restauration <cible> <transaction>` produisent un plan. Lire ses changements et sa valeur `Confirmation`, puis utiliser respectivement `livraison reprendre <cible> <transaction> <Confirmation>` ou `livraison restaurer <cible> <transaction> <Confirmation>`. Aucun chemin n’est un ordre d’effacement. Une reprise imposant un contrôle de santé ne peut pas contourner cette exigence. Ne pas supprimer le marqueur pour forcer le démarrage.
+
+Une configuration par défaut écrite sur place (`wad/Domenia.settings.seed.json`) est admise à partir de 2.1.6. Avant de restaurer une version antérieure, déplacer ce fichier hors du dossier de Domenia : depuis 2.1.7, l’aperçu de restauration le rappelle et refuse sans rien modifier.
 
 Un code de sortie 0 confirme l’action annoncée ; 3 signale que la mise à jour a échoué mais que l’ancien code a été restauré ; 2 signifie refus ou interruption. Lire le résultat complet : une restauration des binaires ne restaure pas une base migrée.
 

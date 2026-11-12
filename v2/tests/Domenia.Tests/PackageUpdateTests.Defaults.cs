@@ -71,6 +71,23 @@ internal static partial class PackageUpdateTests
     }
 
     [Test]
+    public static void Check_settings_seed_command_refuses_an_invalid_file_with_code_2_without_an_unhandled_exception()
+    {
+        // Recette des binaires publiés 2.1.6 : une clé interdite faisait planter la commande (0xE0434352) au lieu du code 2.
+        using var folder = new TemporaryFolder();
+        var valid = folder.File("valide.json"); File.WriteAllText(valid, DefaultsSeed());
+        Check.True(PortableConfigurationCommand.TryRun(["--check-settings-seed", valid], out var accepted), "commande reconnue");
+        Check.Equal(0, accepted, "fichier valide accepté");
+        var forbidden = folder.File("interdit.json");
+        File.WriteAllText(forbidden, DefaultsSeed().Replace("settings.zoom", "connection.password", StringComparison.Ordinal));
+        Check.True(PortableConfigurationCommand.TryRun(["--check-settings-seed", forbidden], out var refused), "commande reconnue");
+        Check.Equal(2, refused, "clé interdite : refus code 2");
+        var malformed = folder.File("tronque.json"); File.WriteAllText(malformed, "{");
+        Check.True(PortableConfigurationCommand.TryRun(["--check-settings-seed", malformed], out var broken) && broken == 2, "JSON tronqué : refus code 2");
+        Check.True(PortableConfigurationCommand.TryRun(["--check-settings-seed", folder.File("absent.json")], out var missing) && missing == 2, "fichier absent : refus code 2");
+    }
+
+    [Test]
     public static async Task Define_defaults_in_a_light_wad_pack_lands_in_wad_and_keeps_the_sealed_contract()
     {
         using var source = new TemporaryFolder(); PackageIntegrityTests.LightPack(source);

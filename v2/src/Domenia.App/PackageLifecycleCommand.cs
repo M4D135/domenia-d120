@@ -5,7 +5,7 @@ namespace Domenia.App;
 
 internal static class PackageLifecycleCommand
 {
-    internal static bool IsRequested(string[] args) => args.Length > 0 && args[0] == "livraison";
+    internal static bool IsRequested(string[] args) => args.Length > 0 && args[0] == Domenia.Core.AutomationCommandLine.PackageLifecycleRoute;
 
     internal static int Run(string source, string[] args, TextWriter output, TimeProvider clock, CancellationToken token = default,
         Func<PackageHealthRequest, CancellationToken, PackageHealthReceipt>? healthCheck = null, Func<FileStream, PackageNativeSignature>? signatureVerifier = null)

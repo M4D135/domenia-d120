@@ -45,6 +45,27 @@ internal static partial class PackageLifecycleTests
     }
 
     [Test]
+    public static void Restoring_a_release_before_2_1_6_is_refused_while_a_default_configuration_is_written_in_place()
+    {
+        // Recette des binaires publiés 2.1.6 : la 2.1.5 restaurée refusait de démarrer (« Composant hors manifeste »).
+        // The fixture releases are 2.0.0-dev, below 2.1.6.
+        using var fixture = new Fixture(old: Release('a'), next: Release('b', 2));
+        var delivery = fixture.Delivery(); var plan = delivery.PreviewUpdate(fixture.Target, None);
+        delivery.Update(fixture.Target, plan.Confirmation, None);
+        var seed = Path.Combine(fixture.Target, PackageIntegrity.DefaultsName); File.WriteAllText(seed, "réglée sur place");
+        var refusal = Check.Throws<InvalidDataException>(() => delivery.PreviewRecovery(fixture.Target, fixture.Transaction, true, None), "aperçu refusé");
+        Check.Contains("Déplacez ce fichier", refusal.Message, "consigne précise");
+        Check.Contains(PackageIntegrity.DefaultsName, refusal.Message, "fichier nommé");
+        Check.Throws<InvalidDataException>(() => delivery.Recover(fixture.Target, fixture.Transaction, true, "confirmation", None), "restauration refusée");
+        Check.Equal("new:Domenia.exe", File.ReadAllText(Path.Combine(fixture.Target, "Domenia.exe")), "code actif inchangé");
+        Check.Equal("réglée sur place", File.ReadAllText(seed), "fichier intact, rien déplacé");
+        File.Move(seed, Path.Combine(fixture.Root, "configuration-deplacee.json"));
+        var restore = delivery.PreviewRecovery(fixture.Target, fixture.Transaction, true, None);
+        delivery.Recover(fixture.Target, fixture.Transaction, true, restore.Confirmation, None);
+        Check.Equal("old:Domenia.exe", File.ReadAllText(Path.Combine(fixture.Target, "Domenia.exe")), "restauration possible une fois le fichier déplacé");
+    }
+
+    [Test]
     public static void An_incoming_pack_never_overwrites_a_default_configuration_written_in_place()
     {
         using var fixture = new Fixture();

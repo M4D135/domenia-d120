@@ -96,6 +96,23 @@ internal sealed partial class PackageLifecycle
         { return RollbackAfterFailure(paths, target, transaction, journal, lifecycle, error); }
     }
 
+    private static readonly System.Version DefaultsAdmittedSince = new(2, 1, 6);
+
+    // Before 2.1.6 a pack refuses every file outside its manifest: restoring such a release over a default configuration
+    // written in place would leave an installation that cannot start. Only the explicit restoration is refused, before any
+    // change and without moving anything; the automatic rollback after a failed health check is never blocked.
+    private static void RefuseUnadmittedDefaults(string target, PackageLifecyclePlan plan)
+    {
+        if (plan.SourceRelease is not { } release || !System.Version.TryParse(release.Version.Split('-', '+')[0], out var version)
+            || version >= DefaultsAdmittedSince) { return; }
+        foreach (var relative in new[] { "wad/" + PackageIntegrity.DefaultsName, PackageIntegrity.DefaultsName })
+        {
+            if (plan.Replaced.Contains(relative, StringComparer.OrdinalIgnoreCase) || !PackageLifecycleFiles.Exists(PackageLifecycleFiles.At(target, relative))) { continue; }
+            throw new InvalidDataException($"La version restaurée {release.Version} refuse tout fichier absent de son manifeste, dont la configuration par défaut "
+                + $"écrite sur place ({relative}). Déplacez ce fichier hors du dossier de Domenia, puis relancez l’aperçu de restauration ; rien n’a été modifié.");
+        }
+    }
+
     internal PackageLifecyclePlan PreviewRecovery(string destination, string transactionId, bool restore, CancellationToken token)
     {
         var target = Target(destination); using var paths = new PackageLifecycleFiles(); PreparePaths(paths, target);
@@ -104,7 +121,9 @@ internal sealed partial class PackageLifecycle
         token.ThrowIfCancellationRequested();
         using var lifecycle = PackageLifecycleFiles.Exists(PackageLayout.At(target, LockName))
             ? new FileStream(PackageLayout.At(target, LockName), FileMode.Open, FileAccess.Read, FileShare.Read) : null;
-        return RecoveryPlan(target, transaction, journal, restore);
+        var plan = RecoveryPlan(target, transaction, journal, restore);
+        if (restore) { RefuseUnadmittedDefaults(target, plan); }
+        return plan;
     }
 
     internal PackageLifecycleResult Recover(string destination, string transactionId, bool restore, string confirmation, CancellationToken token)
@@ -115,6 +134,7 @@ internal sealed partial class PackageLifecycle
         using var lifecycle = Lock(target, paths);
         var (transaction, journal) = ReadTransaction(paths, target, transactionId);
         var plan = RecoveryPlan(target, transaction, journal, restore); Confirm(plan, confirmation); token.ThrowIfCancellationRequested();
+        if (restore) { RefuseUnadmittedDefaults(target, plan); }
         if (journal.RequiresHealth && !restore && HealthCheck is null)
         { throw new InvalidDataException("Cette transaction exige son assistant et un nouveau contrôle de santé ; aucune reprise sans accusé."); }
         EnsurePending(target, transaction, journal, plan.PendingMarker, permitDamaged: true);

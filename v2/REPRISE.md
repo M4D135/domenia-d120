@@ -4,6 +4,34 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **12/11/2026 : Domenia 2.1.6 qualifiée (banc administrateur conforme sur `50f6662`) et publiée après le go de David. « Définir comme configuration par défaut » écrit un seul fichier, `wad/Domenia.settings.seed.json`, dans le dossier ouvert, hors manifeste, comme GLPI Pilot : ZIP officiel, manifeste et binaires intacts, fichier gardé par les mises à jour, ancien fichier sauvegardé dans les exports, mêmes choix « déjà en place » à l’octet, profil vierge servi sans question. 3 078 tests C# complets, 1 650 critiques, 227 contrôles navigateur, 7 simulations réussis. Limites : copie préparée avant 2.1.6 et dossier en lecture seule couverts par les tests, non observés sur banc.**
 
+## 12/11/2026 — 2.1.7 : commandes de maintenance du paquet
+
+Après la publication de 2.1.6, et à la demande de David de tout tester, une recette des binaires **publiés** a été ajoutée :
+`tools/recette-binaires-publies.ps1` et le workflow `domenia-v2-recette-binaires.yml`, sur un runner Windows hébergé
+jetable. Elle télécharge les ZIP des releases 2.1.5 et 2.1.6, vérifie leurs empreintes avec `SHA256SUMS.txt`, puis pilote
+les commandes du produit : admission au démarrage (`--check-only`), `--check-settings-seed`, mise à jour 2.1.5 → 2.1.6
+et restauration par `livraison`. Elle ne publie rien et ne touche ni WinRM, ni pare-feu, ni stratégies, ni comptes.
+Un candidat issu d’une CI de livraison peut être passé en entrée (`candidate_run`, `candidate_version`,
+`candidate_sha256`).
+
+Le premier passage (run 43219420270) a relevé trois défauts dans les binaires publiés :
+
+- `--check-settings-seed` s’arrêtait sur une exception non traitée pour un fichier portant une clé interdite, au lieu
+  de rendre le code 2 ;
+- toutes les commandes `livraison …` (aperçu et application d’une mise à jour, reprise, restauration, désinstallation)
+  répondaient « Commande inconnue » depuis 2.0.8 : la ligne de commande d’automatisation interceptait tout premier
+  argument sans tiret. La mise à jour depuis Paramètres n’était pas touchée ;
+- une restauration vers 2.1.5 avec une configuration écrite sur place produisait une installation que 2.1.5 refuse au
+  démarrage (« Composant hors manifeste »).
+
+Correctifs 2.1.7 : erreurs de lecture et de format traitées par la commande de contrôle ; route `livraison` réservée
+avant la grammaire d’automatisation ; aperçu et exécution d’une restauration vers une version antérieure à 2.1.6
+refusés, avant toute modification, tant que `wad/Domenia.settings.seed.json` (ou un fichier homonyme à la racine) est
+présent et non remplacé par le plan, avec la consigne de déplacer le fichier. Le retour automatique après une mise à
+jour échouée n’est pas concerné : il revient à la version d’origine, qui admettait déjà le fichier. Tests C# ajoutés
+pour chacun des trois points ; recette des binaires étendue au candidat (mise à jour 2.1.6 → candidat avec fichier
+gardé à l’octet, restauration vers 2.1.6, refus de restauration vers 2.1.5 puis restauration après déplacement).
+
 ## 12/11/2026 — publication de 2.1.6
 
 Après le go de David (« Essai VM puis publier »), la [release v2.1.6](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.6)

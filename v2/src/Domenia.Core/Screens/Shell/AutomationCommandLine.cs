@@ -9,8 +9,11 @@ public sealed record AutomationInvocation(bool Valid, string? Error, int ExitCod
 /// <summary>Closed, side-effect-free command-line grammar. A local base is explicit; it never resolves a profile or an AD identity.</summary>
 public static partial class AutomationCommandLine
 {
+    /// <summary>Package maintenance (update, recovery, restoration, uninstall) keeps its own route before this grammar.</summary>
+    public const string PackageLifecycleRoute = "livraison";
+
     public static bool IsRequested(IReadOnlyList<string> args) => args.Count > 0 && !args[0].StartsWith('-')
-        && !OfflineDossierCommand.IsRequested(args);
+        && !OfflineDossierCommand.IsRequested(args) && args[0] != PackageLifecycleRoute;
 
     public static AutomationInvocation Parse(IReadOnlyList<string> args)
     {

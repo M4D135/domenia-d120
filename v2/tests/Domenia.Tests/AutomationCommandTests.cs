@@ -35,6 +35,10 @@ internal static class AutomationCommandTests
         }
         Check.Equal(4, AutomationCommandLine.Parse(["postes", "--base", @"C:\absente.db"]).ExitCode, "périmètre explicite requis");
         Check.False(AutomationCommandLine.IsRequested(["dossier"]), "route du dossier conservée");
+        // Recette des binaires publiés 2.1.6 : « livraison apercu » répondait « Commande inconnue » depuis 2.0.8.
+        Check.False(AutomationCommandLine.IsRequested(["livraison", "apercu", @"C:\Domenia"]), "maintenance du paquet conservée");
+        Check.False(AutomationCommandLine.IsRequested(["livraison", "restaurer", @"C:\Domenia", "transaction", "confirmation"]), "restauration conservée");
+        Check.True(AutomationCommandLine.IsRequested(["Livraison"]), "route exacte seulement, grammaire fermée inchangée");
     }
 
     [Test]

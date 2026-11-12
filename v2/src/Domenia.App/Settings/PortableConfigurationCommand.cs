@@ -17,7 +17,7 @@ internal static class PortableConfigurationCommand
                 throw new InvalidDataException();
             code = 0;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or JsonException or InvalidOperationException or NotSupportedException)
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or JsonException or InvalidOperationException or NotSupportedException)
         {
             // Fixed refusal only: validation/parser errors must never expose the selected configuration's contents.
             try
