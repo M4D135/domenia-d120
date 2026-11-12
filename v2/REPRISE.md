@@ -4,6 +4,26 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **12/11/2026 : Domenia 2.1.6 qualifiée (banc administrateur conforme sur `50f6662`) et publiée après le go de David. « Définir comme configuration par défaut » écrit un seul fichier, `wad/Domenia.settings.seed.json`, dans le dossier ouvert, hors manifeste, comme GLPI Pilot : ZIP officiel, manifeste et binaires intacts, fichier gardé par les mises à jour, ancien fichier sauvegardé dans les exports, mêmes choix « déjà en place » à l’octet, profil vierge servi sans question. 3 078 tests C# complets, 1 650 critiques, 227 contrôles navigateur, 7 simulations réussis. Limites : copie préparée avant 2.1.6 et dossier en lecture seule couverts par les tests, non observés sur banc.**
 
+## 12/11/2026 — publication de 2.1.6
+
+Après le go de David (« Essai VM puis publier »), la [release v2.1.6](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.6)
+a été publiée le 12 novembre à 12:20 UTC, en dernière version. Le tag pointe sur
+`3869e60ffca2512c056567545863ae146595e410`. Aucune reconstruction : le ZIP est celui du run
+[43213255629](https://github.com/M4D135/domenia-d120/actions/runs/43213255629) sur ce commit, 84 286 590 octets,
+SHA-256 `3d5ec57e326123a60c46042cffc52c006dac630a9839d505e5f5d8c8b0709b13`, Domenia.exe `af1ca5cf…`, sans le nom de labo.
+Les empreintes GitHub correspondent. Le ZIP et `SHA256SUMS.txt` ont été retéléchargés sans compte (HTTP 200), avec des
+empreintes identiques. README, `packs/` et `manifest.json` sont alignés sur 2.1.6. `master` est avancé en avance rapide
+sur la branche `claude/config-defaut-en-place-20261112`, sans réécriture.
+
+Le commit publié ne diffère de `50f6662`, source du kit de banc conforme `50f66624`, que par la documentation
+(`3869e60`). Dans le ZIP, seuls les assemblages Domenia (identité de compilation), les manifestes et contrats du pack et
+les deux guides changent ; l'interface web et les dépendances sont identiques à l'octet.
+
+Releases : à la demande de David, les releases et tags v2.0.8 et v2.1.0 à v2.1.4 ont été supprimés le 12/11 (session
+« Reprise du projet GLPI », note KBZA `github-menage-releases-20261112`) ; v2.1.5 et v2.1.6 restent. Les liens vers ces
+versions dans les sections plus anciennes de ce document répondent désormais 404 ; ils sont laissés tels quels comme
+historique. `packs/manifest.json` les marque `archives_published: false` avec `removed_on`.
+
 ## 12/11/2026 — 2.1.6 : configuration par défaut écrite sur place
 
 Décision de David (« Oui, faire comme GLPI »), branche `claude/config-defaut-en-place-20261112`. « Définir comme
