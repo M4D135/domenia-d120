@@ -26,8 +26,15 @@ confirmée pour 2.1.5 → 2.1.7 et 2.1.6 → 2.1.7.
 `previous_releases`. Sur l’accord de David (« Oui, supprimer »), les releases v2.1.6 et v2.1.5 ont ensuite été
 supprimées avec leurs tags. Leurs commits (`3869e60`, `9282893`) restent dans `master`. Seule v2.1.7 est publiée. Une copie
 exacte du ZIP 2.1.6 (`3d5ec57e…`) reste dans le dossier de kit `domenia-214-3869e60f` du Mac. Aucune copie exacte du ZIP
-2.1.5 publié (`d435e210…`) n’a été trouvée. Conséquence : `tools/recette-binaires-publies.ps1` télécharge encore v2.1.5
-et v2.1.6 et échouera tant qu’il ne prendra pas la release courante comme référence. Limites : aucun banc administrateur pour 2.1.7, mise à jour depuis Paramètres non cliquée, recette
+2.1.5 publié (`d435e210…`) n’a été trouvée. La recette des binaires a été adaptée dans la foulée. Sa référence est la release enregistrée dans
+`packs/manifest.json` du commit testé : version, adresses et empreintes y sont épinglées. Sans candidat, elle contrôle
+l’admission au démarrage, `--check-settings-seed` et la route `livraison` du paquet publié : une mise à jour vers la même
+version est refusée. Avec un candidat (`candidate_run`, `candidate_version` postérieure, `candidate_sha256`), elle
+met à jour la release vers le candidat, avec une configuration écrite sur place et la santé vérifiée, puis restaure.
+Premier passage sur v2.1.7 seule ([run 43245134128](https://github.com/M4D135/domenia-d120/actions/runs/43245134128)) :
+9 étapes, aucun échec. Le parcours avec candidat n’a pas encore tourné sous cette forme ; il reprend celui qui a qualifié
+2.1.7 et servira à la prochaine version. La restauration vers une version antérieure à 2.1.6 n’est plus jouée sur de
+vrais binaires ; elle reste couverte par les tests C# et a été observée par le run 43241745675. Limites : aucun banc administrateur pour 2.1.7, mise à jour depuis Paramètres non cliquée, recette
 utilisateur complète à faire.
 
 ## 12/11/2026 — 2.1.7 : commandes de maintenance du paquet
