@@ -2,7 +2,8 @@
 # verifies their SHA-256, then drives the product's own commands: startup admission of the in-place default
 # configuration (--check-only, --check-settings-seed) and a real update 2.1.5 -> 2.1.6 followed by a restoration
 # (livraison). No service, firewall, WinRM, policy or account is changed; nothing outside $Work is written.
-param([Parameter(Mandatory = $true)][string]$Work)
+# A candidate ZIP from a delivery CI run can be added: it then plays the newer package (update source, restoration).
+param([Parameter(Mandatory = $true)][string]$Work, [string]$CandidateZip, [string]$CandidateVersion, [string]$CandidateSha256)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -79,17 +80,28 @@ try {
     $zip215 = Get-Pack '2.1.5'; $zip216 = Get-Pack '2.1.6'
     Add-Step 'telechargement des releases v2.1.5 et v2.1.6' 'passed' 'empreintes egales a la release et a SHA256SUMS.txt'
 } catch { Add-Step 'telechargement des releases' 'failed' $_.Exception.Message }
-
-# 1. Startup admission with the published 2.1.6 binaries.
-if ($zip216) {
+$newest = '2.1.6'; $zipNew = $zip216
+if ($CandidateZip) {
     try {
-        $pack = Expand-Pack $zip216 'admission-216'
+        if ($CandidateVersion -notmatch '^2\.[0-9]+\.[0-9]+$' -or [version]$CandidateVersion -le [version]'2.1.6') { throw 'Version candidate invalide.' }
+        $hash = Get-Sha $CandidateZip
+        if ($hash -cne $CandidateSha256.ToLowerInvariant()) { throw ('Empreinte du candidat differente : ' + $hash) }
+        $newest = $CandidateVersion; $zipNew = $CandidateZip; $report['candidate'] = [ordered]@{ version = $CandidateVersion; sha256 = $hash }
+        Add-Step ('candidat ' + $CandidateVersion) 'passed' ('ZIP ' + $hash)
+    } catch { Add-Step 'candidat' 'failed' $_.Exception.Message; $zipNew = $null }
+}
+$refusesOldRestore = $zipNew -and ([version]$newest -ge [version]'2.1.7')
+
+# 1. Startup admission with the newest binaries (published 2.1.6, or the candidate).
+if ($zipNew) {
+    try {
+        $pack = Expand-Pack $zipNew ('admission-' + $newest)
         $wad = Join-Path $pack 'wad'; $seed = Join-Path $wad $seedName
         [void](Invoke-Domenia $pack @('--check-only') 0 'admission-reference')
-        Add-Step '2.1.6 sans configuration par defaut : --check-only' 'passed' 'code 0'
+        Add-Step ($newest + ' sans configuration par defaut : --check-only') 'passed' 'code 0'
         $sha = Write-Seed $seed 110
         $run = Invoke-Domenia $pack @('--check-only') 0 'admission-seed-wad'
-        Add-Step '2.1.6 avec wad\Domenia.settings.seed.json hors manifeste : --check-only' 'passed' ('code 0, seed ' + $sha)
+        Add-Step ($newest + ' avec wad\Domenia.settings.seed.json hors manifeste : --check-only') 'passed' ('code 0, seed ' + $sha)
         [void](Invoke-Domenia $pack @('--check-settings-seed', $seed) 0 'check-seed-valide')
         Add-Step '--check-settings-seed sur un fichier valide' 'passed' 'code 0'
         $bad = Join-Path $Work 'seed-refuse.json'
@@ -98,26 +110,26 @@ if ($zip216) {
         Add-Step '--check-settings-seed sur une cle interdite' 'passed' 'code 2'
         Move-Item -LiteralPath $seed -Destination (Join-Path $pack $seedName)
         $run = Invoke-Domenia $pack @('--check-only') 1 'admission-seed-racine'
-        Add-Step '2.1.6 avec le fichier a la racine (mauvais emplacement) : refus' 'passed' ('code 1 ; ' + (($run.Error -split "\r?\n" | Where-Object { $_ } | Select-Object -Last 1)))
+        Add-Step ($newest + ' avec le fichier a la racine (mauvais emplacement) : refus') 'passed' ('code 1 ; ' + (($run.Error -split "\r?\n" | Where-Object { $_ } | Select-Object -Last 1)))
         Move-Item -LiteralPath (Join-Path $pack $seedName) -Destination $seed
         $part = $seed + '.domenia-' + ('a' * 32) + '.part'
         [IO.File]::WriteAllText($part, 'partiel')
         $run = Invoke-Domenia $pack @('--check-only') 1 'admission-part'
         if ($run.Error -notmatch 'interrompue') { throw 'Refus du temporaire sans la consigne d ecriture interrompue.' }
-        Add-Step '2.1.6 avec un temporaire .part laisse : refus avec consigne' 'passed' 'code 1, ecriture interrompue'
+        Add-Step ($newest + ' avec un temporaire .part laisse : refus avec consigne') 'passed' 'code 1, ecriture interrompue'
         Remove-Item -LiteralPath $part
         [void](Invoke-Domenia $pack @('--check-only') 0 'admission-apres-part')
         if ((Get-Sha $seed) -cne $sha) { throw 'Configuration par defaut modifiee par les controles.' }
-        Add-Step '2.1.6 apres retrait du temporaire : --check-only' 'passed' 'code 0, seed inchange'
-    } catch { Add-Step 'admission au demarrage (2.1.6)' 'failed' $_.Exception.Message }
+        Add-Step ($newest + ' apres retrait du temporaire : --check-only') 'passed' 'code 0, seed inchange'
+    } catch { Add-Step ('admission au demarrage (' + $newest + ')') 'failed' $_.Exception.Message }
 }
 
-# 2. Real update 2.1.5 -> 2.1.6 by the 2.1.6 package, with a default configuration present, then restoration.
-if ($zip215 -and $zip216) {
+# 2. Real update 2.1.5 -> newest by the newest package, with a default configuration present, then restoration.
+if ($zip215 -and $zipNew) {
     $target = $null; $source = $null; $transaction = $null; $seedSha = $null
     try {
         $target = Expand-Pack $zip215 'installation'
-        $source = Expand-Pack $zip216 'source-216'
+        $source = Expand-Pack $zipNew ('source-' + $newest)
         [void](Invoke-Domenia $target @('--check-only') 0 'cible-215-reference')
         Add-Step '2.1.5 extraite : --check-only' 'passed' 'code 0'
         $seed = Join-Path $target ('wad\' + $seedName)
@@ -129,17 +141,26 @@ if ($zip215 -and $zip216) {
         $keptSeed = @($plan.Preserved) -contains ('wad/' + $seedName)
         $removedSeed = (@($plan.Removed) + @($plan.Replaced)) -contains ('wad/' + $seedName)
         if (-not $keptSeed -or $removedSeed) { throw ('Plan de mise a jour sans conservation du fichier : conserves ' + (@($plan.Preserved) -join ', ')) }
-        Add-Step 'livraison apercu 2.1.5 -> 2.1.6 : fichier conserve dans le plan' 'passed' ('confirmation ' + $plan.Confirmation.Substring(0, 12) + '...')
+        Add-Step ('livraison apercu 2.1.5 -> ' + $newest + ' : fichier conserve dans le plan') 'passed' ('confirmation ' + $plan.Confirmation.Substring(0, 12) + '...')
         $run = Invoke-Domenia $source @('livraison', 'appliquer', $target, $plan.Confirmation) 0 'livraison-appliquer' 900
         $result = Get-LastJson $run.Error
         $transaction = $result.Transaction
-        if ((Get-PackVersion $target) -cne '2.1.6') { throw 'Installation non passee en 2.1.6.' }
+        if ((Get-PackVersion $target) -cne $newest) { throw ('Installation non passee en ' + $newest + '.') }
         if ((Get-Sha $seed) -cne $seedSha) { throw 'Configuration par defaut modifiee par la mise a jour.' }
-        Add-Step 'livraison appliquer : installation en 2.1.6, fichier identique' 'passed' ('action ' + $result.Action + ', sante ' + $result.HealthConfirmed + ', transaction ' + $transaction)
-        [void](Invoke-Domenia $target @('--check-only') 0 'cible-216-avec-seed')
-        Add-Step '2.1.6 installee par mise a jour, fichier sur place : --check-only' 'passed' 'code 0'
-    } catch { Add-Step 'mise a jour 2.1.5 -> 2.1.6' 'failed' $_.Exception.Message }
+        Add-Step ('livraison appliquer : installation en ' + $newest + ', fichier identique') 'passed' ('action ' + $result.Action + ', sante ' + $result.HealthConfirmed + ', transaction ' + $transaction)
+        [void](Invoke-Domenia $target @('--check-only') 0 'cible-nouvelle-avec-seed')
+        Add-Step ($newest + ' installee par mise a jour, fichier sur place : --check-only') 'passed' 'code 0'
+    } catch { Add-Step ('mise a jour 2.1.5 -> ' + $newest) 'failed' $_.Exception.Message }
 
+    if ($transaction -and $refusesOldRestore) {
+        try {
+            $run = Invoke-Domenia $source @('livraison', 'apercu-restauration', $target, $transaction) 2 'restauration-refusee' 600
+            if ($run.Error -notmatch 'Domenia\.settings\.seed\.json') { throw 'Refus de restauration sans le nom du fichier.' }
+            if ((Get-PackVersion $target) -cne $newest -or (Get-Sha (Join-Path $target ('wad\' + $seedName))) -cne $seedSha) { throw 'Installation modifiee par le refus.' }
+            Add-Step 'restauration vers 2.1.5 avec le fichier sur place : refus avant toute modification' 'passed' 'code 2, fichier nomme, installation intacte'
+            Move-Item -LiteralPath (Join-Path $target ('wad\' + $seedName)) -Destination (Join-Path $Work 'seed-deplace-avant-restauration.json')
+        } catch { Add-Step 'refus de restauration vers 2.1.5' 'failed' $_.Exception.Message; $transaction = $null }
+    }
     if ($transaction) {
         try {
             $run = Invoke-Domenia $source @('livraison', 'apercu-restauration', $target, $transaction) 0 'restauration-apercu' 600
@@ -161,8 +182,34 @@ if ($zip215 -and $zip216) {
                 [void](Invoke-Domenia $target @('--check-only') 0 'cible-restauree-sans-seed')
                 Add-Step ('version restauree ' + $version + ' sans le fichier : --check-only') 'passed' 'code 0'
             }
-        } catch { Add-Step 'restauration 2.1.6 -> 2.1.5' 'failed' $_.Exception.Message }
+        } catch { Add-Step ('restauration ' + $newest + ' -> 2.1.5') 'failed' $_.Exception.Message }
     }
+}
+
+# 3. Candidate only: update 2.1.6 (default configuration written in place) -> candidate, then restoration to 2.1.6.
+if ($zip216 -and $CandidateZip -and $zipNew) {
+    $transaction = $null
+    try {
+        $target = Expand-Pack $zip216 'installation-216'
+        $source = Expand-Pack $zipNew ('source-bis-' + $newest)
+        $seed = Join-Path $target ('wad\' + $seedName); $seedSha = Write-Seed $seed 140
+        [void](Invoke-Domenia $target @('--check-only') 0 'cible-216-avec-seed')
+        Add-Step '2.1.6 avec un fichier ecrit sur place : --check-only' 'passed' 'code 0'
+        $run = Invoke-Domenia $source @('livraison', 'apercu', $target) 0 'livraison-216-apercu' 600
+        $plan = Get-LastJson $run.Error
+        if (-not (@($plan.Preserved) -contains ('wad/' + $seedName)) -or ((@($plan.Removed) + @($plan.Replaced)) -contains ('wad/' + $seedName))) { throw 'Fichier non conserve dans le plan.' }
+        $run = Invoke-Domenia $source @('livraison', 'appliquer', $target, $plan.Confirmation) 0 'livraison-216-appliquer' 900
+        $result = Get-LastJson $run.Error; $transaction = $result.Transaction
+        if ((Get-PackVersion $target) -cne $newest -or (Get-Sha $seed) -cne $seedSha) { throw 'Mise a jour incomplete ou fichier modifie.' }
+        [void](Invoke-Domenia $target @('--check-only') 0 'cible-216-mise-a-jour')
+        Add-Step ('mise a jour 2.1.6 -> ' + $newest + ' : fichier conserve a l octet, demarrage admis') 'passed' ('sante ' + $result.HealthConfirmed + ', transaction ' + $transaction)
+        $run = Invoke-Domenia $source @('livraison', 'apercu-restauration', $target, $transaction) 0 'restauration-216-apercu' 600
+        $plan = Get-LastJson $run.Error
+        [void](Invoke-Domenia $source @('livraison', 'restaurer', $target, $transaction, $plan.Confirmation) 0 'restauration-216' 900)
+        if ((Get-PackVersion $target) -cne '2.1.6' -or (Get-Sha $seed) -cne $seedSha) { throw 'Restauration incomplete ou fichier modifie.' }
+        [void](Invoke-Domenia $target @('--check-only') 0 'cible-216-restauree')
+        Add-Step ('restauration ' + $newest + ' -> 2.1.6 : fichier conserve, 2.1.6 demarre avec') 'passed' 'code 0'
+    } catch { Add-Step ('mise a jour et restauration 2.1.6 <-> ' + $newest) 'failed' $_.Exception.Message }
 }
 
 $report['finishedAt'] = (Get-Date).ToUniversalTime().ToString('o')
