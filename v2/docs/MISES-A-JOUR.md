@@ -2,6 +2,16 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
+## Correctifs de 2.1.8
+
+Un compte ordinateur sans nom DNS cohérent n’interrompt plus le relevé de présence ni « Tout actualiser ». Jusqu’en
+2.1.7, un seul compte pré-créé sans `dNSHostName`, renommé sans mise à jour de son nom DNS, ou modifié entre le plan et
+le contact arrêtait toute la campagne (« Identité du compte ordinateur absente, modifiée ou incohérente ; lecture
+écartée. Aucune nouvelle collecte ne sera lancée. »). Un compte sans cible Windows qualifiée reçoit désormais une réponse
+définitive « Nom de poste invalide », sans requête LDAP, DNS ni ICMP, et le relevé continue. Un compte modifié depuis
+le plan est écarté seul, sans donnée attribuée, et compté dans le journal. Un relevé dont aucun poste ne peut être
+qualifié reste refusé.
+
 ## Correctifs publiés en 2.1.7
 
 Une mise à jour aboutit de nouveau, depuis Paramètres comme par `livraison appliquer`. Le contrôle de santé du nouveau code

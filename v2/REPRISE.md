@@ -4,6 +4,25 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **12/11/2026 : Domenia 2.1.7 publiée, sur la consigne de David d’aller au bout sans attendre. Les mises à jour aboutissent de nouveau : la sonde de santé annulait sa propre page et chaque mise à jour revenait en arrière, sans cause. Les commandes `livraison` répondent de nouveau ; depuis 2.0.8, elles répondaient « Commande inconnue ». Une restauration vers une version antérieure à 2.1.6 est refusée tant qu’une configuration est écrite sur place. `--check-settings-seed` rend le code 2. Recette des vrais binaires 2.1.5, 2.1.6 et 2.1.7 sur un runner hébergé : 21 étapes, aucun échec. Limites : pas de banc administrateur pour 2.1.7, mise à jour depuis Paramètres non cliquée.**
 
+## 12/11/2026 — 2.1.8 candidate : relevé de présence et comptes sans nom DNS cohérent
+
+David a signalé un relevé réel interrompu : « Tout actualiser » sur une OU de production s’arrêtait au relevé de
+présence avec « Identité du compte ordinateur absente, modifiée ou incohérente ; lecture écartée. Aucune nouvelle
+collecte ne sera lancée. » Cause : `AdQueryAccess.QualifyAsync` refuse, à juste titre, un compte sans cible Windows
+qualifiée (pas de `dNSHostName`, nom DNS différent du nom du compte, ou compte modifié depuis le plan), mais
+`AdDirectorySource.MeasureAsync` laissait cette exception d’un seul poste annuler toute la campagne. Le relevé exact
+de l’Accueil puis l’inventaire ne partaient donc jamais pour l’OU entière. Les identifiants du terrain (domaine, OU,
+comptes) ne sont consignés nulle part.
+
+Correction : un compte sans cible qualifiée (`AdQueryAccess.HasWindowsTarget`) reçoit, avant toute requête LDAP, DNS ou
+ICMP, une réponse définitive `InvalidTarget` d’étape `directory`, nommée « Nom de poste invalide » ; il n’est pas
+contacté en inventaire. Un compte dont la relecture LDAP montre un changement depuis le plan est écarté seul, sans
+donnée attribuée, et compté dans le journal en orange. Une campagne dont aucun poste n’a pu être qualifié échoue
+toujours avec le refus d’identité. Test : `AdAccueilTests.One_account_without_qualified_target_or_changed_since_the_plan_never_interrupts_the_presence_pass`
+(un poste valide, un compte pré-créé, un compte renommé, un compte modifié depuis le plan : un seul ICMP, deux réponses
+définitives, rien attribué au compte modifié). La cause exacte du compte de production n’a pas été relevée sur place ;
+la correction couvre les trois cas. Recette : `docs/RECETTE-MANUELLE-V2.1.8.md`. Non publiée à ce stade.
+
 ## 12/11/2026 — publication de 2.1.7
 
 Sur la consigne de David (« go publish etc ne l’attend pas va au bout »), la

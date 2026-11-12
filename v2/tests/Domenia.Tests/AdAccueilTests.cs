@@ -177,6 +177,42 @@ internal static class AdAccueilTests
     }
 
     [Test]
+    public static async Task One_account_without_qualified_target_or_changed_since_the_plan_never_interrupts_the_presence_pass()
+    {
+        // Terrain du 12/11/2026 : un seul compte ordinateur sans nom DNS cohérent arrêtait tout le relevé de l’OU
+        // (« Identité du compte ordinateur absente, modifiée ou incohérente ; lecture écartée »).
+        var good = Fixtures.Computer("GOOD");
+        var prestaged = Fixtures.Computer("PRESTAGED") with { DnsHostName = null };
+        var renamed = Fixtures.Computer("RENAMED") with { DnsHostName = "ancien-nom.test.local" };
+        var drift = Fixtures.Computer("DRIFT");
+        var cache = new FleetCache(Fixtures.Snapshot(computers: [good, prestaged, renamed, drift]));
+        var probe = new CountingProbe();
+        using var ldap = new AdBoundaryTests.RecordingAdConnection();
+        ldap.SearchAnswer = q => q.Filter != "(objectClass=computer)" ? []
+            : DistinguishedName.AreEqual(q.BaseDn, good.DistinguishedName) ? [AdPosteNetworkTests.Entry(good)]
+            : DistinguishedName.AreEqual(q.BaseDn, drift.DistinguishedName) ? [AdPosteNetworkTests.Entry(drift with { DnsHostName = "autre.test.local" })] : [];
+        using var source = new AdDirectorySource("test.local", () => @"TEST\test", TestClock.Fixed(), probe, ldap, cache) { AdministrationOverride = AdBoundaryTests.NativeAdministrator };
+        await source.ReadLocalAsync(CancellationToken.None);
+        await source.DomainAsync(CancellationToken.None);
+        var identities = new[] { good, prestaged, renamed, drift }.ToImmutableDictionary(c => c.ObjectGuid, c => QueryComputerIdentity.Of(c));
+        var state = await new AdAccueilReader(source).ReadPresenceAsync(Scope, identities, source.Epoch, CancellationToken.None);
+        Check.Equal(1, probe.Pings, "seul le poste qualifié reçoit un ICMP");
+        var observations = cache.Fleet.Observations.Workstations;
+        Check.True(observations.Single(o => o.ComputerGuid == good.ObjectGuid).Presence.HasReading, "voisin mesuré malgré les comptes écartés");
+        foreach (var pc in new[] { prestaged, renamed })
+        {
+            var presence = observations.Single(o => o.ComputerGuid == pc.ObjectGuid).Presence;
+            Check.True(PresenceOutcomes.Definitive(presence) && presence.Diagnostic!.Stage == PresenceDiagnostic.DirectoryStage
+                && presence.Diagnostic.Text.StartsWith("Nom DNS absent de l’annuaire", StringComparison.Ordinal), "réponse définitive sans contact : " + pc.SamAccountName);
+        }
+        Check.False(observations.Any(o => o.ComputerGuid == drift.ObjectGuid), "rien attribué au compte modifié depuis le plan");
+        Check.False(ldap.Searches.Any(q => DistinguishedName.AreEqual(q.BaseDn, prestaged.DistinguishedName) || DistinguishedName.AreEqual(q.BaseDn, renamed.DistinguishedName)),
+            "aucune requête LDAP pour un compte sans cible");
+        Check.True(state.Journal[0].Label.Contains("2 noms de poste invalides", StringComparison.Ordinal)
+            && state.Journal[0].Label.Contains("1 poste écarté", StringComparison.Ordinal) && state.Journal[0].Tone == Tone.Warn, "comptes écartés nommés dans le relevé");
+    }
+
+    [Test]
     public static async Task Frozen_probe_selection_refuses_changed_identity_or_epoch_before_the_native_reader()
     {
         var selected = Fixtures.Computer("SELECTED"); var added = Fixtures.Computer("ADDED");

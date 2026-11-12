@@ -756,6 +756,9 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
         var results = new WorkstationObservation?[targets.Length];
         var notAdmitted = 0;
         var stoppedReadings = 0;
+        var withoutTarget = 0;
+        var identityRejected = 0;
+        DomeniaOperationException? firstIdentityRejection = null;
         var facts = new System.Collections.Concurrent.ConcurrentDictionary<Guid, MachineFacts>();
         var pendingMeasures = new System.Collections.Concurrent.ConcurrentQueue<WorkstationObservation>();
         using var flushing = new SemaphoreSlim(1, 1);
@@ -815,6 +818,19 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
             try
             {
                 if (Epoch != generation) { throw new OperationCanceledException("La session a changé.", cancellationToken); }
+                if (exactTargets is not null && !AdQueryAccess.HasWindowsTarget(computer))
+                {
+                    // Pre-staged or renamed account: no qualified Windows target exists. A definitive answer for this
+                    // target, without LDAP, DNS or ICMP; it never interrupts its neighbours (field report of 12/11/2026).
+                    Interlocked.Increment(ref withoutTarget);
+                    var previous = current.Observations.Find(computer.ObjectGuid);
+                    if (!inventory)
+                    {
+                        results[index] = new(computer.ObjectGuid, new PresenceMeasure(MeasureState.Error, null, Clock.GetUtcNow(), previous?.Presence.LastOnlineAt)
+                            { Diagnostic = new(PresenceReadOutcome.InvalidTarget, PresenceDiagnostic.DirectoryStage) }, previous?.Inventory ?? InventoryMeasure.Unread);
+                    }
+                    return;
+                }
                 var host = computer.DnsHostName ?? computer.Name;
                 if (inventory) { await AdWorkstationAccess.RequireNetworkIdentityAsync(this, host, cancellationToken, readOnly: true).ConfigureAwait(false); }
                 var before = current.Observations.Find(computer.ObjectGuid);
@@ -987,6 +1003,14 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
                     facts[computer.ObjectGuid] = new(null, null, null, null, status, at, refused ? "Compte en pause ou contexte refusé ; aucun essai envoyé." : ex.Message);
                 }
             }
+            catch (DomeniaOperationException ex) when (ex.Code == RelationErrors.IdentityChanged && exactTargets is not null && !cancellationToken.IsCancellationRequested)
+            {
+                // This account changed since the plan: it alone is set aside and nothing is attributed to it. Its neighbours
+                // continue; a pass in which no target could be qualified still fails below.
+                results[index] = null; facts.TryRemove(computer.ObjectGuid, out _);
+                Interlocked.Increment(ref identityRejected);
+                Interlocked.CompareExchange(ref firstIdentityRejection, ex, null);
+            }
             catch
             {
                 if (exactTargets is not null) { results[index] = null; facts.TryRemove(computer.ObjectGuid, out _); }
@@ -1011,6 +1035,8 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
         catch (OperationCanceledException) { interrupted = true; }
         catch (Exception ex) { failure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex); }
         interrupted |= stoppedReadings > 0 || cancellationToken.IsCancellationRequested;
+        if (failure is null && !interrupted && firstIdentityRejection is not null && identityRejected + withoutTarget == targets.Length)
+        { failure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstIdentityRejection); }
         var completed = results.OfType<WorkstationObservation>().ToImmutableArray();
         // A cancelled or failed network read still acknowledges its qualified neighbours. A failed writer is never retried.
         if (writeFailure is null) { await FlushAsync(final: true).ConfigureAwait(false); }
@@ -1030,8 +1056,12 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
                 + (definitive.Length > 0 ? " " + definitive + FrenchText.Colon + "aucun test ICMP envoyé, présence inconnue." : "")
                 + (unconfirmed > 0 ? " " + FrenchText.Count(unconfirmed, "lecture non confirmée" + FrenchText.Nbsp + "; consultez son diagnostic.",
                     "lectures non confirmées" + FrenchText.Nbsp + "; consultez leur diagnostic.") : "")
-                + (notAdmitted > 0 ? " · " + FrenchText.Integer(notAdmitted) + " lectures non envoyées : budgets occupés ou suspendus." : "");
-            state = latest with { Observations = fleet.Observations, Journal = Add(latest.Journal, label, failure is not null || interrupted || notAdmitted > 0 || unconfirmed > 0 ? Tone.Warn : Tone.Info) };
+                + (notAdmitted > 0 ? " · " + FrenchText.Integer(notAdmitted) + " lectures non envoyées : budgets occupés ou suspendus." : "")
+                + (inventory && withoutTarget > 0 ? " · " + FrenchText.Count(withoutTarget, "poste sans nom DNS cohérent dans l’annuaire : aucun contact.",
+                    "postes sans nom DNS cohérent dans l’annuaire : aucun contact.") : "")
+                + (identityRejected > 0 ? " · " + FrenchText.Count(identityRejected, "poste écarté : compte ordinateur modifié depuis le plan, aucune donnée attribuée ; relisez l’annuaire.",
+                    "postes écartés : comptes ordinateur modifiés depuis le plan, aucune donnée attribuée ; relisez l’annuaire.") : "");
+            state = latest with { Observations = fleet.Observations, Journal = Add(latest.Journal, label, failure is not null || interrupted || notAdmitted > 0 || unconfirmed > 0 || identityRejected > 0 ? Tone.Warn : Tone.Info) };
             failure?.Throw();
             if (interrupted) { throw new OperationCanceledException(cancellationToken); }
             return state;

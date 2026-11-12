@@ -42,10 +42,14 @@ public enum PresenceReadOutcome
 /// <summary>The numeric code is an IPStatus/SocketError/native error, never raw error text.</summary>
 public sealed record PresenceDiagnostic(PresenceReadOutcome Outcome, string Stage, int? NativeCode = null)
 {
+    /// <summary>Stage of a target refused from its directory account alone, before any DNS or ICMP request.</summary>
+    public const string DirectoryStage = "directory";
+
     public string Text => Outcome switch
     {
         PresenceReadOutcome.Reply => "Réponse ICMP reçue.",
         PresenceReadOutcome.NoReply => "Aucune réponse ICMP dans le délai ; cela ne prouve pas que le poste est éteint.",
+        PresenceReadOutcome.InvalidTarget when Stage == DirectoryStage => "Nom DNS absent de l’annuaire ou différent du nom du compte ordinateur ; aucun test ICMP envoyé.",
         PresenceReadOutcome.InvalidTarget => "Nom ou adresse du poste invalide ; aucun test ICMP envoyé.",
         PresenceReadOutcome.DnsNotFound => "Nom du poste non résolu ; aucun test ICMP envoyé, présence inconnue.",
         PresenceReadOutcome.DnsUnavailable => "Résolution DNS en erreur ; aucun test ICMP envoyé, présence inconnue.",

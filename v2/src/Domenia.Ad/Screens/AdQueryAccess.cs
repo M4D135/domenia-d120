@@ -21,7 +21,7 @@ internal sealed class AdQueryAccess(AdDirectorySource source, DirectoryComputer 
         var directory = (await source.ReadLocalAsync(token).ConfigureAwait(false)).Directory;
         var original = AdComputerIndex.For(directory).Find(guid)
             ?? throw new DomeniaOperationException(Domenia.Core.Queries.QueryErrors.WmiUnknownComputer, "Poste absent ou ambigu dans la base locale.");
-        if (original.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(original) is null)
+        if (!HasWindowsTarget(original) || original.DnsHostName is not { } host)
         { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Identité locale sans cible Windows valide ; aucun contact distant."); }
         if (source.Epoch != epoch)
         { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Session modifiée depuis la lecture locale ; aucun contact distant."); }
@@ -42,6 +42,13 @@ internal sealed class AdQueryAccess(AdDirectorySource source, DirectoryComputer 
         catch { held.Dispose(); throw; }
     }
 
+    /// <summary>
+    /// A computer account that can be a qualified Windows target: a valid DNS host name whose first label matches the account
+    /// name. A pre-staged account (no dNSHostName) or a renamed one whose DNS name was not updated has none.
+    /// </summary>
+    internal static bool HasWindowsTarget(DirectoryComputer computer) => computer.DnsHostName is { } host && CimQuery.IsHostName(host)
+        && WorkstationIdentity.ExpectedName(computer) is not null;
+
     internal static async Task<DirectoryComputer> QualifyAsync(AdDirectorySource source, AdReadAccess ldap, DirectoryComputer expected, CancellationToken token)
     {
         var rows = await ldap.SearchAsync(new(expected.DistinguishedName, "(objectClass=computer)", AdSearchScope.Base,
@@ -51,7 +58,7 @@ internal sealed class AdQueryAccess(AdDirectorySource source, DirectoryComputer 
             && DistinguishedName.AreEqual(rows[0].DistinguishedName, expected.DistinguishedName) ? AdDirectoryMapper.Computer(rows[0]) : null;
         if (fresh is null || fresh.ObjectGuid != expected.ObjectGuid || fresh.Sid != expected.Sid || fresh.WhenCreated != expected.WhenCreated
             || fresh.WhenCreated == DateTimeOffset.MinValue || fresh.WhenCreated > source.Clock.GetUtcNow()
-            || fresh.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(fresh) is null)
+            || !HasWindowsTarget(fresh))
         { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Identité du compte ordinateur absente, modifiée ou incohérente ; lecture écartée."); }
         return fresh;
     }

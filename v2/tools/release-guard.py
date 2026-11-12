@@ -183,7 +183,7 @@ def inventory(entries, maximum=8192, byte_limit=MAX_EXPANDED):
 
 def payload_prefix(version):
     # Keep verification of historical releases unchanged.
-    return "wad/" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7") else ""
+    return "wad/" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8") else ""
 
 
 def check_archive(path, kind, version, commit):
@@ -236,7 +236,7 @@ def check_archive(path, kind, version, commit):
                 and metadata["architecture"] == "win-x64" and metadata["packageType"] == kind
                 and metadata["executableSha256"] == files["Domenia.exe"][1]
                 and type(metadata["dataSchemaVersion"]) is int and metadata["dataSchemaVersion"] == 11
-                and type(metadata["dataSchemaRevision"]) is int and metadata["dataSchemaRevision"] == (2 if version in ("2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7") else 1)
+                and type(metadata["dataSchemaRevision"]) is int and metadata["dataSchemaRevision"] == (2 if version in ("2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8") else 1)
                 and text(metadata["build"], 128) and metadata["build"].startswith(version + "+")
                 and hex_value(metadata["build"][len(version) + 1:], 64), "Identité de livraison incompatible.")
         members(metadata["dependencies"], (".NET", "WebView2"), "Versions embarquées")

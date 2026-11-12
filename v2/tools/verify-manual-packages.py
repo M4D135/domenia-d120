@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 FORMAT = "Domenia.ManualPackageVerification/1"
-AUTHORIZED_VERSIONS = {"2.0.0": "25 octobre 2026", "2.0.1": "26 octobre 2026", "2.0.2": "26 octobre 2026", "2.0.3": "26 octobre 2026", "2.0.4": "28 octobre 2026", "2.0.5": "28 octobre 2026", "2.0.6": "28 octobre 2026", "2.0.7": "29 octobre 2026", "2.0.8": "30 octobre 2026", "2.1.0": "8 novembre 2026", "2.1.1": "9 novembre 2026", "2.1.2": "9 novembre 2026", "2.1.3": "10 novembre 2026", "2.1.4": "10 novembre 2026", "2.1.5": "11 novembre 2026", "2.1.6": "12 novembre 2026", "2.1.7": "12 novembre 2026"}
+AUTHORIZED_VERSIONS = {"2.0.0": "25 octobre 2026", "2.0.1": "26 octobre 2026", "2.0.2": "26 octobre 2026", "2.0.3": "26 octobre 2026", "2.0.4": "28 octobre 2026", "2.0.5": "28 octobre 2026", "2.0.6": "28 octobre 2026", "2.0.7": "29 octobre 2026", "2.0.8": "30 octobre 2026", "2.1.0": "8 novembre 2026", "2.1.1": "9 novembre 2026", "2.1.2": "9 novembre 2026", "2.1.3": "10 novembre 2026", "2.1.4": "10 novembre 2026", "2.1.5": "11 novembre 2026", "2.1.6": "12 novembre 2026", "2.1.7": "12 novembre 2026", "2.1.8": "12 novembre 2026"}
 MAX_REPORT = 16 * 1024**2
 SCRIPT = Path(__file__).absolute()
 GUARD_SCRIPT = SCRIPT.with_name("release-guard.py")
