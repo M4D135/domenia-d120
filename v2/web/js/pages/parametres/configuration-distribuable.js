@@ -23,6 +23,20 @@ export function mount(host, ctx) {
       <div class="pr-actions"><button class="btn" data-config-action="import">Importer un fichier</button><button class="btn" data-config-action="seed">Revoir la proposition du pack</button><button class="btn" data-config-action="reload">Relire mes choix</button></div></section>
       <p role="status" data-config-result></p>`;
   }
+  // Writing the defaults records this profile's own decision, which changes the preference fingerprint: reread the
+  // options so the next export is not refused, and keep the choices visible on the page.
+  async function refresh() {
+    const valid = new Set(options.choices.filter(c => c.valid).map(c => c.key));
+    const kept = new Map([...host.querySelectorAll('[data-config-key]')].filter(input => valid.has(input.dataset.configKey))
+      .map(input => [input.dataset.configKey, input.checked]));
+    const uiChecked = host.querySelector('[data-config-ui]').checked;
+    await load();
+    if (!alive) return;
+    host.querySelectorAll('[data-config-key]').forEach(input => {
+      if (kept.has(input.dataset.configKey) && options.choices.find(c => c.key === input.dataset.configKey)?.valid) input.checked = kept.get(input.dataset.configKey);
+    });
+    host.querySelector('[data-config-ui]').checked = uiChecked;
+  }
   function ui() {
     const raw = ctx.prefs.get(); const read = readingPrefs();
     return { theme: raw.theme, motion: raw.motion, navCollapsed: raw.navCollapsed, profile: raw.profile, density: raw.density, helpTips: raw.helpTips, logWrap: read.logWrap === true, logSize: [10, 11, 12, 14, 16, 18].includes(read.logSize) ? read.logSize : 11 };
@@ -41,6 +55,9 @@ export function mount(host, ctx) {
     if (!alive) return;
     host.querySelector('[data-config-result]').textContent = result.message;
     ctx.toast(result.message, { tone: result.simulated || result.saved === false ? 'info' : 'ok' });
+    if (action !== 'package') return;
+    await refresh();
+    if (alive) host.querySelector('[data-config-result]').textContent = result.message;
   }
   async function importFile() {
     const file = await importJson('Importer une configuration de Domenia');
@@ -64,7 +81,7 @@ export function mount(host, ctx) {
       const action = button.dataset.configAction;
       if (action === 'export' || action === 'package') await exportOrPackage(action);
       else if (action === 'import') await importFile();
-      else if (action === 'seed') await proposePackConfiguration(call, setPrefs, ctx.toast, () => alive);
+      else if (action === 'seed') { await proposePackConfiguration(call, setPrefs, ctx.toast, () => alive); if (alive) await refresh(); }
       else await load();
     } catch (err) { if (alive) ctx.toast(errorText(err), { tone: 'warn' }); }
     finally { busy = false; dialog = null; if (alive) host.querySelectorAll('button,input').forEach(el => { el.disabled = el.hasAttribute('data-config-key') && !options.choices.find(c => c.key === el.dataset.configKey)?.valid; }); }

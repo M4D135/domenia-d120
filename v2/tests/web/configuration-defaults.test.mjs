@@ -36,6 +36,45 @@ test('Configuration à diffuser : OU explicite, écriture sur place confirmée e
   } finally { page.destroy(); host.remove(); }
 });
 
+test('Configuration à diffuser : après écriture, empreinte relue et choix conservés pour une seconde écriture', async () => {
+  // Banc 2.1.6 (kit e46237d5) : la décision du profil enregistrée après l’écriture changeait l’empreinte ; le clic
+  // suivant était refusé « Préférences modifiées depuis la sélection ».
+  const host = document.createElement('div'); document.body.append(host); const calls = []; const messages = [];
+  let fingerprint = 'avant-ecriture';
+  const ctx = { prefs: { get: () => ({ theme: 'system', motion: 'full', navCollapsed: false, profile: 'essentiel', density: 'normal', helpTips: true }), set() {} }, toast: text => messages.push(text), async call(op, args) {
+    calls.push({ op, args });
+    if (op === 'settings.configuration.options') return { simulated: false, fileName: 'Domenia.settings.seed.json', fingerprint, excluded: [], choices: [
+      { key: 'settings.zoom', label: 'Zoom', value: 100, valid: true, selected: true },
+      { key: 'session.workingScope.hash', label: 'OU de travail', value: { dn: 'OU=Equipe,DC=example,DC=invalid' }, valid: true, selected: false },
+    ] };
+    if (op === 'settings.configuration.export') {
+      if (args.fingerprint !== fingerprint) throw new Error('Préférences modifiées depuis la sélection ; relisez les choix.');
+      return { text: JSON.stringify({ keys: args.keys, ui: args.interface !== null }), sha256: 'abc', included: args.keys, excluded: [] };
+    }
+    if (op === 'settings.defaults.package') { fingerprint = 'decision-enregistree'; return { simulated: false, message: 'Configuration par défaut écrite dans wad/Domenia.settings.seed.json.' }; }
+    throw new Error(op);
+  } };
+  const page = mount(host, ctx);
+  try {
+    await settle();
+    host.querySelector('[data-config-key="session.workingScope.hash"]').checked = true;
+    host.querySelector('[data-config-ui]').checked = false;
+    host.querySelector('[data-config-action="package"]').click(); await settle();
+    lastDialog().querySelector('[data-id="confirm"]').click(); await settle(); await settle();
+    eq(calls.filter(c => c.op === 'settings.configuration.options').length, 2, 'options relues après l’écriture');
+    ok(host.querySelector('[data-config-key="session.workingScope.hash"]').checked && host.querySelector('[data-config-key="settings.zoom"]').checked
+      && !host.querySelector('[data-config-ui]').checked, 'choix de la page conservés après relecture');
+    eq(host.querySelector('[data-config-result]').textContent, 'Configuration par défaut écrite dans wad/Domenia.settings.seed.json.', 'résultat conservé après relecture');
+    ok(!host.querySelector('[data-config-action="package"]').disabled, 'action de nouveau disponible');
+    host.querySelector('[data-config-action="package"]').click(); await settle();
+    eq(calls.filter(c => c.op === 'settings.configuration.export').at(-1).args, { keys: ['settings.zoom', 'session.workingScope.hash'], interface: null, fingerprint: 'decision-enregistree' },
+      'seconde écriture préparée avec l’empreinte relue et les mêmes choix');
+    eq(lastDialog().querySelector('[data-id="confirm"]').textContent.trim(), 'Écrire la configuration par défaut', 'fenêtre de confirmation ouverte');
+    eq(messages, ['Configuration par défaut écrite dans wad/Domenia.settings.seed.json.'], 'aucun refus affiché');
+    lastDialog().querySelector('[data-id="cancel"]').click(); await settle();
+  } finally { page.destroy(); host.remove(); }
+});
+
 test('Proposition du premier lancement : comparaison visible et refus enregistré par build+SHA', async () => {
   const calls = [];
   const run = proposePackConfiguration(async (op, args) => {
