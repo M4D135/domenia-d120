@@ -1,22 +1,18 @@
 name: Domenia v2 — recette des binaires publiés
 
-# Disposable hosted runner only: downloads the exact published release ZIPs, checks their SHA-256 and drives the
-# product's own commands (startup admission, real update 2.1.5 -> 2.1.6, restoration). It never publishes anything and
-# never changes WinRM, the firewall, policies, services or accounts.
+# Disposable hosted runner only: downloads the current release recorded in packs/manifest.json, checks its SHA-256 and
+# drives the product's own commands (startup admission, livraison). With a candidate from a delivery CI run: real update
+# of that release to the candidate, then restoration. It never publishes anything and never changes WinRM, the
+# firewall, policies, services or accounts. Started by hand only.
 on:
-  push:
-    branches: ['claude/recette-binaires-216']
-    paths:
-      - '.github/workflows/domenia-v2-recette-binaires.yml'
-      - 'v2/tools/recette-binaires-publies.ps1'
   workflow_dispatch:
     inputs:
       candidate_run:
-        description: 'Run de la CI de livraison qui a produit le ZIP candidat (vide : binaires publiés seuls)'
+        description: 'Run de la CI de livraison qui a produit le ZIP candidat (vide : release courante seule)'
         required: false
         default: ''
       candidate_version:
-        description: 'Version du candidat, par exemple 2.1.7'
+        description: 'Version du candidat, postérieure à la release courante, par exemple 2.1.8'
         required: false
         default: ''
       candidate_sha256:
@@ -34,7 +30,7 @@ concurrency:
 
 jobs:
   published:
-    name: Windows x64 · binaires publiés 2.1.5 et 2.1.6
+    name: Windows x64 · release courante et candidat
     runs-on: windows-2025
     timeout-minutes: 40
     defaults:
@@ -61,7 +57,7 @@ jobs:
           if ($zip.Count -ne 1) { throw 'ZIP candidat absent ou ambigu.' }
           Add-Content -LiteralPath $env:GITHUB_ENV -Value ('CANDIDATE_ZIP=' + $zip[0].FullName)
 
-      - name: Admission au démarrage, mise à jour et restauration avec les ZIP publiés
+      - name: Admission au démarrage, mise à jour et restauration avec le ZIP publié
         env:
           CANDIDATE_VERSION: ${{ inputs.candidate_version }}
           CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}

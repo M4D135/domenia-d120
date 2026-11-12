@@ -1,24 +1,24 @@
-# Checks of the PUBLISHED Domenia packs, run on a disposable hosted runner only. It downloads the exact release ZIPs,
-# verifies their SHA-256, then drives the product's own commands: startup admission of the in-place default
-# configuration (--check-only, --check-settings-seed) and a real update 2.1.5 -> 2.1.6 followed by a restoration
-# (livraison). No service, firewall, WinRM, policy or account is changed; nothing outside $Work is written.
-# A candidate ZIP from a delivery CI run can be added: it then plays the newer package (update source, restoration).
-param([Parameter(Mandatory = $true)][string]$Work, [string]$CandidateZip, [string]$CandidateVersion, [string]$CandidateSha256)
+# Checks of the PUBLISHED Domenia pack, run on a disposable hosted runner only. The reference is the current release
+# recorded in packs/manifest.json of the tested commit (version, URLs and SHA-256 pinned in the repository): its ZIP is
+# downloaded and verified, then the product's own commands are driven (--check-only, --check-settings-seed, livraison).
+# A candidate ZIP from a delivery CI run can be added: it then plays the newer package, with a real update of the
+# reference (default configuration written in place) and a restoration back to it. No service, firewall, WinRM, policy
+# or account is changed; nothing outside $Work is written. Restoring a release older than 2.1.6 is no longer exercised
+# here (those releases were removed on 2026-11-12): C# tests cover it and run 43241745675 observed it on real binaries.
+param([Parameter(Mandatory = $true)][string]$Work, [string]$CandidateZip, [string]$CandidateVersion, [string]$CandidateSha256,
+    [string]$ManifestPath = (Join-Path $PSScriptRoot '..\..\packs\manifest.json'))
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 . (Join-Path $PSScriptRoot 'release-ci-process.ps1')
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$published = [ordered]@{
-    '2.1.5' = 'd435e21033ca144bf5ba31c43aa5ce76caa538fa8f9cc19faa1d70a925541a9a'
-    '2.1.6' = '3d5ec57e326123a60c46042cffc52c006dac630a9839d505e5f5d8c8b0709b13'
-}
 $seedName = 'Domenia.settings.seed.json'
+$releaseBase = 'https://github.com/M4D135/domenia-d120/releases/download/v'
 if (Test-Path -LiteralPath $Work) { throw 'Dossier de travail deja present ; rien n est reutilise.' }
 New-Item -ItemType Directory -Path $Work | Out-Null
 $logs = Join-Path $Work 'logs'; New-Item -ItemType Directory -Path $logs | Out-Null
-$report = [ordered]@{ format = 'Domenia.PublishedBinaryChecks/1'; startedAt = (Get-Date).ToUniversalTime().ToString('o'); releases = $published; steps = @() }
+$report = [ordered]@{ format = 'Domenia.PublishedBinaryChecks/2'; startedAt = (Get-Date).ToUniversalTime().ToString('o'); steps = @() }
 $script:index = 0
 
 function Add-Step([string]$Name, [string]$State, [string]$Detail) {
@@ -26,17 +26,33 @@ function Add-Step([string]$Name, [string]$State, [string]$Detail) {
     Write-Host ($State.ToUpperInvariant().PadRight(9) + $Name + $(if ($Detail) { ' :: ' + $Detail } else { '' }))
 }
 
-function Get-Pack([string]$Version) {
-    $name = 'Domenia_' + $Version + '_PROD-LIGHT_Windows-x64.zip'
-    $folder = Join-Path $Work ('release-' + $Version); New-Item -ItemType Directory -Path $folder | Out-Null
-    $zip = Join-Path $folder $name; $sums = Join-Path $folder 'SHA256SUMS.txt'
-    $base = 'https://github.com/M4D135/domenia-d120/releases/download/v' + $Version + '/'
-    Invoke-WebRequest -UseBasicParsing -Uri ($base + $name) -OutFile $zip
-    Invoke-WebRequest -UseBasicParsing -Uri ($base + 'SHA256SUMS.txt') -OutFile $sums
-    $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
-    if ($hash -cne $published[$Version]) { throw ('Empreinte de ' + $name + ' differente de la release : ' + $hash) }
-    $line = @(Get-Content -LiteralPath $sums | Where-Object { $_ -like ('*' + $name) })
-    if ($line.Count -ne 1 -or $line[0].Trim() -cne ($hash + '  ' + $name)) { throw ('SHA256SUMS.txt de v' + $Version + ' ne confirme pas le ZIP.') }
+function Get-Sha([string]$Path) { return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant() }
+
+function Get-Reference([string]$Path) {
+    $manifest = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $Path).ProviderPath, [Text.Encoding]::UTF8) | ConvertFrom-Json
+    $version = [string]$manifest.version
+    if ($version -notmatch '^2\.[0-9]+\.[0-9]+$') { throw ('Version de reference invalide : ' + $version) }
+    $archive = @($manifest.archives | Where-Object { $_.edition -eq 'PROD-LIGHT' })
+    if ($archive.Count -ne 1) { throw 'Archive PROD-LIGHT absente ou ambigue dans le manifeste.' }
+    $name = 'Domenia_' + $version + '_PROD-LIGHT_Windows-x64.zip'
+    $base = $releaseBase + $version + '/'
+    if ($archive[0].filename -cne $name -or $archive[0].download_url -cne ($base + $name) -or $manifest.checksums.download_url -cne ($base + 'SHA256SUMS.txt')) {
+        throw 'Adresses du manifeste hors de la release attendue.'
+    }
+    foreach ($value in @($archive[0].sha256, $manifest.checksums.sha256)) { if ($value -notmatch '^[0-9a-f]{64}$') { throw 'Empreinte du manifeste invalide.' } }
+    return [pscustomobject]@{ Version = $version; Name = $name; Base = $base; Sha256 = [string]$archive[0].sha256; SumsSha256 = [string]$manifest.checksums.sha256 }
+}
+
+function Get-Pack($Reference) {
+    $folder = Join-Path $Work ('release-' + $Reference.Version); New-Item -ItemType Directory -Path $folder | Out-Null
+    $zip = Join-Path $folder $Reference.Name; $sums = Join-Path $folder 'SHA256SUMS.txt'
+    Invoke-WebRequest -UseBasicParsing -Uri ($Reference.Base + $Reference.Name) -OutFile $zip
+    Invoke-WebRequest -UseBasicParsing -Uri ($Reference.Base + 'SHA256SUMS.txt') -OutFile $sums
+    $hash = Get-Sha $zip
+    if ($hash -cne $Reference.Sha256) { throw ('Empreinte de ' + $Reference.Name + ' differente du manifeste : ' + $hash) }
+    if ((Get-Sha $sums) -cne $Reference.SumsSha256) { throw 'SHA256SUMS.txt different du manifeste.' }
+    $line = @(Get-Content -LiteralPath $sums | Where-Object { $_ -like ('*' + $Reference.Name) })
+    if ($line.Count -ne 1 -or $line[0].Trim() -cne ($hash + '  ' + $Reference.Name)) { throw ('SHA256SUMS.txt de v' + $Reference.Version + ' ne confirme pas le ZIP.') }
     return $zip
 }
 
@@ -66,33 +82,33 @@ function Write-Seed([string]$Path, [int]$Zoom) {
     $text = "{`n  `"format`": `"domenia.preferencesExport`",`n  `"version`": 1,`n  `"exportedAt`": `"2026-11-12T12:00:00Z`",`n" +
         "  `"mode`": `"Annuaire`",`n  `"values`": {`n    `"settings.zoom`": $Zoom`n  }`n}"
     [IO.File]::WriteAllText($Path, $text, (New-Object Text.UTF8Encoding $false))
-    return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+    return Get-Sha $Path
 }
-
-function Get-Sha([string]$Path) { return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant() }
 
 function Get-PackVersion([string]$Pack) {
     return ([IO.File]::ReadAllText((Join-Path $Pack 'wad\package-release.json'), [Text.Encoding]::UTF8) | ConvertFrom-Json).version
 }
 
-$zip215 = $null; $zip216 = $null
+$reference = $null; $zipRef = $null
 try {
-    $zip215 = Get-Pack '2.1.5'; $zip216 = Get-Pack '2.1.6'
-    Add-Step 'telechargement des releases v2.1.5 et v2.1.6' 'passed' 'empreintes egales a la release et a SHA256SUMS.txt'
-} catch { Add-Step 'telechargement des releases' 'failed' $_.Exception.Message }
-$newest = '2.1.6'; $zipNew = $zip216
+    $reference = Get-Reference $ManifestPath
+    $zipRef = Get-Pack $reference
+    $report['reference'] = [ordered]@{ version = $reference.Version; sha256 = $reference.Sha256 }
+    Add-Step ('telechargement de la release v' + $reference.Version + ' du manifeste') 'passed' ('ZIP ' + $reference.Sha256 + ', egal au manifeste et a SHA256SUMS.txt')
+} catch { Add-Step 'telechargement de la release de reference' 'failed' $_.Exception.Message }
+$newest = $(if ($reference) { $reference.Version } else { $null }); $zipNew = $zipRef
 if ($CandidateZip) {
     try {
-        if ($CandidateVersion -notmatch '^2\.[0-9]+\.[0-9]+$' -or [version]$CandidateVersion -le [version]'2.1.6') { throw 'Version candidate invalide.' }
+        if (-not $reference) { throw 'Candidat sans reference publiee verifiee.' }
+        if ($CandidateVersion -notmatch '^2\.[0-9]+\.[0-9]+$' -or [version]$CandidateVersion -le [version]$reference.Version) { throw 'Version candidate invalide ou non posterieure a la reference.' }
         $hash = Get-Sha $CandidateZip
         if ($hash -cne $CandidateSha256.ToLowerInvariant()) { throw ('Empreinte du candidat differente : ' + $hash) }
         $newest = $CandidateVersion; $zipNew = $CandidateZip; $report['candidate'] = [ordered]@{ version = $CandidateVersion; sha256 = $hash }
         Add-Step ('candidat ' + $CandidateVersion) 'passed' ('ZIP ' + $hash)
     } catch { Add-Step 'candidat' 'failed' $_.Exception.Message; $zipNew = $null }
 }
-$refusesOldRestore = $zipNew -and ([version]$newest -ge [version]'2.1.7')
 
-# 1. Startup admission with the newest binaries (published 2.1.6, or the candidate).
+# 1. Startup admission with the newest binaries (the reference release, or the candidate).
 if ($zipNew) {
     try {
         $pack = Expand-Pack $zipNew ('admission-' + $newest)
@@ -124,92 +140,47 @@ if ($zipNew) {
     } catch { Add-Step ('admission au demarrage (' + $newest + ')') 'failed' $_.Exception.Message }
 }
 
-# 2. Real update 2.1.5 -> newest by the newest package, with a default configuration present, then restoration.
-if ($zip215 -and $zipNew) {
-    $target = $null; $source = $null; $transaction = $null; $seedSha = $null
+# 2. Without a candidate: the published package drives its own maintenance route; updating to itself is refused.
+if ($zipRef -and -not $CandidateZip) {
     try {
-        $target = Expand-Pack $zip215 'installation'
-        $source = Expand-Pack $zipNew ('source-' + $newest)
-        [void](Invoke-Domenia $target @('--check-only') 0 'cible-215-reference')
-        Add-Step '2.1.5 extraite : --check-only' 'passed' 'code 0'
-        $seed = Join-Path $target ('wad\' + $seedName)
-        $seedSha = Write-Seed $seed 125
-        $run = Invoke-Domenia $target @('--check-only') 1 'cible-215-avec-seed'
-        Add-Step '2.1.5 avec un fichier de configuration sur place : refus attendu (2.1.5 ne l admet pas)' 'passed' ('code 1 ; ' + (($run.Error -split "\r?\n" | Where-Object { $_ } | Select-Object -Last 1)))
-        $run = Invoke-Domenia $source @('livraison', 'apercu', $target) 0 'livraison-apercu' 600
-        $plan = Get-LastJson $run.Error
-        $keptSeed = @($plan.Preserved) -contains ('wad/' + $seedName)
-        $removedSeed = (@($plan.Removed) + @($plan.Replaced)) -contains ('wad/' + $seedName)
-        if (-not $keptSeed -or $removedSeed) { throw ('Plan de mise a jour sans conservation du fichier : conserves ' + (@($plan.Preserved) -join ', ')) }
-        Add-Step ('livraison apercu 2.1.5 -> ' + $newest + ' : fichier conserve dans le plan') 'passed' ('confirmation ' + $plan.Confirmation.Substring(0, 12) + '...')
-        $run = Invoke-Domenia $source @('livraison', 'appliquer', $target, $plan.Confirmation) 0 'livraison-appliquer' 900
-        $result = Get-LastJson $run.Error
-        $transaction = $result.Transaction
-        if ((Get-PackVersion $target) -cne $newest) { throw ('Installation non passee en ' + $newest + '.') }
-        if ((Get-Sha $seed) -cne $seedSha) { throw 'Configuration par defaut modifiee par la mise a jour.' }
-        Add-Step ('livraison appliquer : installation en ' + $newest + ', fichier identique') 'passed' ('action ' + $result.Action + ', sante ' + $result.HealthConfirmed + ', transaction ' + $transaction)
-        [void](Invoke-Domenia $target @('--check-only') 0 'cible-nouvelle-avec-seed')
-        Add-Step ($newest + ' installee par mise a jour, fichier sur place : --check-only') 'passed' 'code 0'
-    } catch { Add-Step ('mise a jour 2.1.5 -> ' + $newest) 'failed' $_.Exception.Message }
-
-    if ($transaction -and $refusesOldRestore) {
-        try {
-            $run = Invoke-Domenia $source @('livraison', 'apercu-restauration', $target, $transaction) 2 'restauration-refusee' 600
-            if ($run.Error -notmatch 'Domenia\.settings\.seed\.json') { throw 'Refus de restauration sans le nom du fichier.' }
-            if ((Get-PackVersion $target) -cne $newest -or (Get-Sha (Join-Path $target ('wad\' + $seedName))) -cne $seedSha) { throw 'Installation modifiee par le refus.' }
-            Add-Step 'restauration vers 2.1.5 avec le fichier sur place : refus avant toute modification' 'passed' 'code 2, fichier nomme, installation intacte'
-            Move-Item -LiteralPath (Join-Path $target ('wad\' + $seedName)) -Destination (Join-Path $Work 'seed-deplace-avant-restauration.json')
-        } catch { Add-Step 'refus de restauration vers 2.1.5' 'failed' $_.Exception.Message; $transaction = $null }
-    }
-    if ($transaction) {
-        try {
-            $run = Invoke-Domenia $source @('livraison', 'apercu-restauration', $target, $transaction) 0 'restauration-apercu' 600
-            $plan = Get-LastJson $run.Error
-            Add-Step 'livraison apercu-restauration' 'passed' ('conserves : ' + (@($plan.Preserved) -join ', '))
-            $run = Invoke-Domenia $source @('livraison', 'restaurer', $target, $transaction, $plan.Confirmation) 0 'restauration' 900
-            $version = Get-PackVersion $target
-            $present = Test-Path -LiteralPath (Join-Path $target ('wad\' + $seedName))
-            Add-Step 'livraison restaurer' 'passed' ('version ' + $version + ', fichier de configuration present : ' + $present)
-            # Observation, not an expectation: 2.1.5 does not admit a file outside its manifest.
-            $script:index++
-            $prefix = Join-Path $logs (('{0:D2}-' -f $script:index) + 'cible-restauree')
-            $check = $null
-            try { [void](Invoke-ReleaseProcess -FilePath (Join-Path $target 'Domenia.exe') -ArgumentList @('--check-only') -LogPrefix $prefix -ExpectedExitCode 0); $check = 'code 0' }
-            catch { $check = 'refus : ' + ((([IO.File]::ReadAllText($prefix + '.stderr.log', [Text.Encoding]::UTF8)) -split "\r?\n" | Where-Object { $_ } | Select-Object -Last 1)) }
-            Add-Step ('version restauree ' + $version + ' (fichier de configuration present : ' + $present + ') : --check-only') 'observed' $check
-            if ($present) {
-                Move-Item -LiteralPath (Join-Path $target ('wad\' + $seedName)) -Destination (Join-Path $Work 'seed-retire-apres-restauration.json')
-                [void](Invoke-Domenia $target @('--check-only') 0 'cible-restauree-sans-seed')
-                Add-Step ('version restauree ' + $version + ' sans le fichier : --check-only') 'passed' 'code 0'
-            }
-        } catch { Add-Step ('restauration ' + $newest + ' -> 2.1.5') 'failed' $_.Exception.Message }
-    }
+        $target = Expand-Pack $zipRef 'installation'
+        $source = Expand-Pack $zipRef ('source-' + $reference.Version)
+        $run = Invoke-Domenia $source @('livraison', 'apercu', $target) 2 'livraison-meme-version' 600
+        if ($run.Error -notmatch 'actif') { throw 'Refus sans le motif du paquet deja actif.' }
+        Add-Step ('livraison apercu ' + $reference.Version + ' sur elle-meme : refus, paquet deja actif') 'passed' 'code 2'
+    } catch { Add-Step 'livraison sur la meme version' 'failed' $_.Exception.Message }
 }
 
-# 3. Candidate only: update 2.1.6 (default configuration written in place) -> candidate, then restoration to 2.1.6.
-if ($zip216 -and $CandidateZip -and $zipNew) {
-    $transaction = $null
+# 3. Candidate: real update reference -> candidate (default configuration written in place when the reference admits it),
+#    health confirmed by the real WebView2 probe, then restoration back to the reference.
+if ($zipRef -and $CandidateZip -and $zipNew) {
+    $transaction = $null; $withSeed = [version]$reference.Version -ge [version]'2.1.6'
     try {
-        $target = Expand-Pack $zip216 'installation-216'
-        $source = Expand-Pack $zipNew ('source-bis-' + $newest)
-        $seed = Join-Path $target ('wad\' + $seedName); $seedSha = Write-Seed $seed 140
-        [void](Invoke-Domenia $target @('--check-only') 0 'cible-216-avec-seed')
-        Add-Step '2.1.6 avec un fichier ecrit sur place : --check-only' 'passed' 'code 0'
-        $run = Invoke-Domenia $source @('livraison', 'apercu', $target) 0 'livraison-216-apercu' 600
+        $target = Expand-Pack $zipRef 'installation'
+        $source = Expand-Pack $zipNew ('source-' + $newest)
+        $seed = Join-Path $target ('wad\' + $seedName); $seedSha = $null
+        if ($withSeed) { $seedSha = Write-Seed $seed 140 }
+        [void](Invoke-Domenia $target @('--check-only') 0 'reference-installee')
+        Add-Step ($reference.Version + ' extraite' + $(if ($withSeed) { ', fichier ecrit sur place' } else { '' }) + ' : --check-only') 'passed' 'code 0'
+        $run = Invoke-Domenia $source @('livraison', 'apercu', $target) 0 'livraison-apercu' 600
         $plan = Get-LastJson $run.Error
-        if (-not (@($plan.Preserved) -contains ('wad/' + $seedName)) -or ((@($plan.Removed) + @($plan.Replaced)) -contains ('wad/' + $seedName))) { throw 'Fichier non conserve dans le plan.' }
-        $run = Invoke-Domenia $source @('livraison', 'appliquer', $target, $plan.Confirmation) 0 'livraison-216-appliquer' 900
+        if ($withSeed -and (-not (@($plan.Preserved) -contains ('wad/' + $seedName)) -or ((@($plan.Removed) + @($plan.Replaced)) -contains ('wad/' + $seedName)))) { throw 'Fichier non conserve dans le plan.' }
+        Add-Step ('livraison apercu ' + $reference.Version + ' -> ' + $newest) 'passed' ('confirmation ' + $plan.Confirmation.Substring(0, 12) + '...')
+        $run = Invoke-Domenia $source @('livraison', 'appliquer', $target, $plan.Confirmation) 0 'livraison-appliquer' 900
         $result = Get-LastJson $run.Error; $transaction = $result.Transaction
-        if ((Get-PackVersion $target) -cne $newest -or (Get-Sha $seed) -cne $seedSha) { throw 'Mise a jour incomplete ou fichier modifie.' }
-        [void](Invoke-Domenia $target @('--check-only') 0 'cible-216-mise-a-jour')
-        Add-Step ('mise a jour 2.1.6 -> ' + $newest + ' : fichier conserve a l octet, demarrage admis') 'passed' ('sante ' + $result.HealthConfirmed + ', transaction ' + $transaction)
-        $run = Invoke-Domenia $source @('livraison', 'apercu-restauration', $target, $transaction) 0 'restauration-216-apercu' 600
+        if ($result.Action -cne 'update' -or $result.HealthConfirmed -ne $true) { throw ('Mise a jour non confirmee : ' + $result.Action + ', sante ' + $result.HealthConfirmed) }
+        if ((Get-PackVersion $target) -cne $newest) { throw ('Installation non passee en ' + $newest + '.') }
+        if ($withSeed -and (Get-Sha $seed) -cne $seedSha) { throw 'Configuration par defaut modifiee par la mise a jour.' }
+        [void](Invoke-Domenia $target @('--check-only') 0 'cible-mise-a-jour')
+        Add-Step ('livraison appliquer ' + $reference.Version + ' -> ' + $newest + $(if ($withSeed) { ', fichier conserve a l octet' } else { '' })) 'passed' ('action update, sante True, transaction ' + $transaction)
+        $run = Invoke-Domenia $source @('livraison', 'apercu-restauration', $target, $transaction) 0 'restauration-apercu' 600
         $plan = Get-LastJson $run.Error
-        [void](Invoke-Domenia $source @('livraison', 'restaurer', $target, $transaction, $plan.Confirmation) 0 'restauration-216' 900)
-        if ((Get-PackVersion $target) -cne '2.1.6' -or (Get-Sha $seed) -cne $seedSha) { throw 'Restauration incomplete ou fichier modifie.' }
-        [void](Invoke-Domenia $target @('--check-only') 0 'cible-216-restauree')
-        Add-Step ('restauration ' + $newest + ' -> 2.1.6 : fichier conserve, 2.1.6 demarre avec') 'passed' 'code 0'
-    } catch { Add-Step ('mise a jour et restauration 2.1.6 <-> ' + $newest) 'failed' $_.Exception.Message }
+        [void](Invoke-Domenia $source @('livraison', 'restaurer', $target, $transaction, $plan.Confirmation) 0 'restauration' 900)
+        if ((Get-PackVersion $target) -cne $reference.Version) { throw 'Restauration incomplete.' }
+        if ($withSeed -and (Get-Sha $seed) -cne $seedSha) { throw 'Configuration par defaut modifiee par la restauration.' }
+        [void](Invoke-Domenia $target @('--check-only') 0 'cible-restauree')
+        Add-Step ('livraison restaurer ' + $newest + ' -> ' + $reference.Version + $(if ($withSeed) { ', fichier conserve' } else { '' })) 'passed' ('version ' + $reference.Version + ' demarre, code 0')
+    } catch { Add-Step ('mise a jour et restauration ' + $reference.Version + ' <-> ' + $newest) 'failed' $_.Exception.Message }
 }
 
 $report['finishedAt'] = (Get-Date).ToUniversalTime().ToString('o')
