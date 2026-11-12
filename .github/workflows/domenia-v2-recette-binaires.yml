@@ -1,0 +1,51 @@
+name: Domenia v2 — recette des binaires publiés
+
+# Disposable hosted runner only: downloads the exact published release ZIPs, checks their SHA-256 and drives the
+# product's own commands (startup admission, real update 2.1.5 -> 2.1.6, restoration). It never publishes anything and
+# never changes WinRM, the firewall, policies, services or accounts.
+on:
+  push:
+    branches: ['claude/recette-binaires-216']
+    paths:
+      - '.github/workflows/domenia-v2-recette-binaires.yml'
+      - 'v2/tools/recette-binaires-publies.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: domenia-v2-recette-binaires-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  published:
+    name: Windows x64 · binaires publiés 2.1.5 et 2.1.6
+    runs-on: windows-2025
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Récupérer le commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Admission au démarrage, mise à jour et restauration avec les ZIP publiés
+        run: ./v2/tools/recette-binaires-publies.ps1 -Work "$env:RUNNER_TEMP\recette-binaires"
+
+      - name: Résumé
+        if: always()
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP 'recette-binaires\logs\recette-binaires.json'
+          if (Test-Path -LiteralPath $report) { Get-Content -LiteralPath $report -Raw -Encoding UTF8 } else { 'Aucun rapport.' }
+
+      - name: Conserver les journaux
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: domenia-v2-recette-binaires-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/recette-binaires/logs/
+          if-no-files-found: warn
+          retention-days: 14
