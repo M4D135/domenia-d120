@@ -81,7 +81,7 @@ export function mount(host, ctx) {
       const action = button.dataset.configAction;
       if (action === 'export' || action === 'package') await exportOrPackage(action);
       else if (action === 'import') await importFile();
-      else if (action === 'seed') { await proposePackConfiguration(call, setPrefs, ctx.toast, () => alive); if (alive) await refresh(); }
+      else if (action === 'seed') { await proposePackConfiguration(call, setPrefs, ctx.toast, () => alive, true); if (alive) await refresh(); }
       else await load();
     } catch (err) { if (alive) ctx.toast(errorText(err), { tone: 'warn' }); }
     finally { busy = false; dialog = null; if (alive) host.querySelectorAll('button,input').forEach(el => { el.disabled = el.hasAttribute('data-config-key') && !options.choices.find(c => c.key === el.dataset.configKey)?.valid; }); }

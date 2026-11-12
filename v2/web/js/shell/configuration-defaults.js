@@ -25,7 +25,8 @@ export function configurationPreviewMarkup(preview) {
 }
 
 /** Boot and explicit settings entry use the same real server proposal; close is a persisted refusal for this build+SHA. */
-export async function proposePackConfiguration(call, setPrefs, notify, alive = () => true) {
+// `explicit`: the operator asked to review the proposal, so a recorded decision or an absent file is said, never silent.
+export async function proposePackConfiguration(call, setPrefs, notify, alive = () => true, explicit = false) {
   const status = await call('settings.configuration.seed.status');
   if (!alive()) return;
   if (status.problem) { notify(status.problem, { tone: 'warn' }); return; }
@@ -33,7 +34,7 @@ export async function proposePackConfiguration(call, setPrefs, notify, alive = (
     applyImportedInterface(status.application, setPrefs);
     notify(status.message, { tone: 'ok' }); return;
   }
-  if (!status.needsDecision) return;
+  if (!status.needsDecision) { if (explicit && status.message) notify(status.message, { tone: 'info' }); return; }
   const preview = await call('settings.configuration.preview', { text: status.document.text });
   if (!alive()) return;
   const dialog = openDialog({ title: 'Configuration proposée avec cette version', icon: 'sliders', size: 'lg',

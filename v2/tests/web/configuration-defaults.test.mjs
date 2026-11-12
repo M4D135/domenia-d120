@@ -90,6 +90,17 @@ test('Proposition du premier lancement : comparaison visible et refus enregistr�
   eq(calls.at(-1), { op: 'settings.configuration.seed.decide', args: { decisionId: 'build-seed-id', sourceSha256: 'seed-sha', fingerprint: 'current-document', apply: false } }, 'refus enregistré pour la vraie source et le choix aperçu');
 });
 
+test('Revoir la proposition : décision déjà enregistrée annoncée sur demande, silence au démarrage', async () => {
+  // Banc 2.1.6 (kit e46237d5) : le bouton « Revoir la proposition du pack » n’affichait rien après une décision.
+  const decided = { available: true, needsDecision: false, automaticallyApplied: false, message: 'Une décision a déjà été enregistrée pour cette version et ce fichier. L’import manuel reste disponible.' };
+  const explicit = []; const startup = [];
+  const answer = async op => { if (op === 'settings.configuration.seed.status') return decided; throw new Error(op); };
+  await proposePackConfiguration(answer, () => { throw new Error('UI modifiée'); }, (text, opts) => explicit.push({ text, tone: opts?.tone }), () => true, true);
+  eq(explicit, [{ text: decided.message, tone: 'info' }], 'décision enregistrée dite au clic explicite');
+  await proposePackConfiguration(answer, () => { throw new Error('UI modifiée'); }, text => startup.push(text));
+  eq(startup, [], 'démarrage silencieux quand rien n’est à décider');
+});
+
 test('Interface importée : une seule application par profil, les choix ultérieurs restent intacts', () => {
   const data = new Map(); const storage = { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value) };
   const changes = []; const result = { interfaceId: 'import-1', interface: { theme: 'dark' } };
