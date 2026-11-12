@@ -21,7 +21,12 @@ configuration par défaut » n’assemble plus une copie complète du pack (nouv
   listerait ne l’écrase jamais.
 - Tests : `PackageUpdateTests.Defaults.cs` réécrit, `PackageIntegrity.DefaultsTests.cs`,
   `PackageLifecycleTests.Defaults.cs`, `configuration-defaults.test.mjs`. Contrats d’opérations rafraîchis.
-- Non publié. CI et validation sur poste à faire avant toute publication.
+- CI de livraison [43187590772](https://github.com/M4D135/domenia-d120/actions/runs/43187590772) sur `cb6306a` :
+  3 078 tests C# et 1 650 critiques réussis, contrôles navigateur réussis (dont la page Configuration à diffuser), pack
+  PROD-LIGHT préparé. Le premier passage (`fa3b7f8`, run 43186394465) avait trouvé une régression : le fichier compté
+  comme donnée de désinstallation faisait refuser toute mise à jour d’une copie 2.1.5 ; corrigé en `1e1cba0`.
+- Non publié. Reste : écrire la configuration avec le vrai bouton sur un pack extrait dans la VM, relancer, vérifier
+  qu’un profil vierge la reçoit, puis le go de David pour publier.
 
 ## 12/11/2026 — publication de 2.1.5
 
