@@ -42,6 +42,7 @@
     <Compile Include="../../src/Domenia.App/StartupCheckCommand.cs" Link="Linked/StartupCheckCommand.cs" />
     <Compile Include="../../src/Domenia.App/PendingRecoveryHint.cs" Link="Linked/PendingRecoveryHint.cs" />
     <Compile Include="../../src/Domenia.App/PackageDefaults.cs" Link="Linked/PackageDefaults.cs" />
+    <Compile Include="../../src/Domenia.App/Settings/PortableConfigurationCommand.cs" Link="Linked/PortableConfigurationCommand.cs" />
     <Compile Include="../../src/Domenia.App/OfflineDossierContext.cs" Link="Linked/OfflineDossierContext.cs" />
     <Compile Include="../../src/Domenia.App/AutomationHostCommand.cs" Link="Linked/AutomationHostCommand.cs" />
     <Compile Include="../../src/Domenia.App/ReceiptStorePolicy.cs" Link="Linked/ReceiptStorePolicy.cs" />
