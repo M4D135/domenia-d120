@@ -176,7 +176,7 @@ if ($zip215 -and $zipNew) {
             $check = $null
             try { [void](Invoke-ReleaseProcess -FilePath (Join-Path $target 'Domenia.exe') -ArgumentList @('--check-only') -LogPrefix $prefix -ExpectedExitCode 0); $check = 'code 0' }
             catch { $check = 'refus : ' + ((([IO.File]::ReadAllText($prefix + '.stderr.log', [Text.Encoding]::UTF8)) -split "\r?\n" | Where-Object { $_ } | Select-Object -Last 1)) }
-            Add-Step ('version restauree ' + $version + ' avec le fichier : --check-only') 'observed' $check
+            Add-Step ('version restauree ' + $version + ' (fichier de configuration present : ' + $present + ') : --check-only') 'observed' $check
             if ($present) {
                 Move-Item -LiteralPath (Join-Path $target ('wad\' + $seedName)) -Destination (Join-Path $Work 'seed-retire-apres-restauration.json')
                 [void](Invoke-Domenia $target @('--check-only') 0 'cible-restauree-sans-seed')

@@ -2,7 +2,7 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**12/11/2026 : Domenia 2.1.6 qualifiée (banc administrateur conforme sur `50f6662`) et publiée après le go de David. « Définir comme configuration par défaut » écrit un seul fichier, `wad/Domenia.settings.seed.json`, dans le dossier ouvert, hors manifeste, comme GLPI Pilot : ZIP officiel, manifeste et binaires intacts, fichier gardé par les mises à jour, ancien fichier sauvegardé dans les exports, mêmes choix « déjà en place » à l’octet, profil vierge servi sans question. 3 078 tests C# complets, 1 650 critiques, 227 contrôles navigateur, 7 simulations réussis. Limites : copie préparée avant 2.1.6 et dossier en lecture seule couverts par les tests, non observés sur banc.**
+**12/11/2026 : Domenia 2.1.7 publiée, sur la consigne de David d’aller au bout sans attendre. Les mises à jour aboutissent de nouveau : la sonde de santé annulait sa propre page et chaque mise à jour revenait en arrière, sans cause. Les commandes `livraison` répondent de nouveau ; depuis 2.0.8, elles répondaient « Commande inconnue ». Une restauration vers une version antérieure à 2.1.6 est refusée tant qu’une configuration est écrite sur place. `--check-settings-seed` rend le code 2. Recette des vrais binaires 2.1.5, 2.1.6 et 2.1.7 sur un runner hébergé : 21 étapes, aucun échec. Limites : pas de banc administrateur pour 2.1.7, mise à jour depuis Paramètres non cliquée.**
 
 ## 12/11/2026 — 2.1.7 : commandes de maintenance du paquet
 
@@ -40,6 +40,13 @@ présent et non remplacé par le plan, avec la consigne de déplacer le fichier.
 jour échouée n’est pas concerné : il revient à la version d’origine, qui admettait déjà le fichier. Tests C# ajoutés
 pour chacun des trois points ; recette des binaires étendue au candidat (mise à jour 2.1.6 → candidat avec fichier
 gardé à l’octet, restauration vers 2.1.6, refus de restauration vers 2.1.5 puis restauration après déplacement).
+
+Troisième passage (run 43230764136, candidat `a08a3e3`, ZIP `029fcded…`) : 21 étapes, aucun échec. Les deux mises à
+jour, 2.1.5 → 2.1.7 et 2.1.6 → 2.1.7, sont confirmées par le vrai contrôle WebView2 : action `update`, santé vraie,
+fichier conservé à l’octet. La restauration vers 2.1.5 est refusée avec le fichier sur place, puis aboutit après son
+déplacement, et 2.1.5 démarre. La restauration vers 2.1.6 garde le fichier. Détail dans `docs/RECETTE-MANUELLE-V2.1.7.md`.
+CI de livraison du candidat : 43226396362 (3 081 tests C#, 1 653 critiques). La mise à jour depuis Paramètres n’a pas
+été cliquée ; elle partage le contrôle de santé observé.
 
 ## 12/11/2026 — publication de 2.1.6
 

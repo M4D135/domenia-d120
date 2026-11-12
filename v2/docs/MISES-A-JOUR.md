@@ -2,7 +2,7 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
-## En préparation pour 2.1.7 (non publié)
+## Correctifs publiés en 2.1.7
 
 Une mise à jour aboutit de nouveau, depuis Paramètres comme par `livraison appliquer`. Le contrôle de santé du nouveau code
 annulait sa propre page de vérification : chaque mise à jour revenait aux anciens binaires (code 3) sans en donner la
