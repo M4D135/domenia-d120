@@ -145,8 +145,11 @@ internal sealed partial class PackageLifecycle
         if (next is not null && old is not null && CompareSchema(next, old) < 0)
         { throw new InvalidDataException("Schéma de la version proposée plus ancien ; seule une restauration explicite du code est admise, sans toucher aux bases."); }
         var wanted = incoming.Components.Select(c => c.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var removed = active?.Components.Where(c => !wanted.Contains(c.Path)).Select(c => c.Path).ToArray() ?? [];
-        var preserved = Preserved(target, active?.Components ?? []);
+        // A diffusion copy made before 2.1.6 lists its default configuration in its manifest; an official pack does not.
+        // The file then stays in place, outside the new manifest, instead of leaving with the old code (ApplyCode).
+        bool Kept(PackageComponent c) => PackageIntegrity.IsDefaults(c.Path) && !wanted.Contains(c.Path);
+        var removed = active?.Components.Where(c => !wanted.Contains(c.Path) && !Kept(c)).Select(c => c.Path).ToArray() ?? [];
+        var preserved = Preserved(target, active?.Components.Where(c => !Kept(c)).ToArray() ?? []);
         if (preserved.Any(p => wanted.Contains(p)))
         { throw new InvalidDataException("Un composant proposé remplacerait un fichier installé hors manifeste ; conservation sans écrasement."); }
         return Seal(new("update", target, incoming.ManifestHash, active?.ManifestHash, null, next, old,
@@ -208,7 +211,7 @@ internal sealed partial class PackageLifecycle
         }
         static void CheckEmptyEntry(string path)
         {
-            if (Path.GetFileName(path) is not (LockName or "Domenia.config.json"))
+            if (Path.GetFileName(path) is not (LockName or "Domenia.config.json" or PackageIntegrity.DefaultsName))
             { throw new InvalidDataException("Dossier sans manifeste non vide ; aucun déploiement par-dessus des fichiers inconnus."); }
             PackageLifecycleFiles.Check(path);
         }

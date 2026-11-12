@@ -4,6 +4,25 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **12/11/2026 : Domenia 2.1.5 qualifiée (banc administrateur conforme sur `af201b1`) et publiée après le go de David. « CIM / WinRM » ouvre de nouveau la session (fin du 0x80070057), lit les réponses WinRM comme DCOM et, sur un poste sans écouteur, rend « Injoignable (0x80338012) » sans aucune source « Interrompu » ; en Automatique, 27/27 sources par DCOM en 26,4 s sur le poste de banc, logiciels installés de nouveau lus ; sans accélération graphique, l'interface n'occupe plus le processeur au repos. 3 075 tests C# complets, 1 647 critiques, 225 contrôles navigateur, 7 simulations réussis. Limite : lecture WinRM réussie non observée sur le banc (poste sans écouteur).**
 
+## 12/11/2026 — 2.1.6 en préparation : configuration par défaut écrite sur place
+
+Décision de David (« Oui, faire comme GLPI »), branche `claude/config-defaut-en-place-20261112`. « Définir comme
+configuration par défaut » n’assemble plus une copie complète du pack (nouveau ZIP, nouvelles empreintes) : il écrit
+`wad/Domenia.settings.seed.json` dans le dossier ouvert, comme `wad/GLPI-Pilot.deployment.json` de GLPI Pilot.
+
+- `PackageIntegrity` admet ce fichier hors manifeste, à sa seule place (`wad/` ou racine plate), comme
+  `Domenia.config.json`. Un temporaire `.part` laissé par une écriture interrompue est refusé avec une consigne précise.
+- `PackageDefaults.WriteAsync` vérifie le pack publié, refuse une copie dont le manifeste liste déjà le fichier,
+  sauvegarde un fichier précédent dans les exports (`Domenia.settings.seed.avant-remplacement.json`) sinon ne remplace
+  rien, écrit par temporaire et renommage dans le même dossier, relit l’empreinte et revérifie le pack. Le profil qui
+  définit la configuration enregistre aussitôt « conserver » pour ce build et ce SHA.
+- Mises à jour : le fichier sur place est conservé (hors manifeste). Une copie antérieure qui le listait le garde en
+  place lors du passage vers un pack officiel ; une restauration rend la copie d’origine. Un pack entrant qui le
+  listerait ne l’écrase jamais.
+- Tests : `PackageUpdateTests.Defaults.cs` réécrit, `PackageIntegrity.DefaultsTests.cs`,
+  `PackageLifecycleTests.Defaults.cs`, `configuration-defaults.test.mjs`. Contrats d’opérations rafraîchis.
+- Non publié. CI et validation sur poste à faire avant toute publication.
+
 ## 12/11/2026 — publication de 2.1.5
 
 Après le go de David (« go tout terminer »), la [release v2.1.5](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.5)

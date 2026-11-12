@@ -4,7 +4,6 @@ internal sealed partial class MainForm
 {
     private void AttachPackageUpdateHost()
     {
-        composition.Updates.AttachDefaults(PickDefaultsDestinationAsync);
         composition.Updates.Attach(PickUpdatePathAsync, (package, confirmation) =>
         {
             BeginInvoke(async () =>
@@ -21,24 +20,6 @@ internal sealed partial class MainForm
                 }
             });
         });
-    }
-
-    private Task<string?> PickDefaultsDestinationAsync(CancellationToken token)
-    {
-        var result = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (IsDisposed) { return Task.FromException<string?>(new InvalidOperationException("Fenêtre fermée.")); }
-        BeginInvoke(() =>
-        {
-            try
-            {
-                token.ThrowIfCancellationRequested();
-                using var dialog = new FolderBrowserDialog { Description = "Préparer le pack avec cette configuration par défaut — choisissez un dossier local de destination", UseDescriptionForTitle = true, ShowNewFolderButton = true };
-                var selected = dialog.ShowDialog(this) == DialogResult.OK ? dialog.SelectedPath : null;
-                token.ThrowIfCancellationRequested(); result.TrySetResult(selected);
-            }
-            catch (Exception ex) { result.TrySetException(ex); }
-        });
-        return result.Task;
     }
 
     private Task<string?> PickUpdatePathAsync(bool folder, CancellationToken token)

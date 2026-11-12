@@ -11,7 +11,7 @@ export function mount(host, ctx) {
   async function load() {
     options = await call('settings.configuration.options');
     if (!alive) return;
-    host.innerHTML = `<header class="pr-section-head"><h2>Configuration à diffuser</h2><p>Choisissez les réglages de ce poste à fournir avec un pack. Un profil vierge les reçoit au démarrage ; un profil existant choisit de les remplacer ou de les conserver au premier lancement de chaque nouvelle version.</p></header>
+    host.innerHTML = `<header class="pr-section-head"><h2>Configuration à diffuser</h2><p>Choisissez les réglages de ce poste à fournir avec ce dossier de Domenia. Un profil vierge les reçoit au démarrage ; un profil existant choisit de les remplacer ou de les conserver au premier lancement de chaque nouvelle version.</p></header>
       ${options.simulated ? '<p role="status">Démonstration : réglages fictifs et exports isolés. Aucun fichier réel de configuration joint au pack n’est lu.</p>' : ''}
       <section class="card"><h3>Réglages inclus</h3><p>Les valeurs effectives livrées sont proposées même lorsqu’aucun choix n’a encore été enregistré. Cochez explicitement chaque OU de travail à partager.</p>
       ${options.choices.map(c => `<label class="pr-text"><input type="checkbox" data-config-key="${esc(c.key)}"${c.selected ? ' checked' : ''}${c.valid ? '' : ' disabled'}> ${esc(c.label)} <span class="code">${esc(c.key)}</span>${c.valid ? '' : ' — valeur invalide, exclue'}<small>${esc(JSON.stringify(c.value))}</small></label>`).join('')}
@@ -32,13 +32,13 @@ export function mount(host, ctx) {
     const exported = await call('settings.configuration.export', { keys, interface: host.querySelector('[data-config-ui]').checked ? ui() : null, fingerprint: options.fingerprint });
     if (!alive) return;
     dialog = openDialog({ title: action === 'package' ? 'Définir comme configuration par défaut' : 'Exporter la configuration', icon: 'download', size: 'lg',
-      body: `<p>${action === 'package' ? 'Préparer une nouvelle copie du pack à diffuser avec cette configuration. Le pack installé reste intact.' : 'Enregistrer la configuration validée dans les exports privés de Domenia.'}</p>
+      body: `<p>${action === 'package' ? `Écrire cette configuration dans <span class="code">wad/${esc(options.fileName)}</span>, à côté du logiciel ouvert : ce dossier devient prêt à diffuser. Le ZIP officiel, le manifeste et les binaires restent intacts. Une configuration déjà présente est d’abord sauvegardée dans vos exports.` : 'Enregistrer la configuration validée dans les exports privés de Domenia.'}</p>
         <p>Inclus : ${esc(exported.included.join(', ') || 'Aucun réglage')}.</p><p>Exclus : ${esc(exported.excluded.join(', ') || 'Aucune autre clé')}.</p>
         <p>SHA-256 : <span class="code">${esc(exported.sha256)}</span></p><details><summary>Configuration exacte</summary><pre>${esc(exported.text)}</pre></details>`,
-      actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'confirm', label: action === 'package' ? 'Préparer le pack à diffuser' : 'Exporter ce fichier', primary: true }] });
+      actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'confirm', label: action === 'package' ? 'Écrire la configuration par défaut' : 'Exporter ce fichier', primary: true }] });
     if (await dialog.result !== 'confirm' || !alive) return;
     const result = await call(action === 'package' ? 'settings.defaults.package' : 'settings.configuration.save', { text: exported.text });
-    if (!alive || result.cancelled) return;
+    if (!alive) return;
     host.querySelector('[data-config-result]').textContent = result.message;
     ctx.toast(result.message, { tone: result.simulated || result.saved === false ? 'info' : 'ok' });
   }

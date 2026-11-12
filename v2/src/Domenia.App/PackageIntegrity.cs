@@ -228,11 +228,15 @@ internal sealed partial class PackageIntegrity : IDisposable
                 FilesChecked++;
                 continue;
             }
-            if (!IsMutable(name) && !name.Equals(ManifestRelativePath, StringComparison.OrdinalIgnoreCase) && !names.Contains(name)
+            // The default configuration is admitted only at its place in this layout (wad/ or the flat root).
+            var defaults = !names.Contains(name) && name.Equals(PackageLayout.Relative(ManifestRelativePath.StartsWith("wad/", StringComparison.Ordinal), DefaultsName), StringComparison.OrdinalIgnoreCase);
+            if (!IsMutable(name) && !defaults && !name.Equals(ManifestRelativePath, StringComparison.OrdinalIgnoreCase) && !names.Contains(name)
                 && !(allowPending && name == PackageLayout.Relative(root, ".update.pending")))
             {
                 throw Invalid(Socle is not null && name.StartsWith(PackageLayout.Relative(root, SocleWebView.Folder) + "/", StringComparison.OrdinalIgnoreCase)
                     ? $"Fichier étranger au pack WebView2 du Socle : {name}. Réextrayez {SocleWebView.Archive} dans un dossier wad/runtime/webview2 vide."
+                    : Path.GetFileName(name).StartsWith(DefaultsName + ".domenia-", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".part", StringComparison.OrdinalIgnoreCase)
+                    ? $"Écriture interrompue de la configuration par défaut : supprimez {name}, puis relancez Domenia."
                     : $"Composant hors manifeste : {name}. Réextrayez le paquet complet dans un nouveau dossier.");
             }
         }
@@ -265,6 +269,13 @@ internal sealed partial class PackageIntegrity : IDisposable
             { throw Invalid(PendingRecoveryHint.Describe(root, path)); }
         }
     }
+
+    /// <summary>Default configuration distributed with the folder (same model as GLPI Pilot): written in place beside the
+    /// code by Paramètres, outside the manifest, kept by updates. Diffusion copies made before 2.1.6 list it in their
+    /// manifest instead; both forms stay valid. It holds portable preferences only and is never loaded as code.</summary>
+    internal const string DefaultsName = "Domenia.settings.seed.json";
+    internal static bool IsDefaults(string name) => name.Equals(DefaultsName, StringComparison.OrdinalIgnoreCase)
+        || name.Equals("wad/" + DefaultsName, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsMutable(string name) => name.Equals(".lifecycle.lock", StringComparison.OrdinalIgnoreCase) ||
         name.Equals("Domenia.config.json", StringComparison.OrdinalIgnoreCase) || name.Equals("wad/.lifecycle.lock", StringComparison.OrdinalIgnoreCase)

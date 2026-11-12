@@ -2,6 +2,17 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
+## En préparation pour 2.1.6 (non publié)
+
+« Définir comme configuration par défaut » écrit désormais un seul fichier, `wad/Domenia.settings.seed.json`, dans le
+dossier du logiciel ouvert, comme GLPI Pilot. Jusqu’en 2.1.5, ce bouton fabriquait une copie complète du pack, avec un
+nouveau ZIP et de nouvelles empreintes, parce que tout fichier absent du manifeste bloquait le démarrage. Le contrôle
+du pack admet maintenant ce fichier à cet emplacement, hors manifeste, comme `Domenia.config.json`. Le ZIP officiel, le
+manifeste et les binaires restent inchangés et la mise à jour garde le fichier. Une configuration déjà présente est
+sauvegardée dans les exports avant remplacement. Le profil qui l’a définie ne se la voit pas reproposer. Une copie
+préparée avant 2.1.6, dont le manifeste liste ce fichier, reste valide ; sa mise à jour vers un pack officiel laisse
+le fichier en place au lieu de le retirer avec l’ancien code.
+
 ## Correctifs publiés en 2.1.5
 
 Le choix « CIM / WinRM » ouvre de nouveau la session WinRM. En 2.1.4, la session ouverte avec l’identité de la session
@@ -157,10 +168,35 @@ Les ZIP et leurs empreintes sont vérifiés avant diffusion.
 
 ## Diffuser ses réglages par défaut
 
-Dans Paramètres, « Définir comme configuration par défaut » prépare une **nouvelle copie de l’édition de production ouverte** avec les réglages explicitement sélectionnés dans l’aperçu. Un dossier local est choisi, puis Domenia y crée un sous-dossier de diffusion distinct contenant le pack, son ZIP et `SHA256SUMS.txt`. Les binaires et le manifeste du logiciel actuellement ouvert restent inchangés. Une interruption conserve la copie incomplète, qui ne doit pas être diffusée.
+Extraire le ZIP officiel dans un dossier, régler Domenia, puis choisir dans Paramètres > Configuration à diffuser
+« Définir comme configuration par défaut ». Domenia écrit les réglages sélectionnés dans l’aperçu dans
+**`wad/Domenia.settings.seed.json`**, à côté du logiciel ouvert. Ce dossier est alors prêt à diffuser :
 
-Le fichier `wad/Domenia.settings.seed.json` fait partie du manifeste de cette copie. Il contient uniquement les préférences approuvées et les éléments d’interface choisis : jamais les mots de passe, identités de connexion ou données d’annuaire. Une OU de travail peut être incluse explicitement ; son import ne déclenche pas de lecture AD ou de partage. Le fichier local local `wad/Domenia.config.json` n’est pas copié par cette action.
+```text
+Domenia.exe
+wad/
+wad/Domenia.settings.seed.json
+```
 
-Sur un profil vierge, ces réglages sont importés automatiquement vers les données utilisateur. Sur un profil existant, le premier lancement avec cette version et cette configuration propose de remplacer ou conserver les réglages, après aperçu et sauvegarde préalable. Le choix est mémorisé ; l’export/import manuel reste disponible. La démonstration prépare uniquement un résultat fictif.
+Ce fichier est hors manifeste, comme `wad/Domenia.config.json` : le ZIP officiel, son `SHA256SUMS.txt`, le manifeste et
+les binaires restent inchangés. On peut aussi extraire le ZIP officiel ailleurs puis y copier le fichier dans `wad`. Ne
+pas l’ajouter dans le ZIP officiel, que l’assistant de mise à jour vérifie par son empreinte. Une configuration déjà
+présente est sauvegardée dans les exports de Domenia (`Domenia.settings.seed.avant-remplacement.json`) avant
+remplacement ; sans dossier d’exports, elle est conservée et rien n’est écrit. Le dossier doit être sur un disque local
+et accessible en écriture (pas Program Files ni un partage réseau) : régler Domenia dans un dossier extrait, puis le
+diffuser. La mise à jour par
+l’assistant garde le fichier, comme `Domenia.config.json`.
 
-Pour fabriquer directement un pack depuis les sources commitées : `tools/vm.sh <lot> publish --zip --seed /chemin/vers/Domenia.settings.seed.json`. Le script fige les octets, les relie au transfert par SHA-256 et demande au codec compilé dans la VM de les valider avant publication. Le seed est inclus avant le calcul des manifestes des éditions de production et des empreintes des ZIP. Ne pas ajouter ou modifier manuellement le seed dans un pack déjà manifesté : utiliser le bouton de préparation ou republier.
+Le fichier contient uniquement les préférences approuvées et les éléments d’interface choisis : jamais les mots de passe,
+identités de connexion ou données d’annuaire. Une OU de travail peut être incluse explicitement ; son import ne déclenche
+pas de lecture AD ou de partage. `wad/Domenia.config.json` reste distinct et n’est pas modifié par cette action.
+
+Sur un profil vierge, ces réglages sont importés automatiquement vers les données utilisateur. Sur un profil existant, le
+premier lancement avec cette version et cette configuration propose de remplacer ou conserver les réglages, après aperçu
+et sauvegarde préalable. Le choix est mémorisé ; l’export/import manuel reste disponible. Le profil qui a défini la
+configuration ne se la voit pas reproposer. La démonstration prépare uniquement un résultat fictif.
+
+Une copie préparée avant 2.1.6 liste ce fichier dans son manifeste. Elle reste valide, mais son fichier ne peut pas être
+remplacé sur place : extraire le ZIP officiel dans un nouveau dossier et y définir la configuration. Sa mise à jour vers
+un pack officiel laisse le fichier en place, hors du nouveau manifeste. `tools/vm.sh <lot> publish --zip --seed FICHIER`
+fabrique encore un pack depuis les sources commitées avec le fichier dans son manifeste (même limite).

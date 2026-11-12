@@ -72,13 +72,14 @@ internal sealed partial class PackageLifecycle
         var old = VerifiedCopy(oldPath, journal.OldIdentity, out var oldPublisher, admit: restore);
         var next = VerifiedCopy(newPath, journal.NewIdentity, out var newPublisher, admit: !restore);
         var desired = restore ? old : next; var other = restore ? next : old;
+        bool Kept(PackageComponent c) => !restore && PackageIntegrity.IsDefaults(c.Path) && !desired.Any(d => d.Path.Equals(c.Path, StringComparison.OrdinalIgnoreCase));
         var observed = ObserveTransition(target, old, next, journal);
         var sourceRelease = desired.Count == 0 ? null : Release(restore ? oldPath : newPath, desired);
         var previousRelease = other.Count == 0 ? null : Release(restore ? newPath : oldPath, other);
         return Seal(new(restore ? "restore" : "resume", target, restore ? journal.OldIdentity : journal.NewIdentity,
             restore ? journal.NewIdentity : journal.OldIdentity, journal.Id, sourceRelease, previousRelease,
-            desired.Select(c => c.Path).ToArray(), [.. other.Where(c => !desired.Any(d => d.Path.Equals(c.Path, StringComparison.OrdinalIgnoreCase))).Select(c => c.Path), .. observed.Temporary.Select(c => c.Path)],
-            Preserved(target, old.Concat(next).Concat(observed.Temporary).ToArray()), Advice(sourceRelease, previousRelease, restore), "")
+            desired.Select(c => c.Path).ToArray(), [.. other.Where(c => !desired.Any(d => d.Path.Equals(c.Path, StringComparison.OrdinalIgnoreCase)) && !Kept(c)).Select(c => c.Path), .. observed.Temporary.Select(c => c.Path)],
+            Preserved(target, old.Concat(next).Where(c => !Kept(c)).Concat(observed.Temporary).ToArray()), Advice(sourceRelease, previousRelease, restore), "")
         { Publisher = restore ? oldPublisher : newPublisher, RequiresHealth = journal.RequiresHealth && !restore, ObservedIdentity = observed.Identity, TemporaryFiles = observed.Temporary, PendingMarker = PendingObservation(target) });
     }
 
@@ -139,6 +140,9 @@ internal sealed partial class PackageLifecycle
         }
         foreach (var obsolete in other.Where(c => !desired.Any(d => d.Path.Equals(c.Path, StringComparison.OrdinalIgnoreCase))))
         {
+            // Going forward, a default configuration listed only by the old manifest (copy made before 2.1.6) stays in
+            // place as operator data. A restore still removes one that only the abandoned new version brought.
+            if (Path.GetFileName(otherPath) == "old" && PackageIntegrity.IsDefaults(obsolete.Path)) { continue; }
             token.ThrowIfCancellationRequested(); var path = PackageLifecycleFiles.At(target, obsolete.Path);
             if (!PackageLifecycleFiles.Exists(path)) { continue; }
             if (!PackageLifecycleFiles.DeleteMatching(target, obsolete)) { throw new InvalidDataException("Ancien composant modifié ; suppression refusée."); }
@@ -183,7 +187,7 @@ internal sealed partial class PackageLifecycle
         token.ThrowIfCancellationRequested();
         using var verified = expected is null ? null : PackageIntegrity.OpenForLifecycle(target, lifecycle);
         if (verified is not null && verified.ManifestHash != expected) { throw new InvalidDataException("Contrôle final de l’ensemble différent ; aucune activation."); }
-        if (expected is null && ObservedFiles(target).Any(p => !PackageLayout.IsState(p) && p is not ("Domenia.config.json" or "wad/Domenia.config.json")))
+        if (expected is null && ObservedFiles(target).Any(p => !PackageLayout.IsState(p) && p is not ("Domenia.config.json" or "wad/Domenia.config.json") && !PackageIntegrity.IsDefaults(p)))
         { throw new InvalidDataException("Première installation restaurée mais fichiers inattendus conservés ; aucun retrait du marqueur."); }
         Checkpoint?.Invoke("verified-before-activation"); token.ThrowIfCancellationRequested();
         var healthConfirmed = journal.RequiresHealth && action != "restore";

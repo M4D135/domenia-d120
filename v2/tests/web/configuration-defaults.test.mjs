@@ -4,7 +4,7 @@ import { applyImportedInterface, proposePackConfiguration } from '../../web/js/s
 const settle = async () => { for (let n = 0; n < 24; n++) await Promise.resolve(); };
 const lastDialog = () => [...document.querySelectorAll('.k-dlg')].at(-1);
 
-test('Configuration à diffuser : OU explicite, confirmation exacte du pack et annulation sans faux succès', async () => {
+test('Configuration à diffuser : OU explicite, écriture sur place confirmée et succès seulement après résultat', async () => {
   const host = document.createElement('div'); document.body.append(host); const calls = []; const messages = [];
   let releasePackage;
   const ctx = { prefs: { get: () => ({ theme: 'system', motion: 'full', navCollapsed: false, profile: 'essentiel', density: 'normal', helpTips: true }), set() {} }, toast: text => messages.push(text), async call(op, args) {
@@ -24,12 +24,15 @@ test('Configuration à diffuser : OU explicite, confirmation exacte du pack et a
     host.querySelector('[data-config-key="session.workingScope.hash"]').checked = true;
     host.querySelector('[data-config-action="package"]').click(); await settle();
     eq(calls.find(c => c.op === 'settings.configuration.export').args.keys, ['settings.zoom', 'session.workingScope.hash'], 'sélection réelle transmise');
-    ok(lastDialog().textContent.includes('settings.connection') && lastDialog().textContent.includes('pack installé reste intact'), 'portée et exclusion visibles');
+    const text = lastDialog().textContent;
+    ok(text.includes('settings.connection') && text.includes('wad/Domenia.settings.seed.json') && text.includes('ZIP officiel, le manifeste et les binaires restent intacts'), 'emplacement, portée et exclusion visibles');
+    eq(lastDialog().querySelector('[data-id="confirm"]').textContent.trim(), 'Écrire la configuration par défaut', 'action sur place nommée');
     lastDialog().querySelector('[data-id="confirm"]').click(); await settle();
     eq(calls.find(c => c.op === 'settings.defaults.package').args, { text: '{"configuration":"exacte"}' }, 'texte validé exact, pas d’options recomposées');
     eq(messages.length, 0, 'aucun succès avant résultat');
-    releasePackage({ cancelled: true }); await settle();
-    eq(messages.length, 0, 'annulation du sélecteur sans succès');
+    releasePackage({ simulated: false, file: 'C:\\Domenia\\wad\\Domenia.settings.seed.json', message: 'Configuration par défaut écrite dans wad/Domenia.settings.seed.json.' }); await settle();
+    eq(messages, ['Configuration par défaut écrite dans wad/Domenia.settings.seed.json.'], 'message du résultat réel');
+    eq(host.querySelector('[data-config-result]').textContent, 'Configuration par défaut écrite dans wad/Domenia.settings.seed.json.', 'résultat conservé dans la page');
   } finally { page.destroy(); host.remove(); }
 });
 

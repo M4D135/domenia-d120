@@ -19,7 +19,6 @@ internal sealed class PackageUpdateHost : IDisposable
     private readonly SemaphoreSlim serial = new(1, 1);
     private Func<bool, CancellationToken, Task<string?>>? picker;
     private Action<PreparedUpdate, string>? schedule;
-    private Func<CancellationToken, Task<string?>>? defaultsPicker;
     private UpdateOffer? offer;
     private PreparedUpdate? prepared;
     private PackageSignatureVerdict? publisher;
@@ -44,22 +43,38 @@ internal sealed class PackageUpdateHost : IDisposable
     internal void Attach(Func<bool, CancellationToken, Task<string?>> pick, Action<PreparedUpdate, string> install)
     { picker = pick; schedule = install; Publish(view.Message); }
     internal UpdateView View() => Volatile.Read(ref view);
-    internal void AttachDefaults(Func<CancellationToken, Task<string?>> pick) => defaultsPicker = pick;
-
     internal async Task<DefaultsPackageResult> DefaultsPackage(string text, CancellationToken token)
     {
         _ = PortableConfiguration.Read(text);
         await serial.WaitAsync(token).ConfigureAwait(false);
         try
         {
-            if (Demo) { return new(false, true, null, null, null, "Pack de diffusion fictif préparé avec ces réglages ; aucun fichier réel écrit ni dossier interrogé."); }
+            if (Demo) { return new(true, null, null, null, "Configuration par défaut fictive enregistrée avec ces réglages ; aucun fichier réel écrit."); }
             Available();
-            if (defaultsPicker is null) { throw new InvalidOperationException("Sélecteur de diffusion indisponible dans cette fenêtre."); }
-            var selected = await defaultsPicker(token).ConfigureAwait(false);
-            if (selected is null) { return new(true, false, null, null, null, "Préparation annulée ; aucun pack créé."); }
-            return await Task.Run(() => PackageDefaults.Create(PackageLayout.ApplicationRoot, selected, AppPaths.UserData, text, token), token).ConfigureAwait(false);
+            async Task<string?> Backup(byte[] previous, CancellationToken ct)
+            {
+                var saved = await context.Documents.SaveFileAsync("Domenia.settings.seed.avant-remplacement.json", previous, ct).ConfigureAwait(false);
+                return saved.Saved ? saved.Name : null;
+            }
+            var result = await Task.Run(() => PackageDefaults.WriteAsync(PackageLayout.ApplicationRoot, text, Backup, token), token).ConfigureAwait(false);
+            await KeepOwnSettings(result, token).ConfigureAwait(false);
+            return result;
         }
         finally { serial.Release(); }
+    }
+
+    // The profile that defined the defaults already holds them: like GLPI Pilot, it is not offered its own file again.
+    private async Task KeepOwnSettings(DefaultsPackageResult result, CancellationToken token)
+    {
+        try
+        {
+            var seeds = ConfigurationSeedHost.From(context);
+            var status = await seeds.StatusAsync(token).ConfigureAwait(false);
+            if (status is { NeedsDecision: true, DecisionId: { } id, SourceSha256: { } sha, Fingerprint: { } fingerprint } && sha == result.Sha256)
+            { await seeds.DecideAsync(id, sha, fingerprint, false, token).ConfigureAwait(false); }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ArgumentException)
+        { context.Log.Warning("Configuration par défaut écrite ; ce profil la verra proposée au prochain démarrage (" + ex.GetType().Name + ")."); }
     }
     private UpdateView MakeView(string message) => new(Demo, Demo || (!HostFacts.Unattended && picker is not null && schedule is not null && AppPaths.UserData is not null),
         Volatile.Read(ref installing) != 0, installed, Demo ? "Partage fictif de démonstration" : folder, source,
@@ -190,7 +205,7 @@ public sealed class PackageUpdateHostOperations : IOperationModule
         [
             new("settings.defaults.package", OperationClass.LocalWrite, async (args, _, ct) =>
             { var values = BridgeArguments.ReadObject(args, ["text"]); return await host.DefaultsPackage(BridgeArguments.GetString(values, "text"), ct).ConfigureAwait(false); },
-                "Prépare une nouvelle copie de la variante installée à diffuser avec les réglages explicitement choisis ; installation courante intacte.") { ServedInSimulation = true },
+                "Écrit les réglages explicitement choisis dans la configuration par défaut du dossier (wad), hors manifeste ; binaires, manifeste et ZIP officiel intacts, ancien fichier sauvegardé dans les exports.") { ServedInSimulation = true },
             new("settings.update.status", OperationClass.Local, (args, _, _) => { BridgeArguments.RequireNone(args); return Task.FromResult<object?>(host.View()); }, "État local de la mise à jour ; aucune recherche automatique."),
             new("settings.update.folder", OperationClass.LocalWrite, async (args, _, ct) => { BridgeArguments.RequireNone(args); return await host.ChooseFolder(ct).ConfigureAwait(false); }, "Choisit explicitement le dossier de diffusion et mémorise son chemin sans mot de passe."),
             new("settings.update.check", OperationClass.NetworkRead, async (args, _, ct) =>

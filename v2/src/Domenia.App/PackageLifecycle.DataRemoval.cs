@@ -27,7 +27,7 @@ internal sealed partial class PackageLifecycle
     private static bool LocalRemovalPath(string relative) => relative.StartsWith("data/", StringComparison.OrdinalIgnoreCase)
         || relative.StartsWith("wad/data/", StringComparison.OrdinalIgnoreCase)
         || relative is "Domenia.config.json" or "wad/Domenia.config.json" or "Domenia.settings.json" or "ADCC.settings.json"
-            or "wad/Domenia.settings.json" or "wad/ADCC.settings.json";
+            or "wad/Domenia.settings.json" or "wad/ADCC.settings.json" || PackageIntegrity.IsDefaults(relative);
     private PackageDataRemoval RemovalPlan(PackageLifecycleFiles paths, string target, PackageUninstallOptions options)
     {
         var profile = RemovalProfile(target, options.ProfileData);
