@@ -23,8 +23,11 @@ donc été repassée sur ce ZIP exact
 confirmée pour 2.1.5 → 2.1.7 et 2.1.6 → 2.1.7.
 
 `README.md`, `packs/README.md`, `packs/SHA256SUMS` et `packs/manifest.json` sont alignés sur 2.1.7 ; v2.1.6 passe dans
-`previous_releases`. Les releases v2.1.6 et v2.1.5 restent en ligne ; leur retrait éventuel attend une liste validée
-par David. Limites : aucun banc administrateur pour 2.1.7, mise à jour depuis Paramètres non cliquée, recette
+`previous_releases`. Sur l’accord de David (« Oui, supprimer »), les releases v2.1.6 et v2.1.5 ont ensuite été
+supprimées avec leurs tags. Leurs commits (`3869e60`, `9282893`) restent dans `master`. Seule v2.1.7 est publiée. Une copie
+exacte du ZIP 2.1.6 (`3d5ec57e…`) reste dans le dossier de kit `domenia-214-3869e60f` du Mac. Aucune copie exacte du ZIP
+2.1.5 publié (`d435e210…`) n’a été trouvée. Conséquence : `tools/recette-binaires-publies.ps1` télécharge encore v2.1.5
+et v2.1.6 et échouera tant qu’il ne prendra pas la release courante comme référence. Limites : aucun banc administrateur pour 2.1.7, mise à jour depuis Paramètres non cliquée, recette
 utilisateur complète à faire.
 
 ## 12/11/2026 — 2.1.7 : commandes de maintenance du paquet

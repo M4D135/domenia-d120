@@ -62,5 +62,5 @@ Le workflow de compilation Windows suit les changements de `v2/` sur `master`. L
 
 ## Historique
 
-Le dépôt a été recréé le 09/11/2026 : les packs 2.0.x ne sont plus publiés. Les releases v2.1.0 à v2.1.4 ont été retirées le 12/11/2026 ; les releases [v2.1.6](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.6) et [v2.1.5](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.5) restent disponibles.
+Le dépôt a été recréé le 09/11/2026 : les packs 2.0.x ne sont plus publiés. Les releases v2.1.0 à v2.1.6 ont été retirées le 12/11/2026 : seule la dernière version est publiée. Leurs sources restent dans l’historique de `master`.
 Les dossiers racine `dev/`, `DOC/`, `guides/` et `validation/` contiennent la v1 (PowerShell 5.1 et WPF), conservée comme historique.

@@ -87,19 +87,19 @@
   "previous_releases": [
     {
       "tag": "v2.1.6",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.6",
-      "archives_published": true,
+      "archives_published": false,
       "archive_sha256": "3d5ec57e326123a60c46042cffc52c006dac630a9839d505e5f5d8c8b0709b13",
       "source_commit": "3869e60ffca2512c056567545863ae146595e410",
-      "domain_login": "not-run"
+      "domain_login": "not-run",
+      "removed_on": "2026-11-12"
     },
     {
       "tag": "v2.1.5",
-      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.5",
-      "archives_published": true,
+      "archives_published": false,
       "archive_sha256": "d435e21033ca144bf5ba31c43aa5ce76caa538fa8f9cc19faa1d70a925541a9a",
       "source_commit": "9282893d6e5bc4409ca2f4e369c57f37a7f5bfb7",
-      "domain_login": "not-run"
+      "domain_login": "not-run",
+      "removed_on": "2026-11-12"
     },
     {
       "tag": "v2.1.4",
