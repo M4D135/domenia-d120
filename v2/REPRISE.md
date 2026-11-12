@@ -22,8 +22,12 @@ binaires a été repassée sur ce ZIP exact ([run 43261204475](https://github.co
 l’octet, restauration vers 2.1.7 qui démarre.
 
 `README.md`, `packs/README.md`, `packs/SHA256SUMS` et `packs/manifest.json` sont alignés sur 2.1.8 ; v2.1.7 passe dans
-`previous_releases` et reste publiée jusqu’à décision de David. La recette des binaires prend désormais 2.1.8 pour
-référence. Limites : correction non observée sur un vrai domaine, aucun banc administrateur pour 2.1.8, mise à jour
+`previous_releases`. Sur l’accord de David (« Oui, supprimer »), la release v2.1.7 a ensuite été supprimée avec son tag,
+ainsi que la branche fusionnée `claude/presence-identite-20261112` ; son commit `e2a7ed4` reste dans `master` et seule
+v2.1.8 est publiée. Le ZIP exact 2.1.7 (`ec8a8d2f…`) reste dans l’artefact du run 43231233101 jusqu’au 26/11/2026.
+La recette des binaires prend désormais 2.1.8 pour
+référence ([run 43262024811](https://github.com/M4D135/domenia-d120/actions/runs/43262024811) sur `master` : 9 étapes,
+aucun échec). Limites : correction non observée sur un vrai domaine, aucun banc administrateur pour 2.1.8, mise à jour
 depuis Paramètres non cliquée, recette utilisateur complète à faire.
 
 ## 12/11/2026 — 2.1.8 : relevé de présence et comptes sans nom DNS cohérent
