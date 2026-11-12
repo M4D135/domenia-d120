@@ -4,6 +4,28 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **12/11/2026 : Domenia 2.1.8 publiée sur le go de David (« Oui, publier »). Un compte ordinateur sans nom DNS cohérent (pré-créé, renommé) ou modifié depuis le plan n’interrompt plus le relevé de présence ni « Tout actualiser » : réponse définitive « Nom de poste invalide » sans contact, ou compte écarté seul et compté. Jusqu’en 2.1.7, un seul de ces comptes arrêtait toute l’OU. Recette des vrais binaires 2.1.7 → 2.1.8 sur un runner hébergé : 13 étapes, aucun échec. Limites : correction non observée sur un vrai domaine, pas de banc administrateur pour 2.1.8.**
 
+## 12/11/2026 — publication de 2.1.8
+
+Sur le go de David (« Oui, publier »), la
+[release v2.1.8](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.8) a été publiée le 12 novembre à 16:43 UTC,
+en dernière version (release 443232522). Le tag léger pointe sur `a50e8752fa0a816870f54b8c4abf8d895473880f`, seul tag
+poussé. Aucune reconstruction : le ZIP est celui du run
+[43256107229](https://github.com/M4D135/domenia-d120/actions/runs/43256107229) sur ce commit, 84 288 037 octets,
+SHA-256 `32b3a1acc2c273d8f808d35f9096d3cc07b047970fae7378ecdfa690ac5bbd68`, EXE
+`fd0c9e7db16dcd0fd15b49e9fd9b6bd9a76e87fc741d4a28a8a559347fcb020b`. `SHA256SUMS.txt` : 107 octets, `33868d5e…`.
+Le ZIP et les empreintes ont été retéléchargés sans compte, avec les mêmes octets.
+
+Ce run compte 3 082 tests C# complets, 1 654 critiques, 227 contrôles navigateur et 7 simulations réussis, dont le
+démarrage natif hors connexion. Entre le candidat `3741ca8` et ce commit, seuls des documents ont changé ; la recette des
+binaires a été repassée sur ce ZIP exact ([run 43261204475](https://github.com/M4D135/domenia-d120/actions/runs/43261204475)) :
+13 étapes, aucun échec, mise à jour 2.1.7 → 2.1.8 confirmée par le vrai contrôle de santé, configuration gardée à
+l’octet, restauration vers 2.1.7 qui démarre.
+
+`README.md`, `packs/README.md`, `packs/SHA256SUMS` et `packs/manifest.json` sont alignés sur 2.1.8 ; v2.1.7 passe dans
+`previous_releases` et reste publiée jusqu’à décision de David. La recette des binaires prend désormais 2.1.8 pour
+référence. Limites : correction non observée sur un vrai domaine, aucun banc administrateur pour 2.1.8, mise à jour
+depuis Paramètres non cliquée, recette utilisateur complète à faire.
+
 ## 12/11/2026 — 2.1.8 : relevé de présence et comptes sans nom DNS cohérent
 
 David a signalé un relevé réel interrompu : « Tout actualiser » sur une OU de production s’arrêtait au relevé de
