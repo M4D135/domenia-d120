@@ -8,8 +8,8 @@ namespace Domenia.Tests;
 
 internal static partial class PackageUpdateTests
 {
-    private static string DefaultsSeed(int zoom = 115) => PreferenceTransfer.Export(new Dictionary<string, JsonElement>
-        { [PreferenceApproval.ZoomKey] = JsonSerializer.SerializeToElement(zoom) }, "annuaire", Fixtures.Now).Text;
+    private static string DefaultsSeed(int zoom = 115, int minutesLater = 0) => PreferenceTransfer.Export(new Dictionary<string, JsonElement>
+        { [PreferenceApproval.ZoomKey] = JsonSerializer.SerializeToElement(zoom) }, "annuaire", Fixtures.Now.AddMinutes(minutesLater)).Text;
 
     private static Func<byte[], CancellationToken, Task<string?>> Backups(List<byte[]> saved) =>
         (bytes, _) => { saved.Add(bytes); return Task.FromResult<string?>("Domenia.settings.seed.avant-remplacement.json"); };
@@ -48,6 +48,14 @@ internal static partial class PackageUpdateTests
         var same = await PackageDefaults.WriteAsync(source, first, Backups(saved), default);
         Check.True(same.Backup is null && saved.Count == 0, "contenu identique : rien réécrit ni sauvegardé");
         Check.Contains("déjà en place", same.Message, "aucun faux remplacement annoncé");
+        // Banc 2.1.6 (kit e46237d5) : les mêmes choix exportés cinq minutes plus tard ne diffèrent que par exportedAt.
+        var later = DefaultsSeed(110, 5);
+        Check.True(later != first, "export ultérieur horodaté différemment");
+        var again = await PackageDefaults.WriteAsync(source, later, Backups(saved), default);
+        Check.True(again.Backup is null && saved.Count == 0, "mêmes choix réexportés : rien réécrit ni sauvegardé");
+        Check.Contains("déjà en place", again.Message, "configuration reconnue malgré l’heure d’export");
+        Check.Equal(first, File.ReadAllText(again.File!), "fichier en place conservé à l’octet");
+        Check.Equal(Hash(Encoding.UTF8.GetBytes(first)), again.Sha256, "empreinte du fichier conservé, décisions déjà enregistrées valables");
         var second = DefaultsSeed(125);
         var replaced = await PackageDefaults.WriteAsync(source, second, Backups(saved), default);
         Check.Equal(1, saved.Count, "une sauvegarde avant remplacement");

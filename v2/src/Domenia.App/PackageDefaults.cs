@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Domenia.Core;
 
 namespace Domenia.App;
@@ -53,9 +54,9 @@ internal static class PackageDefaults
                 previous = File.ReadAllBytes(target);
             }
         }
-        if (previous is not null && previous.AsSpan().SequenceEqual(seed))
+        if (previous is not null && SameConfiguration(previous, seed))
         {
-            return new(false, target, Hash(seed), null, $"Cette configuration par défaut est déjà en place ({relative}) ; aucun fichier modifié.");
+            return new(false, target, Hash(previous), null, $"Cette configuration par défaut est déjà en place ({relative}) ; aucun fichier modifié.");
         }
         token.ThrowIfCancellationRequested();
         string? saved = null;
@@ -89,6 +90,20 @@ internal static class PackageDefaults
             $"Configuration par défaut écrite dans {relative}. Ce dossier est prêt à diffuser ; le ZIP officiel, son manifeste et ses binaires restent inchangés. "
             + "Les nouveaux profils l’importeront automatiquement ; les profils existants pourront remplacer ou conserver leurs réglages."
             + (saved is null ? "" : $" L’ancienne configuration est sauvegardée dans vos exports : {saved}."));
+    }
+
+    // Each export carries its own time (exportedAt, to the second): the same choices written again are the same
+    // configuration, so the file in place, its checksum and the decisions recorded for it are kept.
+    private static bool SameConfiguration(byte[] previous, byte[] seed)
+    {
+        if (previous.AsSpan().SequenceEqual(seed)) { return true; }
+        try
+        {
+            if (JsonNode.Parse(previous) is not JsonObject before || JsonNode.Parse(seed) is not JsonObject after) { return false; }
+            before.Remove("exportedAt"); after.Remove("exportedAt");
+            return JsonNode.DeepEquals(before, after);
+        }
+        catch (JsonException) { return false; }
     }
 
     private static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));

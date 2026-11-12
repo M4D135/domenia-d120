@@ -4,47 +4,47 @@
   "operations": [
     {
       "name": "DnsReverseLookup",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "LegacyMigration",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "LocalIndexRead",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "LocalStore",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "ParkSharedSync",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "StorageBackup",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "StorageIntegrity",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "StorageMaintenance",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "StoragePurge",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "StorageRetention",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     },
     {
       "name": "StorageUsage",
-      "implementationSha256": "f3a600e1c9926163499e87fec485c9367bd1b9f4d948361af6044d12beaaceea"
+      "implementationSha256": "674d48f66c024a58e59f066d9d4b8cc95767f971aa6fd029e50615c5806b8b01"
     }
   ],
   "files": [
@@ -842,7 +842,7 @@
     },
     {
       "path": "src/Domenia.App/PackageDefaults.cs",
-      "sha256": "f9a35fc01417456c399af0f94fdb15c90d023a5486ebd7cb0093e85f5aa15f6b"
+      "sha256": "42a6cf5fc12a4ebeec3a3e1cd6a660699f03fa405398a5f81daec87dc10d572d"
     },
     {
       "path": "src/Domenia.App/PackageIntegrity.Browser.cs",
@@ -4313,5 +4313,5 @@
       "sha256": "007401e48cfc7f324a4fdf9b55afad48e601f8672913a25401e003be7eac4fd3"
     }
   ],
-  "fingerprint": "49e24ff28073513fadbb94bf5aec5ac018c64c74de67abc00780697898054477"
+  "fingerprint": "1926c33c9ce98262738476164fa69aae00d2b881004911606d4bdace6d3431e3"
 }
