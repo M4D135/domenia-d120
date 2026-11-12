@@ -1,75 +1,98 @@
 {
   "schema": 2,
   "product": "Domenia",
-  "version": "2.1.6",
+  "version": "2.1.7",
   "platform": "Windows-x64",
-  "source_commit": "3869e60ffca2512c056567545863ae146595e410",
+  "source_commit": "e2a7ed467141a933e784c97ff747e72b729b5aaf",
   "distribution": {
     "channel": "github-release",
-    "tag": "v2.1.6",
-    "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.6",
+    "tag": "v2.1.7",
+    "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.7",
     "authorization_date": "2026-11-12",
     "method": "manual-publication-of-exact-verified-archives",
     "rebuild_for_publication": false,
-    "release_id": 442908274,
-    "published_at": "2026-11-12T12:20:37Z",
+    "release_id": 443100393,
+    "published_at": "2026-11-12T15:00:23Z",
     "remote_assets_verified": true
   },
   "archives": [
     {
       "edition": "PROD-LIGHT",
-      "filename": "Domenia_2.1.6_PROD-LIGHT_Windows-x64.zip",
-      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.6/Domenia_2.1.6_PROD-LIGHT_Windows-x64.zip",
-      "bytes": 84286590,
-      "sha256": "3d5ec57e326123a60c46042cffc52c006dac630a9839d505e5f5d8c8b0709b13",
-      "github_asset_id": 739381970,
+      "filename": "Domenia_2.1.7_PROD-LIGHT_Windows-x64.zip",
+      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.7/Domenia_2.1.7_PROD-LIGHT_Windows-x64.zip",
+      "bytes": 84287376,
+      "sha256": "ec8a8d2f6f03eb197a16cde4e6c5d8ff27e3fce157bde63bbf1439c797340ca2",
+      "github_asset_id": 739897665,
       "github_digest_verified": true
     }
   ],
   "checksums": {
     "filename": "SHA256SUMS.txt",
-    "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.6/SHA256SUMS.txt",
+    "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.7/SHA256SUMS.txt",
     "bytes": 107,
-    "sha256": "456c740e249c1bb5159120b9214cbd97ec916a2b587a4197ef6613c2d036f118",
+    "sha256": "117b84fe0cfddae63b6614afda20523ad40303a0480a0e0fc7bcf918f492ed13",
     "repository_copy": "packs/SHA256SUMS",
-    "github_asset_id": 739381980,
+    "github_asset_id": 739897670,
     "github_digest_verified": true
   },
   "provenance": {
-    "delivery_ci": "https://github.com/M4D135/domenia-d120/actions/runs/43213255629",
-    "executable_sha256": "af1ca5cf4cf9c612dc38412d478b8b7eb2c292131535bf48267b0d8a43146fcf",
+    "delivery_ci": "https://github.com/M4D135/domenia-d120/actions/runs/43231233101",
+    "executable_sha256": "1b930b103ea81faa51c49baa333599f15b3f736a515bb2018c367a0b7fc6a722",
     "webview2": "evergreen-140.0.3485.54-or-socle-pack",
-    "report": "v2/REPRISE.md"
+    "report": "v2/REPRISE.md",
+    "published_binary_recipe": "https://github.com/M4D135/domenia-d120/actions/runs/43241745675"
   },
   "qualification": {
-    "scope": "default-configuration-written-in-place-outside-manifest",
+    "scope": "update-health-probe-package-lifecycle-commands-restoration-guard-settings-seed-check",
     "ci": "passed",
     "ci_counts": {
-      "csharp_full_passed": 3078,
-      "csharp_critical_passed": 1650,
+      "csharp_full_passed": 3081,
+      "csharp_critical_passed": 1653,
       "web_critical": 227,
       "simulation_scenarios": 7
     },
     "native_offline_login": "passed",
-    "bench_check": "conforming-2026-11-12-kit-50f66624-same-product-source",
+    "published_binary_recipe": {
+      "run": 43241745675,
+      "runner": "github-hosted-windows-2025-disposable",
+      "archive_sha256": "ec8a8d2f6f03eb197a16cde4e6c5d8ff27e3fce157bde63bbf1439c797340ca2",
+      "reference_releases": {
+        "v2.1.5": "d435e21033ca144bf5ba31c43aa5ce76caa538fa8f9cc19faa1d70a925541a9a",
+        "v2.1.6": "3d5ec57e326123a60c46042cffc52c006dac630a9839d505e5f5d8c8b0709b13"
+      },
+      "steps": 21,
+      "failed": 0,
+      "update_2_1_5_to_2_1_7": "updated-health-confirmed-in-place-configuration-preserved",
+      "update_2_1_6_to_2_1_7": "updated-health-confirmed-in-place-configuration-byte-identical",
+      "restore_to_2_1_5": "refused-code-2-with-in-place-configuration-then-restored-after-moving-it-2-1-5-starts",
+      "restore_to_2_1_6": "configuration-preserved-2-1-6-starts",
+      "settings_seed_check": "valid-0-forbidden-key-2",
+      "startup_admission": "in-place-configuration-admitted-root-file-and-part-refused"
+    },
+    "earlier_recipe_runs": [
+      43219420270,
+      43225208232,
+      43230764136
+    ],
+    "bench_check": "not-run-for-2-1-7-interface-unchanged-since-2-1-6-bench",
     "domain_login": "not-run-on-this-archive",
     "ad_writes": "not-performed",
     "human_recipe": "pending",
-    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.6.md",
-    "bench_kits": [
-      "e46237d5",
-      "50f66624"
-    ],
-    "bench_in_place_write": "single-new-file-exe-and-manifest-unchanged-no-part",
-    "bench_rewrites": "same-choices-already-in-place-byte-identical-changed-choices-backed-up-2-and-3",
-    "bench_restart": "no-refusal-no-proposal-recorded-decision-shown",
-    "bench_blank_profile": "applied-without-question-kit-e46237d5-profile-renamed-and-restored",
-    "not_observed_on_bench": [
-      "update-of-copy-prepared-before-2.1.6",
-      "read-only-folder"
+    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.7.md",
+    "not_observed": [
+      "update-launched-from-settings-page",
+      "any-interface-gesture"
     ]
   },
   "previous_releases": [
+    {
+      "tag": "v2.1.6",
+      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.6",
+      "archives_published": true,
+      "archive_sha256": "3d5ec57e326123a60c46042cffc52c006dac630a9839d505e5f5d8c8b0709b13",
+      "source_commit": "3869e60ffca2512c056567545863ae146595e410",
+      "domain_login": "not-run"
+    },
     {
       "tag": "v2.1.5",
       "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.5",

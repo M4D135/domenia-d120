@@ -4,6 +4,29 @@ Ce document conserve l'état du chantier et ses preuves pour la relève. La vers
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
 **12/11/2026 : Domenia 2.1.7 publiée, sur la consigne de David d’aller au bout sans attendre. Les mises à jour aboutissent de nouveau : la sonde de santé annulait sa propre page et chaque mise à jour revenait en arrière, sans cause. Les commandes `livraison` répondent de nouveau ; depuis 2.0.8, elles répondaient « Commande inconnue ». Une restauration vers une version antérieure à 2.1.6 est refusée tant qu’une configuration est écrite sur place. `--check-settings-seed` rend le code 2. Recette des vrais binaires 2.1.5, 2.1.6 et 2.1.7 sur un runner hébergé : 21 étapes, aucun échec. Limites : pas de banc administrateur pour 2.1.7, mise à jour depuis Paramètres non cliquée.**
 
+## 12/11/2026 — publication de 2.1.7
+
+Sur la consigne de David (« go publish etc ne l’attend pas va au bout »), la
+[release v2.1.7](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.7) a été publiée le 12 novembre à 15:00 UTC,
+en dernière version (release 443100393). Le tag léger pointe sur `e2a7ed467141a933e784c97ff747e72b729b5aaf`, seul tag
+poussé. Aucune reconstruction : le ZIP est celui du run
+[43231233101](https://github.com/M4D135/domenia-d120/actions/runs/43231233101) sur ce commit, 84 287 376 octets,
+SHA-256 `ec8a8d2f6f03eb197a16cde4e6c5d8ff27e3fce157bde63bbf1439c797340ca2`, EXE
+`1b930b103ea81faa51c49baa333599f15b3f736a515bb2018c367a0b7fc6a722`. `SHA256SUMS.txt` : 107 octets, `117b84fe…`.
+Le ZIP et les empreintes ont été retéléchargés sans compte, avec les mêmes octets.
+
+Ce run compte 3 081 tests C# complets, 1 653 critiques, 227 contrôles navigateur et 7 simulations réussis. Il couvre
+aussi le démarrage natif hors connexion. Entre le candidat `a08a3e3` et ce commit, seuls des documents et un libellé de
+la recette ont changé. Les assemblys diffèrent par leur identité de build, qui suit la source. La recette des binaires a
+donc été repassée sur ce ZIP exact
+([run 43241745675](https://github.com/M4D135/domenia-d120/actions/runs/43241745675)) : 21 étapes, aucun échec, santé
+confirmée pour 2.1.5 → 2.1.7 et 2.1.6 → 2.1.7.
+
+`README.md`, `packs/README.md`, `packs/SHA256SUMS` et `packs/manifest.json` sont alignés sur 2.1.7 ; v2.1.6 passe dans
+`previous_releases`. Les releases v2.1.6 et v2.1.5 restent en ligne ; leur retrait éventuel attend une liste validée
+par David. Limites : aucun banc administrateur pour 2.1.7, mise à jour depuis Paramètres non cliquée, recette
+utilisateur complète à faire.
+
 ## 12/11/2026 — 2.1.7 : commandes de maintenance du paquet
 
 Après la publication de 2.1.6, et à la demande de David de tout tester, une recette des binaires **publiés** a été ajoutée :
