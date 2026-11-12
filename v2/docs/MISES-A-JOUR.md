@@ -2,7 +2,7 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
-## Correctifs de 2.1.8
+## Correctifs publiés en 2.1.8
 
 Un compte ordinateur sans nom DNS cohérent n’interrompt plus le relevé de présence ni « Tout actualiser ». Jusqu’en
 2.1.7, un seul compte pré-créé sans `dNSHostName`, renommé sans mise à jour de son nom DNS, ou modifié entre le plan et
