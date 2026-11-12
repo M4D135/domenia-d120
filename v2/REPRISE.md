@@ -2,9 +2,9 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**12/11/2026 : Domenia 2.1.5 qualifiée (banc administrateur conforme sur `af201b1`) et publiée après le go de David. « CIM / WinRM » ouvre de nouveau la session (fin du 0x80070057), lit les réponses WinRM comme DCOM et, sur un poste sans écouteur, rend « Injoignable (0x80338012) » sans aucune source « Interrompu » ; en Automatique, 27/27 sources par DCOM en 26,4 s sur le poste de banc, logiciels installés de nouveau lus ; sans accélération graphique, l'interface n'occupe plus le processeur au repos. 3 075 tests C# complets, 1 647 critiques, 225 contrôles navigateur, 7 simulations réussis. Limite : lecture WinRM réussie non observée sur le banc (poste sans écouteur).**
+**12/11/2026 : Domenia 2.1.6 qualifiée (banc administrateur conforme sur `50f6662`) et publiée après le go de David. « Définir comme configuration par défaut » écrit un seul fichier, `wad/Domenia.settings.seed.json`, dans le dossier ouvert, hors manifeste, comme GLPI Pilot : ZIP officiel, manifeste et binaires intacts, fichier gardé par les mises à jour, ancien fichier sauvegardé dans les exports, mêmes choix « déjà en place » à l’octet, profil vierge servi sans question. 3 078 tests C# complets, 1 650 critiques, 227 contrôles navigateur, 7 simulations réussis. Limites : copie préparée avant 2.1.6 et dossier en lecture seule couverts par les tests, non observés sur banc.**
 
-## 12/11/2026 — 2.1.6 en préparation : configuration par défaut écrite sur place
+## 12/11/2026 — 2.1.6 : configuration par défaut écrite sur place
 
 Décision de David (« Oui, faire comme GLPI »), branche `claude/config-defaut-en-place-20261112`. « Définir comme
 configuration par défaut » n’assemble plus une copie complète du pack (nouveau ZIP, nouvelles empreintes) : il écrit
@@ -25,8 +25,25 @@ configuration par défaut » n’assemble plus une copie complète du pack (nouv
   3 078 tests C# et 1 650 critiques réussis, contrôles navigateur réussis (dont la page Configuration à diffuser), pack
   PROD-LIGHT préparé. Le premier passage (`fa3b7f8`, run 43186394465) avait trouvé une régression : le fichier compté
   comme donnée de désinstallation faisait refuser toute mise à jour d’une copie 2.1.5 ; corrigé en `1e1cba0`.
-- Non publié. Reste : écrire la configuration avec le vrai bouton sur un pack extrait dans la VM, relancer, vérifier
-  qu’un profil vierge la reçoit, puis le go de David pour publier.
+- Version 2.1.6 (`9f4051d`), guide `RECETTE-MANUELLE-V2.1.6.md` (`e46237d`, exigé par la préparation de livraison :
+  le run 43195675406 s’était arrêté sans lui).
+- Banc administrateur du 12/11 par le coordinateur VM, session de David conservée, sans inventaire ni lecture de poste.
+  Kit `e46237d5` (CI 43199624849) : écriture sur place conforme (fichier seul nouveau, `Domenia.exe` et manifeste
+  inchangés), redémarrage sans refus ni proposition, profil vierge (profil renommé puis restauré au SHA près, rien
+  d’effacé) servi sans question avec la décision « applied ». Trois défauts relevés et corrigés :
+  - second clic refusé « Préférences modifiées depuis la sélection » : l’écriture enregistre la décision du profil, ce
+    qui change l’empreinte, et la page gardait l’ancienne. La page relit ses options après l’écriture et après
+    « Revoir la proposition », choix conservés (`5cdef6a`) ;
+  - mêmes choix réécrits avec sauvegarde au lieu de « déjà en place » : chaque export porte `exportedAt`. La
+    comparaison ignore ce champ, fichier et empreinte conservés à l’octet (`f1b504a`) ;
+  - « Revoir la proposition du pack » muet après une décision : le message s’affiche sur ce clic, le démarrage reste
+    silencieux (`50f6662`).
+- Kit `50f66624` (CI [43206919799](https://github.com/M4D135/domenia-d120/actions/runs/43206919799), ZIP `0b6f1f78…`,
+  EXE `60f8e271…`) : conforme aux étapes 1 à 5 et 7. Écriture, puis quatre réécritures de suite sans « Relire mes
+  choix » : « déjà en place » à l’octet, remplacement avec sauvegarde `-2` puis `-3`, de nouveau « déjà en place » ;
+  redémarrage sans refus ni proposition, décision enregistrée annoncée ; aucune ligne ATTENTION ou ERREUR. Profil vierge
+  non rejoué (code inchangé depuis le premier kit). Originaux du banc côté coordinateur : `outputs/domenia-214-e46237d5/`
+  et `outputs/domenia-214-50f66624/` (`RELEVE-50f66624.txt` `77a0e2fd…`).
 
 ## 12/11/2026 — publication de 2.1.5
 

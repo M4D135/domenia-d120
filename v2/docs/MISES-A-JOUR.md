@@ -2,7 +2,7 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
-## En préparation pour 2.1.6 (non publié)
+## Correctifs publiés en 2.1.6
 
 « Définir comme configuration par défaut » écrit désormais un seul fichier, `wad/Domenia.settings.seed.json`, dans le
 dossier du logiciel ouvert, comme GLPI Pilot. Jusqu’en 2.1.5, ce bouton fabriquait une copie complète du pack, avec un
@@ -12,6 +12,10 @@ manifeste et les binaires restent inchangés et la mise à jour garde le fichier
 sauvegardée dans les exports avant remplacement. Le profil qui l’a définie ne se la voit pas reproposer. Une copie
 préparée avant 2.1.6, dont le manifeste liste ce fichier, reste valide ; sa mise à jour vers un pack officiel laisse
 le fichier en place au lieu de le retirer avec l’ancien code.
+
+Réécrire les mêmes choix ne change rien : l’heure d’export n’est pas comparée, le fichier en place est conservé à
+l’octet. La page relit son état après chaque écriture, si bien que plusieurs écritures se suivent sans « Relire mes
+choix ». « Revoir la proposition du pack » dit aussi quand une décision est déjà enregistrée.
 
 ## Correctifs publiés en 2.1.5
 
