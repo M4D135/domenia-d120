@@ -2,11 +2,34 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**18/11/2026 : correctif 2.1.10 qualifié pour remise manuelle après le refus d’une OU affichée dans l’arbre.
-Source du ZIP exact : `5db9d6b3a250041163864e9559f8d3b31ada3364`, run de livraison `44318608634` réussi.
-La photo terrain montre un client 2.1.8 ; le défaut existait aussi dans 2.1.9, dont les autres correctifs sont
-conservés. Branche de travail : `codex/correctifs-recherche-20261118`. La version publiée reste 2.1.8 ;
-aucune nouvelle release ni réussite sur le domaine réel n’est déclarée.**
+**18/11/2026 : Domenia 2.1.10 publiée sur GitHub et marquée Latest à 15 h 40, heure de Paris.
+Le tag `v2.1.10` pointe sur la source du ZIP qualifié : `5db9d6b3a250041163864e9559f8d3b31ada3364`,
+run de livraison `44318608634` réussi. Les deux fichiers publics ont été retéléchargés sans authentification,
+avec des tailles et empreintes identiques. Les sources et le bilan sont intégrés sur `master` ; branche de
+travail `codex/correctifs-recherche-20261118`. La recette sur le domaine réel reste non vérifiée.**
+
+## 18/11/2026 — publication GitHub de 2.1.10
+
+Après la remise du paquet qualifié, la demande « 2.1.8 sur le github, termne le push » autorise la publication
+de ce correctif. [Release v2.1.10](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.10),
+ID `450114861`, publiée à `2026-11-18T14:40:11Z`, non brouillon, non préversion et confirmée par l’API
+`releases/latest`. Le tag et la cible de publication désignent exactement le commit qualifié
+`5db9d6b3a250041163864e9559f8d3b31ada3364` ; aucune reconstruction pour publier.
+
+- Asset `763742758` : `Domenia_2.1.10_PROD-LIGHT_Windows-x64.zip`, 84 290 042 octets,
+  SHA-256 `9aa7189bc72b8f9e3b317e1fa7230f71d2dbf2ff94fae043c41725baab68ccad`.
+- Asset `763743027` : `SHA256SUMS.txt`, 108 octets,
+  SHA-256 `dfbf3c6d9062f58949cfaf4bcff9f0c498076c9bbd1c8360ac5ba311d6d12a95`.
+
+Les digests fournis par GitHub correspondent aux fichiers qualifiés. Les deux liens publics ont ensuite été
+retéléchargés sans cookie ni authentification et vérifiés à nouveau. Le README d’accueil, `packs/README.md`,
+`packs/manifest.json` et `packs/SHA256SUMS` désignent 2.1.10. La release 2.1.8 reste accessible comme référence
+de la recette effectuée et de la restauration ; aucune suppression d’ancienne release dans ce passage.
+
+Les rapports d’intégrité et de simulation du ZIP conservent leur état `published:false` à la date de leur
+production : ils précèdent cette autorisation et cette publication. Les octets qualifiés sont conservés.
+La publication ne change pas les limites de recette détaillées ci-dessous ; le domaine réel et la recette
+utilisateur ne sont pas déclarés réussis.
 
 ## 18/11/2026 — 2.1.10 : raccorder l’arbre affiché à la lecture de ses objets
 
@@ -31,10 +54,10 @@ le vrai cache différé/SQLite et les vrais services ; seul le transport LDAP es
 Ils couvrent une OU visible avec inventaire froid, les caractères spéciaux, un conteneur imbriqué, les deux
 objets renvoyés par parcours et recherche, puis les refus et changements de session pendant la lecture locale.
 
-État : correction écrite, revue indépendamment et qualifiée sur Windows. Les gardes de version sont
-prolongées explicitement, avec 2.1.9 conservée et 2.1.11 refusée comme inconnue. Le schéma reste 11/2 ; la
-référence publique de mise à jour reste 2.1.8. Aucun accord de publication ni résultat de recette utilisateur
-n’est déduit. Guide : [recette 2.1.10](docs/RECETTE-MANUELLE-V2.1.10.md).
+État : correction écrite, revue indépendamment, qualifiée sur Windows et publiée à la demande ci-dessus.
+Les gardes de version sont prolongées explicitement, avec 2.1.9 conservée et 2.1.11 refusée comme inconnue.
+Le schéma reste 11/2 ; la référence utilisée par la recette binaire de ce commit est 2.1.8.
+Aucun résultat de recette utilisateur n’est déduit. Guide : [recette 2.1.10](docs/RECETTE-MANUELLE-V2.1.10.md).
 
 ### Qualification finale de 2.1.10
 
@@ -75,8 +98,8 @@ authentification AD réelle démontrée. Ces mesures ne qualifient pas un démar
 
 L’outil de vérification de l’archive ne prétend pas réaliser une recette UI ou native : ses champs
 `uiAcceptance`/`runtimeExecution` restent `not-run`. Les exécutions CI sont prouvées par leurs rapports distincts.
-Domaine réel, deux VM et recette utilisateur restent non vérifiés. Remise manuelle du paquet qualifié ;
-la release publique v2.1.8 et son manifeste sont conservés.
+Domaine réel, deux VM et recette utilisateur restent non vérifiés. Cette qualification précède la
+publication du même paquet 2.1.10, consignée en tête du document.
 
 ## 18/11/2026 — recherche d’objets et historique, candidat 2.1.9
 

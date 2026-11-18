@@ -2,13 +2,15 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
-## Correctif préparé en 2.1.10
+## Correctifs publiés en 2.1.10
 
 Une OU ou un conteneur imbriqué visible dans l’arbre de Rechercher peut être lu à partir de sa branche
 enregistrée, même si l’ancien index global des OU ne le connaît pas encore. Ce raccordement corrige le refus
 « OU introuvable : rien n’a été lu » avant la demande des objets. Le périmètre choisi et les contrôles de
 domaine et de session restent appliqués. Les correctifs 2.1.9 ci-dessous sont inclus.
-Voir la [recette 2.1.10](RECETTE-MANUELLE-V2.1.10.md) et les preuves dans REPRISE.md.
+La [release v2.1.10](https://github.com/M4D135/domenia-d120/releases/tag/v2.1.10) est publiée le 18 novembre 2026
+avec le ZIP exact qualifié depuis `5db9d6b3a250041163864e9559f8d3b31ada3364`. Le téléchargement public et son
+SHA-256 ont été revérifiés. Voir la [recette 2.1.10](RECETTE-MANUELLE-V2.1.10.md) et les preuves dans REPRISE.md.
 
 ## Correctif remis manuellement en 2.1.9
 

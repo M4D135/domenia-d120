@@ -1,87 +1,101 @@
 {
   "schema": 2,
   "product": "Domenia",
-  "version": "2.1.8",
+  "version": "2.1.10",
   "platform": "Windows-x64",
-  "source_commit": "a50e8752fa0a816870f54b8c4abf8d895473880f",
+  "source_commit": "5db9d6b3a250041163864e9559f8d3b31ada3364",
   "distribution": {
     "channel": "github-release",
-    "tag": "v2.1.8",
-    "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.8",
-    "authorization_date": "2026-11-12",
+    "tag": "v2.1.10",
+    "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.10",
+    "authorization_date": "2026-11-18",
+    "authorization_quote": "2.1.8 sur le github, termne le push",
     "method": "manual-publication-of-exact-verified-archives",
     "rebuild_for_publication": false,
-    "release_id": 443232522,
-    "published_at": "2026-11-12T16:43:03Z",
+    "release_id": 450114861,
+    "published_at": "2026-11-18T14:40:11Z",
     "remote_assets_verified": true
   },
   "archives": [
     {
       "edition": "PROD-LIGHT",
-      "filename": "Domenia_2.1.8_PROD-LIGHT_Windows-x64.zip",
-      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.8/Domenia_2.1.8_PROD-LIGHT_Windows-x64.zip",
-      "bytes": 84288037,
-      "sha256": "32b3a1acc2c273d8f808d35f9096d3cc07b047970fae7378ecdfa690ac5bbd68",
-      "github_asset_id": 740246805,
+      "filename": "Domenia_2.1.10_PROD-LIGHT_Windows-x64.zip",
+      "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.10/Domenia_2.1.10_PROD-LIGHT_Windows-x64.zip",
+      "bytes": 84290042,
+      "sha256": "9aa7189bc72b8f9e3b317e1fa7230f71d2dbf2ff94fae043c41725baab68ccad",
+      "github_asset_id": 763742758,
       "github_digest_verified": true
     }
   ],
   "checksums": {
     "filename": "SHA256SUMS.txt",
-    "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.8/SHA256SUMS.txt",
-    "bytes": 107,
-    "sha256": "33868d5e2c98fe993a2e9fd730d343e40f8a63df3eae9dd3c52482cb25f0cef5",
+    "download_url": "https://github.com/M4D135/domenia-d120/releases/download/v2.1.10/SHA256SUMS.txt",
+    "bytes": 108,
+    "sha256": "dfbf3c6d9062f58949cfaf4bcff9f0c498076c9bbd1c8360ac5ba311d6d12a95",
     "repository_copy": "packs/SHA256SUMS",
-    "github_asset_id": 740246812,
+    "github_asset_id": 763743027,
     "github_digest_verified": true
   },
   "provenance": {
-    "delivery_ci": "https://github.com/M4D135/domenia-d120/actions/runs/43256107229",
-    "executable_sha256": "fd0c9e7db16dcd0fd15b49e9fd9b6bd9a76e87fc741d4a28a8a559347fcb020b",
+    "delivery_ci": "https://github.com/M4D135/domenia-d120/actions/runs/44318608634",
+    "executable_sha256": "d792d25364ec1c8f44e1c124cc4b6b4e7c2bd77aab70feb3ff4c6b249ad74aa4",
     "webview2": "evergreen-140.0.3485.54-or-socle-pack",
     "report": "v2/REPRISE.md",
-    "published_binary_recipe": "https://github.com/M4D135/domenia-d120/actions/runs/43261204475"
+    "published_binary_recipe": "https://github.com/M4D135/domenia-d120/actions/runs/44318608634"
   },
   "qualification": {
-    "scope": "presence-pass-isolates-accounts-without-coherent-dns-name-or-changed-since-plan",
+    "scope": "visible-navigation-branch-search-base-and-search-sort-history-selection-regressions",
     "ci": "passed",
     "ci_counts": {
-      "csharp_full_passed": 3082,
-      "csharp_critical_passed": 1654,
-      "web_critical": 227,
-      "simulation_scenarios": 7
+      "csharp_full_passed": 3090,
+      "csharp_critical_passed": 1662,
+      "web_critical": 231,
+      "simulation_scenarios": 8,
+      "simulation_steps": 117
     },
     "native_offline_login": "passed",
-    "regression_test": "AdAccueilTests.One_account_without_qualified_target_or_changed_since_the_plan_never_interrupts_the_presence_pass",
+    "regression_test": "DirectoryBranchCompositionTests.A_visible_nested_OU_or_container_on_a_cold_profile_is_a_real_search_base_without_loading_the_OU_picker",
     "published_binary_recipe": {
-      "run": 43261204475,
+      "run": 44318608634,
       "runner": "github-hosted-windows-2025-disposable",
-      "archive_sha256": "32b3a1acc2c273d8f808d35f9096d3cc07b047970fae7378ecdfa690ac5bbd68",
+      "archive_sha256": "9aa7189bc72b8f9e3b317e1fa7230f71d2dbf2ff94fae043c41725baab68ccad",
       "reference_releases": {
-        "v2.1.7": "ec8a8d2f6f03eb197a16cde4e6c5d8ff27e3fce157bde63bbf1439c797340ca2"
+        "v2.1.8": "32b3a1acc2c273d8f808d35f9096d3cc07b047970fae7378ecdfa690ac5bbd68"
       },
       "steps": 13,
       "failed": 0,
-      "update_2_1_7_to_2_1_8": "updated-health-confirmed-in-place-configuration-byte-identical",
-      "restore_to_2_1_7": "configuration-preserved-2-1-7-starts",
+      "update_2_1_8_to_2_1_10": "updated-health-confirmed-in-place-configuration-byte-identical",
+      "restore_to_2_1_8": "configuration-preserved-2-1-8-starts",
+      "configuration_file": "wad/Domenia.settings.seed.json",
       "settings_seed_check": "valid-0-forbidden-key-2",
       "startup_admission": "in-place-configuration-admitted-root-file-and-part-refused"
     },
-    "earlier_recipe_runs": [
-      43255444292
-    ],
-    "bench_check": "not-run-for-2-1-8",
+    "bench_check": "not-run-for-2-1-10",
+    "two_vm_acceptance": "not-run",
     "domain_login": "not-run-on-this-archive",
     "ad_writes": "not-performed",
     "human_recipe": "pending",
-    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.8.md",
+    "manual_recipe": "v2/docs/RECETTE-MANUELLE-V2.1.10.md",
     "not_observed": [
-      "presence-pass-on-a-real-domain",
+      "search-and-branch-content-on-a-real-domain",
       "update-launched-from-settings-page",
-      "any-interface-gesture"
+      "update-2-1-9-to-2-1-10",
+      "startup-on-operator-machine",
+      "cold-os-cache-startup"
     ]
   },
   "previous_releases": [
+    {
+      "tag": "v2.1.8",
+      "url": "https://github.com/M4D135/domenia-d120/releases/tag/v2.1.8",
+      "archives_published": true,
+      "archive_sha256": "32b3a1acc2c273d8f808d35f9096d3cc07b047970fae7378ecdfa690ac5bbd68",
+      "source_commit": "a50e8752fa0a816870f54b8c4abf8d895473880f",
+      "release_id": 443232522,
+      "published_at": "2026-11-12T16:43:03Z",
+      "domain_login": "not-run",
+      "retained_as_recipe_reference": true
+    },
     {
       "tag": "v2.1.7",
       "archives_published": false,
