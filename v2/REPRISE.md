@@ -2,11 +2,11 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**18/11/2026 : correctif 2.1.10 en préparation pour une OU affichée dans l’arbre mais refusée comme introuvable.
-Le paquet manuel 2.1.9 qualifié reste décrit ci-dessous ; ce nouveau défaut existe aussi dans son code.
-La photo terrain montre un client 2.1.8. Base de travail : `c445e74dde4ab6bdf83579a857264ea120c7fe0d`,
-branche `codex/correctifs-recherche-20261118`. La version publiée reste 2.1.8 ; aucune nouvelle release ni
-réussite sur le domaine réel n’est déclarée.**
+**18/11/2026 : correctif 2.1.10 qualifié pour remise manuelle après le refus d’une OU affichée dans l’arbre.
+Source du ZIP exact : `5db9d6b3a250041163864e9559f8d3b31ada3364`, run de livraison `44318608634` réussi.
+La photo terrain montre un client 2.1.8 ; le défaut existait aussi dans 2.1.9, dont les autres correctifs sont
+conservés. Branche de travail : `codex/correctifs-recherche-20261118`. La version publiée reste 2.1.8 ;
+aucune nouvelle release ni réussite sur le domaine réel n’est déclarée.**
 
 ## 18/11/2026 — 2.1.10 : raccorder l’arbre affiché à la lecture de ses objets
 
@@ -31,11 +31,52 @@ le vrai cache différé/SQLite et les vrais services ; seul le transport LDAP es
 Ils couvrent une OU visible avec inventaire froid, les caractères spéciaux, un conteneur imbriqué, les deux
 objets renvoyés par parcours et recherche, puis les refus et changements de session pendant la lecture locale.
 
-État : correction écrite et revue indépendamment ; validation Windows et qualification du ZIP à effectuer.
-2.1.10 n’a pas encore de paquet qualifié. Les gardes de version sont
+État : correction écrite, revue indépendamment et qualifiée sur Windows. Les gardes de version sont
 prolongées explicitement, avec 2.1.9 conservée et 2.1.11 refusée comme inconnue. Le schéma reste 11/2 ; la
 référence publique de mise à jour reste 2.1.8. Aucun accord de publication ni résultat de recette utilisateur
 n’est déduit. Guide : [recette 2.1.10](docs/RECETTE-MANUELLE-V2.1.10.md).
+
+### Qualification finale de 2.1.10
+
+Source `5db9d6b3a250041163864e9559f8d3b31ada3364`,
+[run de livraison 44318608634](https://github.com/M4D135/domenia-d120/actions/runs/44318608634),
+job `134851253074` : **3 090 tests C# complets réussis, dont 1 662 critiques**, zéro échec.
+Les quatre tests de `DirectoryBranchCompositionTests` passent dans les deux sélections, notamment les
+trois nouvelles régressions. La liste contient bien les deux identités attendues après parcours et recherche,
+avec une navigation connue mais un inventaire initial vide. La compilation séparée
+[44318608783](https://github.com/M4D135/domenia-d120/actions/runs/44318608783), job `134851253650`,
+confirme Debug et Release sans erreur ni avertissement ; ce run séparé compile les tests sans les exécuter.
+Les 45 tests des trois vérificateurs de livraison ont également réussi localement.
+
+Les rapports du paquet comptent **231 contrôles Web réussis**, **huit parcours UI réussis**, soit **117 étapes**,
+sans étape ignorée ou invalide et sans erreur ni avertissement console. Le parcours recherche compte 23 étapes :
+les captures après l’attente de 2,5 secondes et à la fin montrent 19 résultats simulés, Martine Dufour cochée,
+l’aperçu renseigné, « Ouvrir la fiche » et « L’essentiel ». Ce passage valide le maintien des correctifs 2.1.9 ;
+les objets et le domaine sont simulés. Les rapports sont rattachés au commit et à la version ci-dessus.
+
+Paquet : `Domenia_2.1.10_PROD-LIGHT_Windows-x64.zip`, **84 290 042 octets**, 788 entrées,
+avec `Domenia.exe` et `wad/` à la racine. SHA-256 du ZIP :
+`9aa7189bc72b8f9e3b317e1fa7230f71d2dbf2ff94fae043c41725baab68ccad`.
+SHA-256 de l’EXE (285 696 octets) :
+`d792d25364ec1c8f44e1c124cc4b6b4e7c2bd77aab70feb3ff4c6b249ad74aa4`.
+Le ZIP téléchargé, son fichier `SHA256SUMS.txt`, la provenance du commit, sa structure et l’EXE ont été
+revérifiés sans reconstruction ni modification de l’archive. Artefact de livraison `14435218406` ;
+preuves `14435677715`, conservées dans le run ci-dessus. L’archive des preuves a pour SHA-256
+`1601958e1d196137b3fb83eed03660ab1c36723fce2856129cd856951edacf26`.
+
+La recette binaire compte **13 étapes réussies, zéro échec** : mise à jour réelle **2.1.8 → 2.1.10**,
+santé confirmée, `wad/Domenia.settings.seed.json` conservé à l’octet, puis restauration de 2.1.8 qui
+redémarre avec code 0 et la même configuration. Le chemin 2.1.9 → 2.1.10 n’est pas celui exercé.
+Ces opérations utilisent les commandes `livraison` ; le parcours de mise à jour dans Paramètres n’a pas été cliqué.
+Deux démarrages du paquet donnent une interface prête à 6 306 ms puis 5 747 ms sur le runner, sans échantillon
+non réactif ni erreur d’observation/nettoyage. Runtime privé .NET 10.0.14 et WebView2 156.0.4314.58 confirmés.
+Le choix de connexion, le formulaire et l’accueil hors ligne sont observés ; `connected:false`, aucune
+authentification AD réelle démontrée. Ces mesures ne qualifient pas un démarrage à cache OS froid.
+
+L’outil de vérification de l’archive ne prétend pas réaliser une recette UI ou native : ses champs
+`uiAcceptance`/`runtimeExecution` restent `not-run`. Les exécutions CI sont prouvées par leurs rapports distincts.
+Domaine réel, deux VM et recette utilisateur restent non vérifiés. Remise manuelle du paquet qualifié ;
+la release publique v2.1.8 et son manifeste sont conservés.
 
 ## 18/11/2026 — recherche d’objets et historique, candidat 2.1.9
 
