@@ -2,9 +2,10 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**18/11/2026 : correctif 2.1.9 en préparation pour la recherche d’objets et l’historique. Base publiée : 2.1.8,
-`master` à `7bff14ded4b65cfc91afa14ff297a5da528e733a`. Branche de correction : `codex/correctifs-recherche-20261118`.
-La qualification Windows et le paquet exact sont à vérifier ; aucune nouvelle release n’est déclarée publiée.**
+**18/11/2026 : correctif 2.1.9 qualifié pour remise manuelle : recherche d’objets, historique au premier plan,
+sélection et aperçu stables. Source du ZIP exact : `801a89ef65681c25d1dc952cea71a2f2995e662b` ;
+qualification Windows [44309020309](https://github.com/M4D135/domenia-d120/actions/runs/44309020309) réussie.
+La version publiée reste 2.1.8 ; aucune release 2.1.9 ni réussite sur le domaine réel n’est déclarée.**
 
 ## 18/11/2026 — recherche d’objets et historique, candidat 2.1.9
 
@@ -26,11 +27,41 @@ réponse LDAP : le défaut de code ci-dessous explique cet échec, sans attester
   jusqu’à une liste de correspondances et le refus d’un tri invalide ; côté navigateur, le point réellement
   cliquable, les thèmes, les deux dispositions de barre et la réponse tardive après Échap.
 
-Le workflow de livraison est déclenché pour cette branche et doit qualifier le ZIP exact, puis la mise à jour
-2.1.8 → 2.1.9 et la restauration avec le script existant. Le manifeste de la release reste sur 2.1.8 pendant
-cette préparation. Les versions des vérificateurs sont prolongées sans neutraliser leurs contrôles ni la garde
+Le workflow de livraison a qualifié le ZIP exact, puis la mise à jour 2.1.8 → 2.1.9 et la restauration avec le
+script existant. Le manifeste de la release reste sur 2.1.8. Les versions des vérificateurs sont prolongées
+sans neutraliser leurs contrôles ni la garde
 stricte des deux VM. La préparation/remise manuelle du correctif est demandée ; aucun accord de publication
 nouveau ni succès de recette utilisateur n’est inventé.
+
+### Qualification finale du paquet exact
+
+Source `801a89ef65681c25d1dc952cea71a2f2995e662b`,
+[run 44309020309](https://github.com/M4D135/domenia-d120/actions/runs/44309020309), job `134818004847` :
+compilation Debug/Release sans avertissement ni erreur, 3 087 tests C# complets réussis dont 1 659 critiques,
+231 contrôles navigateur réussis et huit parcours UI en simulation réussis. Le parcours recherche compte
+23 étapes avec son démarrage ; après 2,5 secondes, la ligne reste sélectionnée et l’aperçu demeure ouvert.
+La revue des captures finales confirme les 19 objets de la recherche fictive `martin`, Martine Dufour cochée,
+le bouton « Ouvrir la fiche » et « L’essentiel ». La capture d’ouverture des suggestions est prise pendant
+l’animation ; le contrôle du point cliquable dans les trois thèmes et les deux dispositions établit leur
+empilement. Le démarrage natif, le choix de connexion, le formulaire et l’accueil hors connexion sont vérifiés ;
+aucune authentification AD réelle n’est déduite de ce passage.
+
+Paquet : `Domenia_2.1.9_PROD-LIGHT_Windows-x64.zip`, **84 289 138 octets**, avec `Domenia.exe` et `wad/` à la racine.
+SHA-256 du ZIP : `155477a6fa3ba9262d15f391749c4a17241e934f79c50e7040eb7ea67d9350e2` ;
+SHA-256 de l’EXE : `ae03204b9597f8bee58ee4d5e45ff80b469533f0501c1c90364dd3030b7e5462`.
+Le ZIP téléchargé, son fichier `SHA256SUMS.txt`, les métadonnées de source et l’EXE ont été revérifiés.
+[Artefact de livraison 14430303493](https://github.com/M4D135/domenia-d120/actions/runs/44309020309/artifacts/14430303493),
+[preuves 14431211150](https://github.com/M4D135/domenia-d120/actions/runs/44309020309/artifacts/14431211150).
+
+La recette binaire compte **13 étapes, aucun échec** : mise à jour réelle 2.1.8 → 2.1.9 avec santé confirmée,
+configuration conservée à l’octet, puis restauration de 2.1.8 qui démarre avec sa configuration conservée.
+Ces opérations passent par les commandes `livraison` ; la mise à jour depuis Paramètres n’a pas été cliquée.
+La compilation séparée [44309020592](https://github.com/M4D135/domenia-d120/actions/runs/44309020592) est également
+réussie. Ce bilan documentaire conserve la provenance du ZIP ci-dessus : aucune reconstruction après qualification.
+Domaine réel, recette stricte des deux VM et recette utilisateur restent non vérifiés ; remise manuelle du paquet,
+sans publication d’une nouvelle release. Guide : [recette 2.1.9](docs/RECETTE-MANUELLE-V2.1.9.md).
+
+### Défauts relevés pendant la qualification
 
 Premier passage complet : source `fbd5712807634c1be64d031f4ac810e92e4bb195`,
 [run 44298187710](https://github.com/M4D135/domenia-d120/actions/runs/44298187710) : 3 087 tests C# complets,
@@ -46,9 +77,8 @@ Deuxième passage : source `94d258606122a7b780c0fe1cf35c2dccaf11cb60`,
 et la sélection. Ses captures montrent l’aperçu ouvert avec son contenu, puis replié sans geste après la
 vérification de session : ce passage a révélé la perte périodique de sélection décrite ci-dessus. Le scénario
 est conservé ; un test de régression protège les réapplications identiques et les vrais changements du filtre.
-Sept autres parcours UI réussissent. Une nouvelle qualification complète du paquet est requise ; la recette binaire n’a pas été
-exécutée sur ces passages interrompus. Domaine réel et recette utilisateur non vérifiés.
-Guide : [recette 2.1.9](docs/RECETTE-MANUELLE-V2.1.9.md).
+Sept autres parcours UI réussissaient. La recette binaire n’avait pas été exécutée sur ces deux passages
+interrompus ; la qualification finale ci-dessus couvre les corrections réunies dans le ZIP remis.
 
 ## 12/11/2026 — publication de 2.1.8
 
