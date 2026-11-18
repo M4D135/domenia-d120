@@ -15,10 +15,13 @@ réponse LDAP : le défaut de code ci-dessous explique cet échec, sans attester
 - `AdConnection` exigeait un contrôle `SortResponseControl.Success` même pour une réponse vide. La RFC 2891,
   section 2, cas 6, prévoit son omission dans ce cas. Une passe exacte vide pouvait donc arrêter la recherche
   avant les correspondances par préfixe/ANR, ou une passe vide ultérieure annuler les résultats déjà trouvés.
-  L’absence est désormais admise uniquement sans entrée ; un refus explicite ou une page non vide sans tri
+  L’absence est désormais admise uniquement après un succès LDAP sans entrée ; un refus explicite ou une page non vide sans tri
   confirmé restent refusés. Les contrôles d’identité, de périmètre et de pagination sont conservés.
 - Le champ `.rch-field` isolait la liste sous les boutons voisins. Il remonte seulement pendant l’ouverture
   de l’historique ; le fond devient opaque. La fermeture invalide les suggestions locales en attente.
+- La vérification de session réappliquait toutes les deux secondes le filtre de requête, même inchangé.
+  `results.setQuerySelection` vidait alors la sélection de lignes et refermait l’aperçu. La réapplication
+  d’un même filtre devient idempotente ; un vrai changement conserve l’invalidation de la sélection.
 - Les tests de régression couvrent les vrais objets de réponse LDAP/contrôles BER, l’enchaînement des passes
   jusqu’à une liste de correspondances et le refus d’un tri invalide ; côté navigateur, le point réellement
   cliquable, les thèmes, les deux dispositions de barre et la réponse tardive après Échap.
@@ -35,8 +38,16 @@ Premier passage complet : source `fbd5712807634c1be64d031f4ac810e92e4bb195`,
 recherche envoyait Échap avant l’arrivée des suggestions, ce qui effaçait le champ et son plan avant l’assertion
 suivante ; sa capture montre déjà 19 objets trouvés. Il attend désormais une option réellement visible avant
 Échap et vérifie que `martin` reste dans le champ, en conservant les contrôles du filtre, de la liste, de la
-sélection et de l’aperçu. Une nouvelle qualification complète du paquet est requise. La recette binaire n’a
-pas été exécutée sur ce passage interrompu. Domaine réel et recette utilisateur non vérifiés.
+sélection et de l’aperçu.
+
+Deuxième passage : source `94d258606122a7b780c0fe1cf35c2dccaf11cb60`,
+[run 44303415067](https://github.com/M4D135/domenia-d120/actions/runs/44303415067) : mêmes 3 087 tests C# complets,
+1 659 critiques et 230 contrôles navigateur réussis. Le parcours recherche passe désormais le filtre, la liste
+et la sélection. Ses captures montrent l’aperçu ouvert avec son contenu, puis replié sans geste après la
+vérification de session : ce passage a révélé la perte périodique de sélection décrite ci-dessus. Le scénario
+est conservé ; un test de régression protège les réapplications identiques et les vrais changements du filtre.
+Sept autres parcours UI réussissent. Une nouvelle qualification complète du paquet est requise ; la recette binaire n’a pas été
+exécutée sur ces passages interrompus. Domaine réel et recette utilisateur non vérifiés.
 Guide : [recette 2.1.9](docs/RECETTE-MANUELLE-V2.1.9.md).
 
 ## 12/11/2026 — publication de 2.1.8

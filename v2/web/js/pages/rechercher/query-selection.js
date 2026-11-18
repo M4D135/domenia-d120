@@ -15,3 +15,15 @@ export function prepareQuerySelection(selection, rootDn) {
 export function filterQuerySelection(rows, selection) {
   return selection === null ? rows : rows.filter((row) => row.kind === 'computer' && selection.ids.has(guid(row.id)));
 }
+
+// Session polling returns a fresh object even when the frozen filter did not change.
+// Compare its dated identity and GUID set, not the array order or the recipe fingerprint alone.
+export function sameQuerySelection(previous, next) {
+  if (previous === next) return true;
+  if (previous === null || next === null) return false;
+  if (['recipeId', 'recipeName', 'target', 'at', 'fingerprint'].some(key => previous[key] !== next[key])
+      || String(previous.rootDn).toLowerCase() !== String(next.rootDn).toLowerCase()
+      || previous.ids.size !== next.ids.size) return false;
+  for (const id of previous.ids) if (!next.ids.has(id)) return false;
+  return true;
+}

@@ -10,7 +10,8 @@ de correspondance et affiche les objets trouvés ; auparavant, ce cas interrompa
 et les refus explicites du contrôleur restent des erreurs.
 
 L’historique du champ passe devant les options et les résultats, avec un fond opaque. Une réponse locale
-arrivée après sa fermeture ne rouvre plus la liste. Voir la [recette 2.1.9](RECETTE-MANUELLE-V2.1.9.md)
+arrivée après sa fermeture ne rouvre plus la liste. La vérification périodique de session conserve désormais
+la sélection et l’aperçu lorsqu’elle relit le même filtre de requête. Voir la [recette 2.1.9](RECETTE-MANUELLE-V2.1.9.md)
 et le statut de qualification dans REPRISE.md.
 
 ## Correctifs publiés en 2.1.8
@@ -150,7 +151,7 @@ Depuis le pack 2.0.4, la racine contient `Domenia.exe` et `wad`. Pour quitter un
 
 Dans **Paramètres → Mises à jour**, choisir explicitement le dossier de diffusion mémorisé ou un ZIP local. Depuis 2.1.0, Domenia ne consulte plus GitHub pour ses mises à jour et ne contient aucun client réseau pour cela. L’ouverture de la page ne cherche rien. Le ZIP local exige `SHA256SUMS.txt` dans le même dossier. Le partage utilise les droits de la session Windows ; Domenia ne mémorise aucun mot de passe de partage.
 
-Vérifier version, provenance et SHA-256, puis demander **Préparer**. Cette étape copie le pack en espace privé et contrôle le ZIP, les composants, les chemins et les métadonnées. Elle n’installe rien. Un catalogue modifié, un transfert incomplet, une empreinte différente ou une version ambiguë provoque un refus, sans essayer silencieusement une autre source. La préparation et ses preuves restent conservées en cas d’échec ; le plafond local empêche de multiplier indéfiniment les tentatives.
+Vérifier version, provenance et SHA-256, puis demander **Copier et vérifier**. Cette étape copie le pack en espace privé et contrôle le ZIP, les composants, les chemins et les métadonnées. Elle n’installe rien. Un catalogue modifié, un transfert incomplet, une empreinte différente ou une version ambiguë provoque un refus, sans essayer silencieusement une autre source. La préparation et ses preuves restent conservées en cas d’échec ; le plafond local empêche de multiplier indéfiniment les tentatives.
 
 Après préparation, la confirmation est limitée à dix minutes et au plan exact. L’assistant utilise le même exécutable vérifié, depuis un dossier extérieur à l’installation. Il attend la fin physique du parent ; une opération réelle encore active peut empêcher la fermeture. Une autre instance gardant le paquet ouvert empêche son remplacement. Aucun autre utilisateur n’est déconnecté.
 

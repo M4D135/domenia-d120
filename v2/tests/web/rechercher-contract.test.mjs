@@ -3,6 +3,7 @@ import { setLayoutStore } from '../../web/js/kit/util.js';
 import { treeMemoryKey } from '../../web/js/pages/rechercher/tree-memory.js';
 import { createSide } from '../../web/js/pages/rechercher/side.js';
 import { createResults } from '../../web/js/pages/rechercher/results.js';
+import { prepareQuerySelection, sameQuerySelection } from '../../web/js/pages/rechercher/query-selection.js';
 
 const root = 'DC=example,DC=local';
 const ou = `OU=Postes,${root}`;
@@ -161,5 +162,51 @@ test('Résultats réels : source indisponible efface la réussite précédente e
     ok(host.textContent.includes('Aucune source disponible'), 'échec affiché');
     ok(host.textContent.includes('l’état réel est inconnu'), 'une erreur ne prouve pas une absence');
     ok(!host.classList.contains('loading'), 'état de lecture terminé');
+  } finally {panel.destroy();host.remove();}
+});
+
+test('Résultats réels : le suivi périodique conserve la sélection tant que le filtre figé ne change pas', () => {
+  const host = document.createElement('section'); document.body.append(host);
+  const panel = createResults(host, {}, new Proxy({}, {get:() => () => []}));
+  const rows = [1, 2, 3].map(n => ({id:`${n}`.repeat(8) + '-1111-1111-1111-111111111111',kind:'computer',kindLabel:'Poste',name:`POSTE-0${n}`,dn:`CN=POSTE-0${n},${ou}`,
+    state:{key:'active',label:'Actif',tone:'ok'},flags:{},container:'Postes',readAt:'2026-10-26T12:00:00Z'}));
+  const frozen = {recipeId:'test',recipeName:'Postes retenus',target:'computer',rootDn:root,ids:rows.slice(0,2).map(row => row.id),at:rows[0].readAt,fingerprint:'a'.repeat(64)};
+  const prepare = value => prepareQuerySelection(value, root);
+  try {
+    panel.show({listId:'a'.repeat(32),kind:'browse',scope:{mode:'ou',dn:ou,subtree:true,wholeDomain:false,chip:'Postes',label:'Postes',path:'example.local / Postes'},
+      type:'all',match:'prefix',plan:{},rows,loaded:rows.length,limit:100,complete:true,limitReached:false,
+      continuation:{allowed:false,reason:'Complet'},counter:'Complet',absence:'Liste relue',readAt:rows[0].readAt,sourceLabel:'Annuaire'});
+    panel.grid.select([rows[0].id], {scroll:false});
+    let before = panel.grid.getRenderStats().viewBuilds;
+    panel.setQuerySelection(null);
+    panel.setQuerySelection(null);
+    eq(panel.grid.getSelectedIds(), [rows[0].id], 'aucun filtre : les contrôles de session ne vident pas la sélection');
+    eq(panel.grid.getRenderStats().viewBuilds, before, 'aucune reconstruction de grille lors du contrôle inchangé');
+
+    panel.setQuerySelection(prepare(frozen));
+    eq(panel.grid.getSelectedIds(), [], 'appliquer un vrai filtre efface l’ancienne sélection');
+    eq(panel.grid.getVisibleRows().map(row => row.id), frozen.ids, 'filtre réellement appliqué');
+    panel.grid.select([rows[0].id], {scroll:false});
+    before = panel.grid.getRenderStats().viewBuilds;
+    panel.setQuerySelection(prepare({...frozen,rootDn:root.toUpperCase(),ids:[...frozen.ids].reverse()}));
+    eq(panel.grid.getSelectedIds(), [rows[0].id], 'mêmes GUID dans un nouvel objet : sélection conservée');
+    eq(panel.grid.getRenderStats().viewBuilds, before, 'ordre des GUID et casse du domaine sans reconstruction');
+
+    panel.setQuerySelection(prepare({...frozen,recipeName:'Libellé relu'}));
+    eq(panel.grid.getSelectedIds(), [], 'changement de sélection figée traité');
+    ok(host.textContent.includes('Libellé relu'), 'le nouveau libellé apparaît dans les critères');
+    panel.grid.select([rows[0].id], {scroll:false});
+    panel.setQuerySelection(prepare({...frozen,ids:[rows[1].id]}));
+    eq(panel.grid.getSelectedIds(), [], 'même empreinte mais autres GUID : sélection effacée');
+    eq(panel.grid.getVisibleRows().map(row => row.id), [rows[1].id], 'nouvelle population filtrée');
+    panel.setQuerySelection(prepare({...frozen,ids:[]}));
+    eq(panel.grid.getVisibleRows(), [], 'sélection vide explicite distincte de l’absence de filtre');
+    panel.setQuerySelection(null);
+    eq(panel.grid.getVisibleRows().map(row => row.id), rows.map(row => row.id), 'retirer le filtre restaure les lignes');
+
+    const original = prepare(frozen);
+    for (const change of [{recipeId:'autre'}, {at:'2026-10-27T12:00:00Z'}, {fingerprint:'b'.repeat(64)}]) {
+      ok(!sameQuerySelection(original, prepare({...frozen,...change})), 'recette, instant et empreinte participent à l’identité du filtre');
+    }
   } finally {panel.destroy();host.remove();}
 });

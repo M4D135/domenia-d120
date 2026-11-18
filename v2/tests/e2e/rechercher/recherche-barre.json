@@ -98,6 +98,17 @@
       "title": "L’aperçu présente l’objet sélectionné"
     },
     {
+      "do": "wait",
+      "ms": 2500,
+      "title": "Laisser passer le suivi périodique de session (toutes les deux secondes)"
+    },
+    {
+      "do": "expect",
+      "contains": "Martine Dufour",
+      "within": ".rch-results .k-gbody .k-gr[aria-selected=\"true\"]",
+      "title": "Le contrôle de session conserve la ligne sélectionnée"
+    },
+    {
       "do": "expect",
       "contains": "Ouvrir la fiche",
       "within": ".rch-preview",

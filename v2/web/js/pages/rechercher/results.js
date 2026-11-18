@@ -2,7 +2,7 @@ import { watchPresentation } from '../../kit/presentation.js';
 import { pulse as sharedPulse } from '../../shell/pulse.js';
 import { selectionPaint } from './progressive.js';
 import { prepareReconciliation } from './reconcile.js';
-import { filterQuerySelection } from './query-selection.js';
+import { filterQuerySelection, sameQuerySelection } from './query-selection.js';
 // Rechercher · the result card: a slim header (history of the list, title, perimeter with its parent, freshness, counter),
 // one toolbar line inside the grid bar (commands with one main action, « Filtres et options » and the column sets), the
 // panel « Actions, filtres et vues » folded by default (quick filters, criteria chips with their scope, type of the OU
@@ -902,7 +902,12 @@ export function createResults(host, ctx, o) {
     rows: () => st.rows,
     pointerRecent: () => Date.now() - lastPointer < 500,
     setNotice,
-    setQuerySelection(selection) { st.querySelection = selection; feedGrid({ keepSelection: false }); paintCriteria(); paintEmpty(); paintFoot(); },
+    setQuerySelection(selection) {
+      // The periodic session check must not clear the operator's selected rows (and close the preview).
+      if (sameQuerySelection(st.querySelection, selection)) return;
+      st.querySelection = selection;
+      feedGrid({ keepSelection: false }); paintCriteria(); paintEmpty(); paintFoot();
+    },
     noticeEl,
     setNoticeMore,
     setToolsOpen,

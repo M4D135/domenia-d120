@@ -23,11 +23,19 @@ et de transport conservent leur traitement. Aucun échec n’est transformé en 
 Références : [RFC 2891](https://www.rfc-editor.org/rfc/rfc2891.html#section-2) et
 [documentation Microsoft AD](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/6b7b93f1-7c1a-45c2-9544-c067b94bba20).
 
+## Installer le correctif
+
+Placer le ZIP et son `SHA256SUMS.txt` dans le même dossier. Dans **Paramètres → Mises à jour**, choisir
+**Sélectionner un ZIP PROD**, sélectionner l’archive 2.1.9, puis **Copier et vérifier**. Vérifier la version
+proposée avant **Fermer et installer**. Au lancement suivant, contrôler que **À propos** affiche bien 2.1.9,
+puis reprendre la recherche qui avait échoué.
+
 ## Vérifications sur le poste
 
 1. Ouvrir la recherche dans le domaine et le périmètre habituels. Reprendre le texte qui avait déclenché
    l’erreur, puis un préfixe connu de plusieurs comptes. Vérifier que les objets attendus apparaissent
-   dans le tableau et qu’une fiche s’ouvre sur l’objet sélectionné.
+   dans le tableau, que la sélection et son aperçu restent présents après plusieurs secondes, et qu’une fiche
+   s’ouvre sur l’objet sélectionné.
 2. Rechercher un nom exact connu, puis un texte sans correspondance. Le premier doit renvoyer l’objet ;
    le second doit annoncer zéro résultat sans incident de tri. Si la liste dépasse la limite choisie,
    charger la suite et vérifier la continuité des objets.
