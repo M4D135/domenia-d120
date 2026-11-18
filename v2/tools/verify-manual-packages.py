@@ -4,7 +4,7 @@
 Standard library only. No extraction, network, build, test or application execution.
 This is an integrity report, not the strict two-VM release gate or a UI acceptance.
 The version list admits packages prepared for manual delivery, not publication.
-For 2.1.9, only preparation of the corrective package was requested on 2026-11-18.
+For 2.1.9 and 2.1.10, preparation of the corrective packages was requested on 2026-11-18.
 """
 import argparse
 import hashlib
@@ -20,7 +20,7 @@ from pathlib import Path
 
 
 FORMAT = "Domenia.ManualPackageVerification/1"
-AUTHORIZED_VERSIONS = {"2.0.0": "25 octobre 2026", "2.0.1": "26 octobre 2026", "2.0.2": "26 octobre 2026", "2.0.3": "26 octobre 2026", "2.0.4": "28 octobre 2026", "2.0.5": "28 octobre 2026", "2.0.6": "28 octobre 2026", "2.0.7": "29 octobre 2026", "2.0.8": "30 octobre 2026", "2.1.0": "8 novembre 2026", "2.1.1": "9 novembre 2026", "2.1.2": "9 novembre 2026", "2.1.3": "10 novembre 2026", "2.1.4": "10 novembre 2026", "2.1.5": "11 novembre 2026", "2.1.6": "12 novembre 2026", "2.1.7": "12 novembre 2026", "2.1.8": "12 novembre 2026", "2.1.9": "18 novembre 2026"}
+AUTHORIZED_VERSIONS = {"2.0.0": "25 octobre 2026", "2.0.1": "26 octobre 2026", "2.0.2": "26 octobre 2026", "2.0.3": "26 octobre 2026", "2.0.4": "28 octobre 2026", "2.0.5": "28 octobre 2026", "2.0.6": "28 octobre 2026", "2.0.7": "29 octobre 2026", "2.0.8": "30 octobre 2026", "2.1.0": "8 novembre 2026", "2.1.1": "9 novembre 2026", "2.1.2": "9 novembre 2026", "2.1.3": "10 novembre 2026", "2.1.4": "10 novembre 2026", "2.1.5": "11 novembre 2026", "2.1.6": "12 novembre 2026", "2.1.7": "12 novembre 2026", "2.1.8": "12 novembre 2026", "2.1.9": "18 novembre 2026", "2.1.10": "18 novembre 2026"}
 MAX_REPORT = 16 * 1024**2
 SCRIPT = Path(__file__).absolute()
 GUARD_SCRIPT = SCRIPT.with_name("release-guard.py")
@@ -205,7 +205,7 @@ def verify_packages(directory, commit, version, require_production=False):
         guard.require(guard.digest_file(path, 1024**2) == identity,
                       "Outil de qualification modifié pendant le contrôle.")
     manual_scope = ("préparation du correctif demandée le " + AUTHORIZED_VERSIONS[version]
-                    + " ; aucun accord de publication enregistré" if version == "2.1.9"
+                    + " ; aucun accord de publication enregistré" if version in ("2.1.9", "2.1.10")
                     else "autorisation humaine du " + AUTHORIZED_VERSIONS[version])
     return {
         "format": FORMAT,

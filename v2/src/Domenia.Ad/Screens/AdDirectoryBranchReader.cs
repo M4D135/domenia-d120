@@ -3,9 +3,37 @@ using Domenia.Core;
 namespace Domenia.Ad;
 
 /// <summary>Explicit Rechercher branch reads. OU pickers retain their separate OU-only contract.</summary>
-public sealed class AdDirectoryBranchReader(AdDirectorySource source) : IDirectoryBranchReader
+public sealed class AdDirectoryBranchReader(AdDirectorySource source) : IDirectoryBranchReader, IDirectoryBranchIndex
 {
     private static readonly string[] Attributes = ["distinguishedName", "name", "objectClass"];
+
+    public async Task<DirectoryBranchEntry?> FindLocalAsync(string dn, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        if (session.Domain?.RootDn is not { } root || !DistinguishedName.IsWithin(dn, root, true)
+            || DistinguishedName.Parent(dn) is not { } parent || source.LocalStore is not IDirectoryBranchCache cache)
+        { return null; }
+        CheckEpoch(session.Epoch);
+        var branch = await cache.ReadBranchAsync(parent, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        DirectoryBranchEntry? found = null;
+        if (branch is not null)
+        {
+            DirectoryBranchRules.Validate(branch, root);
+            if (!DistinguishedName.AreEqual(branch.Parent.Dn, parent))
+            { throw new InvalidDataException("Le cache a retourné une autre branche que celle demandée."); }
+            // Navigation is recorded separately from the object inventory. Its exact children are valid search bases,
+            // including nested containers, without manufacturing OU objects or loading the domain-wide OU picker.
+            found = branch.Children.FirstOrDefault(child => DistinguishedName.AreEqual(child.Dn, dn));
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        var current = source.PeekSession();
+        if (current is null || current.Epoch != session.Epoch || current.Domain?.RootDn is not { } currentRoot
+            || !DistinguishedName.AreEqual(currentRoot, root))
+        { throw new DomeniaOperationException(AdErrors.NotConnected, "Session modifiée pendant la lecture locale de branche : résultat écarté."); }
+        return found;
+    }
 
     public async Task<DirectoryBranch> ReadBranchAsync(string? dn, CancellationToken cancellationToken)
     {

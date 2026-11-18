@@ -13,6 +13,13 @@ public interface IDirectoryBranchReader : IScreenReader
     Task<DirectoryBranch> ReadBranchAsync(string? dn, CancellationToken cancellationToken);
 }
 
+/// <summary>Local navigation index for Search: an exact OU or container already recorded in its parent's branch.
+/// Never reads LDAP and never extends the OU-only index used to validate working scopes.</summary>
+public interface IDirectoryBranchIndex : IScreenReader
+{
+    Task<DirectoryBranchEntry?> FindLocalAsync(string dn, CancellationToken cancellationToken);
+}
+
 /// <summary>Navigation cache, separate from object inventory and its coverage claims.</summary>
 public interface IDirectoryBranchCache
 {

@@ -1066,12 +1066,16 @@ public sealed partial class SearchService : IDisposable
     }
 
     /// <summary>
-    /// Base of a list (search, browse, view, local query): a container of the domain root (CN=Users, CN=Computers: the tree
-    /// offers them, the index of the OU leaves them out) or an OU known by the local index; never the network. ou.unknown
-    /// otherwise.
+    /// Base of a list: an OU or container recorded by Search's navigation tree, a root container, or a known OU.
+    /// Recorded branches need no directory reread and do not widen the separate OU-only working-scope index.
     /// </summary>
     private async Task<string> RequireBaseAsync(ISearchReader reader, string dn, string root, CancellationToken cancellationToken)
     {
+        if (!SearchMemoryRules.Within(dn, root))
+        { throw new DomeniaOperationException(DomeniaErrors.OuUnknown, DomeniaErrors.OuUnknownMessage); }
+        if (context.Readers.Find<IDirectoryBranchIndex>() is { } branches
+            && await branches.FindLocalAsync(dn, cancellationToken).ConfigureAwait(false) is { } known)
+        { return known.Dn; }
         var containers = await reader.ContainersAsync(false, cancellationToken).ConfigureAwait(false);
         var container = containers.FirstOrDefault(c => SearchLists.IsRoot(c.Dn, dn));
         return container?.Dn ?? await RequireOuAsync(dn, root, cancellationToken).ConfigureAwait(false);

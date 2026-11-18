@@ -28,13 +28,13 @@ finally:
 
 FORMAT = "Domenia.CiBrowserEvidence/1"
 SCOPE = "UI-simulation-smoke"
-AUTHORIZED_VERSIONS = frozenset({"2.0.0", "2.0.1", "2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9"})
-COLLECTION_VERSIONS = frozenset({"2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9"})
+AUTHORIZED_VERSIONS = frozenset({"2.0.0", "2.0.1", "2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9", "2.1.10"})
+COLLECTION_VERSIONS = frozenset({"2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9", "2.1.10"})
 CORRECTIVE_VERSIONS = frozenset({"2.0.1"}) | COLLECTION_VERSIONS
 REQUIRED = frozenset({"accueil/actualiser-ou", "accueil/catalogue-widgets", "fiche/modifier-description",
                       "operations/releve-reprise", "parametres/collecte-fenetre", "synchro/parc-partage"})
 SETTINGS_REQUIRED = REQUIRED | frozenset({"shell/apparence-clavier"})
-# The search-bar-to-object-preview scenario is required by the 2.1.9 corrective package only.
+# Search corrective packages 2.1.9 and 2.1.10 require the search-bar-to-object-preview scenario.
 SEARCH_REQUIRED = SETTINGS_REQUIRED | frozenset({"rechercher/recherche-barre"})
 # Exact names emitted by tests/web/recette-ui.test.mjs in the corrective delivery.
 CORRECTIVE_CAPTURES = frozenset({
@@ -48,13 +48,13 @@ COLLECTION_CAPTURES = CORRECTIVE_CAPTURES | frozenset({
     "comptes-domaine-lecture-incomplete", "comptes-domaine-mesure-affichee",
 })
 # From 2.0.8: a presence stage left incomplete by a transient cause (field report on 2.0.7); earlier evidence never had it.
-PRESENCE_VERSIONS = frozenset({"2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9"})
+PRESENCE_VERSIONS = frozenset({"2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9", "2.1.10"})
 PRESENCE_CAPTURES = COLLECTION_CAPTURES | frozenset({"actualisation-incomplete"})
 
 
 def recipe_captures(version):
     """Exact capture names the browser recipe of this version emits."""
-    if version in {"2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9"}:
+    if version in {"2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9", "2.1.10"}:
         return PRESENCE_CAPTURES | frozenset({"mises-a-jour-encadre-lisible"})
     if version in PRESENCE_VERSIONS:
         return PRESENCE_CAPTURES
@@ -154,7 +154,7 @@ def verify(web_report, ui_report, package, commit, version):
     guard.timestamp(ui.get("startedAt"))
     no_errors(ui, "Rapport UI")
     required = SETTINGS_REQUIRED if version in COLLECTION_VERSIONS else REQUIRED
-    if version == "2.1.9":
+    if version in ("2.1.9", "2.1.10"):
         required = SEARCH_REQUIRED
     scenarios, summary = ui.get("scenarios"), ui.get("summary")
     guard.require(isinstance(scenarios, list) and len(scenarios) == len(required) and isinstance(summary, dict)

@@ -86,11 +86,11 @@ jobs:
         run: |
           $publish = Join-Path $env:GITHUB_WORKSPACE 'artifacts\domenia-v2-delivery\publish'
           $proof = Get-Content -LiteralPath (Join-Path $publish 'verification-paquets.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-          if ($proof.sourceCommit -cne $env:GITHUB_SHA -or $proof.version -cne '2.1.9' -or $proof.integrity -cne 'verified' -or $proof.published -ne $false) {
+          if ($proof.sourceCommit -cne $env:GITHUB_SHA -or $proof.version -cne '2.1.10' -or $proof.integrity -cne 'verified' -or $proof.published -ne $false) {
             throw 'Identité du candidat différente du paquet préparé et vérifié.'
           }
           $archive = $proof.archives.'PROD-LIGHT'
-          if ($archive.path -cne 'Domenia_2.1.9_PROD-LIGHT_Windows-x64.zip') { throw 'Archive candidate absente ou inattendue.' }
+          if ($archive.path -cne 'Domenia_2.1.10_PROD-LIGHT_Windows-x64.zip') { throw 'Archive candidate absente ou inattendue.' }
           $zip = Join-Path $publish $archive.path
           if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -cne $archive.sha256) { throw 'Archive candidate modifiée depuis sa vérification.' }
           & ./v2/tools/recette-binaires-publies.ps1 `
@@ -152,7 +152,7 @@ jobs:
           - Seul PROD-LIGHT est livré (décision du 8 novembre 2026) : il inclut .NET et utilise le WebView2 Evergreen préinstallé, sinon le pack WebView2 du Socle extrait dans son dossier wad. Les contrôles navigateur utilisent l’Evergreen du runner.
           - Les résultats exacts de compilation, tests critiques, démarrage, WebView et simulation figurent dans les preuves.
           - La recette des binaires utilise la release du manifeste comme référence, puis le ZIP candidat exact pour la mise à jour et la restauration ; ses journaux sont conservés.
-          - Le correctif 2.1.9 a été demandé le 18 novembre 2026 : ces artefacts préparent sa remise manuelle, sans enregistrer d’accord de publication.
+          - Le correctif 2.1.10 a été demandé le 18 novembre 2026 : ces artefacts préparent sa remise manuelle, sans enregistrer d’accord de publication.
           - Ce passage CI ne teste pas le domaine réel ni les postes VM ; les recettes séparées restent liées à leurs commits et paquets exacts. La recette utilisateur reste distincte.
           - Ce workflow prépare des artefacts à examiner ; il ne crée aucune release GitHub.
           '@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8

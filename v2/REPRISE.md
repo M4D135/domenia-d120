@@ -2,10 +2,40 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**18/11/2026 : correctif 2.1.9 qualifié pour remise manuelle : recherche d’objets, historique au premier plan,
-sélection et aperçu stables. Source du ZIP exact : `801a89ef65681c25d1dc952cea71a2f2995e662b` ;
-qualification Windows [44309020309](https://github.com/M4D135/domenia-d120/actions/runs/44309020309) réussie.
-La version publiée reste 2.1.8 ; aucune release 2.1.9 ni réussite sur le domaine réel n’est déclarée.**
+**18/11/2026 : correctif 2.1.10 en préparation pour une OU affichée dans l’arbre mais refusée comme introuvable.
+Le paquet manuel 2.1.9 qualifié reste décrit ci-dessous ; ce nouveau défaut existe aussi dans son code.
+La photo terrain montre un client 2.1.8. Base de travail : `c445e74dde4ab6bdf83579a857264ea120c7fe0d`,
+branche `codex/correctifs-recherche-20261118`. La version publiée reste 2.1.8 ; aucune nouvelle release ni
+réussite sur le domaine réel n’est déclarée.**
+
+## 18/11/2026 — 2.1.10 : raccorder l’arbre affiché à la lecture de ses objets
+
+Nouveau retour : « OU introuvable : rien n’a été lu » (`ou.unknown`) après sélection d’une OU visible dans
+Rechercher. La capture montre Domenia 2.1.8 et un champ de recherche vide ; il s’agit d’une lecture de contenu,
+distincte du refus de tri corrigé en 2.1.9. Le DN complet et le journal ne sont pas fournis, donc la réponse
+exacte du contrôleur de production n’est pas attestée.
+
+Défaut établi dans 2.1.8 et 2.1.9 : `directory.branch.children` utilise `AdDirectoryBranchReader` et conserve
+les branches dans `domenia_v2_directory_branches`, sans alimenter l’inventaire d’objets. `SearchService` exigeait
+ensuite que l’OU soit connue par `IOrganizationalUnitIndex`, servi par l’ancien arbre global ou le cache
+d’objets. Une OU fraîchement lue et affichée était ainsi refusée si cet autre index ne la connaissait pas.
+Les conteneurs imbriqués proposés dans l’arbre subissaient aussi ce refus, car seuls ceux de la racine étaient
+admis par le chemin existant. Le DN est transmis intact par l’interface ; aucun problème d’espace ou d’accent
+n’a été établi.
+
+La correction raccorde la validation de la base de recherche à un index local des branches enregistrées,
+distinct du sélecteur réservé aux OU. Elle conserve les contrôles de domaine et d’epoch, le DN exact,
+la séparation entre navigation et inventaire ainsi que le périmètre de lecture choisi, sans lancer
+une lecture globale implicite ni admettre une branche inventée. Trois nouveaux tests de composition utilisent
+le vrai cache différé/SQLite et les vrais services ; seul le transport LDAP est remplacé par une fixture enregistrée.
+Ils couvrent une OU visible avec inventaire froid, les caractères spéciaux, un conteneur imbriqué, les deux
+objets renvoyés par parcours et recherche, puis les refus et changements de session pendant la lecture locale.
+
+État : correction écrite et revue indépendamment ; validation Windows et qualification du ZIP à effectuer.
+2.1.10 n’a pas encore de paquet qualifié. Les gardes de version sont
+prolongées explicitement, avec 2.1.9 conservée et 2.1.11 refusée comme inconnue. Le schéma reste 11/2 ; la
+référence publique de mise à jour reste 2.1.8. Aucun accord de publication ni résultat de recette utilisateur
+n’est déduit. Guide : [recette 2.1.10](docs/RECETTE-MANUELLE-V2.1.10.md).
 
 ## 18/11/2026 — recherche d’objets et historique, candidat 2.1.9
 
