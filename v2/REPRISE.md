@@ -29,8 +29,15 @@ cette préparation. Les versions des vérificateurs sont prolongées sans neutra
 stricte des deux VM. La préparation/remise manuelle du correctif est demandée ; aucun accord de publication
 nouveau ni succès de recette utilisateur n’est inventé.
 
-État avant CI : développement et relecture en cours ; tests Windows, contrôles navigateur et recette binaire
-non exécutés. Domaine réel et recette utilisateur non vérifiés. Guide : [recette 2.1.9](docs/RECETTE-MANUELLE-V2.1.9.md).
+Premier passage complet : source `fbd5712807634c1be64d031f4ac810e92e4bb195`,
+[run 44298187710](https://github.com/M4D135/domenia-d120/actions/runs/44298187710) : 3 087 tests C# complets,
+1 659 critiques et 230 contrôles navigateur réussis. Sept des huit parcours UI réussissent. Le scénario de
+recherche envoyait Échap avant l’arrivée des suggestions, ce qui effaçait le champ et son plan avant l’assertion
+suivante ; sa capture montre déjà 19 objets trouvés. Il attend désormais une option réellement visible avant
+Échap et vérifie que `martin` reste dans le champ, en conservant les contrôles du filtre, de la liste, de la
+sélection et de l’aperçu. Une nouvelle qualification complète du paquet est requise. La recette binaire n’a
+pas été exécutée sur ce passage interrompu. Domaine réel et recette utilisateur non vérifiés.
+Guide : [recette 2.1.9](docs/RECETTE-MANUELLE-V2.1.9.md).
 
 ## 12/11/2026 — publication de 2.1.8
 

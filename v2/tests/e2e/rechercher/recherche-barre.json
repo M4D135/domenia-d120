@@ -46,9 +46,21 @@
       "title": "Revenir dans la barre devenue compacte"
     },
     {
+      "do": "wait",
+      "selector": ".rch-sugg:not([hidden]) [role=\"option\"]",
+      "title": "Attendre les suggestions locales avant de les fermer par Échap"
+    },
+    {
       "do": "press",
       "key": "Escape",
       "title": "Fermer les suggestions : le plan appliqué s’affiche sous le champ"
+    },
+    {
+      "do": "expect",
+      "selector": ".rch-input",
+      "property": "value",
+      "equals": "martin",
+      "title": "Fermer les suggestions conserve le texte de la recherche"
     },
     {
       "do": "expect",
