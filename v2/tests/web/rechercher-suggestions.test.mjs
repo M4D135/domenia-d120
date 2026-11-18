@@ -2,7 +2,7 @@ import { test, eq, ok } from './harness.mjs';
 import { createBar } from '../../web/js/pages/rechercher/bar.js';
 import { setLayoutStore } from '../../web/js/kit/util.js';
 
-async function fixture(onSuggest = async () => []) {
+async function fixture(onSuggest = async () => [], getRecents = () => Array.from({ length: 8 }, (_, n) => ({ kind: 'search', text: `Recherche ${n + 1}` }))) {
   const styles = [];
   for (const file of ['layout.css', 'motion.css', 'components.css', 'kit.css', 'pages/rechercher.css']) {
     const css = document.createElement('link'); css.rel = 'stylesheet';
@@ -21,7 +21,7 @@ async function fixture(onSuggest = async () => []) {
   document.body.append(host);
   const submitted = [], opened = [];
   const bar = createBar(host.querySelector('.rch-bar-host'), {
-    getRecents: () => Array.from({ length: 8 }, (_, n) => ({ kind: 'search', text: `Recherche ${n + 1}` })),
+    getRecents,
     onSuggest, onSubmit: state => submitted.push(state), onOpenObject: (...args) => opened.push(args),
     onClearRecents() {}, onSyntaxHelp() {},
   });
@@ -30,6 +30,13 @@ async function fixture(onSuggest = async () => []) {
     open() { input.focus(); input.click(); host.getAnimations({ subtree: true }).forEach(animation => animation.finish()); },
     close() { bar.destroy(); host.remove(); styles.forEach(css => css.remove()); setLayoutStore(null); },
   };
+}
+
+async function waitForRequest(requested) {
+  let timeout;
+  try {
+    await Promise.race([requested, new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Suggestion locale non demandée en cinq secondes.')), 5000); })]);
+  } finally { clearTimeout(timeout); }
 }
 
 test('Rechercher : historique au premier plan devant les options et les résultats, en barre large et compacte', async () => {
@@ -91,7 +98,7 @@ test('Rechercher : une suggestion locale en retard ne rouvre pas l’historique 
   try {
     f.bar.setText('Re'); f.input.focus(); f.input.click();
     f.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    await requested;
+    await waitForRequest(requested);
     eq(f.input.getAttribute('aria-expanded'), 'true', 'historique visible pendant la lecture locale');
     f.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     finish([{ text: 'Retour tardif', label: 'Retour tardif', detail: 'Base locale', kind: 'computer', dn: 'CN=Retour,DC=example,DC=local' }]);
@@ -99,4 +106,31 @@ test('Rechercher : une suggestion locale en retard ne rouvre pas l’historique 
     eq(f.input.getAttribute('aria-expanded'), 'false', 'réponse périmée abandonnée après fermeture explicite');
     eq(f.submitted, [], 'aucune recherche envoyée');
   } finally { finish?.([]); f.close(); }
+});
+
+test('Rechercher : Flèche bas sans historique attend les suggestions locales, sauf après Échap', async () => {
+  for (const dismiss of [false, true]) {
+    let started, finish;
+    const requested = new Promise(resolve => { started = resolve; });
+    const f = await fixture(() => { started(); return new Promise(resolve => { finish = resolve; }); }, () => []);
+    try {
+      f.bar.setText('Poste'); f.input.focus();
+      f.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      await waitForRequest(requested);
+      eq(f.input.getAttribute('aria-expanded'), 'false', 'aucun historique vide affiché pendant la lecture locale');
+      if (dismiss) {
+        f.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        eq(f.input.value, '', 'Échap conserve son action existante : effacer le champ quand la liste est fermée');
+      }
+      finish([{ text: 'Poste local', label: 'Poste local', detail: 'Base locale', kind: 'computer', dn: 'CN=Poste,DC=example,DC=local' }]);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      eq(f.input.getAttribute('aria-expanded'), String(!dismiss), 'réponse locale affichée seulement si la demande est encore active');
+      if (!dismiss) {
+        const options = f.host.querySelectorAll('.rch-sugg [role="option"]');
+        eq(options.length, 1, 'une suggestion locale malgré l’absence de récents');
+        ok(options[0].textContent.includes('Poste local'), 'objet local reçu visible dans la liste');
+      }
+      eq(f.submitted, [], 'aucune recherche d’annuaire lancée par les suggestions');
+    } finally { finish?.([]); f.close(); }
+  }
 });

@@ -135,7 +135,8 @@ export function createBar(host, o) {
   }
 
   function paintList() {
-    if (!st.items.length) { closeList(); return; }
+    // No recent entry is not a dismissal: a local suggestion can still be pending after ArrowDown.
+    if (!st.items.length) { closeList(false); return; }
     const needle = fold(input.value.trim());
     const recents = st.items.filter((i) => i.source === 'recent');
     const local = st.items.filter((i) => i.source !== 'recent');
@@ -164,10 +165,9 @@ export function createBar(host, o) {
     } else input.removeAttribute('aria-activedescendant');
   }
 
-  function closeList() {
+  function closeList(invalidatePending = true) {
     // A delayed local answer must not reopen a list the operator dismissed (Escape, Tab, selection or submit).
-    suggest.cancel();
-    st.gen++;
+    if (invalidatePending) { suggest.cancel(); st.gen++; }
     st.open = false;
     form.classList.remove('sugg-open');
     st.active = -1;
@@ -296,7 +296,7 @@ export function createBar(host, o) {
       if (st.open && st.active >= 0) { e.preventDefault(); pick(st.active, e.ctrlKey || e.metaKey); }
     } else if (e.key === 'Escape') {
       if (st.open) { e.preventDefault(); e.stopPropagation(); closeList(); form.classList.add('typing'); }
-      else if (input.value) { e.preventDefault(); e.stopPropagation(); input.value = ''; engine = null; paintHint(); o.onInput?.(''); }
+      else if (input.value) { e.preventDefault(); e.stopPropagation(); closeList(); input.value = ''; engine = null; paintHint(); o.onInput?.(''); }
     } else if (e.key === 'Tab') closeList();
   });
   list.addEventListener('pointerdown', (e) => e.preventDefault());
