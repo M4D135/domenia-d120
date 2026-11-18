@@ -55,7 +55,7 @@ class BrowserEvidenceTests(unittest.TestCase):
         path.write_bytes(encoded(value))
 
     def make_fixture(self, version, light=False):
-        payload = self.package / "wad" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8") else self.package
+        payload = self.package / "wad" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9") else self.package
         for name in ("package-release.json", "package-manifest.json"):
             for directory in (self.package, self.package / "wad"):
                 (directory / name).unlink(missing_ok=True)
@@ -73,7 +73,10 @@ class BrowserEvidenceTests(unittest.TestCase):
                 (self.web / ("visual-" + name + ".png")).write_bytes(png())
                 self.write(self.web / ("visual-" + name + ".json"), {"name": name, "facts": {}})
         scenarios = []
-        for name in sorted(verifier.SETTINGS_REQUIRED if version in verifier.COLLECTION_VERSIONS else verifier.REQUIRED):
+        required = verifier.SETTINGS_REQUIRED if version in verifier.COLLECTION_VERSIONS else verifier.REQUIRED
+        if version == "2.1.9":
+            required = verifier.SEARCH_REQUIRED
+        for name in sorted(required):
             steps = []
             for index, action in enumerate(("start", "capture")):
                 relative = "shots/" + name + "/" + str(index).zfill(2) + "-" + action + ".png"
@@ -111,7 +114,7 @@ class BrowserEvidenceTests(unittest.TestCase):
 
     def test_evidence_scenarios_keep_a_screenshot_for_every_step(self):
         # The verifier requires one screenshot per step: a step of these scenarios cannot opt out of its capture.
-        for identifier in sorted(verifier.SETTINGS_REQUIRED):
+        for identifier in sorted(verifier.SEARCH_REQUIRED):
             with self.subTest(scenario=identifier):
                 document = json.loads((ROOT / "tests" / "e2e" / (identifier + ".json")).read_text(encoding="utf-8"))
                 self.assertFalse([step for step in document["steps"] if step.get("capture") is False])
@@ -168,7 +171,7 @@ class BrowserEvidenceTests(unittest.TestCase):
         for version in sorted(verifier.COLLECTION_VERSIONS):
             with self.subTest(version=version):
                 self.make_fixture(version)
-                self.assertEqual(7, self.verify(version)["simulationUiCount"])
+                self.assertEqual(8 if version == "2.1.9" else 7, self.verify(version)["simulationUiCount"])
                 path = self.ui / "report.json"
                 report = json.loads(path.read_text())
                 report["scenarios"] = [item for item in report["scenarios"] if item["id"] != "shell/apparence-clavier"]
@@ -177,8 +180,26 @@ class BrowserEvidenceTests(unittest.TestCase):
                 with self.assertRaises(verifier.guard.Refused):
                     self.verify(version)
 
+    def test_search_bar_results_and_object_preview_evidence_is_required_for_2_1_9_only(self):
+        self.make_fixture("2.1.8", light=True)
+        previous = self.verify("2.1.8")
+        self.assertEqual(7, previous["simulationUiCount"])
+        self.assertNotIn("rechercher/recherche-barre", {scenario["id"] for scenario in previous["ui"]["scenarios"]})
+
+        self.make_fixture("2.1.9", light=True)
+        current = self.verify("2.1.9")
+        self.assertEqual(8, current["simulationUiCount"])
+        self.assertIn("rechercher/recherche-barre", {scenario["id"] for scenario in current["ui"]["scenarios"]})
+        report_path = self.ui / "report.json"
+        report = json.loads(report_path.read_text())
+        report["scenarios"] = [scenario for scenario in report["scenarios"] if scenario["id"] != "rechercher/recherche-barre"]
+        report["summary"]["passed"] = len(report["scenarios"])
+        self.write(report_path, report)
+        with self.assertRaises(verifier.guard.Refused):
+            self.verify("2.1.9")
+
     def test_other_or_mismatched_versions_are_refused(self):
-        for version in ("2.0.0", "2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.0.1-rc.1", "3.0.0"):
+        for version in ("2.0.0", "2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9", "2.0.1-rc.1", "3.0.0"):
             with self.subTest(version=version), self.assertRaises(verifier.guard.Refused):
                 self.verify(version)
 

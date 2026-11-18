@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.DirectoryServices.Protocols;
 using System.Security.Principal;
 using Domenia.Ad;
 using Domenia.Core;
@@ -62,6 +63,94 @@ internal static class AdSearchTests
         var page = await new AdSearchReader(source).FindAsync(Query() with { Kind = SearchListKind.Search, Plan = SearchText.Plan("alice", SearchTypeFilter.Computers, SearchMatchMode.Prefix) }, CancellationToken.None);
         Check.True(page.Rows.Select(r => r.Name).SequenceEqual(new[] { "alice", "alice2", "Martine alice" }), "identité exacte puis préfixe puis ANR");
         Check.False(page.More, "toutes les passes épuisées");
+    }
+
+    [Test]
+    public static async Task Empty_exact_prefix_and_ANR_passes_do_not_discard_matches_or_turn_no_match_into_an_error()
+    {
+        foreach (var matchingStage in new[] { "exact", "prefix", "anr", "none" })
+        {
+            var found = Entry(0, matchingStage == "anr" ? "Martine alice" : matchingStage == "prefix" ? "alice2" : "alice");
+            var passes = new List<string>();
+            using var ldap = new AdBoundaryTests.RecordingAdConnection
+            {
+                SearchAnswer = request =>
+                {
+                    if (request.SortAttribute is null) { return []; }
+                    var stage = request.Filter.Contains("(anr=", StringComparison.Ordinal) ? "anr"
+                        : request.Filter.Contains("(name=alice)", StringComparison.Ordinal) ? "exact" : "prefix";
+                    passes.Add(stage);
+                    AdEntry[] entries = stage == matchingStage || matchingStage == "exact" && stage == "prefix" ? [found] : [];
+                    // Apply the native transport's actual validation to protocol responses: no sort control on empty passes.
+                    AdConnection.ValidateSearchSort(request, AdTransportTests.SearchResponseFixture(entries.Length,
+                        entries.Length == 0 ? null : ResultCode.Success));
+                    return entries;
+                },
+            };
+            using var source = new AdDirectorySource("test.local", () => @"TEST\test", TestClock.Fixed(), connection: ldap);
+            var query = Query() with { Kind = SearchListKind.Search, Plan = SearchText.Plan("alice", SearchTypeFilter.Computers, SearchMatchMode.Prefix) };
+            var page = await new AdSearchReader(source).FindAsync(query, CancellationToken.None);
+            Check.True(passes.SequenceEqual(new[] { "exact", "prefix", "anr" }), "chaque passe est consultée malgré les réponses vides");
+            Check.Equal(matchingStage == "none" ? 0 : 1, page.Rows.Length, "correspondance conservée une seule fois, ou vraie absence");
+            if (matchingStage != "none") { Check.Equal(found.String("name"), page.Rows.Single().Name, "résultat exact conservé"); }
+            else { Check.Null(page.LastKey, "aucune clé inventée pour une recherche vide"); }
+            Check.False(page.More || page.Interrupted, "trois passes épuisées, sans faux échec ni suite inventée");
+        }
+    }
+
+    [Test]
+    public static async Task An_empty_exact_pass_still_returns_the_complete_matching_prefix_and_ANR_object_list_without_duplicates()
+    {
+        var prefix = new[] { Entry(1, "alice1"), Entry(2, "alice2") };
+        var additional = Entry(3, "Martine alice");
+        var passes = new List<string>();
+        using var ldap = new AdBoundaryTests.RecordingAdConnection
+        {
+            SearchAnswer = request =>
+            {
+                if (request.SortAttribute is null) { return []; }
+                var stage = request.Filter.Contains("(anr=", StringComparison.Ordinal) ? "anr"
+                    : request.Filter.Contains("(name=alice)", StringComparison.Ordinal) ? "exact" : "prefix";
+                passes.Add(stage);
+                AdEntry[] entries = stage == "exact" ? [] : stage == "prefix" ? prefix : [prefix[1], additional];
+                AdConnection.ValidateSearchSort(request, AdTransportTests.SearchResponseFixture(entries.Length,
+                    entries.Length == 0 ? null : ResultCode.Success));
+                return entries;
+            },
+        };
+        using var source = new AdDirectorySource("test.local", () => @"TEST\test", TestClock.Fixed(), connection: ldap);
+        var reader = new AdSearchReader(source);
+        var query = Query() with { Kind = SearchListKind.Search, Plan = SearchText.Plan("alice", SearchTypeFilter.Computers, SearchMatchMode.Prefix) };
+        var page = await reader.FindAsync(query, CancellationToken.None);
+        AdEntry[] expected = [.. prefix, additional];
+        Check.True(passes.SequenceEqual(new[] { "exact", "prefix", "anr" }), "la passe exacte vide laisse lire les deux recherches suivantes");
+        Check.True(page.Rows.Select(r => r.Id).SequenceEqual(expected.Select(e => e.Guid("objectGUID")!.Value.ToString("D"))),
+            "les trois bonnes identités sont renvoyées, sans doublon ni objet perdu");
+        Check.True(page.Rows.Select(r => r.Name).SequenceEqual(new[] { "alice1", "alice2", "Martine alice" }), "liste d’objets dans l’ordre des correspondances");
+        Check.False(page.More || page.Interrupted, "liste terminée dans sa limite");
+        var cached = await reader.LocalRowsAsync(expected.Select(e => e.Guid("objectGUID")!.Value).ToArray(), CancellationToken.None);
+        Check.True(cached.Select(r => r.Id).SequenceEqual(page.Rows.Select(r => r.Id)), "les mêmes identités sont réellement conservées pour la suite");
+    }
+
+    [Test]
+    public static async Task A_nonempty_later_pass_without_confirmed_sort_never_publishes_or_caches_earlier_matches()
+    {
+        using var ldap = new AdBoundaryTests.RecordingAdConnection
+        {
+            SearchAnswer = request =>
+            {
+                if (request.SortAttribute is null) { return []; }
+                var exact = request.Filter.Contains("(name=alice)", StringComparison.Ordinal);
+                AdConnection.ValidateSearchSort(request, AdTransportTests.SearchResponseFixture(1, exact ? ResultCode.Success : null));
+                return [Entry(0, "alice")];
+            },
+        };
+        using var source = new AdDirectorySource("test.local", () => @"TEST\test", TestClock.Fixed(), connection: ldap);
+        var query = Query() with { Kind = SearchListKind.Search, Plan = SearchText.Plan("alice", SearchTypeFilter.Computers, SearchMatchMode.Prefix) };
+        var error = await Check.ThrowsAsync<DomeniaOperationException>(() => new AdSearchReader(source).FindAsync(query, CancellationToken.None),
+            "la deuxième passe contient une entrée sans preuve de tri");
+        Check.Equal(DomeniaErrors.SourceUnavailable, error.Code, "l’erreur réelle reste bloquante");
+        Check.True(source.CurrentDirectory is null || source.CurrentDirectory.ObjectCount == 0, "les résultats de la première passe ne sont pas cachés comme un succès");
     }
 
     [Test]

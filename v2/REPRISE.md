@@ -2,7 +2,35 @@
 
 Ce document conserve l'état du chantier et ses preuves pour la relève. La version active est v2 sur `master` ;
 les travaux passent directement par GitHub et les anciens modes restent dans l'historique. Dernière mise à jour :
-**12/11/2026 : Domenia 2.1.8 publiée sur le go de David (« Oui, publier »). Un compte ordinateur sans nom DNS cohérent (pré-créé, renommé) ou modifié depuis le plan n’interrompt plus le relevé de présence ni « Tout actualiser » : réponse définitive « Nom de poste invalide » sans contact, ou compte écarté seul et compté. Jusqu’en 2.1.7, un seul de ces comptes arrêtait toute l’OU. Recette des vrais binaires 2.1.7 → 2.1.8 sur un runner hébergé : 13 étapes, aucun échec. Limites : correction non observée sur un vrai domaine, pas de banc administrateur pour 2.1.8.**
+**18/11/2026 : correctif 2.1.9 en préparation pour la recherche d’objets et l’historique. Base publiée : 2.1.8,
+`master` à `7bff14ded4b65cfc91afa14ff297a5da528e733a`. Branche de correction : `codex/correctifs-recherche-20261118`.
+La qualification Windows et le paquet exact sont à vérifier ; aucune nouvelle release n’est déclarée publiée.**
+
+## 18/11/2026 — recherche d’objets et historique, candidat 2.1.9
+
+Retour utilisateur : recherche interrompue par « Le contrôleur n’a pas confirmé le tri » (`search.run`,
+`source.unavailable`) et historique derrière les options. La capture n’expose pas le texte recherché ni la
+réponse LDAP : le défaut de code ci-dessous explique cet échec, sans attester le contenu de la réponse terrain.
+
+- `AdConnection` exigeait un contrôle `SortResponseControl.Success` même pour une réponse vide. La RFC 2891,
+  section 2, cas 6, prévoit son omission dans ce cas. Une passe exacte vide pouvait donc arrêter la recherche
+  avant les correspondances par préfixe/ANR, ou une passe vide ultérieure annuler les résultats déjà trouvés.
+  L’absence est désormais admise uniquement sans entrée ; un refus explicite ou une page non vide sans tri
+  confirmé restent refusés. Les contrôles d’identité, de périmètre et de pagination sont conservés.
+- Le champ `.rch-field` isolait la liste sous les boutons voisins. Il remonte seulement pendant l’ouverture
+  de l’historique ; le fond devient opaque. La fermeture invalide les suggestions locales en attente.
+- Les tests de régression couvrent les vrais objets de réponse LDAP/contrôles BER, l’enchaînement des passes
+  jusqu’à une liste de correspondances et le refus d’un tri invalide ; côté navigateur, le point réellement
+  cliquable, les thèmes, les deux dispositions de barre et la réponse tardive après Échap.
+
+Le workflow de livraison est déclenché pour cette branche et doit qualifier le ZIP exact, puis la mise à jour
+2.1.8 → 2.1.9 et la restauration avec le script existant. Le manifeste de la release reste sur 2.1.8 pendant
+cette préparation. Les versions des vérificateurs sont prolongées sans neutraliser leurs contrôles ni la garde
+stricte des deux VM. La préparation/remise manuelle du correctif est demandée ; aucun accord de publication
+nouveau ni succès de recette utilisateur n’est inventé.
+
+État avant CI : développement et relecture en cours ; tests Windows, contrôles navigateur et recette binaire
+non exécutés. Domaine réel et recette utilisateur non vérifiés. Guide : [recette 2.1.9](docs/RECETTE-MANUELLE-V2.1.9.md).
 
 ## 12/11/2026 — publication de 2.1.8
 

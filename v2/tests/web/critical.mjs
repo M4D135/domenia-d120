@@ -22,6 +22,7 @@ import './recette-ui.test.mjs';
 import './rechercher-contract.test.mjs';
 import './rechercher-reconcile.test.mjs';
 import './rechercher-progressive.test.mjs';
+import './rechercher-suggestions.test.mjs';
 import './rechercher.test.mjs';
 import './poste-presence.test.mjs';
 import './shell/guards.test.mjs';

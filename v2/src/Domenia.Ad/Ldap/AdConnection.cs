@@ -230,8 +230,7 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
             { searchRequest.Controls.Add(new SortRequestControl(request.SortAttribute, false) { IsCritical = true }); }
 
             var response = await SendRequestAsync<SearchResponse>(connection, searchRequest, timeout, "search", cancellationToken).ConfigureAwait(false);
-            if (request.SortAttribute is not null && response.Controls.OfType<SortResponseControl>().FirstOrDefault()?.Result != ResultCode.Success)
-            { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Le contrôleur n’a pas confirmé le tri : relancez la recherche, aucune suite incertaine n’est affichée."); }
+            ValidateSearchSort(request, response);
 
             buffer.BeginPage();
             if (response.Entries is { } entries)
@@ -275,6 +274,17 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
 
     // Keep the server's usual page envelope; larger fleets use more pages, not oversized responses.
     internal static int EffectivePageSize(int requested) => requested <= 0 ? 500 : Math.Min(requested, 1000);
+
+    internal static void ValidateSearchSort(AdSearchRequest request, SearchResponse response)
+    {
+        if (request.SortAttribute is null) { return; }
+        var sort = response.Controls.OfType<SortResponseControl>().FirstOrDefault();
+        // RFC 2891 section 2, case 6: an empty search response may omit the sort response control.
+        // Exact/prefix/ANR passes can be empty; no ordering or continuation key is inferred from that page.
+        // A populated page still needs positive confirmation, and an explicit sort failure is never ignored.
+        if (sort?.Result == ResultCode.Success || sort is null && response.ResultCode == ResultCode.Success && response.Entries.Count == 0) { return; }
+        throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Le contrôleur n’a pas confirmé le tri : relancez la recherche, aucune suite incertaine n’est affichée.");
+    }
 
     /// <inheritdoc />
     public async Task<AdEntry?> ReadAsync(string distinguishedName, IReadOnlyList<string> attributes, CancellationToken cancellationToken)

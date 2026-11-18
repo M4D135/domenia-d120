@@ -2,6 +2,17 @@
 
 Les contrôles de livraison sont implémentés ; les preuves de chaque version publiée sont consignées dans REPRISE.md. Une compilation seule ne vaut pas validation des packs.
 
+## Correctif préparé en 2.1.9
+
+La recherche accepte une passe LDAP vide qui omet légitimement la confirmation de tri. Elle poursuit les passes
+de correspondance et affiche les objets trouvés ; auparavant, ce cas interrompait toute la recherche avec
+« Le contrôleur n’a pas confirmé le tri ». Les pages contenant des objets exigent toujours un tri confirmé,
+et les refus explicites du contrôleur restent des erreurs.
+
+L’historique du champ passe devant les options et les résultats, avec un fond opaque. Une réponse locale
+arrivée après sa fermeture ne rouvre plus la liste. Voir la [recette 2.1.9](RECETTE-MANUELLE-V2.1.9.md)
+et le statut de qualification dans REPRISE.md.
+
 ## Correctifs publiés en 2.1.8
 
 Un compte ordinateur sans nom DNS cohérent n’interrompt plus le relevé de présence ni « Tout actualiser ». Jusqu’en

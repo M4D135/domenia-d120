@@ -85,11 +85,11 @@ def make_packages(directory, dev_changes=None, seed=None, version=VERSION, schem
     for kind, files in editions:
         files["package-release.json"] = encoded({
             "version": version, "build": version + "+" + "b" * 64,
-            "dataSchemaVersion": 11, "dataSchemaRevision": schema_revision if schema_revision is not None else (2 if version in ("2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8") else 1), "project": "Domenia",
+            "dataSchemaVersion": 11, "dataSchemaRevision": schema_revision if schema_revision is not None else (2 if version in ("2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9") else 1), "project": "Domenia",
             "architecture": "win-x64", "packageType": kind, "sourceCommit": COMMIT,
             "executableSha256": hashlib.sha256(files["Domenia.exe"]).hexdigest(),
             "dependencies": {".NET": "10.0.13" if production else "fixture", "WebView2": "Evergreen" if kind == "PROD-LIGHT" else "fixture"}})
-        prefix = "wad/" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8") else ""
+        prefix = "wad/" if version in ("2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9") else ""
         files = {name if name == "Domenia.exe" else prefix + name: raw for name, raw in files.items()}
         if contract:
             metadata = json.loads(files[prefix + "package-release.json"])
@@ -199,12 +199,27 @@ class ManualPackageIntegrityCriticalTests(unittest.TestCase):
         self.assertEqual("2.0.1", result["version"])
         self.assertIn("26 octobre 2026", result["scope"])
         self.assertEqual("pending", result["userManualAcceptance"])
-        for version in ("2.0.9", "3.0.0", "2.0.1-rc.1"):
+        for version in ("2.0.9", "2.1.10", "3.0.0", "2.0.1-rc.1"):
             with self.subTest(version=version), self.assertRaises(verifier.guard.Refused):
                 verifier.verify_packages(self.directory, COMMIT, version)
 
+    def test_search_corrective_package_preparation_does_not_claim_publication_approval(self):
+        make_packages(self.directory, version="2.1.9", contract=True, production=True)
+        result = verifier.verify_packages(self.directory, COMMIT, "2.1.9", require_production=True)
+        self.assertTrue(result["eligibleForManualDelivery"])
+        self.assertEqual("verified", result["integrity"])
+        self.assertEqual({"PROD-LIGHT"}, set(result["archives"]))
+        self.assertIn("préparation du correctif demandée le 18 novembre 2026", result["scope"])
+        self.assertIn("aucun accord de publication enregistré", result["scope"])
+        self.assertNotIn("autorisation humaine", result["scope"])
+        self.assertFalse(result["published"])
+        self.assertNotIn("eligible", result)
+        self.assertEqual("pending", result["userManualAcceptance"])
+        self.assertEqual("not-run", result["domainAcceptance"])
+        self.assertEqual("not-run", result["twoVmAcceptance"])
+
     def test_collection_login_corrective_version(self):
-        for version in ("2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8"):
+        for version in ("2.0.2", "2.0.3", "2.0.4", "2.0.5", "2.0.6", "2.0.7", "2.0.8", "2.1.0", "2.1.1", "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8", "2.1.9"):
             with self.subTest(version=version):
                 make_packages(self.directory, version=version)
                 result = verifier.verify_packages(self.directory, COMMIT, version)
@@ -223,7 +238,7 @@ class ManualPackageIntegrityCriticalTests(unittest.TestCase):
             verifier.guard.check_archive(path, "PROD", "2.0.4", COMMIT)
 
     def test_fleet_migration_revision_cannot_be_mislabeled_in_an_otherwise_valid_archive(self):
-        for version, revision in (("2.0.5", 1), ("2.0.6", 1), ("2.0.7", 1), ("2.0.8", 1), ("2.1.0", 1), ("2.1.1", 1), ("2.1.2", 1), ("2.1.3", 1), ("2.1.4", 1), ("2.1.5", 1), ("2.1.6", 1), ("2.1.7", 1), ("2.1.8", 1), ("2.0.4", 2)):
+        for version, revision in (("2.0.5", 1), ("2.0.6", 1), ("2.0.7", 1), ("2.0.8", 1), ("2.1.0", 1), ("2.1.1", 1), ("2.1.2", 1), ("2.1.3", 1), ("2.1.4", 1), ("2.1.5", 1), ("2.1.6", 1), ("2.1.7", 1), ("2.1.8", 1), ("2.1.9", 1), ("2.0.4", 2)):
             with self.subTest(version=version, revision=revision):
                 make_packages(self.directory, version=version, schema_revision=revision)
                 with self.assertRaises(verifier.guard.Refused):

@@ -78,7 +78,7 @@ try {
     if ($source.sourceCommit -cne $record.sourceCommit) { throw 'Inventaire source différent du commit de livraison.' }
     $versionSource = Get-Content -LiteralPath (Join-Path $root 'src\Domenia.Core\ProductInfo.cs') -Raw -Encoding UTF8
     $versions = [regex]::Matches($versionSource, 'DevelopmentVersion = "([0-9A-Za-z.\-]+)"')
-    if ($versions.Count -ne 1 -or $versions[0].Groups[1].Value -cne '2.1.8') { throw 'Version 2.1.8 non déclarée.' }
+    if ($versions.Count -ne 1 -or $versions[0].Groups[1].Value -cne '2.1.9') { throw 'Version 2.1.9 non déclarée.' }
     $version = $versions[0].Groups[1].Value
     $storeSource = Get-Content -LiteralPath (Join-Path $root 'src\Domenia.Store\Sqlite\DomeniaDatabase.cs') -Raw -Encoding UTF8
     if ($storeSource -notmatch 'versions\[0\]\["value"\] != "11"' -or $storeSource -notmatch 'SupportedDataSchemaRevision = 2;') { throw 'Schéma du magasin différent du contrat de livraison 11/2.' }
@@ -193,7 +193,7 @@ try {
     $record.webCritical = 'passed'; $record['webCriticalCount'] = $webReport.report.passed; $record.installedWebView = 'passed'
     $uiOutput = Join-Path $logs 'ui-simulation'
     $e2e = Join-Path $root 'tests\Domenia.E2E\bin\x64\Release\net10.0-windows\win-x64\Domenia.E2E.dll'
-    $filter = 'accueil/actualiser-ou,accueil/catalogue-widgets,fiche/modifier-description,operations/releve-reprise,parametres/collecte-fenetre,shell/apparence-clavier,synchro/parc-partage'
+    $filter = 'accueil/actualiser-ou,accueil/catalogue-widgets,fiche/modifier-description,operations/releve-reprise,parametres/collecte-fenetre,rechercher/recherche-barre,shell/apparence-clavier,synchro/parc-partage'
     $uiCheck = @{
         FilePath = $privateDotnet; ArgumentList = @($e2e, 'run', '--exe', (Join-Path $light 'Domenia.exe'), '--scenarios', (Join-Path $root 'tests\e2e'), '--filter', $filter, '--mode', 'simulation', '--out', $uiOutput)
         LogPrefix = (Join-Path $logs 'ui-simulation-critical'); TimeoutSeconds = 900; PrivateDotNetRoot = $lightDotNet; PrivateWebViewRoot = $browserRoot
@@ -201,7 +201,7 @@ try {
     $record.phase = 'ui-simulation-critical'
     [void](Invoke-ReleaseProcess @uiCheck)
     $ui = Get-Content -LiteralPath (Join-Path $uiOutput 'report.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ($ui.summary.passed -ne 7 -or $ui.summary.failed -ne 0 -or $ui.summary.skipped -ne 0 -or $ui.summary.invalid -ne 0 -or @($ui.scenarios).Count -ne 7) { throw 'Les sept parcours UI critiques en simulation ne sont pas tous réussis.' }
+    if ($ui.summary.passed -ne 8 -or $ui.summary.failed -ne 0 -or $ui.summary.skipped -ne 0 -or $ui.summary.invalid -ne 0 -or @($ui.scenarios).Count -ne 8) { throw 'Les huit parcours UI critiques en simulation ne sont pas tous réussis.' }
     $browserEvidence = Join-Path $logs 'browser-evidence.json'
     [void](Invoke-ReleaseCommand 'verify-browser-evidence' $python @('-X', 'utf8', '-B', '-I', (Join-Path $root 'tools\verify-ci-browser-evidence.py'),
         '--web-report', $webReports[0].FullName, '--ui-report', (Join-Path $uiOutput 'report.json'), '--package', $light, '--commit', $record.sourceCommit, '--version', $version, '--out', $browserEvidence))
@@ -235,7 +235,7 @@ try {
     $record['lightEvergreenUi'] = 'passed'
     $record['lightWebViewVersion'] = $lightBrowserVersion
     $record['lightNativeLogin'] = $login.state
-    $record.simulationUi = 'passed'; $record['simulationUiCount'] = 7; $record['visualReview'] = 'pending'
+    $record.simulationUi = 'passed'; $record['simulationUiCount'] = 8; $record['visualReview'] = 'pending'
     [void](Invoke-ReleaseProcess -FilePath (Join-Path $light 'Domenia.exe') -ArgumentList @('--check-only') -LogPrefix (Join-Path $logs 'light-after-ui') -PrivateDotNetRoot $lightDotNet)
     [void](Read-ReleaseSource $root)
     $record.phase = 'verify-exact-archives'

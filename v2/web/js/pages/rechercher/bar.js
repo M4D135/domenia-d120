@@ -165,6 +165,9 @@ export function createBar(host, o) {
   }
 
   function closeList() {
+    // A delayed local answer must not reopen a list the operator dismissed (Escape, Tab, selection or submit).
+    suggest.cancel();
+    st.gen++;
     st.open = false;
     form.classList.remove('sugg-open');
     st.active = -1;

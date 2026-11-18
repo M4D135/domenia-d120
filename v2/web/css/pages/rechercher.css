@@ -95,6 +95,9 @@
   border: 1px solid var(--border); box-shadow: var(--shadow-2), inset 0 1px 0 rgba(255, 255, 255, .25);
   transition: transform var(--t) var(--ease-spring);
 }
+/* The field is its own stacking context. Raise it, not just its list, above the option buttons (z-index: 1).
+   Keep this local to the open menu so dialogs and other surfaces retain their normal priority. */
+[data-page="rechercher"] .rch-bar.sugg-open .rch-field { z-index: 2; }
 /* The focus ring: a static conic layer clipped to a slightly larger rounded box; the field background (::after)
    covers its centre, so only a 2 px glowing border shows while the field has the focus. */
 [data-page="rechercher"] .rch-field-ring { position: absolute; inset: -2px; z-index: -1; border-radius: 19px; overflow: hidden; opacity: 0; transition: opacity var(--t) var(--ease-out); pointer-events: none; }
@@ -152,14 +155,14 @@
 [data-page="rechercher"] .rch-bar.compact .rch-opts { flex: 0 1 auto; flex-wrap: nowrap; }
 [data-page="rechercher"] .rch-bar.compact .rch-types button span, [data-page="rechercher"] .rch-bar.compact .rch-scope [data-scope="everywhere"] span,
 [data-page="rechercher"] .rch-bar.compact .rch-limit span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-[data-page="rechercher"] .rch-bar.compact .rch-sugg { top: calc(100% + 8px); right: auto; width: max(100%, 520px); max-width: 90cqw; background: color-mix(in srgb, var(--bg-elevated) 97%, transparent); }
+[data-page="rechercher"] .rch-bar.compact .rch-sugg { top: calc(100% + 8px); right: auto; width: max(100%, 520px); max-width: 90cqw; }
 @container rch (max-width: 1240px) { [data-page="rechercher"] .rch-bar.compact .rch-opts { flex-wrap: wrap; } }
 
 /* Suggestions */
 [data-page="rechercher"] .rch-sugg {
   position: absolute; left: -1px; right: -1px; top: calc(100% + 10px); z-index: 40;
   max-height: min(440px, 60vh); overflow: auto; padding: 6px; border-radius: 16px;
-  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent); backdrop-filter: blur(24px) saturate(180%);
+  background: var(--bg-elevated);
   border: 1px solid color-mix(in srgb, var(--border) 90%, transparent); box-shadow: var(--shadow-3);
   transform-origin: top center;
 }

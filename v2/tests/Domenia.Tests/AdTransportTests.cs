@@ -26,6 +26,73 @@ internal static class AdTransportTests
     }
 
     [Test]
+    public static void Empty_LDAP_pages_may_omit_the_sort_response_without_changing_the_paging_cookie()
+    {
+        var request = new AdSearchRequest(Fixtures.Postes, "(name=absent)", AdSearchScope.Subtree, ["name"]) { SortAttribute = "name" };
+        foreach (var continuing in new[] { false, true })
+        {
+            var response = SearchResponseFixture(0, null, continuing);
+            Check.Equal(ResultCode.Success, response.ResultCode, "recherche LDAP réussie sans correspondance");
+            Check.Equal(0, response.Controls.OfType<SortResponseControl>().Count(), "contrôle de tri réellement absent");
+            AdConnection.ValidateSearchSort(request, response);
+            Check.Equal(continuing ? 1 : 0, response.Controls.OfType<PageResultResponseControl>().Single().Cookie.Length,
+                "la page vide conserve exactement le cookie du contrôleur");
+        }
+        AdConnection.ValidateSearchSort(request, SearchResponseFixture(0, ResultCode.Success));
+        AdConnection.ValidateSearchSort(request, SearchResponseFixture(1, ResultCode.Success));
+    }
+
+    [Test]
+    public static void Populated_LDAP_pages_require_sort_confirmation_and_explicit_sort_failures_are_never_empty_successes()
+    {
+        var request = new AdSearchRequest(Fixtures.Postes, "(name=*)", AdSearchScope.Subtree, ["name"]) { SortAttribute = "name" };
+        var missing = Check.Throws<DomeniaOperationException>(() => AdConnection.ValidateSearchSort(request, SearchResponseFixture(1, null)),
+            "une entrée sans tri confirmé reste refusée");
+        Check.Equal(DomeniaErrors.SourceUnavailable, missing.Code, "pas de continuation sur un ordre inconnu");
+        foreach (var result in new[] { ResultCode.Referral, ResultCode.NoSuchObject, ResultCode.InsufficientAccessRights, ResultCode.Unavailable })
+        {
+            var failed = (SearchResponse)DirectoryNativeWriteBoundaryTests.Response(typeof(SearchResponse), (int)result);
+            Check.Throws<DomeniaOperationException>(() => AdConnection.ValidateSearchSort(request, failed), "une recherche échouée n’est pas une réponse vide réussie");
+        }
+        foreach (var count in new[] { 0, 1 })
+        foreach (var result in new[] { ResultCode.OperationsError, ResultCode.TimeLimitExceeded, ResultCode.StrongAuthRequired,
+            ResultCode.AdminLimitExceeded, ResultCode.NoSuchAttribute, ResultCode.InappropriateMatching,
+            ResultCode.InsufficientAccessRights, ResultCode.Busy, ResultCode.UnwillingToPerform, ResultCode.Other })
+        {
+            var response = SearchResponseFixture(count, result);
+            Check.Equal(result, response.Controls.OfType<SortResponseControl>().Single().Result, "code BER réellement décodé");
+            Check.Throws<DomeniaOperationException>(() => AdConnection.ValidateSearchSort(request, response),
+                "un refus explicite n’est pas assimilé à une passe vide");
+        }
+        AdConnection.ValidateSearchSort(request with { SortAttribute = null }, SearchResponseFixture(1, null));
+    }
+
+    // Protocols owns the constructors: use its actual response, control decoder and entry collection.
+    internal static SearchResponse SearchResponseFixture(int count, ResultCode? sort, bool continuing = false)
+    {
+        var controls = new List<DirectoryControl>();
+        var paging = new AsnWriter(AsnEncodingRules.BER);
+        paging.PushSequence(); paging.WriteInteger(0); paging.WriteOctetString(continuing ? new byte[] { 1 } : []); paging.PopSequence();
+        controls.Add(new DirectoryControl("1.2.840.113556.1.4.319", paging.Encode(), false, true));
+        if (sort is { } result)
+        {
+            var sorting = new AsnWriter(AsnEncodingRules.BER);
+            sorting.PushSequence(); sorting.WriteEnumeratedValue(result); sorting.PopSequence();
+            controls.Add(new DirectoryControl("1.2.840.113556.1.4.474", sorting.Encode(), false, true));
+        }
+        var response = (SearchResponse)Activator.CreateInstance(typeof(SearchResponse), BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null, args: ["", controls.ToArray(), ResultCode.Success, "", Array.Empty<Uri>()], culture: CultureInfo.InvariantCulture)!;
+        var add = typeof(SearchResultEntryCollection).GetMethod("Add", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        for (var n = 0; n < count; n++)
+        {
+            var entry = (SearchResultEntry)Activator.CreateInstance(typeof(SearchResultEntry), BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null, args: ["CN=Result" + n.ToString(CultureInfo.InvariantCulture) + "," + Fixtures.Postes], culture: CultureInfo.InvariantCulture)!;
+            add.Invoke(response.Entries, [entry]);
+        }
+        return response;
+    }
+
+    [Test]
     public static void Schema_binary_hints_preserve_custom_octets_and_cannot_request_extra_or_secret_fields()
     {
         var entry = (SearchResultEntry)Activator.CreateInstance(typeof(SearchResultEntry), BindingFlags.Instance | BindingFlags.NonPublic,
